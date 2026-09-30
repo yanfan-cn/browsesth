@@ -1,0 +1,47 @@
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE / editors
+.idea/
+*.iml
+.vscode/
+*.swp
+*~
+
+# Android / Gradle (预留)
+.gradle/
+**/build/
+local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Secrets & env
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+google-services.json
+agconnect-services.json
+
+# Kotlin / Java
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# Logs & temp
+*.log
+*.tmp
+*.temp
+.cache/
+
+# Python (若文档工具使用)
+.venv/
+__pycache__/

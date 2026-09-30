@@ -1,0 +1,22 @@
+---
+description: ClearPage 精简 SDD 脚手架与协作门禁
+alwaysApply: true
+---
+
+# ClearPage 精简 SDD
+
+- 权威：`specs/CONSTITUTION.md`（Agent 不可自行修改）→ `docs/` 决策基线 → SPEC → PLAN → 代码/Log
+- 每功能三份同号：`specs/features/SPEC-XXX.md`、`specs/plans/PLAN-XXX.md`、`specs/logs/LOG-XXX.md`
+- 门禁：`复述确认 → Spec → Plan → 实施 → Log → 验证`；无确认与 Spec/Plan 禁止改产品文件
+- 入口：`AGENTS.md`、`specs/AO_README.md`
+
+## 产品硬边界（备忘）
+
+- 浏览器 + 阅读视图 + 漫画抽图；小说与漫画同等重要
+- 不以书源为主路径；不整包 Cimoc；默认不捆绑 Chromium
+- 底座：Legado with MD3；漫画阅读优先复用其 manga 模块
+
+## 协作提醒
+
+- 未要求时不要 commit / push
+- 旁系参考：`D:\cursor\legado-with-MD3`、`D:\cursor\Cimoc`
