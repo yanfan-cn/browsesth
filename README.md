@@ -1,6 +1,9 @@
-# ClearPage
+﻿# Browsesth
 
-Android 内置浏览器阅读器（工作名）。基于 Legado with MD3 改造方向：系统 WebView 浏览、小说阅读视图、网页抽图漫画阅读；不以书源为主路径。
+Android 内置浏览器阅读器。基于 Legado with MD3 改造方向：系统 WebView 浏览、小说阅读视图、网页抽图漫画阅读；不以书源为主路径。
+
+- GitHub：https://github.com/yanfan-cn/browsesth（私有）
+- 本地路径约定：`D:\cursor\browsesth`
 
 ## 文档入口
 
@@ -17,5 +20,4 @@ Android 内置浏览器阅读器（工作名）。基于 Legado with MD3 改造�
 
 ## 状态
 
-- 当前仓库为 **SDD / 产品文档脚手架**，应用代码将按阶段从 Legado 派生迁入。
-- GitHub 远程：待本机 `gh auth login` 成功后创建（见决策基线开放项）。
+当前仓库为 **SDD / 产品文档脚手架**，应用代码将按阶段从 Legado 派生迁入。

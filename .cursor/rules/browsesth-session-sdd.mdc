@@ -1,9 +1,9 @@
----
-description: ClearPage 精简 SDD 脚手架与协作门禁
+﻿---
+description: Browsesth 精简 SDD 脚手架与协作门禁
 alwaysApply: true
 ---
 
-# ClearPage 精简 SDD
+# Browsesth 精简 SDD
 
 - 权威：`specs/CONSTITUTION.md`（Agent 不可自行修改）→ `docs/` 决策基线 → SPEC → PLAN → 代码/Log
 - 每功能三份同号：`specs/features/SPEC-XXX.md`、`specs/plans/PLAN-XXX.md`、`specs/logs/LOG-XXX.md`
@@ -18,5 +18,6 @@ alwaysApply: true
 
 ## 协作提醒
 
+- 本地根目录：`D:\cursor\browsesth`；远程：`yanfan-cn/browsesth`
 - 未要求时不要 commit / push
 - 旁系参考：`D:\cursor\legado-with-MD3`、`D:\cursor\Cimoc`
