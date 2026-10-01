@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Used by AwResource.setConfigKeySystemUuidMapping (must be a string-array id). -->
+    <string-array name="config_key_system_uuid_map" />
+</resources>

@@ -1,5 +1,5 @@
 ﻿---
-description: Browsesth 精简 SDD 脚手架与协作门禁
+description: Browsesth 精简 SDD、产品边界与会话状态（跨对话继承）
 alwaysApply: true
 ---
 
@@ -9,15 +9,24 @@ alwaysApply: true
 - 每功能三份同号：`specs/features/SPEC-XXX.md`、`specs/plans/PLAN-XXX.md`、`specs/logs/LOG-XXX.md`
 - 门禁：`复述确认 → Spec → Plan → 实施 → Log → 验证`；无确认与 Spec/Plan 禁止改产品文件
 - 入口：`AGENTS.md`、`specs/AO_README.md`
+- 状态交接：`docs/会话状态交接.md`
 
 ## 产品硬边界（备忘）
 
 - 浏览器 + 阅读视图 + 漫画抽图；小说与漫画同等重要
-- 不以书源为主路径；不整包 Cimoc；默认不捆绑 Chromium
+- 不以书源为主路径；不整包 Cimoc
 - 底座：Legado with MD3；漫画阅读优先复用其 manga 模块
+- 浏览器内核：经红色批准捆绑 Chromium（B2 现成 SDK + L1 跟 Stable）；仅 arm64-v8a；无体积上限；广告资源拦截与跳转中页跳过为选型硬条件（见 `docs/产品与开发决策基线.md` §3.5、SPEC-001）
+
+## 仓库与路径
+
+- 本地根目录：`D:\cursor\browsesth`
+- 远程：`https://github.com/yanfan-cn/browsesth`（私有，账号 `yanfan-cn`）
+- 旁系参考（只读）：`D:\cursor\legado-with-MD3`、`D:\cursor\Cimoc`
+- 新克隆默认根：`D:\cursor\<repo>`
 
 ## 协作提醒
 
-- 本地根目录：`D:\cursor\browsesth`；远程：`yanfan-cn/browsesth`
 - 未要求时不要 commit / push
-- 旁系参考：`D:\cursor\legado-with-MD3`、`D:\cursor\Cimoc`
+- 曾用工作名 ClearPage 已废弃，一律用 browsesth / Browsesth
+- **每次构建 App（assemble*）版本号 +0.1**：由 `app/version.properties` + `app/build.gradle.kts` 自动递增（`VERSION_TENTHS`）；勿绕过

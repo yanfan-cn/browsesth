@@ -12,8 +12,14 @@ Desktop.ini
 
 # Android / Gradle (预留)
 .gradle/
+**/.gradle/
 **/build/
+# Local SDK path (machine-specific)
 local.properties
+
+# Local Gradle distribution zip (optional; referenced by wrapper file:// URL)
+tools/*.zip
+
 *.apk
 *.aab
 *.ap_
@@ -35,6 +41,8 @@ agconnect-services.json
 *.class
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
+!upstream/legado-with-MD3/app/cronetlib/cronet_api.jar
+!probe/**/libs/*.jar
 
 # Logs & temp
 *.log
@@ -42,6 +50,33 @@ agconnect-services.json
 *.temp
 .cache/
 
+# Kernel SDK spike binaries (do not commit ~200MB AARs)
+spikes/**/*.aar
+spikes/**/*.so
+spikes/**/*.zip
+spikes/**/extract/
+spikes/**/webview-extract/
+spikes/**/_dupcheck/
+spikes/**/_apkcheck*/
+spikes/**/_apkcheck*/
+app/libs/*.aar
+app/libs/*.so
+
 # Python (若文档工具使用)
 .venv/
 __pycache__/
+
+# Aloha AAR (local; keep out of git)
+upstream/legado-with-MD3/app/libs/*.aar
+probe/libs/*.aar
+probe/libs/*.so
+
+
+spikes/**/apk-check/
+spikes/chromium-sdk/apk-check/
+
+
+# Spike APK unpack junk
+spikes/chromium-sdk/apk-check*/
+spikes/chromium-sdk/_apkcheck*/
+spikes/chromium-sdk/webview-extract/

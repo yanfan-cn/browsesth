@@ -1,0 +1,353 @@
+import java.io.FileInputStream
+import java.util.Properties
+
+plugins {
+    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.parcelize)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.room)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services)
+}
+
+apply(from = "download.gradle")
+
+
+val versionPropsFile = file("version.properties")
+val versionProps = Properties().apply {
+    if (versionPropsFile.exists()) {
+        load(FileInputStream(versionPropsFile))
+    }
+}
+
+fun tenthsToName(tenths: Int): String = "${tenths / 10}.${tenths % 10}"
+
+// Browsesth operator rule: every assemble* → versionName +0.1, versionCode +1
+val requestingAssemble = gradle.startParameter.taskNames.any {
+    val n = it.substringAfterLast(':')
+    n.startsWith("assemble") && n != "assemble"
+}
+if (requestingAssemble) {
+    val nextTenths = versionProps.getProperty("VERSION_TENTHS", "8").toInt() + 1
+    val nextCode = versionProps.getProperty("VERSION_CODE", "8").toInt() + 1
+    versionProps.setProperty("VERSION_TENTHS", nextTenths.toString())
+    versionProps.setProperty("VERSION_CODE", nextCode.toString())
+    versionPropsFile.outputStream().use { versionProps.store(it, "Bumped by assemble (+0.1)") }
+    logger.lifecycle("Browsesth version -> ${tenthsToName(nextTenths)} (code $nextCode)")
+}
+
+val versionTenths = versionProps.getProperty("VERSION_TENTHS", "8").toInt()
+val versionCodeValue = versionProps.getProperty("VERSION_CODE", "8").toInt()
+val versionMajor = versionProps["VERSION_MAJOR"]?.toString()?.toInt() ?: 0
+val versionMinor = versionProps["VERSION_MINOR"]?.toString()?.toInt() ?: 0
+val versionPatch = versionProps["VERSION_PATCH"]?.toString()?.toInt() ?: 0
+val appName = "browsesth"
+val projectVersionName = tenthsToName(versionTenths)
+val enableAbiSplits = providers.gradleProperty("enableAbiSplits")
+    .map(String::toBoolean)
+    .getOrElse(false)
+
+android {
+    compileSdk = 37
+    namespace = "io.legado.app"
+
+    signingConfigs {
+        if (project.hasProperty("RELEASE_STORE_FILE")) {
+            create("myConfig") {
+                storeFile = file(project.property("RELEASE_STORE_FILE") as String)
+                storePassword = project.property("RELEASE_STORE_PASSWORD") as String
+                keyAlias = project.property("RELEASE_KEY_ALIAS") as String
+                keyPassword = project.property("RELEASE_KEY_PASSWORD") as String
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = true
+            }
+        }
+    }
+
+    defaultConfig {
+    applicationId = "com.browsesth.app"
+        minSdk = 26
+        targetSdk = 37
+        versionCode = versionCodeValue
+        versionName = System.getenv("APP_VERSION_NAME") ?: projectVersionName
+        testInstrumentationRunner = "androidx.test.AndroidJUnitRunner"
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
+
+        buildConfigField("String", "Cronet_Version", "\"${project.findProperty("CronetVersion")}\"")
+        buildConfigField(
+            "String",
+            "Cronet_Main_Version",
+            "\"${project.findProperty("CronetMainVersion")}\""
+        )
+
+        javaCompileOptions {
+            annotationProcessorOptions {
+                arguments += mapOf(
+                    "room.incremental" to "true",
+                    "room.expandProjection" to "true",
+                    "room.schemaLocation" to "$projectDir/schemas"
+                )
+            }
+        }
+    }
+
+    buildFeatures {
+        compose = true
+        buildConfig = true
+        viewBinding = true
+    }
+
+    buildTypes {
+        getByName("release") {
+            if (project.hasProperty("RELEASE_STORE_FILE")) {
+                signingConfig = signingConfigs.getByName("myConfig")
+            }
+            manifestPlaceholders["app_name"] = "@string/app_name"
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+                "cronet-proguard-rules.pro"
+            )
+        }
+        create("noR8") {
+            initWith(getByName("release"))
+            isMinifyEnabled = false
+            isShrinkResources = false
+            matchingFallbacks += listOf("release")
+            versionNameSuffix = "-noR8"
+        }
+        getByName("debug") {
+            // Browsesth: same applicationId as probe / release for install overlay
+            if (project.hasProperty("RELEASE_STORE_FILE")) {
+                signingConfig = signingConfigs.getByName("myConfig")
+            }
+            manifestPlaceholders["app_name"] = "@string/app_name"
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+                "cronet-proguard-rules.pro"
+            )
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = enableAbiSplits
+            reset()
+            include("arm64-v8a")
+            isUniversalApk = false
+        }
+    }
+
+    flavorDimensions += "mode"
+    productFlavors {
+        create("app") {
+            dimension = "mode"
+            manifestPlaceholders["APP_CHANNEL_VALUE"] = "app"
+        }
+    }
+
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+
+    packaging {
+        resources.excludes.add("META-INF/*")
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
+    androidResources {
+        noCompress += "bin"
+        noCompress += "dat"
+        noCompress += "pak"
+    }
+
+    sourceSets {
+        getByName("androidTest").assets.directories.add("$projectDir/schemas")
+    }
+
+    lint {
+        baseline = file("lint-baseline.xml")
+        checkDependencies = true
+        // UnusedResources 在基线里占 1223/1621 条、12218 行（全文件的 75%），几乎全是
+        // 跟随上游时留下的资源；release 本来就开了精确资源压缩，它们不会进 APK。
+        // 关掉它让基线只剩真正值得盯的那部分，新增问题照样报红。
+        disable += "UnusedResources"
+    }
+
+    testOptions {
+        unitTests {
+            // 阅读器核心在构造期就读字符串资源（TextPageFactory 的 keepSwipeTip、
+            // TextPage 的默认 text/title、ReadView 的无障碍动作名）。不打开这个，
+            // Robolectric 下取任何 R.string 都是 Resources$NotFoundException，
+            // 整条阅读器测试线（Track D·D1c）就起不来。
+            isIncludeAndroidResources = true
+        }
+    }
+}
+
+kotlin {
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
+ksp {
+    arg("room.incremental", "true")
+    arg("room.expandProjection", "true")
+    arg("room.generateKotlin", "false")
+}
+
+dependencies {
+    implementation(libs.androidx.profileinstaller)
+    // baselineProfile module optional; omitted temporarily if tree incomplete
+    coreLibraryDesugaring(libs.desugar)
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.bundles.androidTest)
+    implementation(libs.kotlin.stdlib)
+    implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.bundles.coroutines)
+    implementation(libs.core.ktx)
+    implementation(libs.appcompat.appcompat)
+    implementation(libs.activity.ktx)
+    implementation(libs.fragment.ktx)
+    implementation(libs.preference.ktx)
+    implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.swiperefreshlayout)
+    implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.viewpager2)
+    // Browsesth: Aloha already ships org.chromium.support_lib_boundary — do not pull androidx.webkit
+    // implementation(libs.androidx.webkit)
+    implementation(libs.material)
+    implementation(libs.flexbox)
+    implementation(libs.gson)
+    implementation(libs.lifecycle.common.java8)
+    implementation(libs.lifecycle.service)
+    implementation(libs.media.media)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.datasource.okhttp)
+    implementation(libs.splitties.appctx)
+    implementation(libs.splitties.systemservices)
+    implementation(libs.splitties.views)
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
+    androidTestImplementation(libs.room.testing)
+    implementation(libs.liveeventbus)
+    implementation(libs.jsoup)
+    implementation(libs.json.path)
+    implementation(libs.jsoupxpath)
+    implementation(libs.intellij.markdown)
+    implementation(project(":modules:book"))
+    implementation(project(":modules:rhino"))
+    implementation(libs.okhttp)
+    // Aloha embeds org.chromium.base — keep only Cronet API stubs to avoid duplicate classes.
+    implementation(files("cronetlib/cronet_api.jar"))
+    // Aloha Core 150 (B2); AAR gitignored locally
+    implementation(files("libs/aloha-bromium-localbuild.aar"))
+    implementation("com.google.guava:guava:33.3.1-android")
+    implementation(libs.protobuf.javalite)
+    implementation(libs.glide.glide)
+    implementation(libs.glide.okhttp)
+    ksp(libs.glide.ksp)
+    implementation(libs.androidsvg)
+    implementation(libs.glide.svg)
+    implementation(libs.glide.recyclerview)
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.cio)
+    implementation(libs.ktor.server.content.negotiation)
+    implementation(libs.ktor.serialization.gson)
+    implementation(libs.ktor.server.cors)
+    implementation(libs.ktor.server.websockets)
+    implementation(libs.zxing.lite)
+    implementation(libs.colorpicker)
+    implementation(libs.colorpicker.compose)
+    implementation(libs.libarchive)
+    implementation(libs.commons.text)
+    implementation(libs.markwon.core)
+    implementation(libs.markwon.image.glide)
+    implementation(libs.markwon.ext.tables)
+    implementation(libs.markwon.html)
+    implementation(libs.quick.chinese.transfer.core)
+    // 书源 JS 通过 Packages.cn.hutool.* 调用，保留在 classpath（应用代码不依赖，见 AGENTS.md）
+    implementation(libs.hutool.crypto)
+    //noinspection GradleDependency
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.perf)
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.palette)
+    implementation(libs.androidx.biometric)
+    implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.startup.runtime)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.activity.compose)
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
+    implementation(libs.coil.svg)
+    implementation(libs.coil.network.okhttp)
+    implementation(libs.telephoto.zoomable.image.coil3)
+    // Browsesth: accompanist-webview pulls androidx.webkit (duplicate with Aloha)
+    // implementation(libs.accompanist.webview)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.datetime)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+    implementation(libs.androidx.compose.animation)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.constraintlayout.compose)
+    implementation(libs.androidx.compose.ui.viewbinding)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
+    // 显式保持 navigationevent 1.2 系列，保留已分离输入的预测式返回崩溃修复。
+    implementation(libs.androidx.navigationevent)
+    implementation(libs.androidx.navigationevent.compose)
+    implementation(libs.androidx.compose.adaptive)
+    implementation(libs.androidx.compose.adaptive.layout)
+    implementation(libs.androidx.compose.adaptive.navigation)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.compose.material)
+    implementation(libs.compose.materialIcons)
+    implementation(platform(libs.koin.bom))
+    implementation(libs.koin.core)
+    implementation(libs.koin.android)
+    implementation(libs.koin.compose)
+    implementation(libs.koin.compose.viewmodel)
+    implementation(libs.reorderable)
+    implementation(libs.material.kolor)
+    implementation(libs.haze.core)
+    implementation(libs.haze.materials)
+    implementation(libs.miuix.ui.android)
+    implementation(libs.miuix.preference.android)
+    implementation(libs.miuix.icons.android)
+    implementation(libs.miuix.blur.android)
+    implementation(libs.miuix.core)
+    implementation(libs.capsule)
+    implementation(libs.backdrop)
+    implementation(libs.lyricViewx)
+    implementation(libs.timber)
+}
