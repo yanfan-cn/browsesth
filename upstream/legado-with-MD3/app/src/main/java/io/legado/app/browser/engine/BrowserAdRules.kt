@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Built-in ad URL matcher (conservative keyword / host substring list from assets).
+ * SPEC-013: first-party Baidu CDN allowlist; no over-broad `/ads?` / bare `adsystem`.
  */
 object BrowserAdRules {
     private val loaded = AtomicReference<List<String>?>(null)
@@ -25,9 +26,19 @@ object BrowserAdRules {
         }
     }
 
+    /** Test helper: replace rules without assets. */
+    fun replaceRulesForTest(rules: List<String>) {
+        loaded.set(rules)
+    }
+
+    fun clearLoadedForTest() {
+        loaded.set(null)
+    }
+
     fun shouldBlock(url: String, enabled: Boolean): Boolean {
         if (!enabled) return false
         if (url.contains(BrowserAwContentsClient.AD_PROBE_MARKER)) return true
+        if (isFirstPartyAllowlisted(url)) return false
         val lower = url.lowercase()
         val rules = loaded.get() ?: DEFAULT_RULES
         return rules.any { lower.contains(it) }
@@ -41,18 +52,37 @@ object BrowserAdRules {
         }
     }
 
+    /**
+     * Baidu SERP / thumbnails / static assets often contain "ad" substrings in paths.
+     * Allow first-party hosts so search chrome and images are not false-positives.
+     */
+    fun isFirstPartyAllowlisted(url: String): Boolean {
+        val host = hostOf(url) ?: return false
+        return ALLOW_HOST_SUFFIXES.any { suffix ->
+            host == suffix || host.endsWith(".$suffix")
+        }
+    }
+
     private const val ASSET = "browser/adblock_rules.txt"
+
+    private val ALLOW_HOST_SUFFIXES = listOf(
+        "baidu.com",
+        "bdstatic.com",
+        "bdimg.com",
+        "bcebos.com",
+        "baidubce.com",
+        "baidu-img.cn",
+        "bdstatic.cn",
+    )
 
     private val DEFAULT_RULES = listOf(
         "doubleclick.net",
         "googlesyndication.com",
         "googleadservices.com",
         "pagead2.googlesyndication",
-        "/ads?",
-        "/ad?",
         "adservice.",
         "adnxs.com",
-        "adsystem",
+        "amazon-adsystem.com",
         "advertising.com",
         "scorecardresearch.com",
         "taboola.com",

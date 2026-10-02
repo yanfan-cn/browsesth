@@ -1,24 +1,81 @@
 package io.legado.app.ui.main.home
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.legado.app.browser.engine.BrowserOpenBridge
+import io.legado.app.browser.engine.BrowserSessionHolder
+import io.legado.app.browser.engine.BrowserTabManager
+import io.legado.app.data.entities.Book
+import io.legado.app.ui.browser.BrowserNtpScreen
 import io.legado.app.ui.browser.BrowserSessionScreen
 
-private const val HOME_START_URL = "https://example.com/"
-
 /**
- * Browsesth: Home tab content is the in-app Aloha browser (SPEC-004).
- * Legacy homepage feed is no longer shown.
+ * Home tab: multi-tab NTP ↔ session (SPEC-012).
  */
 @Composable
 fun BrowserHomeTabScreen(
-    bottomBarClearance: Dp = 120.dp,
+    onOpenBook: (Book) -> Unit,
+    onSessionActiveChange: (Boolean) -> Unit = {},
+    onOpenBrowserSettings: () -> Unit = {},
+    onOpenBookmarks: () -> Unit = {},
+    onOpenHistory: () -> Unit = {},
+    onOpenTabs: () -> Unit = {},
+    onOpenReader: (bookUrl: String) -> Unit = {},
+    onOpenMangaReader: (bookUrl: String) -> Unit = {},
 ) {
-    BrowserSessionScreen(
-        initialUrl = HOME_START_URL,
-        showNavigationBack = false,
-        onNavigateBack = {},
-        bottomContentPadding = bottomBarClearance,
-    )
+    val tabs by BrowserTabManager.tabs.collectAsStateWithLifecycle()
+    val activeId by BrowserTabManager.activeTabId.collectAsStateWithLifecycle()
+    val active = tabs.firstOrNull { it.id == activeId } ?: tabs.firstOrNull()
+
+    val pendingOpen by BrowserOpenBridge.pendingUrl.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingOpen) {
+        val url = pendingOpen ?: return@LaunchedEffect
+        BrowserTabManager.openUrlInActive(url)
+        BrowserOpenBridge.consume()
+    }
+
+    val sessionActive = active?.url != null
+    LaunchedEffect(sessionActive) {
+        onSessionActiveChange(sessionActive)
+    }
+    DisposableEffect(Unit) {
+        onDispose { onSessionActiveChange(false) }
+    }
+
+    if (active == null || active.url.isNullOrBlank()) {
+        BrowserNtpScreen(
+            incognito = active?.incognito == true,
+            onIncognitoChange = { BrowserTabManager.setActiveIncognito(it) },
+            onOpenUrl = { openUrl, inIncognito ->
+                BrowserTabManager.setActiveIncognito(inIncognito)
+                BrowserTabManager.openUrlInActive(openUrl, inIncognito)
+            },
+            onOpenBook = onOpenBook,
+            onOpenHistory = onOpenHistory,
+            onOpenBookmarks = onOpenBookmarks,
+            onOpenTabs = onOpenTabs,
+        )
+    } else {
+        BrowserSessionScreen(
+            initialUrl = active.url!!,
+            showNavigationBack = true,
+            onNavigateBack = {
+                BrowserTabManager.clearActiveToNtp()
+            },
+            incognito = active.incognito,
+            sessionKey = active.id,
+            onOpenBrowserSettings = onOpenBrowserSettings,
+            onOpenBookmarks = onOpenBookmarks,
+            onOpenHistory = onOpenHistory,
+            onOpenTabs = onOpenTabs,
+            onOpenReader = onOpenReader,
+            onOpenMangaReader = onOpenMangaReader,
+            onPageMeta = { url, title ->
+                BrowserTabManager.updateActiveMeta(url, title)
+            },
+        )
+    }
 }

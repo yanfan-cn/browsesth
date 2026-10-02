@@ -424,6 +424,34 @@ fun MainActivity.mainEntryProvider(
             onOpenSettings = {
                 onNavigateToRoute(MainRouteSettings)
             },
+            onNavigateToBrowserSettings = {
+                onNavigateToRoute(MainRouteSettingsBrowser)
+            },
+            onNavigateToBrowserBookmarks = {
+                onNavigateToRoute(MainRouteBrowserBookmarks)
+            },
+            onNavigateToBrowserHistory = {
+                onNavigateToRoute(MainRouteBrowserHistory)
+            },
+            onNavigateToBrowserTabs = {
+                onNavigateToRoute(MainRouteBrowserTabs)
+            },
+            onNavigateToBrowserReader = { bookUrl ->
+                onNavigateToRoute(
+                    MainRouteReadBook(
+                        bookUrl = bookUrl,
+                        inBookshelf = false,
+                    ),
+                )
+            },
+            onNavigateToBrowserManga = { bookUrl ->
+                onNavigateToRoute(
+                    MainRouteReadManga(
+                        bookUrl = bookUrl,
+                        inBookshelf = false,
+                    ),
+                )
+            },
             onNavigateToChat = {
                 onNavigateToRoute(MainRouteAiChat)
             },
@@ -575,6 +603,32 @@ fun MainActivity.mainEntryProvider(
     entry<MainRouteSettingsBrowser> {
         io.legado.app.ui.config.browserConfig.BrowserConfigScreen(
             onBackClick = { onNavigateBack() },
+        )
+    }
+
+    entry<MainRouteBrowserBookmarks> {
+        io.legado.app.ui.browser.BrowserBookmarksScreen(
+            onBack = { onNavigateBack() },
+            onOpenUrl = { url ->
+                io.legado.app.browser.engine.BrowserOpenBridge.offer(url)
+                onNavigateBack()
+            },
+        )
+    }
+
+    entry<MainRouteBrowserHistory> {
+        io.legado.app.ui.browser.BrowserHistoryScreen(
+            onBack = { onNavigateBack() },
+            onOpenUrl = { url ->
+                io.legado.app.browser.engine.BrowserOpenBridge.offer(url)
+                onNavigateBack()
+            },
+        )
+    }
+
+    entry<MainRouteBrowserTabs> {
+        io.legado.app.ui.browser.BrowserTabsScreen(
+            onBack = { onNavigateBack() },
         )
     }
 

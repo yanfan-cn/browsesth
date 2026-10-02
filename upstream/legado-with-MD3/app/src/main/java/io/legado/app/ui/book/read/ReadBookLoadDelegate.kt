@@ -17,6 +17,8 @@ import io.legado.app.domain.model.ReadingProgress
 import io.legado.app.domain.usecase.ChangeBookSourceUseCase
 import io.legado.app.domain.usecase.GetReadingProgressUseCase
 import io.legado.app.domain.usecase.UploadReadingProgressUseCase
+import io.legado.app.browser.reader.WebArticleBookFactory
+import io.legado.app.browser.reader.WebMangaBookFactory
 import io.legado.app.exception.NoStackTraceException
 import io.legado.app.feature.reader.platform.ReaderPerfTrace
 import io.legado.app.help.book.BookHelp
@@ -198,7 +200,11 @@ class ReadBookLoadDelegate(
                 syncBookProgress(book)
             }
         }
-        if (!book.isLocal && ReadBook.bookSource == null) {
+        if (!book.isLocal && ReadBook.bookSource == null &&
+            book.origin != WebArticleBookFactory.ORIGIN &&
+            book.origin != WebMangaBookFactory.ORIGIN &&
+            !book.bookUrl.startsWith("browsesth-")
+        ) {
             autoChangeSource(book.name, book.author)
             return@suspendSection
         }

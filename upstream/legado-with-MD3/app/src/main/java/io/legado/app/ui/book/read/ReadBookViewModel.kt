@@ -7,10 +7,12 @@ import androidx.lifecycle.viewModelScope
 import io.legado.app.BuildConfig
 import io.legado.app.R
 import io.legado.app.base.BaseViewModel
+import io.legado.app.browser.reader.WebArticleBookFactory
 import io.legado.app.constant.AppLog
 import io.legado.app.constant.BookType
 import io.legado.app.constant.EventBus
 import io.legado.app.constant.PreferKey
+import io.legado.app.constant.ReadMenuBlurMode
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookProgress
@@ -64,6 +66,7 @@ import io.legado.app.help.book.removeType
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.help.source.getSourceType
+import io.legado.app.model.BookCover
 import io.legado.app.model.ImageProvider
 import io.legado.app.model.ReadAloud
 import io.legado.app.model.ReadAloudSessionStore
@@ -1998,6 +2001,10 @@ class ReadBookViewModel(
 
     private fun syncFromReadBook(current: ReadBookUiState): ReadBookUiState {
         val book = ReadBook.book
+        val isBrowserEphemeralNovel = book != null && (
+            book.origin == WebArticleBookFactory.ORIGIN ||
+                book.bookUrl.startsWith("browsesth-novel://")
+            )
         val chapterInput = ReadBook.readerChapterInputWindow.current
         val canvasPage = composePagePosition
             ?.takeIf { it.chapterIndex == ReadBook.durChapterIndex }
@@ -2044,22 +2051,34 @@ class ReadBookViewModel(
                 readMenuBottomCornerRadius = ReadBookConfig.readMenuBottomCornerRadius,
                 readMenuIconItemsPerRow = ReadBookConfig.readMenuIconItemsPerRow,
                 readMenuIconRowCount = ReadBookConfig.readMenuIconRowCount,
-                readMenuBorderWidth = ReadBookConfig.readMenuBorderWidth,
+                readMenuBorderWidth = if (isBrowserEphemeralNovel) 0 else ReadBookConfig.readMenuBorderWidth,
                 readMenuBorderColor = ReadBookConfig.readMenuBorderColor,
                 readMenuBorderColorNight = ReadBookConfig.readMenuBorderColorNight,
                 readMenuTextColor = ReadBookConfig.readMenuTextColor,
                 readMenuTextColorNight = ReadBookConfig.readMenuTextColorNight,
-                readMenuBlurAlpha = ReadBookConfig.readMenuBlurAlpha,
+                readMenuBlurAlpha = if (isBrowserEphemeralNovel) 0 else ReadBookConfig.readMenuBlurAlpha,
                 readMenuBlurColor = ReadBookConfig.readMenuBlurColor,
                 readMenuBlurColorNight = ReadBookConfig.readMenuBlurColorNight,
                 readMenuPaletteStyle = ReadBookConfig.readMenuPaletteStyle,
                 readMenuBlurRadius = ReadBookConfig.readMenuBlurRadius,
                 readMenuLensRadius = ReadBookConfig.readMenuLensRadius,
-                readMenuTopBarBlurMode = ReadBookConfig.readMenuTopBarBlurMode,
+                readMenuTopBarBlurMode = if (isBrowserEphemeralNovel) {
+                    ReadMenuBlurMode.None
+                } else {
+                    ReadBookConfig.readMenuTopBarBlurMode
+                },
                 readMenuBottomBarBlurMode = ReadBookConfig.readMenuBottomBarBlurMode,
                 readMenuTopBarLiquidGlassButtons = ReadBookConfig.readMenuTopBarLiquidGlassButtons,
-                readMenuTopBarMergeButtons = ReadBookConfig.readMenuTopBarMergeButtons,
-                readMenuTopBarTitleCapsule = ReadBookConfig.readMenuTopBarTitleCapsule,
+                readMenuTopBarMergeButtons = if (isBrowserEphemeralNovel) {
+                    true
+                } else {
+                    ReadBookConfig.readMenuTopBarMergeButtons
+                },
+                readMenuTopBarTitleCapsule = if (isBrowserEphemeralNovel) {
+                    true
+                } else {
+                    ReadBookConfig.readMenuTopBarTitleCapsule
+                },
                 readMenuBottomBarLiquidGlassButtons = ReadBookConfig.readMenuBottomBarLiquidGlassButtons,
                 readMenuFloatingIconLiquidGlass = ReadBookConfig.readMenuFloatingIconLiquidGlass,
                 readMenuTopBarBlurStyle = ReadBookConfig.readMenuTopBarBlurStyle,
@@ -2080,7 +2099,7 @@ class ReadBookViewModel(
                 readBrightness = ReadBookConfig.readBrightness,
                 brightnessAuto = ReadBookConfig.brightnessAuto,
                 showMenuIcon = ReadBookConfig.showMenuIcon,
-                titleBarCompact = ReadBookConfig.titleBarCompact,
+                titleBarCompact = if (isBrowserEphemeralNovel) true else ReadBookConfig.titleBarCompact,
             ),
         )
     }
@@ -2643,6 +2662,14 @@ class ReadBookViewModel(
             book.removeType(BookType.notShelf)
             if (book.order == 0) {
                 book.order = bookRepository.getMinOrder() - 1
+            }
+            // SPEC-014: fill missing cover when shelving.
+            if (book.coverUrl.isNullOrBlank() && book.customCoverUrl.isNullOrBlank()) {
+                runCatching {
+                    BookCover.searchCover(book)?.takeIf { it.isNotBlank() }?.let {
+                        book.customCoverUrl = it
+                    }
+                }
             }
             bookRepository.insert(book)
             bookRepository.insertChapters(*toc.toTypedArray())

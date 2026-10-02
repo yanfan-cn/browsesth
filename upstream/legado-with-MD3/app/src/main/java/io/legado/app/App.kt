@@ -43,6 +43,7 @@ import io.legado.app.domain.gateway.OtherSettingsGateway
 import io.legado.app.domain.gateway.ReadSettingsGateway
 import io.legado.app.domain.gateway.ReadStyleGateway
 import io.legado.app.domain.gateway.ThemeSettingsGateway
+import io.legado.app.browser.engine.BrowserDrawMode
 import io.legado.app.browser.engine.BrowsesthBromiumBootstrap
 import io.legado.app.help.AppFreezeMonitor
 import android.util.Log
@@ -104,9 +105,19 @@ class App : Application(), SingletonImageLoader.Factory {
         // 首行初始化设置快照层：同步预加载 DataStore（触发 SP 迁移），
         // 之后所有 getPref* 门面读取均为纯内存查找，须先于一切主题/配置读取
         AppConfigStore.init(this)
+        // Browsesth SPEC-007: one-shot — floating bottom bar + liquid glass as product defaults.
+        run {
+            val ntp = getSharedPreferences("browsesth_ntp_prefs", MODE_PRIVATE)
+            if (!ntp.getBoolean("shell_floating_default_v1", false)) {
+                AppConfigStore.putBoolean(PreferKey.useFloatingBottomBar, true)
+                AppConfigStore.putBoolean(PreferKey.useFloatingBottomBarLiquidGlass, true)
+                ntp.edit().putBoolean("shell_floating_default_v1", true).apply()
+            }
+        }
         // Browsesth: cold-start Aloha before any UI that might touch WebView.
         try {
             BrowsesthBromiumBootstrap.initializeAll(this, R.array.config_key_system_uuid_map)
+            BrowserDrawMode.init(this)
             Log.i("BrowsesthKernel", "Aloha init OK; plat=${BrowsesthBromiumBootstrap.platSupportSource}")
         } catch (t: Throwable) {
             Log.e("BrowsesthKernel", "Aloha init FAILED", t)

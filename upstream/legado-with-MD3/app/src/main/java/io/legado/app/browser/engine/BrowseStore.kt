@@ -31,6 +31,14 @@ class BrowseStore(context: Context) {
         writeList(KEY_BOOKMARKS, bookmarks().filterNot { it.url == url })
     }
 
+    fun removeHistory(url: String) {
+        writeList(KEY_HISTORY, history().filterNot { it.url == url })
+    }
+
+    fun clearHistory() {
+        writeList(KEY_HISTORY, emptyList())
+    }
+
     private fun readList(key: String): List<Entry> {
         val raw = prefs.getString(key, "[]") ?: "[]"
         return try {

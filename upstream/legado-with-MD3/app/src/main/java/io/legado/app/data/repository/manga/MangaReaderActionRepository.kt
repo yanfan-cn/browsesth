@@ -22,6 +22,7 @@ import io.legado.app.help.book.isLocal
 import io.legado.app.help.book.removeType
 import io.legado.app.help.coil.CoverExtras
 import io.legado.app.help.source.getSourceType
+import io.legado.app.model.BookCover
 import io.legado.app.model.analyzeRule.AnalyzeRule
 import io.legado.app.model.analyzeRule.AnalyzeRule.Companion.setChapter
 import io.legado.app.model.analyzeRule.AnalyzeRule.Companion.setCoroutineContext
@@ -115,6 +116,12 @@ class MangaReaderActionRepository(
     private suspend fun persistOnShelf(book: Book, toc: List<BookChapter>) {
         book.removeType(BookType.notShelf)
         if (book.order == 0) book.order = database.bookDao.minOrder - 1
+        // SPEC-014: ensure cover when adding to shelf (page extract or online search).
+        if (book.coverUrl.isNullOrBlank() && book.customCoverUrl.isNullOrBlank()) {
+            runCatching {
+                BookCover.searchCover(book)?.takeIf { it.isNotBlank() }?.let { book.customCoverUrl = it }
+            }
+        }
         database.bookDao.insert(book)
         database.bookChapterDao.insert(*toc.toTypedArray())
     }

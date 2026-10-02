@@ -23,6 +23,8 @@ import io.legado.app.feature.reader.legacy.LegacyReaderPageDecorationFactory
 import io.legado.app.feature.reader.platform.AndroidReaderHtmlSemanticTextResolver
 import io.legado.app.feature.reader.platform.ReaderAndroidPaginationStyle
 import io.legado.app.feature.reader.platform.ReaderPerfTrace
+import io.legado.app.browser.reader.WebArticleBookFactory
+import io.legado.app.browser.reader.WebChapterHttpFetcher
 import io.legado.app.help.AppWebDav
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.book.ContentProcessor
@@ -1565,6 +1567,16 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
 
     private suspend fun downloadAwait(chapter: BookChapter): String {
         val book = book!!
+        if (book.origin == WebArticleBookFactory.ORIGIN ||
+            book.bookUrl.startsWith("browsesth-novel://")
+        ) {
+            val text = WebChapterHttpFetcher.fetchNovelChapterText(chapter.url)
+            if (text.isNotBlank()) {
+                BookHelp.saveText(book, chapter, text)
+                return text
+            }
+            return "加载正文失败\n无内容"
+        }
         val bookSource = bookSource
         if (bookSource != null) {
             return CacheBook.getOrCreate(bookSource, book).downloadAwait(chapter)

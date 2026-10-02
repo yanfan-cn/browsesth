@@ -1,5 +1,6 @@
 # Conservative built-in ad URL substrings for Browsesth (one per line).
 # Matching is case-insensitive contains(); keep this list small to limit false positives.
+# SPEC-013: removed over-broad /ads? and bare adsystem (false-positive on Baidu assets).
 doubleclick.net
 googlesyndication.com
 googleadservices.com
@@ -8,7 +9,7 @@ adservice.google
 googletagservices.com
 googletagmanager.com/gtag/js
 adnxs.com
-adsystem
+amazon-adsystem.com
 advertising.com
 adsrvr.org
 adsafeprotected.com
@@ -20,9 +21,7 @@ moatads.com
 pubmatic.com
 openx.net
 rubiconproject.com
-amazon-adsystem.com
 ad.doubleclick
-/ads?
 /ad.js
 /ads.js
 browsesth-ad-probe

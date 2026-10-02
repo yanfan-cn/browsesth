@@ -72,8 +72,8 @@ private fun appShellMappingSamples(): List<AppShellSettings> {
         base.copy(swipeAnimation = false),
         base.copy(predictiveBackEnabled = false),
         base.copy(showBottomView = false),
-        base.copy(useFloatingBottomBar = true),
-        base.copy(useFloatingBottomBarLiquidGlass = true),
+        base.copy(useFloatingBottomBar = false),
+        base.copy(useFloatingBottomBarLiquidGlass = false),
         base.copy(navExtended = true),
     )
 }

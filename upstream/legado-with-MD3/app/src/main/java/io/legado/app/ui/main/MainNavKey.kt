@@ -60,6 +60,15 @@ data object MainRouteSettings : MainRoute
 data object MainRouteSettingsBrowser : MainRoute
 
 @Serializable
+data object MainRouteBrowserBookmarks : MainRoute
+
+@Serializable
+data object MainRouteBrowserHistory : MainRoute
+
+@Serializable
+data object MainRouteBrowserTabs : MainRoute
+
+@Serializable
 data object MainRouteSettingsOther : MainRoute
 
 @Serializable

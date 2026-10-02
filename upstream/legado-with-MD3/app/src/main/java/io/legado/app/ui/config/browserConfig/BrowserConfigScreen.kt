@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import io.legado.app.browser.engine.BrowserNtpPrefs
+import io.legado.app.browser.engine.BrowserReaderPrefs
 import io.legado.app.browser.engine.BrowserShieldPrefs
 import io.legado.app.ui.theme.adaptiveContentPadding
 import io.legado.app.ui.widget.components.AppScaffold
@@ -32,9 +34,11 @@ fun BrowserConfigScreen(
 ) {
     val context = LocalContext.current
     val prefs = remember { BrowserShieldPrefs(context) }
+    val ntpPrefs = remember { BrowserNtpPrefs(context) }
     var adBlock by remember { mutableStateOf(prefs.adBlockEnabled) }
     var blockPopups by remember { mutableStateOf(prefs.blockPopups) }
     var blockExternal by remember { mutableStateOf(prefs.blockExternalApps) }
+    var ntpTheme by remember { mutableStateOf(ntpPrefs.ntpThemeMode) }
     var hosts by remember { mutableStateOf(prefs.listedHosts()) }
     var expandedHost by remember { mutableStateOf<String?>(null) }
 
@@ -59,6 +63,48 @@ fun BrowserConfigScreen(
                 bottom = 120.dp,
             ),
         ) {
+            item {
+                SplicedColumnGroup(title = "主页") {
+                    val themeLabel = when (ntpTheme) {
+                        "light" -> "浅色"
+                        "dark" -> "深色"
+                        else -> "跟随应用"
+                    }
+                    ClickableSettingItem(
+                        title = "主页主题",
+                        description = "当前：$themeLabel（点击切换：跟随 / 浅色 / 深色）",
+                        onClick = {
+                            ntpTheme = when (ntpTheme) {
+                                "follow" -> "light"
+                                "light" -> "dark"
+                                else -> "follow"
+                            }
+                            ntpPrefs.ntpThemeMode = ntpTheme
+                        },
+                    )
+                }
+            }
+            item {
+                SplicedColumnGroup(title = "阅读模式") {
+                    val readerPrefs = remember { BrowserReaderPrefs(context) }
+                    var trigger by remember { mutableStateOf(readerPrefs.triggerMode) }
+                    ClickableSettingItem(
+                        title = "进入阅读模式",
+                        description = "当前：${trigger.label}（点击切换：手动 / 自动识别 / 站点自动）",
+                        onClick = {
+                            trigger = when (trigger) {
+                                BrowserReaderPrefs.TriggerMode.Manual ->
+                                    BrowserReaderPrefs.TriggerMode.AutoDetect
+                                BrowserReaderPrefs.TriggerMode.AutoDetect ->
+                                    BrowserReaderPrefs.TriggerMode.SiteAuto
+                                BrowserReaderPrefs.TriggerMode.SiteAuto ->
+                                    BrowserReaderPrefs.TriggerMode.Manual
+                            }
+                            readerPrefs.triggerMode = trigger
+                        },
+                    )
+                }
+            }
             item {
                 SplicedColumnGroup(title = "净化") {
                     SwitchSettingItem(

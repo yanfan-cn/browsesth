@@ -139,6 +139,12 @@ fun MainScreen(
     homePlaybackCapsuleEnabled: Boolean,
     capsuleAnchorPreview: io.legado.app.domain.model.PlaybackCapsuleState?,
     onOpenSettings: () -> Unit,
+    onNavigateToBrowserSettings: () -> Unit,
+    onNavigateToBrowserBookmarks: () -> Unit,
+    onNavigateToBrowserHistory: () -> Unit,
+    onNavigateToBrowserTabs: () -> Unit = {},
+    onNavigateToBrowserReader: (bookUrl: String) -> Unit,
+    onNavigateToBrowserManga: (bookUrl: String) -> Unit = {},
     onNavigateToChat: () -> Unit,
     onNavigateToSearch: (String?) -> Unit,
     onNavigateToScopedSearch: (String) -> Unit,
@@ -226,6 +232,9 @@ fun MainScreen(
     val pagerState = rememberPagerState(initialPage = initialPage) { destinations.size }
     val currentDestination = destinations.getOrNull(pagerState.currentPage)
     val onBrowserHome = currentDestination == MainDestination.Home
+    // SPEC-008: hide main app bottom bar while a browser session is open on Home.
+    var browserSessionActive by rememberSaveable { mutableStateOf(false) }
+    val hideMainBottomBarForBrowserSession = onBrowserHome && browserSessionActive
     val pagerNestedScrollConnection = rememberPagerFlingPassThroughConnection(
         state = pagerState,
         orientation = Orientation.Horizontal,
@@ -265,7 +274,7 @@ fun MainScreen(
         )
     val useLiquidGlass = useFloatingBottomBar &&
             mainUiState.useFloatingBottomBarLiquidGlass &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            Build.VERSION.SDK_INT >= 35 // Android 15+: liquid glass (SPEC-007)
     val alwaysShowLabel = labelVisibilityMode == "labeled"
     val showLabel = !isUnlabeled
 
@@ -454,7 +463,12 @@ fun MainScreen(
         AppScaffold(
             modifier = Modifier.weight(1f),
             bottomBar = {
-                if (!useRail && mainUiState.showBottomView && !useFloatingBottomBar) {
+                if (
+                    !useRail &&
+                    mainUiState.showBottomView &&
+                    !useFloatingBottomBar &&
+                    !hideMainBottomBarForBrowserSession
+                ) {
                     AppNavigationBar(
                         showLabel = showLabel,
                         alwaysShowLabel = alwaysShowLabel
@@ -504,7 +518,9 @@ fun MainScreen(
             ) {
                 Box(
                     modifier = Modifier.then(
-                        if (useLiquidGlass) {
+                        // SPEC-009: never sample pager content while AwContents session is open
+                        // (haze/layerBackdrop + Chromium = blank / jank). NTP-only is OK.
+                        if (useLiquidGlass && !hideMainBottomBarForBrowserSession) {
                             Modifier
                                 .hazeSource(hazeState)
                                 .layerBackdrop(floatingBarBackdrop)
@@ -530,8 +546,12 @@ fun MainScreen(
                             ),
                         // Swipe between tabs disabled on browser home; use bottom bar instead.
                         userScrollEnabled = !onBrowserHome,
-                        // Keep fewer offscreen pages while browser AwContents is active.
-                        beyondViewportPageCount = if (onBrowserHome) 0 else 1,
+                        // SPEC-009: warm neighbors on NTP; keep 0 while AwContents session is live.
+                        beyondViewportPageCount = if (hideMainBottomBarForBrowserSession) {
+                            0
+                        } else {
+                            1
+                        },
                     ) { page ->
                         val destination = destinations.getOrNull(page) ?: return@HorizontalPager
                         val pageLifecycleOwner = rememberMainPageLifecycleOwner(
@@ -540,7 +560,23 @@ fun MainScreen(
                         CompositionLocalProvider(LocalLifecycleOwner provides pageLifecycleOwner) {
                             when (destination) {
                             MainDestination.Home -> BrowserHomeTabScreen(
-                                bottomBarClearance = 120.dp,
+                                onOpenBook = { book ->
+                                    onNavigateToBookInfo(
+                                        book.name,
+                                        book.author,
+                                        book.bookUrl,
+                                        book.origin,
+                                        book.getDisplayCover(),
+                                        null,
+                                    )
+                                },
+                                onSessionActiveChange = { browserSessionActive = it },
+                                onOpenBrowserSettings = onNavigateToBrowserSettings,
+                                onOpenBookmarks = onNavigateToBrowserBookmarks,
+                                onOpenHistory = onNavigateToBrowserHistory,
+                                onOpenTabs = onNavigateToBrowserTabs,
+                                onOpenReader = onNavigateToBrowserReader,
+                                onOpenMangaReader = onNavigateToBrowserManga,
                             )
 
                             MainDestination.Bookshelf -> BookshelfRouteScreen(
@@ -618,7 +654,7 @@ fun MainScreen(
                     }
                 }
 
-                if (useFloatingBottomBar) {
+                if (useFloatingBottomBar && !hideMainBottomBarForBrowserSession) {
                     var readAloudCapsuleShown by remember { mutableStateOf(false) }
                     var playbackControlsExpanded by rememberSaveable { mutableStateOf(false) }
                     val expansion by animateFloatAsState(

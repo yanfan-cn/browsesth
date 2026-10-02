@@ -1,6 +1,8 @@
 package io.legado.app.data.repository.manga
 
 import android.app.Application
+import io.legado.app.browser.reader.WebChapterHttpFetcher
+import io.legado.app.browser.reader.WebMangaBookFactory
 import io.legado.app.data.AppDatabase
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
@@ -73,6 +75,16 @@ private class RemoteChapterContentLoader(
     private val database: AppDatabase,
 ) {
     suspend fun load(book: Book, chapter: BookChapter): String {
+        if (book.origin == WebMangaBookFactory.ORIGIN ||
+            book.bookUrl.startsWith("browsesth-manga://")
+        ) {
+            val html = WebChapterHttpFetcher.fetchMangaChapterHtml(chapter.url)
+            if (html.isNotEmpty()) {
+                BookHelp.saveText(book, chapter, html)
+                return html
+            }
+            throw NoStackTraceException(application.getString(io.legado.app.R.string.content_empty))
+        }
         val source = database.bookSourceDao.getBookSource(book.origin)
             ?: throw NoStackTraceException(application.getString(io.legado.app.R.string.manga_reader_details_failed))
         val nextUrl = database.bookChapterDao.getChapter(book.bookUrl, chapter.index + 1)?.url

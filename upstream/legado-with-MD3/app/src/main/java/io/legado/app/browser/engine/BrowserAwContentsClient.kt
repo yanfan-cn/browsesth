@@ -294,7 +294,9 @@ class BrowserAwContentsClient(
     override fun shouldPlayBackgroundVideo(): Boolean = false
     override fun onHlsDetected(url: String, requestHeaders: String) {}
     override fun getUserAgent(): String =
-        "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36 Browsesth/0.4"
+        // SPEC-013: stock Chrome Mobile UA (no Browsesth token) so sites like Baidu
+        // do not serve degraded SERP shells without the category bar.
+        "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36"
 
     companion object {
         private const val TAG = "BrowsesthBrowser"

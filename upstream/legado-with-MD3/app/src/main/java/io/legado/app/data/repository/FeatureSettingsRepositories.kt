@@ -288,9 +288,9 @@ internal fun Preferences.toAppShellSettings(): AppShellSettings = AppShellSettin
     swipeAnimation = compatDsBoolean(PreferKey.swipeAnimation) ?: true,
     predictiveBackEnabled = compatDsBoolean(PreferKey.isPredictiveBackEnabled) ?: true,
     showBottomView = compatDsBoolean(PreferKey.showBottomView) ?: true,
-    useFloatingBottomBar = compatDsBoolean(PreferKey.useFloatingBottomBar) ?: false,
+    useFloatingBottomBar = compatDsBoolean(PreferKey.useFloatingBottomBar) ?: true,
     useFloatingBottomBarLiquidGlass =
-        compatDsBoolean(PreferKey.useFloatingBottomBarLiquidGlass) ?: false,
+        compatDsBoolean(PreferKey.useFloatingBottomBarLiquidGlass) ?: true,
     tabletInterface = compatDsString(PreferKey.tabletInterface) ?: "auto",
     labelVisibilityMode = compatDsString(PreferKey.labelVisibilityMode) ?: "auto",
     defaultHomePage = compatDsString(PreferKey.defaultHomePage) ?: "bookshelf",

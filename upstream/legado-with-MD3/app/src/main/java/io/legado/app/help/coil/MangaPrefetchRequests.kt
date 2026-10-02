@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 import okio.Buffer
 import java.io.Closeable
 
-/** 当前章持续准备原图，视口变化只重排等待项；两个后台任务不限制可见页/显式下载。主线程调用。 */
+/** 当前章持续准备原图，视口变化只重排等待项；四个后台任务（SPEC-014 由 2 提升）不限制可见页/显式下载。主线程调用。 */
 internal class MangaPrefetchRequests(private val scope: CoroutineScope) : Closeable {
     private var wanted = emptyList<Pair<String, Int>>()
     private var prepare: (suspend (Pair<String, Int>) -> Unit)? = null
@@ -36,7 +36,7 @@ internal class MangaPrefetchRequests(private val scope: CoroutineScope) : Closea
 
     private fun next() {
         val start = prepare ?: return
-        while (!closed && active.size < 2) {
+        while (!closed && active.size < 4) {
             val key = wanted.firstOrNull { it !in settled && it !in active } ?: return
             lateinit var job: Job
             job = scope.launch(start = CoroutineStart.LAZY) {

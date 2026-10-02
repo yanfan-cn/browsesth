@@ -143,11 +143,17 @@ object MainNavigator {
             MainRouteImportRemote,
             is MainRouteCache,
             MainRouteBookCacheManage,
+            MainRouteBrowserBookmarks,
+            MainRouteBrowserHistory,
+            MainRouteBrowserTabs,
             is MainRouteReadBook,
             is MainRouteReadManga -> {
                 if (
                     currentRoute == MainRouteHome ||
-                    currentRoute is MainRouteBookInfo
+                    currentRoute is MainRouteBookInfo ||
+                    currentRoute == MainRouteBrowserBookmarks ||
+                    currentRoute == MainRouteBrowserHistory ||
+                    currentRoute == MainRouteBrowserTabs
                 ) {
                     backStack.add(route)
                 } else {

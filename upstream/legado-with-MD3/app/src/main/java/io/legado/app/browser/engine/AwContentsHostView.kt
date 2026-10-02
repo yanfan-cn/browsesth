@@ -15,16 +15,15 @@ import android.view.accessibility.AccessibilityNodeProvider
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.widget.FrameLayout
-import org.chromium.android_webview.AwBrowserContext
 import org.chromium.android_webview.AwContents
 import org.chromium.android_webview.AwContentsClient
 import org.chromium.android_webview.AwSettings
-import org.chromium.android_webview.gfx.AwDrawFnImpl
 import org.chromium.base.Callback
-
 /**
  * Hosts Aloha [AwContents] in place of android.webkit.WebView.
- * Software-layer path adapted from Chromium AwTestContainerView.
+ *
+ * SPEC-011: prefer hardware DrawFn; on failure [BrowserDrawMode] locks SOFTWARE
+ * (SPEC-009 blank-page rollback path).
  */
 class AwContentsHostView @JvmOverloads constructor(
     context: Context,
@@ -33,21 +32,27 @@ class AwContentsHostView @JvmOverloads constructor(
 
     private var awContents: AwContents? = null
     private val internalAccessDelegate = InternalAccessAdapter()
-    private val drawFnAccess = AwDrawFnImpl.DrawFnAccess { _, _ ->
-        // Software path: functor draw is unused.
-    }
 
     init {
-        setLayerType(LAYER_TYPE_SOFTWARE, null)
+        applyLayerForDrawMode()
         overScrollMode = OVER_SCROLL_ALWAYS
         isFocusable = true
         isFocusableInTouchMode = true
     }
 
-    fun attach(client: AwContentsClient): AwContents {
+    private fun applyLayerForDrawMode() {
+        if (BrowserDrawMode.preferHardware()) {
+            setLayerType(LAYER_TYPE_HARDWARE, null)
+        } else {
+            setLayerType(LAYER_TYPE_SOFTWARE, null)
+        }
+    }
+
+    fun attach(client: AwContentsClient, incognito: Boolean = false): AwContents {
         destroyContents()
-        val browserContext = AwBrowserContext.getDefault()
-            ?: error("AwBrowserContext.getDefault() is null — browser process not ready")
+        applyLayerForDrawMode()
+        BrowserNtpPrefs.activateCookieJar(incognito)
+        val browserContext = BrowserNtpPrefs.browserContext(incognito)
         val settings = AwSettings(
             context,
             /* isAccessFromFileUrlsGrantedByDefault= */ false,
@@ -57,15 +62,33 @@ class AwContentsHostView @JvmOverloads constructor(
             /* doNotUpdateSelectionOnMutatingSelectionRange= */ false,
         )
         settings.javaScriptEnabled = true
-        settings.domStorageEnabled = true
+        settings.domStorageEnabled = !incognito
         settings.setSupportZoom(true)
         settings.setBuiltInZoomControls(true)
         settings.setDisplayZoomControls(false)
-        // Wide viewport ON, overview OFF: overview+software often squashes mobile pages.
+        // Wide viewport ON, overview OFF: overview mode often squashes mobile chrome.
         settings.setUseWideViewPort(true)
         settings.setLoadWithOverviewMode(false)
         settings.setMediaPlaybackRequiresUserGesture(true)
+        // SPEC-013: keep images on for SERP thumbnails / faster perceived load.
+        runCatching {
+            val m = settings.javaClass.getMethod("setImagesEnabled", Boolean::class.javaPrimitiveType)
+            m.invoke(settings, true)
+        }
+        runCatching {
+            val m = settings.javaClass.getMethod(
+                "setLoadsImagesAutomatically",
+                Boolean::class.javaPrimitiveType,
+            )
+            m.invoke(settings, true)
+        }
+        runCatching {
+            // WebSettings.LOAD_DEFAULT = -1
+            val m = settings.javaClass.getMethod("setCacheMode", Int::class.javaPrimitiveType)
+            m.invoke(settings, -1)
+        }
 
+        val drawFnAccess = BrowserDrawMode.createDrawFnAccess(this)
         val contents = AwContents(
             browserContext,
             this,
@@ -76,7 +99,8 @@ class AwContentsHostView @JvmOverloads constructor(
             settings,
         )
         awContents = contents
-        Log.i(TAG, "AwContents attached")
+        val mode = if (BrowserDrawMode.preferHardware()) "hardware DrawFn" else "software"
+        Log.i(TAG, "AwContents attached (incognito=$incognito, $mode)")
         if (isAttachedToWindow) {
             contents.viewMethods.onAttachedToWindow()
         }
