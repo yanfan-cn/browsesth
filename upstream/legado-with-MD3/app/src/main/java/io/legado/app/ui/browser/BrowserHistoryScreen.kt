@@ -62,6 +62,17 @@ fun BrowserHistoryScreen(
     onBack: () -> Unit,
     onOpenUrl: (String) -> Unit,
 ) {
+    BrowserTheme {
+        BrowserHistoryBody(onBack = onBack, onOpenUrl = onOpenUrl)
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun BrowserHistoryBody(
+    onBack: () -> Unit,
+    onOpenUrl: (String) -> Unit,
+) {
     val context = LocalContext.current
     val store = remember { BrowseStore(context) }
     var items by remember { mutableStateOf(store.history()) }
@@ -108,9 +119,12 @@ fun BrowserHistoryScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(24.dp))
+                    .padding(
+                        horizontal = BrowserUiTokens.PagePaddingH,
+                        vertical = BrowserUiTokens.SpaceSm,
+                    )
+                    .height(BrowserUiTokens.InputHeightLarge)
+                    .clip(RoundedCornerShape(BrowserUiTokens.CardCorner))
                     .background(scheme.surfaceContainer)
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -127,11 +141,11 @@ fun BrowserHistoryScreen(
                     onValueChange = { query = it },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
-                    textStyle = TextStyle(color = scheme.onSurface, fontSize = 15.sp),
-                    cursorBrush = SolidColor(scheme.primary),
+                    textStyle = TextStyle(color = scheme.onSurface, fontSize = 16.sp),
+                    cursorBrush = SolidColor(BrowserUiTokens.Primary),
                     decorationBox = { inner ->
                         if (query.isEmpty()) {
-                            Text("搜索历史记录", color = scheme.onSurfaceVariant, fontSize = 15.sp)
+                            Text("搜索历史记录", color = scheme.onSurfaceVariant, fontSize = 14.sp)
                         }
                         inner()
                     },
@@ -150,7 +164,10 @@ fun BrowserHistoryScreen(
                         item(key = "h-$dayLabel") {
                             Text(
                                 dayLabel,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                modifier = Modifier.padding(
+                                    horizontal = BrowserUiTokens.PagePaddingH,
+                                    vertical = BrowserUiTokens.SpaceMd,
+                                ),
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 14.sp,
                                 color = scheme.onSurfaceVariant,
@@ -228,7 +245,10 @@ private fun HistoryRow(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onOpen, onLongClick = onDelete)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(
+                horizontal = BrowserUiTokens.PagePaddingH,
+                vertical = BrowserUiTokens.SpaceMd,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AsyncImage(
@@ -239,18 +259,18 @@ private fun HistoryRow(
             },
             contentDescription = null,
             modifier = Modifier
-                .size(28.dp)
+                .size(BrowserUiTokens.ControlSmall)
                 .clip(CircleShape)
                 .background(scheme.surfaceVariant),
             contentScale = ContentScale.Fit,
         )
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceMd))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 entry.title.ifBlank { entry.url },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                fontSize = 15.sp,
+                fontSize = 16.sp,
                 color = scheme.onSurface,
             )
             Text(

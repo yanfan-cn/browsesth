@@ -50,6 +50,10 @@ class SharedReceiverActivity : AppCompatActivity() {
                 result.append("\n").append(url.trim { it <= ' ' })
         }
         if (result.length > 1) {
+            val firstUrl = result.toString().trim().lineSequence().firstOrNull { it.startsWith("http") }
+            if (!firstUrl.isNullOrBlank()) {
+                io.legado.app.browser.engine.BrowserOpenBridge.offer(firstUrl)
+            }
             startActivity(MainActivity.createHomeIntent(this))
         } else {
             startActivity(MainActivity.createSearchIntent(this, text))

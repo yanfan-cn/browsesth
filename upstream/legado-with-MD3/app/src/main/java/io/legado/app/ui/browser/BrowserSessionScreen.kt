@@ -2,7 +2,13 @@ package io.legado.app.ui.browser
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,7 +26,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -31,17 +36,23 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -57,29 +68,46 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.capsule.ContinuousCapsule
 import io.legado.app.browser.engine.AlohaBrowserCompose
 import io.legado.app.browser.engine.AwContentsHostView
 import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.browser.engine.BrowserAdRules
 import io.legado.app.browser.engine.BrowserAwContentsClient
+import io.legado.app.browser.engine.BrowserChromePrefs
+import io.legado.app.browser.engine.BrowserFormFactor
+import io.legado.app.browser.engine.BrowserLoadProgress
+import io.legado.app.browser.engine.BrowserNtpPrefs
+import io.legado.app.browser.engine.BrowserOmniboxLabel
 import io.legado.app.browser.engine.BrowserReaderPrefs
 import io.legado.app.browser.engine.BrowserSessionHolder
 import io.legado.app.browser.engine.BrowserShieldJs
 import io.legado.app.browser.engine.BrowserShieldPrefs
 import io.legado.app.browser.engine.BrowserSiteCssFixes
+import io.legado.app.browser.engine.BrowserTabManager
+import io.legado.app.browser.engine.BrowserUa
 import io.legado.app.browser.engine.BrowserUrlPolicy
 import io.legado.app.browser.engine.evalJs
-import io.legado.app.browser.engine.loadUrlAndSettle
+import io.legado.app.browser.engine.resolveBrowserNavigationInput
+import io.legado.app.browser.manga.cimoc.CimocAdapterRegistry
+import io.legado.app.browser.manga.cimoc.CimocMangaBridge
+import io.legado.app.browser.manga.cimoc.json.CimocJsonMangaBridge
+import io.legado.app.browser.manga.cimoc.json.CimocJsonRuleStore
 import io.legado.app.browser.reader.WebArticleBookFactory
+import io.legado.app.browser.reader.WebArticleChromeFilter
 import io.legado.app.browser.reader.WebArticleExtractJs
 import io.legado.app.browser.reader.WebChapterExpandJs
 import io.legado.app.browser.reader.WebChapterHttpFetcher
@@ -89,26 +117,50 @@ import io.legado.app.browser.reader.WebPageAnalyzeJs
 import io.legado.app.browser.reader.WebTocDiscoverJs
 import io.legado.app.ui.association.OnLineImportActivity
 import io.legado.app.ui.theme.LegadoTheme
+import io.legado.app.ui.theme.LocalTopBarBackdrop
 import io.legado.app.ui.widget.components.AppScaffold
+import io.legado.app.ui.widget.components.FloatingBottomBar
+import io.legado.app.ui.widget.components.FloatingBottomBarItem
 import io.legado.app.ui.widget.components.modalBottomSheet.AppModalBottomSheet
 import io.legado.app.ui.widget.components.progressIndicator.AppLinearProgressIndicator
 import io.legado.app.utils.sendToClip
+import io.legado.app.ui.widget.components.progressIndicator.AppCircularProgressIndicator
 import io.legado.app.utils.toastOnUi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
 import org.chromium.base.Callback
+import androidx.compose.runtime.LaunchedEffect
 
-private val ReaderFabBlue = Color(0xFF243B5A)
-private val TopBarHeight = 54.dp
-private val AddressFieldHeight = 32.dp
-private val CardCorner = 24.dp
+private val ReaderFabBlue = BrowserUiTokens.Primary
+private val TopBarHeight = BrowserUiTokens.TopBarHeight
+private val AddressFieldHeight = BrowserUiTokens.InputHeightSmall
+private val CardCorner = BrowserUiTokens.CardCorner
+
+data class BrowserSessionActions(
+    val goBack: () -> Unit,
+    val goForward: () -> Unit,
+    val reload: () -> Unit,
+    val openReader: () -> Unit,
+    val loadUrl: (String) -> Unit = {},
+    /** SPEC-025: tablet toolbox helpers. */
+    val currentPageUrl: () -> String = { "" },
+    val currentPageTitle: () -> String = { "" },
+    val addBookmark: () -> Unit = {},
+    val copyCurrentUrl: () -> Unit = {},
+    val startPickMode: () -> Unit = {},
+)
 
 /**
- * Browser session chrome per UI design §3.2 / SPEC-008/011.
+ * Browser session chrome per UI design §3.2 / SPEC-008/011/017/018.
+ * [tabletEmbedded]=true hides phone top/bottom chrome (parent supplies tablet shell).
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BrowserSessionScreen(
     initialUrl: String,
@@ -124,33 +176,119 @@ fun BrowserSessionScreen(
     onOpenReader: ((bookUrl: String) -> Unit)? = null,
     onOpenMangaReader: ((bookUrl: String) -> Unit)? = null,
     sessionKey: String? = null,
+    initialOmniboxLabel: String? = null,
     onPageMeta: ((url: String, title: String) -> Unit)? = null,
+    tabletEmbedded: Boolean = false,
+    onBindActions: ((BrowserSessionActions) -> Unit)? = null,
+    onScrollDirection: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val store = remember { BrowseStore(context) }
     val shield = remember { BrowserShieldPrefs(context) }
     val readerPrefs = remember { BrowserReaderPrefs(context) }
+    val chromePrefs = remember { BrowserChromePrefs(context) }
+    var uaMode by remember {
+        mutableStateOf(chromePrefs.uaModeOrDefault(BrowserFormFactor.isTablet(context)))
+    }
     remember { BrowserAdRules.ensureLoaded(context) }
 
-    var progress by remember { mutableIntStateOf(0) }
+    var progress by remember { mutableIntStateOf(100) }
+    var mainFrameLoading by remember { mutableStateOf(false) }
+    var chromeTab by remember { mutableIntStateOf(0) }
     var hostRef by remember { mutableStateOf<AwContentsHostView?>(null) }
     var clientRef by remember { mutableStateOf<BrowserAwContentsClient?>(null) }
-    var address by remember { mutableStateOf(initialUrl) }
+    // SPEC-024: omnibox shows search / typed text, never loaded page URL.
+    var omniboxLabel by remember {
+        mutableStateOf(BrowserOmniboxLabel.resolve(initialOmniboxLabel, initialUrl))
+    }
+    var address by remember { mutableStateOf(omniboxLabel) }
+    var addressFocused by remember { mutableStateOf(false) }
+    /** SPEC-022 B: phone floating chrome auto-hide on scroll down. */
+    var phoneChromeVisible by remember { mutableStateOf(true) }
     var pickMode by remember { mutableStateOf(false) }
+    val ntpPrefs = remember { BrowserNtpPrefs(context) }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    // SPEC-025: keep bottom gap on phone; 8dp also sits above function bar + reader FAB.
+    val floatingBottomPad = BrowserUiTokens.FloatingChromeBottomGap + navBottom
+    val floatingChromeTopGap = BrowserUiTokens.FloatingChromeTopGap
+    val phoneChromeBarHeight = 64.dp
+    val floatingChromeReserve =
+        floatingChromeTopGap + maxOf(phoneChromeBarHeight, BrowserUiTokens.ReaderFabSize) +
+            floatingBottomPad
+    val webBottomInset = if (!tabletEmbedded && phoneChromeVisible) floatingChromeReserve else 0.dp
+
+    fun applyOmniboxLabel(label: String?) {
+        val text = label?.trim().orEmpty()
+        omniboxLabel = text
+        if (!addressFocused && address != text) address = text
+        BrowserTabManager.updateActiveOmniboxLabel(text)
+    }
+
+    fun syncOmniboxLabelFromTab(url: String?) {
+        if (addressFocused) return
+        val next = BrowserOmniboxLabel.resolve(omniboxLabel.takeIf { it.isNotEmpty() }, url)
+        if (omniboxLabel.isEmpty() && next.isNotEmpty()) {
+            applyOmniboxLabel(next)
+        } else if (!addressFocused && address != omniboxLabel) {
+            address = omniboxLabel
+        }
+    }
     var pendingSelector by remember { mutableStateOf<String?>(null) }
     var showToolbox by remember { mutableStateOf(false) }
     var adBlockEnabled by remember { mutableStateOf(shield.adBlockEnabled) }
     var extracting by remember { mutableStateOf(false) }
+    var extractJob by remember { mutableStateOf<Job?>(null) }
+    var readerStatus by remember { mutableStateOf<String?>(null) }
     var showModePicker by remember { mutableStateOf(false) }
     var pendingAnalyze by remember { mutableStateOf<WebMangaBookFactory.AnalyzeResult?>(null) }
     var autoOpenedForUrl by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val scheme = LegadoTheme.colorScheme
+    val chromeBackdrop = rememberLayerBackdrop {
+        drawRect(scheme.surfaceContainer)
+    }
     val resolvedSessionKey = sessionKey ?: "legacy|$incognito|$initialUrl"
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            CimocJsonRuleStore.ensureLoaded(context)
+            CimocJsonRuleStore.refreshFromNetwork(context)
+        }
+    }
 
     fun showSnack(msg: String) {
         scope.launch { snackbarHostState.showSnackbar(msg) }
+    }
+
+    fun setReaderStatus(msg: String?) {
+        readerStatus = msg
+    }
+
+    fun cancelExtract() {
+        extractJob?.cancel()
+        extractJob = null
+        extracting = false
+        readerStatus = null
+    }
+
+    fun startExtract(block: suspend () -> Unit) {
+        if (extracting) return
+        extractJob?.cancel()
+        extractJob = scope.launch {
+            extracting = true
+            readerStatus = null
+            try {
+                block()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                context.toastOnUi(t.message?.takeIf { it.isNotBlank() } ?: "打开阅读失败")
+            } finally {
+                extracting = false
+            }
+        }
     }
 
     suspend fun discoverToc(host: AwContentsHostView): WebChapterHttpFetcher.TocResult? {
@@ -158,204 +296,147 @@ fun BrowserSessionScreen(
         return WebChapterHttpFetcher.parseToc(raw)
     }
 
-    suspend fun expandMangaChapter(
+    /** SPEC-017: lightweight collect without stepwise scroll loops. */
+    suspend fun collectMangaLight(
         host: AwContentsHostView,
-        startUrl: String,
+        analyze: WebMangaBookFactory.AnalyzeResult,
     ): Pair<List<WebMangaImageFilter.Candidate>, String> {
+        val expand = WebChapterHttpFetcher.parseExpand(host.evalJs(WebChapterExpandJs.COLLECT))
         val merged = LinkedHashMap<String, WebMangaImageFilter.Candidate>()
-        var title = ""
-        // Phase 1: stepwise scroll so lazy images get real naturalWidth.
-        var stableRounds = 0
-        var atEnd = false
-        var scrollGuard = 0
-        while (scrollGuard < 60 && stableRounds < 4) {
-            scrollGuard++
-            val stepRaw = host.evalJs(WebChapterExpandJs.SCROLL_STEP)
-            atEnd = stepRaw?.contains("\"atEnd\":true") == true
-            delay(450)
-            val expand = WebChapterHttpFetcher.parseExpand(host.evalJs(WebChapterExpandJs.COLLECT))
-            if (expand != null) {
-                if (expand.title.isNotBlank()) title = expand.title
-                val before = merged.size
-                expand.images.forEach { merged[it.url] = it }
-                if (merged.size == before) stableRounds++ else stableRounds = 0
-            } else {
-                stableRounds++
-            }
-            if (atEnd && stableRounds >= 2) break
+        analyze.candidates.forEach { merged[it.url] = it }
+        analyze.images.forEach { u ->
+            merged.putIfAbsent(u, WebMangaImageFilter.Candidate(url = u))
         }
-        host.evalJs(WebChapterExpandJs.SCROLL_TOP)
-        delay(200)
-
-        // Phase 2: follow same-chapter「下一页」pagination (not 下一章).
-        var pageUrl = startUrl
-        var pageHops = 0
-        while (pageHops < 40 && merged.size < 400) {
-            pageHops++
-            val expand = WebChapterHttpFetcher.parseExpand(host.evalJs(WebChapterExpandJs.COLLECT))
-                ?: break
-            if (expand.title.isNotBlank()) title = expand.title
-            expand.images.forEach { merged[it.url] = it }
-            val next = expand.nextPage.trim()
-            if (next.isEmpty()) break
-            if (WebMangaImageFilter.normalizeUrl(next) ==
-                WebMangaImageFilter.normalizeUrl(pageUrl)
-            ) {
-                break
-            }
-            // Avoid jumping into an obvious chapter URL when we already have many pages.
-            pageUrl = next
-            host.loadUrlAndSettle(next, settleMs = 2200L)
-            // Scroll the newly loaded page once.
-            var localStable = 0
-            repeat(25) {
-                host.evalJs(WebChapterExpandJs.SCROLL_STEP)
-                delay(400)
-                val part = WebChapterHttpFetcher.parseExpand(host.evalJs(WebChapterExpandJs.COLLECT))
-                val before = merged.size
-                part?.images?.forEach { merged[it.url] = it }
-                if (merged.size == before) localStable++ else localStable = 0
-                if (localStable >= 3) return@repeat
-            }
-        }
-        // Return to the original chapter page so subsequent TOC/state stay coherent.
-        if (WebMangaImageFilter.normalizeUrl(pageUrl) !=
-            WebMangaImageFilter.normalizeUrl(startUrl)
-        ) {
-            host.loadUrlAndSettle(startUrl, settleMs = 1800L)
-        }
+        expand?.images?.forEach { merged[it.url] = it }
+        val title = expand?.title.orEmpty().ifBlank { analyze.title }
         return merged.values.toList() to title
     }
 
-    fun openNovelReader(pageUrl: String, titleHint: String? = null) {
+    suspend fun openNovelReader(pageUrl: String, titleHint: String? = null) {
         val host = hostRef
         val open = onOpenReader
         if (host == null || open == null) {
-            showSnack("阅读视图不可用")
-            extracting = false
+            context.toastOnUi("阅读视图不可用")
             return
         }
-        scope.launch {
-            try {
-                showSnack("正在扩展章节内容…")
-                var stable = 0
-                repeat(40) {
-                    host.evalJs(WebChapterExpandJs.SCROLL_STEP)
-                    delay(350)
-                    stable++
-                    if (stable > 25) return@repeat
-                }
-                host.evalJs(WebChapterExpandJs.SCROLL_TOP)
-                delay(300)
-                val toc = discoverToc(host)
-                val raw = host.evalJs(WebArticleExtractJs.SCRIPT)
-                val extracted = WebArticleBookFactory.parseExtractResult(raw)
-                if (extracted == null) {
-                    showSnack("未能提取正文，请换一个页面再试")
-                    return@launch
-                }
-                val title = titleHint?.takeIf { it.isNotBlank() } ?: extracted.title
-                val series = toc?.seriesUrl?.takeIf { it.isNotBlank() && toc.chapters.size >= 2 }
-                    ?: pageUrl
-                val book = withContext(Dispatchers.IO) {
-                    WebArticleBookFactory.createEphemeralBook(
-                        context,
-                        pageUrl,
-                        extracted.copy(title = title),
-                        seriesKey = series,
-                        tocChapters = toc?.chapters.orEmpty(),
-                    )
-                }
-                open(book.bookUrl)
-            } catch (t: Throwable) {
-                showSnack("打开阅读视图失败：${t.message ?: "未知错误"}")
-            } finally {
-                extracting = false
-            }
+        val partRaw = host.evalJs(WebArticleExtractJs.SCRIPT)
+        val extracted = WebArticleBookFactory.parseExtractResult(partRaw)
+        val toc = discoverToc(host)
+        val rawText = extracted?.text.orEmpty()
+        val cleaned = WebArticleChromeFilter.filter(rawText)
+        if (cleaned.length < 40) {
+            context.toastOnUi("未能提取正文，请换一个页面再试")
+            return
         }
+        val title = titleHint?.takeIf { it.isNotBlank() }
+            ?: extracted?.title.orEmpty().ifBlank { "网页正文" }
+        val series = toc?.seriesUrl?.takeIf { it.isNotBlank() && toc.chapters.size >= 2 }
+            ?: pageUrl
+        val book = withContext(Dispatchers.IO) {
+            WebArticleBookFactory.createEphemeralBook(
+                context,
+                pageUrl,
+                WebArticleBookFactory.Extracted(
+                    title = title,
+                    text = cleaned,
+                    coverUrl = extracted?.coverUrl,
+                ),
+                seriesKey = series,
+                tocChapters = toc?.chapters.orEmpty(),
+            )
+        }
+        open(book.bookUrl)
     }
 
-    fun openMangaReader(pageUrl: String, analyze: WebMangaBookFactory.AnalyzeResult) {
+    suspend fun openMangaReader(pageUrl: String, analyze: WebMangaBookFactory.AnalyzeResult) {
         val open = onOpenMangaReader
         val host = hostRef
         if (open == null || host == null) {
-            showSnack("漫画阅读不可用")
-            extracting = false
+            context.toastOnUi("漫画阅读不可用")
             return
         }
-        scope.launch {
-            try {
-                showSnack("正在加载本章剩余页面…")
-                val (expanded, expandTitle) = expandMangaChapter(host, pageUrl)
-                val toc = discoverToc(host)
-                val seed = analyze.candidates.ifEmpty {
-                    analyze.images.map { WebMangaImageFilter.Candidate(url = it) }
-                }
-                val merged = LinkedHashMap<String, WebMangaImageFilter.Candidate>()
-                seed.forEach { merged[it.url] = it }
-                expanded.forEach { merged[it.url] = it }
-                val candidates = merged.values.toList()
-                val images = candidates.map { it.url }
-                if (images.isEmpty()) {
-                    showSnack("未能提取漫画图片，请换一个页面再试")
-                    return@launch
-                }
-                val title = expandTitle.ifBlank { analyze.title }
-                val series = toc?.seriesUrl?.takeIf { it.isNotBlank() && toc.chapters.size >= 2 }
-                    ?: pageUrl
-                val book = withContext(Dispatchers.IO) {
-                    WebMangaBookFactory.createEphemeralMangaBook(
-                        context,
-                        pageUrl,
-                        title,
-                        images,
-                        candidates = candidates,
-                        seriesKey = series,
-                        tocChapters = toc?.chapters.orEmpty(),
-                    )
-                }
+        withContext(Dispatchers.IO) {
+            CimocJsonRuleStore.ensureLoaded(context)
+        }
+        val cimocMatch = withContext(Dispatchers.IO) {
+            CimocAdapterRegistry.match(pageUrl)
+        }
+        if (cimocMatch != null) {
+            val book = withContext(Dispatchers.IO) {
+                runCatching { CimocMangaBridge.loadBook(context, pageUrl, cimocMatch) }.getOrNull()
+            }
+            if (book != null) {
                 open(book.bookUrl)
-            } catch (t: Throwable) {
-                showSnack("打开漫画阅读失败：${t.message ?: "未知错误"}")
-            } finally {
-                extracting = false
+                return
             }
         }
+        val jsonRule = withContext(Dispatchers.IO) {
+            CimocJsonRuleStore.match(pageUrl)?.takeIf { it.isRich }
+        }
+        if (jsonRule != null) {
+            val book = withContext(Dispatchers.IO) {
+                runCatching { CimocJsonMangaBridge.loadBook(context, pageUrl, jsonRule) }.getOrNull()
+            }
+            if (book != null) {
+                open(book.bookUrl)
+                return
+            }
+        }
+        val (candidates, expandTitle) = collectMangaLight(host, analyze)
+        val toc = discoverToc(host)
+        val images = WebMangaImageFilter.filter(candidates).map { it.url }
+        if (images.isEmpty()) {
+            context.toastOnUi("未能提取漫画图片，请换一个页面再试")
+            return
+        }
+        val title = expandTitle.ifBlank { analyze.title }
+        val series = toc?.seriesUrl?.takeIf { it.isNotBlank() && toc.chapters.size >= 2 }
+            ?: pageUrl
+        val book = withContext(Dispatchers.IO) {
+            WebMangaBookFactory.createEphemeralMangaBook(
+                context,
+                pageUrl,
+                title,
+                images,
+                candidates = candidates,
+                seriesKey = series,
+                tocChapters = toc?.chapters.orEmpty(),
+            )
+        }
+        open(book.bookUrl)
     }
 
     fun openReaderView(forceKind: WebMangaBookFactory.Kind? = null) {
-        if (extracting) return
         val host = hostRef
         if (host == null) {
-            showSnack("阅读视图不可用")
+            context.toastOnUi("阅读视图不可用")
             return
         }
-        extracting = true
-        showSnack("正在分析页面…")
-        host.evaluateJavaScript(
-            WebPageAnalyzeJs.SCRIPT,
-            Callback { raw ->
-                scope.launch {
-                    val analyze = WebMangaBookFactory.parseAnalyzeResult(raw)
-                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
-                    if (analyze == null) {
-                        extracting = false
-                        showSnack("页面分析失败，请重试")
-                        return@launch
-                    }
-                    val kind = forceKind ?: analyze.kind
-                    when (kind) {
-                        WebMangaBookFactory.Kind.Manga -> openMangaReader(pageUrl, analyze)
-                        WebMangaBookFactory.Kind.Novel -> openNovelReader(pageUrl, analyze.title)
-                        WebMangaBookFactory.Kind.Unknown -> {
-                            extracting = false
-                            pendingAnalyze = analyze
-                            showModePicker = true
-                        }
-                    }
+        startExtract {
+            val raw = suspendCancellableCoroutine { cont ->
+                host.evaluateJavaScript(
+                    WebPageAnalyzeJs.SCRIPT,
+                    Callback { result ->
+                        if (cont.isActive) cont.resume(result)
+                    },
+                )
+            }
+            val analyze = WebMangaBookFactory.parseAnalyzeResult(raw)
+            val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+            if (analyze == null) {
+                context.toastOnUi("页面分析失败，请重试")
+                return@startExtract
+            }
+            val kind = forceKind ?: analyze.kind
+            when (kind) {
+                WebMangaBookFactory.Kind.Manga -> openMangaReader(pageUrl, analyze)
+                WebMangaBookFactory.Kind.Novel -> openNovelReader(pageUrl, analyze.title)
+                WebMangaBookFactory.Kind.Unknown -> {
+                    pendingAnalyze = analyze
+                    showModePicker = true
                 }
-            },
-        )
+            }
+        }
     }
 
     fun maybeAutoOpenReader(url: String) {
@@ -386,16 +467,27 @@ fun BrowserSessionScreen(
     }
 
     fun navigateToAddress() {
+        // SPEC-022: same search/host rules as NTP — never blind https:// (avoids xn-- junk).
         val raw = address.trim()
-        if (raw.isEmpty()) return
-        val url = when {
-            raw.startsWith("http://") || raw.startsWith("https://") -> raw
-            raw.startsWith("about:") -> raw
-            else -> "https://$raw"
-        }
-        address = url
+        val url = resolveBrowserNavigationInput(raw, ntpPrefs.searchEngine())
+        if (url.isEmpty()) return
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+        applyOmniboxLabel(raw)
+        addressFocused = false
         hostRef?.loadUrl(url)
         BrowserSessionHolder.markLoaded()
+        onPageMeta?.invoke(url, raw)
+    }
+
+    fun loadExternalUrl(raw: String) {
+        val typed = raw.trim()
+        val url = resolveBrowserNavigationInput(typed, ntpPrefs.searchEngine())
+        if (url.isEmpty()) return
+        applyOmniboxLabel(typed)
+        hostRef?.loadUrl(url)
+        BrowserSessionHolder.markLoaded()
+        onPageMeta?.invoke(url, typed)
     }
 
     fun handleSpecialUrl(url: String): Boolean {
@@ -436,66 +528,165 @@ fun BrowserSessionScreen(
         }
     }
 
+    LaunchedEffect(initialOmniboxLabel, initialUrl) {
+        val next = BrowserOmniboxLabel.resolve(initialOmniboxLabel, initialUrl)
+        if (next.isNotEmpty() && next != omniboxLabel) {
+            omniboxLabel = next
+            if (!addressFocused) address = next
+        }
+    }
+
+    // SPEC-021/023: tab URL change → load; if live host already ahead (in-page nav), trust lastUrl.
+    LaunchedEffect(initialUrl, hostRef) {
+        val host = hostRef ?: return@LaunchedEffect
+        if (BrowserSessionHolder.sessionKey != resolvedSessionKey) return@LaunchedEffect
+        if (!BrowserSessionHolder.hasLoadedInitialUrl) return@LaunchedEffect
+        val last = clientRef?.lastUrl.orEmpty()
+        if (initialUrl.isBlank()) return@LaunchedEffect
+        if (initialUrl == last) {
+            syncOmniboxLabelFromTab(last)
+            return@LaunchedEffect
+        }
+        if (last.isNotBlank() && last != initialUrl) {
+            // In-page navigation already moved lastUrl; do not reload stale search/tab draft.
+            syncOmniboxLabelFromTab(last)
+            return@LaunchedEffect
+        }
+        syncOmniboxLabelFromTab(initialUrl)
+        host.loadUrl(initialUrl)
+    }
+
+    LaunchedEffect(hostRef, onBindActions) {
+        onBindActions?.invoke(
+            BrowserSessionActions(
+                goBack = {
+                    val host = hostRef
+                    if (host?.canGoBack() == true) host.goBack() else onNavigateBack()
+                },
+                goForward = { hostRef?.goForward() },
+                reload = { hostRef?.reload() },
+                openReader = { openReaderView() },
+                loadUrl = { loadExternalUrl(it) },
+                currentPageUrl = {
+                    clientRef?.lastUrl.orEmpty().ifBlank { address }
+                },
+                currentPageTitle = { clientRef?.lastTitle.orEmpty() },
+                addBookmark = {
+                    val url = clientRef?.lastUrl?.takeIf { it.startsWith("http") }
+                        ?: address.takeIf { it.startsWith("http") }
+                    if (url.isNullOrBlank()) {
+                        context.toastOnUi("当前没有可收藏的链接")
+                    } else {
+                        store.addBookmark(url, clientRef?.lastTitle.orEmpty())
+                        context.toastOnUi("已加书签")
+                    }
+                },
+                copyCurrentUrl = {
+                    val currentUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+                    context.sendToClip(currentUrl)
+                },
+                startPickMode = {
+                    pickMode = true
+                    hostRef?.evaluateJavaScript(BrowserShieldJs.startPickModeScript(), null)
+                    context.toastOnUi("点选模式：点击要屏蔽的元素")
+                },
+            ),
+        )
+    }
+
     AppScaffold(
         disableContentSampling = true,
         contentWindowInsets = WindowInsets(0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .background(scheme.surface)
-                    .padding(WindowInsets.statusBars.asPaddingValues()),
-            ) {
-                Row(
-                    modifier = Modifier
+            if (!tabletEmbedded) {
+                Column(
+                    Modifier
                         .fillMaxWidth()
-                        .height(TopBarHeight)
-                        .padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                        .background(scheme.surface)
+                        .padding(WindowInsets.statusBars.asPaddingValues()),
                 ) {
-                    if (showNavigationBack) {
-                        IconButton(onClick = onNavigateBack) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(TopBarHeight)
+                            .padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (showNavigationBack) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 4.dp)
+                                    .size(BrowserUiTokens.ControlMedium)
+                                    .browserControlLiquidGlass()
+                                    .clickable(onClick = onNavigateBack),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "返回",
+                                    tint = scheme.onSurface,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        BasicTextField(
+                            value = address,
+                            onValueChange = { address = it },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(BrowserUiTokens.ControlMedium)
+                                .browserControlLiquidGlass(
+                                    shape = ContinuousCapsule,
+                                    interactive = false,
+                                )
+                                .padding(horizontal = BrowserUiTokens.SpaceMd, vertical = 6.dp)
+                                .onFocusChanged { fs ->
+                                    val nowFocused = fs.isFocused
+                                    if (addressFocused && !nowFocused) {
+                                        // SPEC-024: blur without Go → restore search label, not URL.
+                                        address = omniboxLabel
+                                    }
+                                    addressFocused = nowFocused
+                                },
+                            singleLine = true,
+                            textStyle = TextStyle(
+                                color = scheme.onSurface,
+                                fontSize = 14.sp,
+                            ),
+                            cursorBrush = SolidColor(ReaderFabBlue),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                            keyboardActions = KeyboardActions(onGo = { navigateToAddress() }),
+                            decorationBox = { inner ->
+                                Box(contentAlignment = Alignment.CenterStart) {
+                                    if (address.isEmpty()) {
+                                        Text(
+                                            "搜索或输入网址",
+                                            color = scheme.onSurfaceVariant,
+                                            fontSize = 14.sp,
+                                        )
+                                    }
+                                    inner()
+                                }
+                            },
+                        )
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 4.dp)
+                                .size(BrowserUiTokens.ControlMedium)
+                                .browserControlLiquidGlass()
+                                .clickable { hostRef?.reload() },
+                            contentAlignment = Alignment.Center,
+                        ) {
                             Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "返回",
+                                Icons.Default.Refresh,
+                                contentDescription = "刷新",
+                                tint = scheme.onSurface,
+                                modifier = Modifier.size(20.dp),
                             )
                         }
-                    } else {
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
-                    BasicTextField(
-                        value = address,
-                        onValueChange = { address = it },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(AddressFieldHeight)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(scheme.surfaceVariant)
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        singleLine = true,
-                        textStyle = TextStyle(
-                            color = scheme.onSurface,
-                            fontSize = 14.sp,
-                        ),
-                        cursorBrush = SolidColor(scheme.primary),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                        keyboardActions = KeyboardActions(onGo = { navigateToAddress() }),
-                        decorationBox = { inner ->
-                            Box(contentAlignment = Alignment.CenterStart) {
-                                if (address.isEmpty()) {
-                                    Text(
-                                        "输入网址",
-                                        color = scheme.onSurfaceVariant,
-                                        fontSize = 14.sp,
-                                    )
-                                }
-                                inner()
-                            }
-                        },
-                    )
-                    IconButton(onClick = { hostRef?.reload() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "刷新")
                     }
                 }
             }
@@ -507,7 +698,10 @@ fun BrowserSessionScreen(
                 .padding(paddingValues),
         ) {
             AlohaBrowserCompose(
-                modifier = Modifier.fillMaxSize(),
+                // SPEC-022 A: keep page content above floating chrome.
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = webBottomInset),
                 incognito = incognito,
                 retainAcrossDispose = true,
                 sessionKey = resolvedSessionKey,
@@ -518,7 +712,16 @@ fun BrowserSessionScreen(
                                 showSnack(status.removePrefix("错误:").trim())
                             }
                         },
-                        onProgress = { progress = it },
+                        onProgress = { value ->
+                            if (mainFrameLoading) {
+                                progress = value.coerceIn(0, 100)
+                                if (value >= 100) mainFrameLoading = false
+                            }
+                        },
+                        onMainFrameLoadStarted = {
+                            mainFrameLoading = true
+                            progress = 0
+                        },
                         onOverrideUrl = { handleSpecialUrl(it) },
                         onNavigationOverride = { target -> hostRef?.loadUrl(target) },
                         isAdBlockEnabled = { shield.adBlockEnabled },
@@ -530,8 +733,22 @@ fun BrowserSessionScreen(
                             pendingSelector = selector
                             pickMode = false
                         },
+                        onScrollDirection = { dir ->
+                            if (!tabletEmbedded) {
+                                phoneChromeVisible = if (chromePrefs.autoHideTopBar) {
+                                    dir != "down"
+                                } else {
+                                    true
+                                }
+                            }
+                            onScrollDirection?.invoke(dir)
+                        },
+                        userAgentProvider = { BrowserUa.resolve(context) },
+                        onUrlChanged = { url -> syncOmniboxLabelFromTab(url) },
                         onPageFinishedExtra = { url, title ->
-                            address = url
+                            mainFrameLoading = false
+                            progress = 100
+                            syncOmniboxLabelFromTab(url)
                             onPageMeta?.invoke(url, title)
                             if (!incognito) {
                                 store.addHistory(url, title)
@@ -539,6 +756,11 @@ fun BrowserSessionScreen(
                             BrowserSiteCssFixes.scriptForUrl(url)?.let { js ->
                                 hostRef?.evaluateJavaScript(js, null)
                             }
+                            // SPEC-022 B: scroll hook on phone + tablet for chrome auto-hide.
+                            hostRef?.evaluateJavaScript(
+                                BrowserAwContentsClient.SCROLL_HOOK_JS,
+                                null,
+                            )
                             if (shield.adBlockEnabled) {
                                 applyCustomHide(url)
                             }
@@ -563,11 +785,8 @@ fun BrowserSessionScreen(
                         }
                         BrowserSessionHolder.markLoaded()
                     } else {
-                        // Reattach: keep address in sync without reload.
-                        val last = client.lastUrl
-                        if (!last.isNullOrBlank()) {
-                            address = last
-                        }
+                        // Reattach: keep search label in sync without reload.
+                        syncOmniboxLabelFromTab(client.lastUrl)
                     }
                 },
                 onDestroyed = {
@@ -575,75 +794,141 @@ fun BrowserSessionScreen(
                     clientRef = null
                 },
             )
-            if (progress in 0..99) {
+            if (BrowserLoadProgress.shouldShow(mainFrameLoading, progress)) {
                 AppLinearProgressIndicator(
-                    Modifier
+                    modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.TopCenter),
+                    progress = (progress / 100f).coerceIn(0f, 1f),
                 )
             }
 
-            // Floating chrome — match home bar look without sampling web content (SPEC-011 2A).
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(
-                        bottom = 12.dp + WindowInsets.navigationBars.asPaddingValues()
-                            .calculateBottomPadding(),
-                    ),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(56.dp)
-                        .clip(ContinuousCapsule)
-                        .background(scheme.surfaceContainer.copy(alpha = 0.88f))
-                        .padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
+            // Floating chrome — phone only (SPEC-011 2A); tablet uses top chrome (SPEC-018).
+            // SPEC-022 B: auto-hide on scroll down.
+            if (!tabletEmbedded) {
+                AnimatedVisibility(
+                    visible = phoneChromeVisible,
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it },
                 ) {
-                    BrowserChromeIconButton(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "后退",
-                        onClick = { hostRef?.goBack() },
-                    )
-                    BrowserChromeIconButton(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = "前进",
-                        onClick = { hostRef?.goForward() },
-                    )
-                    BrowserChromeIconButton(
-                        imageVector = Icons.Default.Menu,
-                        contentDescription = "工具箱",
-                        onClick = { showToolbox = true },
-                    )
-                    BrowserChromeIconButton(
-                        imageVector = Icons.Default.FilterNone,
-                        contentDescription = "标签页",
-                        onClick = {
-                            val open = onOpenTabs
-                            if (open != null) open() else showSnack("标签页即将支持")
-                        },
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = BrowserUiTokens.PagePaddingH)
+                            .padding(bottom = floatingBottomPad)
+                            .padding(top = floatingChromeTopGap),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            val blurOn = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                            val barBackdrop = LocalTopBarBackdrop.current ?: chromeBackdrop
+                            fun activateChromeTab(index: Int) {
+                                chromeTab = index
+                                when (index) {
+                                    0 -> hostRef?.goBack()
+                                    1 -> hostRef?.goForward()
+                                    2 -> showToolbox = true
+                                    3 -> {
+                                        val open = onOpenTabs
+                                        if (open != null) open() else showSnack("标签页即将支持")
+                                    }
+                                }
+                            }
+                            FloatingBottomBar(
+                                modifier = Modifier.fillMaxWidth(),
+                                selectedIndex = { chromeTab },
+                                onSelected = { activateChromeTab(it) },
+                                onReselected = { activateChromeTab(it) },
+                                backdrop = barBackdrop,
+                                tabsCount = 4,
+                                isBlurEnabled = blurOn,
+                                enableDragSwitch = false,
+                            ) {
+                                FloatingBottomBarItem(
+                                    onClick = { activateChromeTab(0) },
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = "后退",
+                                        tint = scheme.onSurface,
+                                    )
+                                }
+                                FloatingBottomBarItem(
+                                    onClick = { activateChromeTab(1) },
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowForward,
+                                        contentDescription = "前进",
+                                        tint = scheme.onSurface,
+                                    )
+                                }
+                                FloatingBottomBarItem(
+                                    onClick = { activateChromeTab(2) },
+                                ) {
+                                    Icon(
+                                        Icons.Default.Menu,
+                                        contentDescription = "工具箱",
+                                        tint = scheme.onSurface,
+                                    )
+                                }
+                                FloatingBottomBarItem(
+                                    onClick = { activateChromeTab(3) },
+                                ) {
+                                    Icon(
+                                        Icons.Default.FilterNone,
+                                        contentDescription = "标签页",
+                                        tint = scheme.onSurface,
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceMd))
+                        Box(
+                            modifier = Modifier
+                                .size(BrowserUiTokens.ReaderFabSize)
+                                .browserReaderFabGlass(ReaderFabBlue)
+                                .clickable(enabled = !extracting) { openReaderView() },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AutoStories,
+                                contentDescription = "阅读视图",
+                                tint = Color.White,
+                                modifier = Modifier.size(BrowserUiTokens.ControlSmall),
+                            )
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+            }
+
+            if (extracting) {
                 Box(
                     modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(ReaderFabBlue)
-                        .clickable(enabled = !extracting) { openReaderView() },
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.28f))
+                        .clickable(enabled = false) {},
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoStories,
-                        contentDescription = "阅读视图",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp),
-                    )
+                    Card(
+                        shape = RoundedCornerShape(CardCorner),
+                        colors = CardDefaults.cardColors(
+                            containerColor = scheme.surfaceContainerHigh,
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        modifier = Modifier.padding(horizontal = BrowserUiTokens.SpaceXl),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 28.dp, vertical = 22.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            AppCircularProgressIndicator()
+                            Spacer(modifier = Modifier.height(16.dp))
+                            TextButton(onClick = { cancelExtract() }) {
+                                Text("取消")
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -735,6 +1020,18 @@ fun BrowserSessionScreen(
         }
         HorizontalDivider()
         ToolboxRow(
+            icon = if (uaMode == BrowserUa.Mode.Desktop) Icons.Default.Computer else Icons.Default.PhoneAndroid,
+            label = "UA：${uaMode.label}（点击切换）",
+            onClick = {
+                uaMode = when (uaMode) {
+                    BrowserUa.Mode.Mobile -> BrowserUa.Mode.Desktop
+                    BrowserUa.Mode.Desktop -> BrowserUa.Mode.Mobile
+                }
+                chromePrefs.uaMode = uaMode
+                showSnack("已切换为${uaMode.label} UA，请刷新页面")
+            },
+        )
+        ToolboxRow(
             icon = Icons.Default.Settings,
             label = "设置",
             onClick = {
@@ -766,10 +1063,9 @@ fun BrowserSessionScreen(
                 TextButton(
                     onClick = {
                         showModePicker = false
-                        extracting = true
                         val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
                         if (analyze != null) {
-                            openMangaReader(pageUrl, analyze)
+                            startExtract { openMangaReader(pageUrl, analyze) }
                         } else {
                             openReaderView(WebMangaBookFactory.Kind.Manga)
                         }
@@ -782,9 +1078,8 @@ fun BrowserSessionScreen(
                     TextButton(
                         onClick = {
                             showModePicker = false
-                            extracting = true
                             val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
-                            openNovelReader(pageUrl, analyze?.title)
+                            startExtract { openNovelReader(pageUrl, analyze?.title) }
                         },
                     ) { Text("小说阅读") }
                 }
@@ -825,12 +1120,14 @@ private fun BrowserChromeIconButton(
     imageVector: ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
+    tint: Color = LegadoTheme.colorScheme.onSurface,
 ) {
     IconButton(onClick = onClick, modifier = Modifier.size(44.dp)) {
         Icon(
             imageVector = imageVector,
             contentDescription = contentDescription,
             modifier = Modifier.size(24.dp),
+            tint = tint,
         )
     }
 }

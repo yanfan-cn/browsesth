@@ -208,6 +208,8 @@ class DefaultMangaReaderSession(
     private fun loadWindow(chapterIndex: Int) {
         retainChapterResources(chapterIndex)
         loadChapter(chapterIndex)
+        loadChapter(chapterIndex - 1)
+        loadChapter(chapterIndex + 1)
         prefetch(chapterIndex)
     }
 

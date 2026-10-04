@@ -1,9 +1,9 @@
 package io.legado.app.browser.engine
 
 /**
- * Site-specific layout fixes injected after page load (SPEC-013).
+ * Site-specific layout fixes injected after page load (SPEC-013 / SPEC-020).
  * Apple.com sticky globalnav often looks vertically squashed under SOFTWARE /
- * imperfect viewport; enforce a minimum bar height as a belt-and-suspenders fix.
+ * imperfect viewport; enforce a healthier bar height as belt-and-suspenders.
  */
 object BrowserSiteCssFixes {
     fun scriptForUrl(url: String): String? {
@@ -16,21 +16,37 @@ object BrowserSiteCssFixes {
     private const val APPLE_NAV_MIN_HEIGHT_JS = """
 (function(){
   try {
-    if (document.getElementById('browsesth-apple-nav-fix')) return;
+    var id = 'browsesth-apple-nav-fix';
+    var old = document.getElementById(id);
+    if (old) old.remove();
     var s = document.createElement('style');
-    s.id = 'browsesth-apple-nav-fix';
+    s.id = id;
     s.textContent = [
-      'nav, header, .globalnav, #globalnav, .ac-gn-header, #ac-globalnav {',
-      '  min-height: 48px !important;',
+      'html { -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important; }',
+      '#globalnav, .globalnav, nav#globalnav, header.globalnav,',
+      '#ac-globalnav, .ac-gn-header, [data-analytics-activitymap-region-id=\"global nav\"] {',
+      '  min-height: 52px !important;',
+      '  height: auto !important;',
+      '  max-height: none !important;',
+      '  box-sizing: border-box !important;',
       '}',
-      '.globalnav-content, .ac-gn-content, #ac-gn-cupcake {',
-      '  min-height: 48px !important;',
+      '#globalnav .globalnav-content, .globalnav-content, .ac-gn-content,',
+      '#ac-gn-cupcake, .globalnav-list, .ac-gn-list {',
+      '  min-height: 52px !important;',
+      '  height: auto !important;',
       '  align-items: center !important;',
+      '  box-sizing: border-box !important;',
       '}',
-      '.globalnav-link, .ac-gn-link, .globalnav-image, .ac-gn-apple {',
+      '.globalnav-link, .ac-gn-link, .globalnav-image, .ac-gn-apple,',
+      '.globalnav-item, .ac-gn-item, a.globalnav-link-apple {',
       '  min-height: 44px !important;',
+      '  line-height: normal !important;',
       '  display: inline-flex !important;',
       '  align-items: center !important;',
+      '  box-sizing: border-box !important;',
+      '}',
+      '.globalnav-link-text, .ac-gn-link-text {',
+      '  line-height: 1.2 !important;',
       '}'
     ].join('\\n');
     (document.head || document.documentElement).appendChild(s);

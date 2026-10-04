@@ -1,6 +1,8 @@
 package io.legado.app.ui.config.browserConfig
 
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -15,9 +17,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import io.legado.app.browser.engine.BrowserChromePrefs
+import io.legado.app.browser.engine.BrowserFormFactor
 import io.legado.app.browser.engine.BrowserNtpPrefs
 import io.legado.app.browser.engine.BrowserReaderPrefs
 import io.legado.app.browser.engine.BrowserShieldPrefs
+import io.legado.app.browser.engine.BrowserUa
+import io.legado.app.ui.browser.BrowserTheme
+import io.legado.app.ui.browser.browserThemeToSelector
+import io.legado.app.ui.browser.selectorToBrowserTheme
+import io.legado.app.ui.config.themeConfig.ThemeModeSelector
 import io.legado.app.ui.theme.adaptiveContentPadding
 import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.SplicedColumnGroup
@@ -32,13 +41,28 @@ import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
 fun BrowserConfigScreen(
     onBackClick: () -> Unit,
 ) {
+    BrowserTheme {
+        BrowserConfigBody(onBackClick = onBackClick)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BrowserConfigBody(
+    onBackClick: () -> Unit,
+) {
     val context = LocalContext.current
     val prefs = remember { BrowserShieldPrefs(context) }
     val ntpPrefs = remember { BrowserNtpPrefs(context) }
+    val chromePrefs = remember { BrowserChromePrefs(context) }
+    val isTablet = remember { BrowserFormFactor.isTablet(context) }
     var adBlock by remember { mutableStateOf(prefs.adBlockEnabled) }
     var blockPopups by remember { mutableStateOf(prefs.blockPopups) }
     var blockExternal by remember { mutableStateOf(prefs.blockExternalApps) }
     var ntpTheme by remember { mutableStateOf(ntpPrefs.ntpThemeMode) }
+    var dailyWallpaper by remember { mutableStateOf(chromePrefs.dailyWallpaperEnabled) }
+    var autoHideTop by remember { mutableStateOf(chromePrefs.autoHideTopBar) }
+    var uaMode by remember { mutableStateOf(chromePrefs.uaModeOrDefault(isTablet)) }
     var hosts by remember { mutableStateOf(prefs.listedHosts()) }
     var expandedHost by remember { mutableStateOf<String?>(null) }
 
@@ -64,22 +88,51 @@ fun BrowserConfigScreen(
             ),
         ) {
             item {
-                SplicedColumnGroup(title = "主页") {
-                    val themeLabel = when (ntpTheme) {
-                        "light" -> "浅色"
-                        "dark" -> "深色"
-                        else -> "跟随应用"
-                    }
-                    ClickableSettingItem(
-                        title = "主页主题",
-                        description = "当前：$themeLabel（点击切换：跟随 / 浅色 / 深色）",
-                        onClick = {
-                            ntpTheme = when (ntpTheme) {
-                                "follow" -> "light"
-                                "light" -> "dark"
-                                else -> "follow"
-                            }
+                SplicedColumnGroup(title = "外观") {
+                    // SPEC-022: same control as app 外观 → 跟随系统 / 浅色 / 深色
+                    ThemeModeSelector(
+                        selectedMode = browserThemeToSelector(ntpTheme),
+                        onModeSelected = { value ->
+                            ntpTheme = selectorToBrowserTheme(value)
                             ntpPrefs.ntpThemeMode = ntpTheme
+                        },
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SwitchSettingItem(
+                        title = "每日自动更换壁纸",
+                        description = "使用 Bing 每日壁纸作为平板主页背景",
+                        checked = dailyWallpaper,
+                        onCheckedChange = {
+                            dailyWallpaper = it
+                            chromePrefs.dailyWallpaperEnabled = it
+                        },
+                    )
+                }
+            }
+            item {
+                SplicedColumnGroup(title = "浏览") {
+                    ClickableSettingItem(
+                        title = "User-Agent",
+                        description = "当前：${uaMode.label}（点击切换手机 / 电脑；刷新页面后生效）",
+                        onClick = {
+                            uaMode = when (uaMode) {
+                                BrowserUa.Mode.Mobile -> BrowserUa.Mode.Desktop
+                                BrowserUa.Mode.Desktop -> BrowserUa.Mode.Mobile
+                            }
+                            chromePrefs.uaMode = uaMode
+                        },
+                    )
+                    SwitchSettingItem(
+                        title = "滚动时隐藏浏览栏",
+                        description = if (isTablet) {
+                            "网页向下滚动时自动收起标签栏与功能栏"
+                        } else {
+                            "默认关闭。开启后，网页向下滚动时自动收起顶栏和底栏"
+                        },
+                        checked = autoHideTop,
+                        onCheckedChange = {
+                            autoHideTop = it
+                            chromePrefs.autoHideTopBar = it
                         },
                     )
                 }

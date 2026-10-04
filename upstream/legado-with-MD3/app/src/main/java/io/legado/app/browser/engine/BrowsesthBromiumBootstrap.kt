@@ -28,7 +28,14 @@ object BrowsesthBromiumBootstrap {
     var platSupportSource: String = "not-attempted"
         private set
 
+    @Volatile
+    private var initialized: Boolean = false
+
     fun initializeAll(context: Context, configKeySystemUuidMapping: Int) {
+        if (initialized) {
+            Log.i(TAG, "initializeAll skipped (already done this process)")
+            return
+        }
         val app = context.applicationContext
         ContextUtils.initApplicationContext(app)
         // Required for embedded Aloha: native JNI FindClass must use the app dex ClassLoader
@@ -42,6 +49,9 @@ object BrowsesthBromiumBootstrap {
         AwResource.setConfigKeySystemUuidMapping(configKeySystemUuidMapping)
 
         BromiumResources.init(app)
+
+        // SPEC-029: CommandLine must exist before native load.
+        BrowserKernelCompat.initCommandLine(app)
 
         loadNativeLibraries()
 
@@ -62,7 +72,9 @@ object BrowsesthBromiumBootstrap {
         AwBrowserProcess.runPreBrowserProcessStart()
         AwBrowserProcess.finishBrowserProcessStart()
 
+        // SPEC-032: Cookie/Eyeo overrides wait until first AwContents (6.8 startup parity).
         Bromium.clearTemporaryDownloads()
+        initialized = true
         Log.i(TAG, "BrowsesthBromiumBootstrap.initializeAll finished (plat=$platSupportSource)")
     }
 

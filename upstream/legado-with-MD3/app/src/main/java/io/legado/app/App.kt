@@ -97,6 +97,12 @@ class App : Application(), SingletonImageLoader.Factory {
     private val backupGateway get() = get<BackupSettingsGateway>()
     private val readGateway get() = get<ReadSettingsGateway>()
 
+    override fun attachBaseContext(base: Context?) {
+        // SPEC-020: unlock RecordingCanvas.drawWebViewFunctor before any class init touches it.
+        BrowserDrawMode.applyEarlyExemptions()
+        super.attachBaseContext(base)
+    }
+
     override fun newImageLoader(context: Context): ImageLoader {
         return get()
     }

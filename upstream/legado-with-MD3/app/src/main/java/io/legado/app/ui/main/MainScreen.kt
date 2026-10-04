@@ -63,8 +63,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import io.legado.app.browser.engine.BrowserFormFactor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -223,10 +225,9 @@ fun MainScreen(
     }
     val destinations = mainUiState.destinations
 
-    val initialPage = remember(destinations, mainUiState.defaultHomePage) {
-        val index = destinations.indexOfFirst {
-            it.route == mainUiState.defaultHomePage
-        }
+    // SPEC-018: cold start always opens browser Home (NTP), not bookshelf.
+    val initialPage = remember(destinations) {
+        val index = destinations.indexOfFirst { it == MainDestination.Home }
         if (index != -1) index else 0
     }
     val pagerState = rememberPagerState(initialPage = initialPage) { destinations.size }
@@ -235,6 +236,8 @@ fun MainScreen(
     // SPEC-008: hide main app bottom bar while a browser session is open on Home.
     var browserSessionActive by rememberSaveable { mutableStateOf(false) }
     val hideMainBottomBarForBrowserSession = onBrowserHome && browserSessionActive
+    // SPEC-025: tablet never shows the floating bottom bar.
+    val isTabletFormFactor = BrowserFormFactor.isTablet(LocalConfiguration.current)
     val pagerNestedScrollConnection = rememberPagerFlingPassThroughConnection(
         state = pagerState,
         orientation = Orientation.Horizontal,
@@ -518,9 +521,9 @@ fun MainScreen(
             ) {
                 Box(
                     modifier = Modifier.then(
-                        // SPEC-009: never sample pager content while AwContents session is open
-                        // (haze/layerBackdrop + Chromium = blank / jank). NTP-only is OK.
-                        if (useLiquidGlass && !hideMainBottomBarForBrowserSession) {
+                        // SPEC-009/021: never sample browser Home (NTP or session) —
+                        // haze/layerBackdrop + pager swipe = jank; Chromium sample = blank.
+                        if (useLiquidGlass && !onBrowserHome) {
                             Modifier
                                 .hazeSource(hazeState)
                                 .layerBackdrop(floatingBarBackdrop)
@@ -544,13 +547,14 @@ fun MainScreen(
                                     if (this != null) Modifier.skipToLookaheadSize() else Modifier
                                 }
                             ),
-                        // Swipe between tabs disabled on browser home; use bottom bar instead.
-                        userScrollEnabled = !onBrowserHome,
-                        // SPEC-009: warm neighbors on NTP; keep 0 while AwContents session is live.
+                        // SPEC-021: restore finger-follow tab swipe (Legado MD3 parity).
+                        // Nested scroll stays idle on browser Home so vertical web scroll is not stolen.
+                        userScrollEnabled = !browserSessionActive,
+                        // SPEC-009/021: warm neighbors like upstream; keep 0 while AwContents live.
                         beyondViewportPageCount = if (hideMainBottomBarForBrowserSession) {
                             0
                         } else {
-                            1
+                            4
                         },
                     ) { page ->
                         val destination = destinations.getOrNull(page) ?: return@HorizontalPager
@@ -577,6 +581,16 @@ fun MainScreen(
                                 onOpenTabs = onNavigateToBrowserTabs,
                                 onOpenReader = onNavigateToBrowserReader,
                                 onOpenMangaReader = onNavigateToBrowserManga,
+                                onOpenBookshelf = {
+                                    val index = destinations.indexOfFirst {
+                                        it == MainDestination.Bookshelf
+                                    }
+                                    if (index >= 0) {
+                                        coroutineScope.launch {
+                                            pagerState.animateScrollToPage(index)
+                                        }
+                                    }
+                                },
                             )
 
                             MainDestination.Bookshelf -> BookshelfRouteScreen(
@@ -600,6 +614,20 @@ fun MainScreen(
                                     )
                                 },
                                 onNavigateToSearch = { query -> onNavigateToSearch(query) },
+                                onNavigateBackToBrowser = if (isTabletFormFactor) {
+                                    {
+                                        val index = destinations.indexOfFirst {
+                                            it == MainDestination.Home
+                                        }
+                                        if (index >= 0) {
+                                            coroutineScope.launch {
+                                                pagerState.animateScrollToPage(index)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    null
+                                },
                                 onNavigateToRemoteImport = onNavigateToRemoteImport,
                                 onNavigateToLocalImport = onNavigateToLocalImport,
                                 onNavigateToCache = onNavigateToCache,
@@ -654,7 +682,7 @@ fun MainScreen(
                     }
                 }
 
-                if (useFloatingBottomBar && !hideMainBottomBarForBrowserSession) {
+                if (useFloatingBottomBar && !hideMainBottomBarForBrowserSession && !isTabletFormFactor) {
                     var readAloudCapsuleShown by remember { mutableStateOf(false) }
                     var playbackControlsExpanded by rememberSaveable { mutableStateOf(false) }
                     val expansion by animateFloatAsState(

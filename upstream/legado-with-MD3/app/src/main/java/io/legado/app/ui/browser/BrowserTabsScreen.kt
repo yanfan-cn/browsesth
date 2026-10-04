@@ -48,6 +48,16 @@ fun BrowserTabsScreen(
     onBack: () -> Unit,
     onOpenActiveTab: () -> Unit = {},
 ) {
+    BrowserTheme {
+        BrowserTabsBody(onBack = onBack, onOpenActiveTab = onOpenActiveTab)
+    }
+}
+
+@Composable
+private fun BrowserTabsBody(
+    onBack: () -> Unit,
+    onOpenActiveTab: () -> Unit,
+) {
     val tabs by BrowserTabManager.tabs.collectAsStateWithLifecycle()
     val activeId by BrowserTabManager.activeTabId.collectAsStateWithLifecycle()
 
@@ -75,9 +85,9 @@ fun BrowserTabsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(BrowserUiTokens.PagePaddingH),
+            horizontalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceMd),
+            verticalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceMd),
         ) {
             items(tabs, key = { it.id }) { tab ->
                 TabCard(
@@ -106,14 +116,14 @@ private fun TabCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(BrowserUiTokens.CardCorner))
             .background(scheme.surfaceContainer)
             .clickable(onClick = onClick),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(horizontal = BrowserUiTokens.SpaceSm, vertical = BrowserUiTokens.SpaceXs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -133,7 +143,7 @@ private fun TabCard(
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                 color = scheme.onSurface,
             )
-            IconButton(onClick = onClose, modifier = Modifier.size(28.dp)) {
+            IconButton(onClick = onClose, modifier = Modifier.size(BrowserUiTokens.ControlSmall)) {
                 Icon(
                     Icons.Default.Close,
                     contentDescription = "关闭",
@@ -145,28 +155,28 @@ private fun TabCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(0.75f)
-                .padding(horizontal = 8.dp)
-                .padding(bottom = 8.dp)
-                .clip(RoundedCornerShape(16.dp))
+                .padding(horizontal = BrowserUiTokens.SpaceSm)
+                .padding(bottom = BrowserUiTokens.SpaceSm)
+                .clip(RoundedCornerShape(BrowserUiTokens.SpaceLg))
                 .background(
-                    if (selected) scheme.primaryContainer else scheme.surfaceVariant,
+                    if (selected) BrowserUiTokens.Primary.copy(alpha = 0.12f) else scheme.surfaceVariant,
                 ),
             contentAlignment = Alignment.Center,
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     if (tab.url.isNullOrBlank()) "主页" else "网页",
-                    color = scheme.onSurfaceVariant,
+                    color = if (selected) BrowserUiTokens.Primary else scheme.onSurfaceVariant,
                     fontSize = 14.sp,
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(BrowserUiTokens.SpaceXs))
                 Text(
                     tab.url?.take(40) ?: "NTP",
                     color = scheme.onSurfaceVariant,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 12.dp),
+                    modifier = Modifier.padding(horizontal = BrowserUiTokens.SpaceMd),
                 )
             }
         }

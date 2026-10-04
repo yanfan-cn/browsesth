@@ -52,6 +52,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Check
@@ -173,6 +174,8 @@ fun BookshelfRouteScreen(
     onBookClick: (BookShelfItem, String?) -> Unit,
     onBookLongClick: (book: BookShelfItem, sharedCoverKey: String?) -> Unit,
     onNavigateToSearch: (String) -> Unit,
+    /** SPEC-025: tablet bookshelf ← back to browser Home. */
+    onNavigateBackToBrowser: (() -> Unit)? = null,
     onNavigateToRemoteImport: () -> Unit,
     onNavigateToLocalImport: () -> Unit,
     onNavigateToCache: (Long) -> Unit,
@@ -204,6 +207,7 @@ fun BookshelfRouteScreen(
         onBookClick = onBookClick,
         onBookLongClick = onBookLongClick,
         onNavigateToSearch = onNavigateToSearch,
+        onNavigateBackToBrowser = onNavigateBackToBrowser,
         onNavigateToRemoteImport = onNavigateToRemoteImport,
         onNavigateToLocalImport = onNavigateToLocalImport,
         onNavigateToCache = onNavigateToCache,
@@ -229,6 +233,7 @@ fun BookshelfScreen(
     onBookClick: (BookShelfItem, String?) -> Unit,
     onBookLongClick: (book: BookShelfItem, sharedCoverKey: String?) -> Unit,
     onNavigateToSearch: (String) -> Unit,
+    onNavigateBackToBrowser: (() -> Unit)? = null,
     onNavigateToRemoteImport: () -> Unit,
     onNavigateToLocalImport: () -> Unit,
     onNavigateToCache: (Long) -> Unit,
@@ -590,6 +595,7 @@ fun BookshelfScreen(
                 },
                 onClearSearch = { onIntent(BookshelfIntent.SetSearchKey("")) },
                 onExitEditMode = exitEditMode,
+                onNavigateBackToBrowser = onNavigateBackToBrowser,
                 actions = {
                     AnimatedVisibility(visible = isEditMode) {
                         TopBarActionButton(
@@ -1296,6 +1302,7 @@ private fun BookshelfTopBar(
     onSearchSubmit: (String) -> Unit,
     onClearSearch: () -> Unit,
     onExitEditMode: () -> Unit,
+    onNavigateBackToBrowser: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     bottomContent: @Composable ColumnScope.() -> Unit = {}
 ) {
@@ -1304,12 +1311,21 @@ private fun BookshelfTopBar(
     GlassMediumFlexibleTopAppBar(
         modifier = Modifier.fillMaxWidth(),
         navigationIcon = {
-            if (uiState.isEditMode) {
-                TopBarNavigationButton(
-                    onClick = onExitEditMode,
-                    imageVector = AppIcons.Close,
-                    contentDescription = exitEditModeDescription
-                )
+            when {
+                uiState.isEditMode -> {
+                    TopBarNavigationButton(
+                        onClick = onExitEditMode,
+                        imageVector = AppIcons.Close,
+                        contentDescription = exitEditModeDescription
+                    )
+                }
+                onNavigateBackToBrowser != null -> {
+                    TopBarNavigationButton(
+                        onClick = onNavigateBackToBrowser,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "返回浏览器"
+                    )
+                }
             }
         },
         title = if (uiState.isLoading) {

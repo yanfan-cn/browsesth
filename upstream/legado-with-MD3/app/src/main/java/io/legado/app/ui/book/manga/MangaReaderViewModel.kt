@@ -90,7 +90,7 @@ class MangaReaderViewModel(
                 latestMangaSettings = settings
                 readerSession.execute(
                     MangaSessionCommand.PrefetchCountChanged(
-                        if (settings.autoOfflineCache) settings.chapterPrefetchCount else 0,
+                        maxOf(2, settings.chapterPrefetchCount),
                     )
                 )
                 _uiState.update { state ->

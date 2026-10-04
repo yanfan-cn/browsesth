@@ -68,7 +68,21 @@ object BrowserSessionHolder {
         hasLoadedInitialUrl = true
     }
 
+    /** SPEC-021: navigate the retained host without requiring Compose remount. */
+    fun loadUrl(url: String): Boolean {
+        val h = host ?: return false
+        h.loadUrl(url)
+        hasLoadedInitialUrl = true
+        Log.i(TAG, "loadUrl via holder: $url")
+        return true
+    }
+
     fun destroy() {
+        try {
+            host?.onHostPause()
+        } catch (t: Throwable) {
+            Log.w(TAG, "onHostPause", t)
+        }
         try {
             host?.destroyContents()
         } catch (t: Throwable) {

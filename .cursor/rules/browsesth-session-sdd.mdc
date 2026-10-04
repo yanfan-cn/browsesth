@@ -30,3 +30,4 @@ alwaysApply: true
 - 未要求时不要 commit / push
 - 曾用工作名 ClearPage 已废弃，一律用 browsesth / Browsesth
 - **每次构建 App（assemble*）版本号 +0.1**：由 `app/version.properties` + `app/build.gradle.kts` 自动递增（`VERSION_TENTHS`）；勿绕过
+- **本机构建**：必须设 `$env:GRADLE_USER_HOME="D:\cursor\.gradle-home"`（与工程同盘），否则 KSP 跨盘符必失败；细则见 `browsesth-windows-gradle-build` 规则

@@ -30,9 +30,11 @@ class BrowserNtpPrefs(context: Context) {
 
     companion object {
         private const val TAG = "BrowsesthNtp"
-        private const val PREFS = "browsesth_ntp_prefs"
+        const val PREFS_NAME = "browsesth_ntp_prefs"
+        private const val PREFS = PREFS_NAME
         private const val KEY_ENGINE = "search_engine"
-        private const val KEY_THEME = "ntp_theme"
+        /** Public for [io.legado.app.ui.browser.BrowserTheme] preference listener. */
+        const val KEY_THEME = "ntp_theme"
         const val INCOGNITO_CONTEXT = "browsesth_incognito"
 
         fun browserContext(incognito: Boolean): AwBrowserContext {

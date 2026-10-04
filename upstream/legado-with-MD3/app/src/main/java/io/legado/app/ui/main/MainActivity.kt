@@ -429,12 +429,17 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
             mangaSettingsGateway.currentSettings,
         )
 
-        val useRail = when (tabletInterface) {
-            "always" -> true
-            "landscape" -> orientation == Configuration.ORIENTATION_LANDSCAPE
-            "off" -> false
-            "auto" -> smallestWidthDp >= 600
-            else -> false
+        // SPEC-018: tablets never show the main bookshelf navigation rail.
+        val useRail = if (smallestWidthDp >= 600) {
+            false
+        } else {
+            when (tabletInterface) {
+                "always" -> true
+                "landscape" -> orientation == Configuration.ORIENTATION_LANDSCAPE
+                "off" -> false
+                "auto" -> false
+                else -> false
+            }
         }
 
         val startRoutes = remember(defaultToRead) {

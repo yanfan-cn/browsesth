@@ -10,12 +10,17 @@ import java.util.regex.Pattern
 /** HTTP fetch helpers for browsesth web chapters (SPEC-015). */
 object WebChapterHttpFetcher {
 
-    data class TocChapter(val title: String, val url: String)
+    data class TocChapter(
+        val title: String,
+        val url: String,
+        val adapterPath: String = "",
+    )
     data class TocResult(
         val seriesUrl: String,
         val chapters: List<TocChapter>,
         val prevChapter: String = "",
         val nextChapter: String = "",
+        val catalogHint: String = "",
     )
 
     data class ExpandResult(
@@ -70,6 +75,7 @@ object WebChapterHttpFetcher {
                 chapters = list.distinctBy { WebMangaImageFilter.normalizeUrl(it.url) },
                 prevChapter = o.get("prevChapter")?.asString.orEmpty(),
                 nextChapter = o.get("nextChapter")?.asString.orEmpty(),
+                catalogHint = o.get("catalogHint")?.asString.orEmpty(),
             )
         } catch (_: Throwable) {
             null

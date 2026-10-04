@@ -293,7 +293,8 @@ internal fun Preferences.toAppShellSettings(): AppShellSettings = AppShellSettin
         compatDsBoolean(PreferKey.useFloatingBottomBarLiquidGlass) ?: true,
     tabletInterface = compatDsString(PreferKey.tabletInterface) ?: "auto",
     labelVisibilityMode = compatDsString(PreferKey.labelVisibilityMode) ?: "auto",
-    defaultHomePage = compatDsString(PreferKey.defaultHomePage) ?: "bookshelf",
+    // SPEC-018: cold start lands on browser home (NTP), not bookshelf.
+    defaultHomePage = compatDsString(PreferKey.defaultHomePage) ?: "home",
     mainNavigationOrder = compatDsString(PreferKey.mainNavigationOrder)
         ?: "home,bookshelf,explore,rss,my",
     navExtended = compatDsBoolean(PreferKey.navExtended) ?: false,

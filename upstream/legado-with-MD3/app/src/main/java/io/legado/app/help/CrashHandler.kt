@@ -8,7 +8,6 @@ import android.os.Build
 import android.os.Debug
 import android.os.Looper
 import android.os.Process
-import android.webkit.WebSettings
 import io.legado.app.constant.AppConst
 import io.legado.app.constant.AppLog
 import io.legado.app.domain.gateway.BackupSettingsGateway
@@ -129,11 +128,7 @@ class CrashHandler(val context: Context) : Thread.UncaughtExceptionHandler {
                 map["MODEL"] = Build.MODEL
                 map["SDK_INT"] = Build.VERSION.SDK_INT.toString()
                 map["RELEASE"] = Build.VERSION.RELEASE
-                map["WebViewUserAgent"] = try {
-                    WebSettings.getDefaultUserAgent(appCtx)
-                } catch (e: Throwable) {
-                    e.toString()
-                }
+                map["WebViewUserAgent"] = io.legado.app.browser.engine.BrowserUa.MOBILE
                 map["packageName"] = appCtx.packageName
                 map["heapSize"] = Runtime.getRuntime().maxMemory().toString()
                 //获取app版本信息

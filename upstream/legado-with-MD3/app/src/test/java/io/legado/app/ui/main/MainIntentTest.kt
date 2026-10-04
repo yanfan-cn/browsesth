@@ -45,4 +45,21 @@ class MainIntentTest {
         assertEquals(0, intent.flags and mediaControlFlags)
         assertFalse(MainIntent.shouldOpenRouteWithHomeParent(intent))
     }
+
+    @Test
+    fun `home intent opens main route not documentation example domain`() {
+        val context: Application = RuntimeEnvironment.getApplication()
+
+        val intent = MainIntent.createHomeIntent(context)
+
+        assertEquals(
+            MainRouteConst.ROUTE_MAIN,
+            intent.getStringExtra(MainIntent.EXTRA_START_ROUTE),
+        )
+        val url = intent.getStringExtra(MainIntent.EXTRA_WEB_VIEW_URL)
+        assertTrue(url.isNullOrBlank() || !url.contains("example.com"))
+        assertTrue(
+            intent.getStringExtra(MainIntent.EXTRA_START_ROUTE) != MainRouteConst.ROUTE_WEB_VIEW,
+        )
+    }
 }

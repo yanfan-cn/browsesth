@@ -265,6 +265,8 @@ dependencies {
     // Aloha Core 150 (B2); AAR gitignored locally
     implementation(files("libs/aloha-bromium-localbuild.aar"))
     implementation("com.google.guava:guava:33.3.1-android")
+    // Cimoc A adapters (SPEC-016)
+    implementation("com.alibaba:fastjson:1.2.83")
     implementation(libs.protobuf.javalite)
     implementation(libs.glide.glide)
     implementation(libs.glide.okhttp)

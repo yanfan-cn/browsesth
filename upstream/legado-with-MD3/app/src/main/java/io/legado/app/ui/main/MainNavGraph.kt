@@ -14,6 +14,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -214,6 +216,31 @@ private fun webViewEntryMetadata(predictiveBackEnabled: Boolean) = metadata {
                 animationSpec = tween(easing = FastOutSlowInEasing),
                 targetOffset = { fullWidth -> fullWidth }
             )
+        }
+    }
+}
+
+/** SPEC-028: bookmarks / history / browser settings — horizontal push, no fade. */
+private fun browserSlideEntryMetadata(predictiveBackEnabled: Boolean) =
+    webViewEntryMetadata(predictiveBackEnabled)
+
+/**
+ * SPEC-028: tab overview scales. Tabs page may fade+scale; underneath WebView must not.
+ */
+private fun browserTabsScaleMetadata(predictiveBackEnabled: Boolean) = metadata {
+    val spec = tween<Float>(durationMillis = 420, easing = FastOutSlowInEasing)
+    put(NavDisplay.TransitionKey) {
+        (scaleIn(animationSpec = spec, initialScale = 0.88f) + fadeIn(animationSpec = spec)) togetherWith
+            ExitTransition.None
+    }
+    put(NavDisplay.PopTransitionKey) {
+        EnterTransition.None togetherWith
+            (scaleOut(animationSpec = spec, targetScale = 0.88f) + fadeOut(animationSpec = spec))
+    }
+    if (predictiveBackEnabled) {
+        put(NavDisplay.PredictivePopTransitionKey) { _ ->
+            EnterTransition.None togetherWith
+                (scaleOut(animationSpec = spec, targetScale = 0.88f) + fadeOut(animationSpec = spec))
         }
     }
 }
@@ -600,13 +627,17 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteSettingsBrowser> {
+    entry<MainRouteSettingsBrowser>(
+        metadata = browserSlideEntryMetadata(configuration.appShell.predictiveBackEnabled),
+    ) {
         io.legado.app.ui.config.browserConfig.BrowserConfigScreen(
             onBackClick = { onNavigateBack() },
         )
     }
 
-    entry<MainRouteBrowserBookmarks> {
+    entry<MainRouteBrowserBookmarks>(
+        metadata = browserSlideEntryMetadata(configuration.appShell.predictiveBackEnabled),
+    ) {
         io.legado.app.ui.browser.BrowserBookmarksScreen(
             onBack = { onNavigateBack() },
             onOpenUrl = { url ->
@@ -616,7 +647,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBrowserHistory> {
+    entry<MainRouteBrowserHistory>(
+        metadata = browserSlideEntryMetadata(configuration.appShell.predictiveBackEnabled),
+    ) {
         io.legado.app.ui.browser.BrowserHistoryScreen(
             onBack = { onNavigateBack() },
             onOpenUrl = { url ->
@@ -626,7 +659,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBrowserTabs> {
+    entry<MainRouteBrowserTabs>(
+        metadata = browserTabsScaleMetadata(configuration.appShell.predictiveBackEnabled),
+    ) {
         io.legado.app.ui.browser.BrowserTabsScreen(
             onBack = { onNavigateBack() },
         )

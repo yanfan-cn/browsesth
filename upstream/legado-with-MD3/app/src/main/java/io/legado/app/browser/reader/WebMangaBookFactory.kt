@@ -123,6 +123,7 @@ object WebMangaBookFactory {
         candidates: List<WebMangaImageFilter.Candidate> = emptyList(),
         seriesKey: String = pageUrl,
         tocChapters: List<WebChapterHttpFetcher.TocChapter> = emptyList(),
+        trustedImages: Boolean = false,
     ): Book {
         require(imageUrls.isNotEmpty() || candidates.isNotEmpty()) { "imageUrls empty" }
         val baseCandidates = if (candidates.isNotEmpty()) {
@@ -135,15 +136,23 @@ object WebMangaBookFactory {
             it.url.startsWith("http://") || it.url.startsWith("https://")
         }.distinctBy { it.url }
 
-        val withBytes = enrichContentLength(baseCandidates)
-        val absolute = WebMangaImageFilter.filter(withBytes).map { it.url }
+        val absolute = if (trustedImages) {
+            baseCandidates.map { it.url }
+        } else {
+            val withBytes = enrichContentLength(baseCandidates)
+            WebMangaImageFilter.filter(withBytes).map { it.url }
+        }
         require(absolute.isNotEmpty()) {
             "no usable images after filtering icons/small assets"
         }
 
-        val cover = WebMangaImageFilter.pickCoverUrl(
-            withBytes.filter { it.url in absolute.toSet() },
-        ) ?: absolute.first()
+        val cover = if (trustedImages) {
+            absolute.first()
+        } else {
+            WebMangaImageFilter.pickCoverUrl(
+                enrichContentLength(baseCandidates).filter { it.url in absolute.toSet() },
+            ) ?: absolute.first()
+        }
 
         val identity = seriesKey.ifBlank { pageUrl }.ifBlank { title }
         val hash = sha1(identity).take(16)
@@ -177,7 +186,11 @@ object WebMangaBookFactory {
                 title = ch.title.ifBlank { "第${index + 1}章" },
                 bookUrl = bookUrl,
                 index = index,
-            )
+            ).also { entity ->
+                if (ch.adapterPath.isNotBlank()) {
+                    entity.putVariable(WebMangaChapterLoader.VAR_CIMOC_PATH, ch.adapterPath)
+                }
+            }
         }
         appDb.bookChapterDao.insert(*entities.toTypedArray())
 
@@ -187,7 +200,6 @@ object WebMangaBookFactory {
             """<img src="$safe">"""
         }
         BookHelp.saveText(book, current, html)
-        prefetchNeighborChapters(book)
         return book
     }
 

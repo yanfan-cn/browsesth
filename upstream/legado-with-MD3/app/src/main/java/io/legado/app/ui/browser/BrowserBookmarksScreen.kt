@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,7 +21,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -54,6 +54,16 @@ fun BrowserBookmarksScreen(
     onBack: () -> Unit,
     onOpenUrl: (String) -> Unit,
 ) {
+    BrowserTheme {
+        BrowserBookmarksBody(onBack = onBack, onOpenUrl = onOpenUrl)
+    }
+}
+
+@Composable
+private fun BrowserBookmarksBody(
+    onBack: () -> Unit,
+    onOpenUrl: (String) -> Unit,
+) {
     val context = LocalContext.current
     val store = remember { BrowseStore(context) }
     var items by remember { mutableStateOf(store.bookmarks()) }
@@ -84,22 +94,22 @@ fun BrowserBookmarksScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(24.dp),
+                    .padding(BrowserUiTokens.SpaceXl),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Icon(
                     Icons.Default.Star,
                     contentDescription = null,
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier.size(BrowserUiTokens.ReaderFabSize - BrowserUiTokens.SpaceSm),
                     tint = scheme.onSurfaceVariant,
                 )
-                Spacer(modifier = Modifier.size(12.dp))
-                Text("还没有书签", color = scheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.size(BrowserUiTokens.SpaceMd))
+                Text("还没有书签", color = scheme.onSurfaceVariant, fontSize = 16.sp)
                 Text(
                     "浏览时可从工具箱添加",
                     color = scheme.onSurfaceVariant,
-                    fontSize = 13.sp,
+                    fontSize = 14.sp,
                 )
             }
         } else {
@@ -107,9 +117,14 @@ fun BrowserBookmarksScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding),
+                contentPadding = PaddingValues(
+                    horizontal = BrowserUiTokens.PagePaddingH,
+                    vertical = BrowserUiTokens.SpaceSm,
+                ),
+                verticalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceSm),
             ) {
                 items(items, key = { it.url }) { entry ->
-                    BookmarkRow(
+                    BookmarkCard(
                         entry = entry,
                         onOpen = { onOpenUrl(entry.url) },
                         onDelete = {
@@ -118,7 +133,6 @@ fun BrowserBookmarksScreen(
                             context.toastOnUi("已删除")
                         },
                     )
-                    HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.4f))
                 }
             }
         }
@@ -139,7 +153,7 @@ fun BrowserBookmarksScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Spacer(modifier = Modifier.size(8.dp))
+                    Spacer(modifier = Modifier.size(BrowserUiTokens.SpaceSm))
                     OutlinedTextField(
                         value = url,
                         onValueChange = { url = it },
@@ -171,7 +185,7 @@ fun BrowserBookmarksScreen(
 }
 
 @Composable
-private fun BookmarkRow(
+private fun BookmarkCard(
     entry: BrowseStore.Entry,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
@@ -183,15 +197,17 @@ private fun BookmarkRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(BrowserUiTokens.CardCorner))
+            .background(scheme.surfaceContainer)
             .clickable(onClick = onOpen)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = BrowserUiTokens.SpaceLg, vertical = BrowserUiTokens.SpaceMd),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(scheme.surfaceContainer),
+                .clip(RoundedCornerShape(BrowserUiTokens.ButtonCorner))
+                .background(scheme.surfaceVariant),
             contentAlignment = Alignment.Center,
         ) {
             AsyncImage(
@@ -205,7 +221,7 @@ private fun BookmarkRow(
                 contentScale = ContentScale.Fit,
             )
         }
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceMd))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 entry.title.ifBlank { entry.url },

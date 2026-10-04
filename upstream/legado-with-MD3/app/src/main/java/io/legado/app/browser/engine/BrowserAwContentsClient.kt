@@ -35,7 +35,10 @@ class BrowserAwContentsClient(
     private val onStatus: (String) -> Unit = {},
     private val onNavigationOverride: ((String) -> Unit)? = null,
     private val onPageFinishedExtra: ((String, String) -> Unit)? = null,
+    /** SPEC-023: omnibox sync as soon as navigation starts. */
+    private val onUrlChanged: ((String) -> Unit)? = null,
     private val onProgress: ((Int) -> Unit)? = null,
+    private val onMainFrameLoadStarted: (() -> Unit)? = null,
     /** Return true if URL handled (cancel load). */
     private val onOverrideUrl: ((String) -> Boolean)? = null,
     private val isAdBlockEnabled: () -> Boolean = { true },
@@ -44,6 +47,8 @@ class BrowserAwContentsClient(
     private val onExternalBlocked: ((String) -> Unit)? = null,
     private val onPopupBlocked: (() -> Unit)? = null,
     private val onConsoleBlockPick: ((String) -> Unit)? = null,
+    private val onScrollDirection: ((String) -> Unit)? = null,
+    private val userAgentProvider: () -> String = { BrowserUa.MOBILE },
 ) : AwContentsClient() {
 
     val interceptHits = AtomicInteger(0)
@@ -90,12 +95,15 @@ class BrowserAwContentsClient(
         lastUrl = url
         lastError = null
         onStatus("加载中: $url")
+        onMainFrameLoadStarted?.invoke()
+        if (url.isNotBlank()) onUrlChanged?.invoke(url)
     }
 
     override fun onPageFinished(url: String) {
         lastUrl = url
         pageFinishedCount.incrementAndGet()
         onStatus("加载完成: $url")
+        if (url.isNotBlank()) onUrlChanged?.invoke(url)
         onPageFinishedExtra?.invoke(url, lastTitle)
     }
 
@@ -127,6 +135,10 @@ class BrowserAwContentsClient(
                 onConsoleBlockPick?.invoke(selector)
                 return true
             }
+        }
+        if (msg.startsWith(SCROLL_PREFIX)) {
+            onScrollDirection?.invoke(msg.removePrefix(SCROLL_PREFIX).trim())
+            return true
         }
         return false
     }
@@ -294,15 +306,20 @@ class BrowserAwContentsClient(
     override fun shouldPlayBackgroundVideo(): Boolean = false
     override fun onHlsDetected(url: String, requestHeaders: String) {}
     override fun getUserAgent(): String =
-        // SPEC-013: stock Chrome Mobile UA (no Browsesth token) so sites like Baidu
-        // do not serve degraded SERP shells without the category bar.
-        "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36"
+        // SPEC-018: form-factor default + toolbox override (no Browsesth token).
+        userAgentProvider()
 
     companion object {
         private const val TAG = "BrowsesthBrowser"
         const val AD_PROBE_MARKER = "browsesth-ad-probe"
         const val MIDPAGE_MARKER = "browsesth-midpage-skip"
         const val BLOCK_PICK_PREFIX = "BROWSESTH_BLOCK:"
+        const val SCROLL_PREFIX = "BROWSESTH_SCROLL:"
+        const val SCROLL_HOOK_JS =
+            "(function(){if(window.__browsesthScrollHook)return;window.__browsesthScrollHook=1;" +
+                "var last=0;window.addEventListener('scroll',function(){var y=window.scrollY||0;" +
+                "if(y-last>24){console.log('BROWSESTH_SCROLL:down');}else if(last-y>24){console.log('BROWSESTH_SCROLL:up');}" +
+                "last=y;},{passive:true});})();"
 
         fun extractSkipTarget(url: String): String? {
             val marker = "to="

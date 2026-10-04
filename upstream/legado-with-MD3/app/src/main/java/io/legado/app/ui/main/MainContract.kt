@@ -7,7 +7,7 @@ import kotlinx.collections.immutable.ImmutableList
 @Stable
 data class MainUiState(
     val destinations: ImmutableList<MainDestination> = MainDestination.mainDestinations,
-    val defaultHomePage: String = "bookshelf",
+    val defaultHomePage: String = "home",
     val showBottomView: Boolean = true,
     val useFloatingBottomBar: Boolean = true,
     val useFloatingBottomBarLiquidGlass: Boolean = true,

@@ -58,12 +58,11 @@ object MainIntent {
     }
 
     fun createHomeIntent(context: Context): Intent {
-        // Browsesth: 首页临时改为内置浏览器入口（非书架/书源）。
-        return createWebViewIntent(
-            context = context,
-            title = "浏览器",
-            url = "https://example.com/",
-        )
+        // SPEC-032: 首页是浏览器 NTP，不是 example.com 网页壳。
+        return createLauncherIntent(context).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra(EXTRA_START_ROUTE, MainRouteConst.ROUTE_MAIN)
+        }
     }
 
     /**

@@ -1,7 +1,8 @@
 package io.legado.app.browser.reader
 
 /**
- * Discover sibling chapter links (SPEC-015 fix).
+ * Discover sibling chapter links (SPEC-015/016).
+ * Novel heuristic 1: also surface catalog/index hints when chapter list is thin.
  */
 object WebTocDiscoverJs {
     val SCRIPT: String =
@@ -19,7 +20,8 @@ object WebTocDiscoverJs {
             "'.chapter-list a, .chapter_list a, #chapterList a, .catalog a, .catalogue a, " +
             ".list-chapter a, .chapters a, .comic-chapters a, .episode-list a, #chapter-list a, " +
             "[class*=\"chapter-list\"] a, [class*=\"chapter_list\"] a, [id*=\"chapterList\"] a, " +
-            "[class*=\"catalog\"] a, [class*=\"Catalogue\"] a, .volume a, .vol a');" +
+            "[class*=\"catalog\"] a, [class*=\"Catalogue\"] a, .volume a, .vol a, " +
+            "#list a, .listmain a, .dirlist a, .mulu a, #mulu a, .book-list a');" +
             "for(var i=0;i<roots.length;i++){" +
             "var a=roots[i];add(a.innerText||a.textContent||'',a.href);" +
             "if(chapters.length>=300)break;" +
@@ -32,6 +34,15 @@ object WebTocDiscoverJs {
             "if(t.length>40)continue;" +
             "if(re.test(t)){add(t,all[j].href);}" +
             "if(chapters.length>=300)break;" +
+            "}" +
+            "}" +
+            "var catalogHint='';" +
+            "if(chapters.length<3){" +
+            "var cas=document.querySelectorAll('a[href]');" +
+            "var reCat=/目录|目次|章节列表|回目录|返回目录|viewbook|index|catalog|toc/i;" +
+            "for(var ci=0;ci<cas.length;ci++){" +
+            "var ct=((cas[ci].innerText||cas[ci].textContent||'')+' '+(cas[ci].getAttribute('title')||'')).trim();" +
+            "if(reCat.test(ct)&&ct.length<24){catalogHint=abs(cas[ci].href);break;}" +
             "}" +
             "}" +
             "var prev='',next='';" +
@@ -64,7 +75,6 @@ object WebTocDiscoverJs {
             "if(common&&common.length>12)series=common;" +
             "}catch(e){}" +
             "}" +
-            "var can=document.querySelector('link[rel=\"canonical\"]');" +
-            "return JSON.stringify({seriesUrl:series,chapters:chapters,prevChapter:prev||'',nextChapter:next||'',current:location.href});" +
+            "return JSON.stringify({seriesUrl:series,chapters:chapters,prevChapter:prev||'',nextChapter:next||'',catalogHint:catalogHint||'',current:location.href});" +
             "})();"
 }

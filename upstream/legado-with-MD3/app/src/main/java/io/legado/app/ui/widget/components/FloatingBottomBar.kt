@@ -135,6 +135,7 @@ fun FloatingBottomBar(
     compactProgress: Float = 0f,
     expandedWidth: Dp? = null,
     onRestoreNavigation: () -> Unit = {},
+    enableDragSwitch: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
     val navigationAlpha = (1f - compactProgress * 3f).coerceIn(0f, 1f)
@@ -443,7 +444,7 @@ fun FloatingBottomBar(
                                 Modifier
                             }
                         )
-                        .then(if (compactProgress <= 0f) dampedDragAnimation.modifier else Modifier)
+                        .then(if (compactProgress <= 0f && enableDragSwitch) dampedDragAnimation.modifier else Modifier)
                         .drawBackdrop(
                             backdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop),
                             shape = { ContinuousCapsule },

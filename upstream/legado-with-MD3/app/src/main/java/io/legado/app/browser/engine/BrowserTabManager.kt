@@ -11,6 +11,8 @@ data class BrowserTab(
     val url: String?,
     val title: String,
     val incognito: Boolean,
+    /** SPEC-024: text shown in omnibox (search query / typed input), not page URL. */
+    val omniboxLabel: String? = null,
 )
 
 /**
@@ -26,18 +28,29 @@ object BrowserTabManager {
 
     fun activeTab(): BrowserTab? = _tabs.value.firstOrNull { it.id == _activeId.value }
 
-    fun openUrlInActive(url: String, incognito: Boolean? = null) {
+    fun openUrlInActive(
+        url: String,
+        incognito: Boolean? = null,
+        omniboxLabel: String? = null,
+    ) {
         val id = _activeId.value
+        val label = omniboxLabel?.trim()?.takeIf { it.isNotEmpty() }
+            ?: BrowserOmniboxLabel.fromSearchUrl(url)
         _tabs.update { list ->
             list.map {
                 if (it.id == id) {
                     it.copy(
                         url = url,
-                        title = url,
+                        title = label ?: url,
                         incognito = incognito ?: it.incognito,
+                        omniboxLabel = label ?: it.omniboxLabel,
                     )
                 } else it
             }
+        }
+        // SPEC-021: session retained → must hit live AwContents (state-only update was a no-op load).
+        if (BrowserSessionHolder.sessionKey == id) {
+            BrowserSessionHolder.loadUrl(url)
         }
     }
 
@@ -47,6 +60,7 @@ object BrowserTabManager {
             url = url,
             title = if (url.isNullOrBlank()) "新标签页" else url,
             incognito = incognito,
+            omniboxLabel = BrowserOmniboxLabel.fromSearchUrl(url),
         )
         _tabs.update { it + tab }
         if (select) {
@@ -92,8 +106,19 @@ object BrowserTabManager {
                     it.copy(
                         url = url,
                         title = title.ifBlank { url }.ifBlank { it.title },
+                        // Keep omniboxLabel (search text); never replace with page URL.
                     )
                 } else it
+            }
+        }
+    }
+
+    fun updateActiveOmniboxLabel(label: String) {
+        val id = _activeId.value
+        val trimmed = label.trim()
+        _tabs.update { list ->
+            list.map {
+                if (it.id == id) it.copy(omniboxLabel = trimmed.ifEmpty { null }) else it
             }
         }
     }

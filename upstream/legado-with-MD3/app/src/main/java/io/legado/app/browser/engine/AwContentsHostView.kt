@@ -22,8 +22,8 @@ import org.chromium.base.Callback
 /**
  * Hosts Aloha [AwContents] in place of android.webkit.WebView.
  *
- * SPEC-011: prefer hardware DrawFn; on failure [BrowserDrawMode] locks SOFTWARE
- * (SPEC-009 blank-page rollback path).
+ * SPEC-011/020: prefer hardware DrawFn; failure → SOFTWARE for this process only
+ * (no sticky prefs; SPEC-009 blank-page rollback path).
  */
 class AwContentsHostView @JvmOverloads constructor(
     context: Context,
@@ -70,6 +70,24 @@ class AwContentsHostView @JvmOverloads constructor(
         settings.setUseWideViewPort(true)
         settings.setLoadWithOverviewMode(false)
         settings.setMediaPlaybackRequiresUserGesture(true)
+        // SPEC-018/029: phone/desktop UA + Client Hints aligned to 150.0.7871.46.
+        val ua = BrowserUa.resolve(context)
+        val uaMobile = BrowserChromePrefs(context).uaModeOrDefault(
+            BrowserFormFactor.isTablet(context),
+        ) == BrowserUa.Mode.Mobile
+        runCatching {
+            settings.setUserAgentString(ua)
+        }
+        runCatching {
+            settings.setUserAgentIsMobile(uaMobile)
+        }
+        runCatching {
+            settings.setUserAgentMetadataFromMap(BrowserUa.clientHintMap(uaMobile))
+        }.onFailure { Log.w(TAG, "UA metadata: ${it.message}") }
+        if (BrowserKernelCompat.serpCompatEnabled(context)) {
+            runCatching { settings.setAcceptThirdPartyCookies(true) }
+                .onFailure { Log.w(TAG, "setAcceptThirdPartyCookies: ${it.message}") }
+        }
         // SPEC-013: keep images on for SERP thumbnails / faster perceived load.
         runCatching {
             val m = settings.javaClass.getMethod("setImagesEnabled", Boolean::class.javaPrimitiveType)
@@ -89,6 +107,7 @@ class AwContentsHostView @JvmOverloads constructor(
         }
 
         val drawFnAccess = BrowserDrawMode.createDrawFnAccess(this)
+        BrowserKernelCompat.applyAfterBrowserProcessStart(context.applicationContext)
         val contents = AwContents(
             browserContext,
             this,
