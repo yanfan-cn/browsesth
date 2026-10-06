@@ -54,6 +54,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -197,6 +198,8 @@ fun BrowserSessionScreen(
     var addressFocused by remember { mutableStateOf(false) }
     /** SPEC-022 B: phone floating chrome auto-hide on scroll down. */
     var phoneChromeVisible by remember { mutableStateOf(true) }
+    var tabMenu by remember { mutableStateOf(false) }
+    val openTabCount by BrowserTabManager.tabs.collectAsStateWithLifecycle()
     var pickMode by remember { mutableStateOf(false) }
     val ntpPrefs = remember { BrowserNtpPrefs(context) }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -931,6 +934,7 @@ fun BrowserSessionScreen(
                                     1 -> hostRef?.goForward()
                                     2 -> showToolbox = true
                                     3 -> {
+                                        BrowserSessionHolder.captureActiveThumbnail()
                                         val open = onOpenTabs
                                         if (open != null) open() else showSnack("标签页即将支持")
                                     }
@@ -973,11 +977,29 @@ fun BrowserSessionScreen(
                                 }
                                 FloatingBottomBarItem(
                                     onClick = { activateChromeTab(3) },
+                                    onLongClick = { tabMenu = true },
                                 ) {
-                                    SymbolIcon(Symbols.FilterNone,
-                                        contentDescription = "标签页",
-                                        tint = scheme.onSurface,
-                                    )
+                                    Box {
+                                        BrowserTabCountBadge(
+                                            count = openTabCount.size,
+                                            tint = scheme.onSurface,
+                                            useGlass = false,
+                                        )
+                                        BrowserTabCountMenu(
+                                            expanded = tabMenu,
+                                            onDismiss = { tabMenu = false },
+                                            onNewTab = {
+                                                BrowserTabManager.openNewTab(url = null, select = true)
+                                            },
+                                            onCloseAll = { BrowserTabManager.closeAll() },
+                                            onAddBookmark = {
+                                                val url = clientRef?.lastUrl?.takeIf { it.startsWith("http") }
+                                                    ?: address
+                                                store.addBookmark(url, clientRef?.lastTitle.orEmpty())
+                                                context.toastOnUi("已加书签")
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }

@@ -3,6 +3,7 @@ package io.legado.app.browser.engine
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Rect
 import android.os.Bundle
@@ -155,6 +156,24 @@ class AwContentsHostView @JvmOverloads constructor(
 
     fun onHostResume() { awContents?.onResume() }
     fun onHostPause() { awContents?.onPause() }
+
+    /**
+     * SPEC-053: downscaled still of the current page for the tab grid.
+     * Software canvas only — never used as liquid-glass backdrop.
+     */
+    fun capturePreview(maxWidthPx: Int = 360): Bitmap? {
+        val w = width
+        val h = height
+        if (w <= 0 || h <= 0) return null
+        return runCatching {
+            val full = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(full)
+            draw(canvas)
+            if (w <= maxWidthPx) return@runCatching full
+            val nh = (h.toFloat() / w * maxWidthPx).toInt().coerceAtLeast(1)
+            Bitmap.createScaledBitmap(full, maxWidthPx, nh, true)
+        }.getOrNull()
+    }
 
     fun destroyContents() {
         awContents?.destroy()

@@ -33,6 +33,17 @@ object BrowserUiTokens {
     val SpaceLg = 16.dp
     val SpaceXl = 24.dp
 
+    /** SPEC-051: phone NTP content below chrome; tablet does not use this. */
+    val NtpPhoneContentExtraTop = 70.dp
+    val NtpOverlayBlur = 28.dp
+    val NtpOverlaySurfaceLight = 0.82f
+    val NtpOverlaySurfaceDark = 0.86f
+    val NtpEngineMenuWidth = 140.dp
+    val NtpEngineIconSize = 32.dp
+    val NtpShortcutIconSize = 52.dp
+    val NtpShortcutScreenInset = 20.dp
+    val NtpCustomizeSwitchScale = 0.78f
+
     val CardCorner = 24.dp
     val ButtonCorner = 12.dp
     val TopBarHeight = 54.dp

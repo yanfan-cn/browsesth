@@ -103,10 +103,10 @@ private fun MaterialAboutScreen(
             Image(
                 painter = painterResource(R.drawable.ic_launcher_foreground),
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .height(120.dp)
-                    .width(160.dp)
+                    .width(120.dp)
                     .align(Alignment.CenterHorizontally)
             )
             AppText(

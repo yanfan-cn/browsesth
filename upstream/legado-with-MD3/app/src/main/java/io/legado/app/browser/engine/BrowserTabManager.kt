@@ -33,6 +33,20 @@ object BrowserTabManager {
         incognito: Boolean? = null,
         omniboxLabel: String? = null,
     ) {
+        if (_tabs.value.isEmpty()) {
+            openNewTab(url = url, incognito = incognito ?: false, select = true)
+            val id = _activeId.value
+            val label = omniboxLabel?.trim()?.takeIf { it.isNotEmpty() }
+                ?: BrowserOmniboxLabel.fromSearchUrl(url)
+            _tabs.update { list ->
+                list.map {
+                    if (it.id == id) {
+                        it.copy(omniboxLabel = label ?: it.omniboxLabel, title = label ?: url)
+                    } else it
+                }
+            }
+            return
+        }
         val id = _activeId.value
         val label = omniboxLabel?.trim()?.takeIf { it.isNotEmpty() }
             ?: BrowserOmniboxLabel.fromSearchUrl(url)
@@ -64,6 +78,7 @@ object BrowserTabManager {
         )
         _tabs.update { it + tab }
         if (select) {
+            BrowserSessionHolder.captureActiveThumbnail()
             _activeId.value = tab.id
             BrowserSessionHolder.destroy()
         }
@@ -73,29 +88,37 @@ object BrowserTabManager {
     fun switchTo(tabId: String) {
         if (_tabs.value.none { it.id == tabId }) return
         if (_activeId.value == tabId) return
+        BrowserSessionHolder.captureActiveThumbnail()
         BrowserSessionHolder.destroy()
         _activeId.value = tabId
     }
 
     fun close(tabId: String) {
         val list = _tabs.value
+        if (list.none { it.id == tabId }) return
+        BrowserTabThumbnailStore.remove(tabId)
         if (list.size <= 1) {
-            // Keep one NTP tab.
-            val only = list.first()
-            _tabs.value = listOf(only.copy(url = null, title = "新标签页"))
-            _activeId.value = only.id
-            BrowserSessionHolder.destroy()
+            closeAll()
             return
         }
         val idx = list.indexOfFirst { it.id == tabId }
-        if (idx < 0) return
         val next = list.filterNot { it.id == tabId }
         _tabs.value = next
         if (_activeId.value == tabId) {
+            BrowserSessionHolder.captureActiveThumbnail()
             val fallback = next.getOrNull(idx.coerceAtMost(next.lastIndex)) ?: next.first()
             _activeId.value = fallback.id
             BrowserSessionHolder.destroy()
         }
+    }
+
+    /** SPEC-053: empty tab list is allowed; count shows 0. */
+    fun closeAll() {
+        BrowserSessionHolder.captureActiveThumbnail()
+        BrowserTabThumbnailStore.clear()
+        BrowserSessionHolder.destroy()
+        _tabs.value = emptyList()
+        _activeId.value = ""
     }
 
     fun updateActiveMeta(url: String, title: String) {
@@ -124,6 +147,10 @@ object BrowserTabManager {
     }
 
     fun setActiveIncognito(incognito: Boolean) {
+        if (_tabs.value.isEmpty()) {
+            openNewTab(url = null, incognito = incognito, select = true)
+            return
+        }
         val id = _activeId.value
         _tabs.update { list ->
             list.map { if (it.id == id) it.copy(incognito = incognito) else it }
@@ -132,6 +159,8 @@ object BrowserTabManager {
 
     fun clearActiveToNtp() {
         val id = _activeId.value
+        if (id.isEmpty() || _tabs.value.none { it.id == id }) return
+        BrowserSessionHolder.captureActiveThumbnail()
         BrowserSessionHolder.destroy()
         _tabs.update { list ->
             list.map {

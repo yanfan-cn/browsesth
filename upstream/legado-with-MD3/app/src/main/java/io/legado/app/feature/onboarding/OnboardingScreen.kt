@@ -71,11 +71,11 @@ fun OnboardingScreen(
             Image(
                 painter = painterResource(R.drawable.ic_launcher_foreground),
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .padding(top = 16.dp)
                     .height(96.dp)
-                    .width(128.dp)
+                    .width(96.dp)
             )
             AppText(
                 text = pageTitle(state.page),

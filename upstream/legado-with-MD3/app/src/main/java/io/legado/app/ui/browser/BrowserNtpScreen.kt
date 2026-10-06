@@ -1,5 +1,10 @@
 package io.legado.app.ui.browser
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -55,10 +60,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -68,6 +78,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -82,6 +93,7 @@ import io.legado.app.browser.engine.BrowserNtpPrefs
 import io.legado.app.browser.engine.BrowserSearchEngine
 import io.legado.app.browser.engine.BrowserShortcut
 import io.legado.app.browser.engine.BrowserShortcutStore
+import io.legado.app.browser.engine.BrowserTabManager
 import io.legado.app.browser.engine.resolveBrowserNavigationInput
 import io.legado.app.data.entities.Book
 import io.legado.app.ui.book.info.ChangeCoverSheet
@@ -90,6 +102,7 @@ import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.utils.toastOnUi
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
@@ -103,7 +116,7 @@ private data class NtpColors(
     val cardBg: Color,
     val primaryText: Color,
     val secondaryText: Color,
-    val logoAccent: Color,
+    val ntpWordmark: Color,
     val cta: Color,
     val ctaText: Color,
     val divider: Color,
@@ -123,7 +136,7 @@ private fun rememberNtpColors(forceDark: Boolean?): NtpColors {
             cardBg = BrowserUiTokens.CardBgDark,
             primaryText = BrowserUiTokens.TextPrimaryDark,
             secondaryText = BrowserUiTokens.TextSecondaryDark,
-            logoAccent = BrowserUiTokens.PrimaryOnDark,
+            ntpWordmark = Color(0xFFF6F1EA),
             cta = BrowserUiTokens.PrimaryOnDark,
             ctaText = BrowserUiTokens.PageBgDark,
             divider = Color.White.copy(alpha = 0.08f),
@@ -135,7 +148,7 @@ private fun rememberNtpColors(forceDark: Boolean?): NtpColors {
             cardBg = BrowserUiTokens.CardBgLight,
             primaryText = BrowserUiTokens.TextPrimaryLight,
             secondaryText = BrowserUiTokens.TextSecondaryLight,
-            logoAccent = BrowserUiTokens.Primary,
+            ntpWordmark = Color(0xFF1C1B19),
             cta = BrowserUiTokens.Primary,
             ctaText = Color.White,
             divider = Color.Black.copy(alpha = 0.06f),
@@ -184,6 +197,7 @@ fun BrowserNtpScreen(
     }
     val colors = rememberNtpColors(forceDark)
     val books by viewModel.recentBooks.collectAsState()
+    val tabCount by BrowserTabManager.tabs.collectAsStateWithLifecycle()
     val hasQuery = query.isNotBlank()
     val shortcutColumns = if (tabletLayout) 6 else 4
 
@@ -222,7 +236,19 @@ fun BrowserNtpScreen(
         onOpenUrl(url, incognito, raw)
     }
 
-    val pageBg = if (incognito) BrowserUiTokens.IncognitoPageBg else colors.pageBg
+    val pageBg by animateColorAsState(
+        targetValue = if (incognito) BrowserUiTokens.IncognitoPageBg else colors.pageBg,
+        animationSpec = tween(400),
+        label = "ntpPageBg",
+    )
+    val ntpDark = incognito || when (forceDark) {
+        true -> true
+        false -> false
+        null -> LegadoTheme.isDark || isSystemInDarkTheme()
+    }
+    val wallpaperVisible = wallpaperUrl.isNotBlank() && !incognito && dailyWallpaper
+    val shortcutLightText = ntpDark || wallpaperVisible
+    val shortcutLabelColor = if (shortcutLightText) Color.White else Color(0xFF1C1B19)
     Box(
         modifier = rootModifier
             .fillMaxSize()
@@ -241,19 +267,25 @@ fun BrowserNtpScreen(
                 .then(if (sampleWallpaper) Modifier.layerBackdrop(ntpBackdrop) else Modifier)
                 .background(pageBg),
         ) {
-            if (wallpaperUrl.isNotBlank() && !incognito && dailyWallpaper) {
-                SubcomposeAsyncImage(
-                    model = wallpaperUrl,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.35f)),
-                )
-            }
+                AnimatedVisibility(
+                    visible = wallpaperVisible,
+                    enter = fadeIn(animationSpec = tween(400)),
+                    exit = fadeOut(animationSpec = tween(400)),
+                ) {
+                    Box(Modifier.fillMaxSize()) {
+                        SubcomposeAsyncImage(
+                            model = wallpaperUrl,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.35f)),
+                        )
+                    }
+                }
         }
 
         // SPEC-049: compact 54dp chrome + glass customize panel (sibling of sample source)
@@ -265,7 +297,7 @@ fun BrowserNtpScreen(
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .height(BrowserUiTokens.TopBarHeight)
-                .padding(horizontal = BrowserUiTokens.SpaceSm),
+                .padding(horizontal = BrowserUiTokens.PagePaddingH),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceMd),
         ) {
@@ -312,11 +344,13 @@ fun BrowserNtpScreen(
                     tint = chromeTint,
                     onClick = onOpenBookmarks,
                 )
-                NtpGlassIcon(
-                    icon = Symbols.FilterNone,
-                    desc = "标签页",
+                BrowserTabCountButton(
+                    count = tabCount.size,
                     tint = chromeTint,
-                    onClick = onOpenTabs,
+                    useGlass = true,
+                    onOpenTabs = onOpenTabs,
+                    onNewTab = { BrowserTabManager.openNewTab(url = null, select = true) },
+                    onCloseAll = { BrowserTabManager.closeAll() },
                 )
             }
         }
@@ -334,20 +368,29 @@ fun BrowserNtpScreen(
                             .fillMaxSize()
                             .padding(horizontal = BrowserUiTokens.PagePaddingH)
                             .statusBarsPadding()
-                            .padding(top = BrowserUiTokens.TopBarHeight + 8.dp, bottom = 72.dp)
+                            .padding(
+                                top = BrowserUiTokens.TopBarHeight + 8.dp +
+                                    BrowserUiTokens.NtpPhoneContentExtraTop,
+                                bottom = 72.dp,
+                            )
                     },
                 )
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                text = stringResource(R.string.app_name),
-                color = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.logoAccent,
-                fontSize = 36.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = (-0.5).sp,
-            )
-            Spacer(modifier = Modifier.height(16.dp))
+            val showLogo = incognito || !dailyWallpaper
+            if (showLogo) {
+                Image(
+                    painter = painterResource(R.drawable.ic_ntp_logo),
+                    contentDescription = stringResource(R.string.app_name),
+                    contentScale = ContentScale.Fit,
+                    colorFilter = ColorFilter.tint(
+                        if (incognito) Color(0xFFF6F1EA) else colors.ntpWordmark,
+                    ),
+                    modifier = Modifier.height(44.dp),
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // SPEC-049: dual-row capsule, no divider, liquid glass
             val fieldBg = if (incognito) BrowserUiTokens.IncognitoFieldBg else colors.fieldBg
@@ -394,6 +437,7 @@ fun BrowserNtpScreen(
                             },
                             textColor = textColor,
                             mutedColor = secondary,
+                            verticalOffset = 40.dp,
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
@@ -425,7 +469,7 @@ fun BrowserNtpScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
-                        .padding(horizontal = 8.dp),
+                        .padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Row(
@@ -471,59 +515,72 @@ fun BrowserNtpScreen(
                             },
                         )
                     }
-                    NtpGlassIcon(
-                        icon = Symbols.QrCodeScanner,
-                        desc = "扫码",
-                        tint = secondary,
-                        onClick = { qrLauncher.launch(null) },
-                    )
-                    NtpGlassIcon(
-                        icon = Symbols.Search,
-                        desc = "搜索",
-                        tint = if (hasQuery) colors.cta else secondary,
-                        filled = hasQuery,
-                        enabled = hasQuery,
-                        onClick = { if (hasQuery) submit() },
-                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        NtpGlassIcon(
+                            icon = Symbols.QrCodeScanner,
+                            desc = "扫码",
+                            tint = secondary,
+                            onClick = { qrLauncher.launch(null) },
+                        )
+                        NtpGlassIcon(
+                            icon = Symbols.Search,
+                            desc = "搜索",
+                            tint = if (hasQuery) colors.cta else secondary,
+                            filled = hasQuery,
+                            enabled = hasQuery,
+                            onClick = { if (hasQuery) submit() },
+                        )
+                    }
                 }
             }
 
             if (showShortcuts) {
                 Spacer(modifier = Modifier.height(28.dp))
-                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                    val cell = maxWidth / shortcutColumns
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = if (tabletLayout) {
+                                BrowserUiTokens.NtpShortcutScreenInset
+                            } else {
+                                (BrowserUiTokens.NtpShortcutScreenInset - BrowserUiTokens.PagePaddingH)
+                                    .coerceAtLeast(0.dp)
+                            },
+                        ),
+                ) {
+                    val iconSize = BrowserUiTokens.NtpShortcutIconSize
+                    val rowGap = if (shortcutColumns > 1) {
+                        (maxWidth - iconSize * shortcutColumns) / (shortcutColumns - 1)
+                    } else {
+                        0.dp
+                    }
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         maxItemsInEachRow = shortcutColumns,
-                        horizontalArrangement = Arrangement.Start,
+                        horizontalArrangement = Arrangement.spacedBy(rowGap),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         shortcuts.forEach { item ->
                             ShortcutChip(
                                 shortcut = item,
-                                labelColor = if (incognito) {
-                                    BrowserUiTokens.TextPrimaryDark
-                                } else {
-                                    colors.primaryText
-                                },
-                                cellWidth = cell,
+                                labelColor = shortcutLabelColor,
+                                lightText = shortcutLightText,
+                                darkBubble = ntpDark,
+                                cellWidth = iconSize,
                                 loadFavicon = firstFrameDone,
                                 onOpen = { onOpenUrl(item.url, incognito, null) },
                                 onEdit = { editShortcut = item },
                             )
                         }
                         AddShortcutChip(
-                            labelColor = if (incognito) {
-                                BrowserUiTokens.TextPrimaryDark
-                            } else {
-                                colors.secondaryText
-                            },
-                            ringColor = if (incognito) {
-                                BrowserUiTokens.TextSecondaryDark
-                            } else {
-                                colors.secondaryText.copy(alpha = 0.45f)
-                            },
-                            cellWidth = cell,
+                            labelColor = shortcutLabelColor,
+                            lightText = shortcutLightText,
+                            darkBubble = ntpDark,
+                            ringColor = shortcutLabelColor.copy(alpha = 0.45f),
+                            cellWidth = iconSize,
                             onClick = { addingShortcut = true },
                         )
                     }
@@ -551,21 +608,10 @@ fun BrowserNtpScreen(
                             color = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Medium,
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center,
-                        )
-                        Text(
-                            "最近在读",
-                            color = if (incognito) {
-                                BrowserUiTokens.TextSecondaryDark
-                            } else {
-                                colors.secondaryText
-                            },
-                            fontSize = 12.sp,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = BrowserUiTokens.SpaceMd),
-                            textAlign = TextAlign.Center,
+                            textAlign = TextAlign.Start,
                         )
                         if (books.isEmpty()) {
                             Text(
@@ -765,8 +811,19 @@ private fun NtpCustomizePanel(
     onShowBookshelf: (Boolean) -> Unit,
     onShowShortcuts: (Boolean) -> Unit,
 ) {
+    val density = LocalDensity.current
     Popup(
         alignment = Alignment.TopStart,
+        offset = IntOffset(
+            x = 0,
+            y = with(density) {
+                (
+                    (BrowserUiTokens.TopBarHeight - BrowserUiTokens.ControlMedium) / 2 +
+                        BrowserUiTokens.ControlMedium +
+                        8.dp
+                    ).roundToPx()
+            },
+        ),
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.PopupProperties(focusable = true),
     ) {
@@ -774,9 +831,12 @@ private fun NtpCustomizePanel(
         Column(
             modifier = Modifier
                 .width(240.dp)
-                .padding(top = 4.dp, start = 4.dp)
                 .clip(shape)
-                .browserControlLiquidGlass(shape, interactive = false)
+                .browserControlLiquidGlass(
+                    shape,
+                    interactive = false,
+                    readableOverlay = true,
+                )
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             Text("主页", color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
@@ -801,7 +861,11 @@ private fun NtpCustomizeRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(title, color = textColor, fontSize = 16.sp, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onChecked)
+        Switch(
+            checked = checked,
+            onCheckedChange = onChecked,
+            modifier = Modifier.scale(BrowserUiTokens.NtpCustomizeSwitchScale),
+        )
     }
 }
 
@@ -835,6 +899,8 @@ private fun NtpActionChip(
 private fun ShortcutChip(
     shortcut: BrowserShortcut,
     labelColor: Color,
+    lightText: Boolean,
+    darkBubble: Boolean,
     cellWidth: androidx.compose.ui.unit.Dp,
     loadFavicon: Boolean,
     onOpen: () -> Unit,
@@ -847,12 +913,12 @@ private fun ShortcutChip(
             .combinedClickable(
                 onClick = onOpen,
                 onLongClick = onEdit,
-            )
-            .padding(horizontal = 4.dp),
+            ),
     ) {
         FaviconBubble(
             title = shortcut.title,
             urls = if (loadFavicon) shortcut.faviconCandidates() else emptyList(),
+            darkBubble = darkBubble,
         )
         Text(
             shortcut.title,
@@ -861,6 +927,13 @@ private fun ShortcutChip(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
+            style = TextStyle(
+                shadow = Shadow(
+                    color = if (lightText) Color.Black.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.55f),
+                    offset = Offset(0f, 1f),
+                    blurRadius = 6f,
+                ),
+            ),
             modifier = Modifier.padding(top = 8.dp),
         )
     }
@@ -869,6 +942,8 @@ private fun ShortcutChip(
 @Composable
 private fun AddShortcutChip(
     labelColor: Color,
+    lightText: Boolean,
+    darkBubble: Boolean,
     ringColor: Color,
     cellWidth: androidx.compose.ui.unit.Dp,
     onClick: () -> Unit,
@@ -877,14 +952,16 @@ private fun AddShortcutChip(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .width(cellWidth)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp),
+            .clickable(onClick = onClick),
     ) {
         Box(
             modifier = Modifier
-                .size(52.dp)
+                .size(BrowserUiTokens.NtpShortcutIconSize)
                 .clip(CircleShape)
                 .browserControlLiquidGlass(CircleShape, interactive = false, showShadow = false)
+                .background(
+                    if (darkBubble) Color(0xFF2A2A2A).copy(alpha = 0.92f) else Color.Transparent,
+                )
                 .border(1.dp, ringColor, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
@@ -894,27 +971,40 @@ private fun AddShortcutChip(
             "添加",
             color = labelColor,
             fontSize = 12.sp,
+            style = TextStyle(
+                shadow = Shadow(
+                    color = if (lightText) Color.Black.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.55f),
+                    offset = Offset(0f, 1f),
+                    blurRadius = 6f,
+                ),
+            ),
             modifier = Modifier.padding(top = BrowserUiTokens.SpaceSm),
         )
     }
 }
 
 @Composable
-private fun FaviconBubble(title: String, urls: List<String>) {
+private fun FaviconBubble(title: String, urls: List<String>, darkBubble: Boolean) {
     val letter = title.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "#"
     var index by remember(title, urls.size) { mutableIntStateOf(0) }
     val url = urls.getOrNull(index).orEmpty()
     Box(
         modifier = Modifier
-            .size(52.dp)
+            .size(BrowserUiTokens.NtpShortcutIconSize)
             .clip(CircleShape)
             .browserControlLiquidGlass(CircleShape, interactive = false, showShadow = false)
-            .background(Color.White.copy(alpha = 0.88f)),
+            .background(
+                if (darkBubble) {
+                    Color(0xFF2A2A2A).copy(alpha = 0.92f)
+                } else {
+                    Color.White.copy(alpha = 0.88f)
+                },
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             letter,
-            color = BrowserUiTokens.Primary,
+            color = if (darkBubble) Color(0xFFF6F1EA) else BrowserUiTokens.Primary,
             fontWeight = FontWeight.Medium,
             fontSize = 20.sp,
             textAlign = TextAlign.Center,

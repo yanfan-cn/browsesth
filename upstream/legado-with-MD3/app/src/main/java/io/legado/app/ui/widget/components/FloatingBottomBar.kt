@@ -10,8 +10,10 @@ import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -92,11 +94,13 @@ private val LocalFloatingBottomBarPressOnly = staticCompositionLocalOf { false }
 
 val LocalFloatingBottomBarTabScale = staticCompositionLocalOf { { 1f } }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RowScope.FloatingBottomBarItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    onLongClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val scale = LocalFloatingBottomBarTabScale.current
@@ -122,12 +126,24 @@ fun RowScope.FloatingBottomBarItem(
             )
             // 背景采样副本与隐藏的导航项不能保留触摸节点，alpha=0 不会取消命中。
             .then(
-                if (interactive) Modifier.clickable(
-                    interactionSource = if (pressOnly) interactionSource else null,
-                    indication = null,
-                    role = Role.Tab,
-                    onClick = onClick,
-                ) else Modifier
+                if (interactive) {
+                    if (onLongClick != null) {
+                        Modifier.combinedClickable(
+                            interactionSource = if (pressOnly) interactionSource else null,
+                            indication = null,
+                            role = Role.Tab,
+                            onClick = onClick,
+                            onLongClick = onLongClick,
+                        )
+                    } else {
+                        Modifier.clickable(
+                            interactionSource = if (pressOnly) interactionSource else null,
+                            indication = null,
+                            role = Role.Tab,
+                            onClick = onClick,
+                        )
+                    }
+                } else Modifier
             )
             .fillMaxHeight()
             .weight(1f)

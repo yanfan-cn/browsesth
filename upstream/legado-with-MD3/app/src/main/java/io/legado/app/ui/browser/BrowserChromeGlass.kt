@@ -126,6 +126,7 @@ fun Modifier.browserControlLiquidGlass(
     shape: Shape = RoundedCornerShape(50),
     interactive: Boolean = true,
     showShadow: Boolean = true,
+    readableOverlay: Boolean = false,
 ): Modifier {
     val isDark = LegadoTheme.isDark
     val surface = LegadoTheme.colorScheme.surface
@@ -134,8 +135,20 @@ fun Modifier.browserControlLiquidGlass(
         drawRect(surface)
     }
     val backdrop = scaffoldBackdrop ?: localBackdrop
+    val blurRadius = if (readableOverlay) BrowserUiTokens.NtpOverlayBlur else 12.dp
+    val surfaceAlpha = when {
+        readableOverlay && isDark -> BrowserUiTokens.NtpOverlaySurfaceDark
+        readableOverlay -> BrowserUiTokens.NtpOverlaySurfaceLight
+        isDark -> 0.50f
+        else -> 0.42f
+    }
+    val fallbackAlpha = if (readableOverlay) {
+        surfaceAlpha
+    } else {
+        BrowserChromeGlassStyle.barFallbackAlpha(isDark)
+    }
     val fallback = clip(shape).background(
-        surface.copy(alpha = BrowserChromeGlassStyle.barFallbackAlpha(isDark)),
+        surface.copy(alpha = fallbackAlpha),
         shape,
     )
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return fallback
@@ -146,7 +159,7 @@ fun Modifier.browserControlLiquidGlass(
         shape = { shape },
         effects = {
             vibrancy()
-            blur(12.dp.toPx())
+            blur(blurRadius.toPx())
             lens(24.dp.toPx(), 24.dp.toPx())
         },
         highlight = { Highlight.Default },
@@ -183,7 +196,7 @@ fun Modifier.browserControlLiquidGlass(
             }
         },
         onDrawSurface = {
-            drawRect(surface.copy(alpha = if (isDark) 0.50f else 0.42f))
+            drawRect(surface.copy(alpha = surfaceAlpha))
         },
     )
     return if (interactive) {

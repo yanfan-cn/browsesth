@@ -77,18 +77,30 @@ object BrowserSessionHolder {
         return true
     }
 
+    fun captureActiveThumbnail() {
+        val id = sessionKey ?: return
+        val h = host ?: return
+        val bmp = h.capturePreview() ?: return
+        BrowserTabThumbnailStore.put(id, bmp)
+    }
+
     fun destroy() {
-        try {
-            host?.onHostPause()
-        } catch (t: Throwable) {
-            Log.w(TAG, "onHostPause", t)
+        val current = host
+        if (current == null) {
+            client = null
+            sessionKey = null
+            hasLoadedInitialUrl = false
+            return
         }
         try {
-            host?.destroyContents()
-        } catch (t: Throwable) {
-            Log.w(TAG, "destroyContents", t)
+            current.onHostPause()
+        } catch (_: Throwable) {
         }
-        (host?.parent as? ViewGroup)?.removeView(host)
+        try {
+            current.destroyContents()
+        } catch (_: Throwable) {
+        }
+        (current.parent as? ViewGroup)?.removeView(current)
         host = null
         client = null
         sessionKey = null
