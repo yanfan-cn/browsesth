@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.info
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,14 +21,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.outlined.FolderZip
-import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -94,7 +88,7 @@ fun WebFileSheet(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(if (file.name.endsWith("zip") || file.name.endsWith("rar") || file.name.endsWith("7z")) Icons.Outlined.FolderZip else Icons.Outlined.Image, null)
+                            SymbolIcon(if (file.name.endsWith("zip") || file.name.endsWith("rar") || file.name.endsWith("7z")) Symbols.FolderZip else Symbols.Image, null)
                             Text(text = file.name, modifier = Modifier.weight(1f), style = LegadoTheme.typography.bodyMedium)
                         }
                     }
@@ -124,14 +118,14 @@ fun GroupSelectSheet(
         startAction = {
             MediumTonalButton(
                 onClick = { showAddGroup = true },
-                icon = Icons.Default.Add,
+                icon = Symbols.Add,
                 contentDescription = stringResource(R.string.group_add)
             )
         },
         endAction = {
             MediumTonalButton(
                 onClick = { onConfirm(selectedGroupId) },
-                icon = Icons.Default.Check,
+                icon = Symbols.Check,
                 contentDescription = stringResource(R.string.confirm)
             )
         }
@@ -168,7 +162,7 @@ fun GroupSelectSheet(
                         trailingAction = {
                             SmallPlainButton(
                                 onClick = { editingGroup = group },
-                                icon = Icons.Default.Edit,
+                                icon = Symbols.Edit,
                                 contentDescription = stringResource(R.string.edit)
                             )
                         },
@@ -227,7 +221,7 @@ fun ChangeCoverSheet(
         endAction = {
             MediumTonalButton(
                 onClick = { viewModel.startOrStopSearch() },
-                icon = if (isSearching) Icons.Default.MoreVert else Icons.Default.Refresh,
+                icon = if (isSearching) Symbols.MoreVert else Symbols.Refresh,
                 contentDescription = stringResource(
                     if (isSearching) R.string.more_menu else R.string.refresh
                 )

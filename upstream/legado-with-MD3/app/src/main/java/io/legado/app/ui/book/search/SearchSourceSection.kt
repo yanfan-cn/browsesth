@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.search
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -13,8 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,7 +76,7 @@ fun SearchSourceSection(
             if (onViewAll != null) {
                 SmallTonalButton(
                     onClick = onViewAll,
-                    icon = Icons.AutoMirrored.Filled.ArrowForward,
+                    icon = Symbols.ArrowForward,
                     contentDescription = stringResource(R.string.show_all),
                 )
             }

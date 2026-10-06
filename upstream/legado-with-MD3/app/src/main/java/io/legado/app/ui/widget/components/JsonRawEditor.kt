@@ -1,13 +1,12 @@
 package io.legado.app.ui.widget.components
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoFixHigh
-import androidx.compose.material.icons.filled.Compress
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,7 +45,7 @@ fun JsonRawEditor(
                             onValueChange(GSON.toJson(jsonElement))
                         }
                     },
-                    icon = Icons.Default.AutoFixHigh,
+                    icon = Symbols.AutoFixHigh,
                     contentDescription = stringResource(R.string.format_json)
                 )
                 SmallPlainButton(
@@ -57,7 +56,7 @@ fun JsonRawEditor(
                             onValueChange(compactGson.toJson(jsonElement))
                         }
                     },
-                    icon = Icons.Default.Compress,
+                    icon = Symbols.Compress,
                     contentDescription = stringResource(R.string.minify_json)
                 )
             }

@@ -1,14 +1,13 @@
 package io.legado.app.ui.config.coverConfig
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.SettingsBackupRestore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -34,7 +33,7 @@ fun CoverRuleConfigSheet(
         title = stringResource(R.string.cover_rule),
         startAction = {
             MediumTonalButton(
-            icon = Icons.Default.SettingsBackupRestore,
+            icon = Symbols.SettingsBackupRestore,
             contentDescription = stringResource(R.string.restore_default),
                 onClick = {
                     onIntent(CoverConfigIntent.RestoreDefaultRule)
@@ -43,7 +42,7 @@ fun CoverRuleConfigSheet(
         },
         endAction = {
             MediumTonalButton(
-            icon = Icons.Default.Save,
+            icon = Symbols.Save,
             contentDescription = stringResource(R.string.save),
                 onClick = {
                     onIntent(CoverConfigIntent.SaveRule)

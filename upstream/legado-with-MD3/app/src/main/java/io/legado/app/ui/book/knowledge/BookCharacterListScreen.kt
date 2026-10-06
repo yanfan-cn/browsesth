@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.knowledge
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,12 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -123,7 +119,7 @@ fun BookCharacterListScreen(
                 actions = {
                     TopBarActionButton(
                         onClick = { onIntent(CharacterListIntent.OpenAiIdentify) },
-                        imageVector = Icons.Default.Person,
+                        symbol = Symbols.Person,
                         contentDescription = stringResource(R.string.ai_identify_characters),
                     )
                 },
@@ -142,7 +138,7 @@ fun BookCharacterListScreen(
         floatingActionButton = {
             AppFloatingActionButton(
                 onClick = { onIntent(CharacterListIntent.AddCharacter) },
-                icon = Icons.Default.Add,
+                icon = Symbols.Add,
                 tooltipText = stringResource(R.string.add_character),
             )
         },
@@ -184,7 +180,7 @@ private fun CharacterIdentifySheet(
             {
                 MediumTonalButton(
                     onClick = { onIntent(CharacterListIntent.RunAiIdentify) },
-                    icon = Icons.Default.Refresh,
+                    icon = Symbols.Refresh,
                     contentDescription = stringResource(R.string.retry),
                     enabled = !sheet.loading,
                 )
@@ -204,7 +200,7 @@ private fun CharacterIdentifySheet(
                         MediumTonalButton(
                             onClick = { onIntent(CharacterListIntent.SaveAiCandidates) },
                             contentDescription = stringResource(R.string.ai_identify_characters_save),
-                            icon = Icons.Default.Save,
+                            icon = Symbols.Save,
                             enabled = !sheet.loading,
                         )
                     }
@@ -278,7 +274,7 @@ private fun CharacterIdentifyCandidateRow(
                     modifier = Modifier.weight(1f),
                 )
                 AppIcon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
+                    symbol = Symbols.KeyboardArrowDown,
                     contentDescription = null,
                     tint = LegadoTheme.colorScheme.onSurfaceVariant,
                 )
@@ -378,7 +374,7 @@ private fun CharacterListItem(
                     )
                 } else {
                     AppIcon(
-                        imageVector = Icons.Default.Person,
+                        symbol = Symbols.Person,
                         contentDescription = null,
                         modifier = Modifier.size(24.dp),
                         tint = LegadoTheme.colorScheme.onSurfaceVariant,

@@ -1,5 +1,7 @@
 package io.legado.app.ui.main.my
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.Manifest
 import android.annotation.SuppressLint
 import android.widget.Toast
@@ -22,23 +24,6 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.automirrored.filled.LibraryBooks
-import androidx.compose.material.icons.automirrored.filled.Rule
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.FindReplace
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.OpenInBrowser
-import androidx.compose.material.icons.filled.Sell
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Source
-import androidx.compose.material.icons.filled.Web
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
@@ -161,7 +146,7 @@ fun MyScreen(
                 ClickableSettingItem(
                     title = stringResource(R.string.book_source_manage),
                     description = stringResource(R.string.book_source_manage_desc),
-                    imageVector = Icons.Default.Source,
+                    symbol = Symbols.Source,
                     onClick = {
                         onNavigate(
                             PrefClickEvent.OpenBookSourceManage
@@ -170,7 +155,7 @@ fun MyScreen(
                 )
                 ClickableSettingItem(
                     title = stringResource(R.string.replace_purify),
-                    imageVector = Icons.Default.FindReplace,
+                    symbol = Symbols.FindReplace,
                     onClick = {
                         onNavigate(
                             PrefClickEvent.StartActivity(ReplaceRuleActivity::class.java)
@@ -179,7 +164,7 @@ fun MyScreen(
                 )
                 ClickableSettingItem(
                     title = stringResource(R.string.txt_toc_rule),
-                    imageVector = Icons.AutoMirrored.Filled.Rule,
+                    symbol = Symbols.Rule,
                     onClick = {
                         onNavigate(
                             PrefClickEvent.StartActivity(TxtTocRuleActivity::class.java)
@@ -188,7 +173,7 @@ fun MyScreen(
                 )
                 ClickableSettingItem(
                     title = stringResource(R.string.dict_rule),
-                    imageVector = Icons.AutoMirrored.Filled.LibraryBooks,
+                    symbol = Symbols.LibraryBooks,
                     onClick = {
                         onNavigate(
                             PrefClickEvent.StartActivity(DictRuleActivity::class.java)
@@ -197,7 +182,7 @@ fun MyScreen(
                 )
                 ClickableSettingItem(
                     title = stringResource(R.string.highlight_tag_config),
-                    imageVector = Icons.Default.Sell,
+                    symbol = Symbols.Sell,
                     onClick = { onNavigate(PrefClickEvent.OpenHighlightTagRule) }
                 )
             }
@@ -207,54 +192,54 @@ fun MyScreen(
             ) {
                 ClickableSettingItem(
                     title = stringResource(R.string.ai_chat),
-                    imageVector = Icons.Default.AutoAwesome,
+                    symbol = Symbols.AutoAwesome,
                     onClick = onNavigateToChat
                 )
                 ClickableSettingItem(
                     title = stringResource(R.string.setting),
-                    imageVector = Icons.Default.Settings,
+                    symbol = Symbols.Settings,
                     onClick = {
                         onOpenSettings()
                     }
                 )
                 ClickableSettingItem(
                     title = stringResource(R.string.bookmark),
-                    imageVector = Icons.Default.Bookmark,
+                    symbol = Symbols.Bookmark,
                     onClick = {
                         onNavigate(PrefClickEvent.StartActivity(AllBookmarkActivity::class.java))
                     }
                 )
                 ClickableSettingItem(
                     title = stringResource(R.string.read_record),
-                    imageVector = Icons.Default.History,
+                    symbol = Symbols.History,
                     onClick = {
                         onNavigate(PrefClickEvent.OpenReadRecord)
                     }
                 )
                 ClickableSettingItem(
                     title = stringResource(R.string.cache_management),
-                    imageVector = Icons.Default.Download,
+                    symbol = Symbols.Download,
                     onClick = {
                         onNavigate(PrefClickEvent.OpenBookCacheManage)
                     }
                 )
                 ClickableSettingItem(
                     title = stringResource(R.string.file_manage),
-                    imageVector = Icons.Default.Folder,
+                    symbol = Symbols.Folder,
                     onClick = {
                         onNavigate(PrefClickEvent.StartActivity(FileManageActivity::class.java))
                     }
                 )
                 ClickableSettingItem(
                     title = stringResource(R.string.about),
-                    imageVector = Icons.Default.Info,
+                    symbol = Symbols.Info,
                     onClick = {
                         onNavigate(PrefClickEvent.OpenAbout)
                     }
                 )
                 ClickableSettingItem(
                     title = stringResource(R.string.exit),
-                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                    symbol = Symbols.ExitToApp,
                     onClick = {
                         onNavigate(PrefClickEvent.ExitApp)
                     }
@@ -279,7 +264,7 @@ fun WebServiceSettingBlock(
             } else {
                 stringResource(R.string.web_service_desc)
             },
-            imageVector = Icons.Default.Web,
+            symbol = Symbols.Web,
             checked = uiState.isWebServiceRun,
             onCheckedChange = { onToggleWebService() }
         )
@@ -299,7 +284,7 @@ fun WebServiceSettingBlock(
                     onClick = {
                         onNavigate(PrefClickEvent.CopyUrl(uiState.webServiceAddress))
                     },
-                    icon = Icons.Default.ContentCopy,
+                    icon = Symbols.ContentCopy,
                     text = stringResource(R.string.copy_url)
                 )
 
@@ -309,7 +294,7 @@ fun WebServiceSettingBlock(
                     onClick = {
                         onNavigate(PrefClickEvent.OpenUrl(uiState.webServiceAddress))
                     },
-                    icon = Icons.Default.OpenInBrowser,
+                    icon = Symbols.OpenInBrowser,
                     text = stringResource(R.string.open_in_browser)
                 )
             }

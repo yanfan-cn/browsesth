@@ -15,7 +15,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.ThemeResolver
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun PillDivider(
@@ -24,23 +23,7 @@ fun PillDivider(
     widthFraction: Float = 0.2f,
     color: Color = LegadoTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
 ) {
-    val isMiuix = ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)
-    if (isMiuix) {
-        Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.8f)
-                    .height(thickness)
-                    .background(MiuixTheme.colorScheme.dividerLine)
-            )
-        }
-    } else {
-        Box(
+    Box(
             modifier = modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp),
@@ -54,5 +37,4 @@ fun PillDivider(
                     .background(color)
             )
         }
-    }
 }

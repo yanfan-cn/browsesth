@@ -125,6 +125,7 @@ fun Modifier.browserReaderFabGlass(
 fun Modifier.browserControlLiquidGlass(
     shape: Shape = RoundedCornerShape(50),
     interactive: Boolean = true,
+    showShadow: Boolean = true,
 ): Modifier {
     val isDark = LegadoTheme.isDark
     val surface = LegadoTheme.colorScheme.surface
@@ -150,10 +151,14 @@ fun Modifier.browserControlLiquidGlass(
         },
         highlight = { Highlight.Default },
         shadow = {
-            Shadow(
-                radius = 12.dp,
-                color = Color.Black.copy(alpha = BrowserChromeGlassStyle.shadowAlpha(isDark)),
-            )
+            if (showShadow) {
+                Shadow(
+                    radius = 12.dp,
+                    color = Color.Black.copy(alpha = BrowserChromeGlassStyle.shadowAlpha(isDark)),
+                )
+            } else {
+                null
+            }
         },
         layerBlock = {
             if (interactive) {

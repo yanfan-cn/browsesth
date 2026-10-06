@@ -1,4 +1,5 @@
 package io.legado.app.ui.about
+import io.legado.app.ui.widget.components.icon.SymbolIcon
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -53,7 +54,7 @@ fun CrashReportScreen(
                 navigationIcon = {
                     TopBarNavigationButton(
                         onClick = onClose,
-                        imageVector = AppIcons.Close
+                        symbol = AppIcons.Close
                     )
                 },
                 scrollBehavior = scrollBehavior
@@ -68,8 +69,7 @@ fun CrashReportScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            Icon(
-                imageVector = AppIcons.BugReport,
+            SymbolIcon(symbol = AppIcons.BugReport,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
                 tint = LegadoTheme.colorScheme.error

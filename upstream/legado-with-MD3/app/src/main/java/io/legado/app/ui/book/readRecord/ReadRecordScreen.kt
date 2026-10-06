@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.readRecord
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -22,15 +24,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Merge
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
@@ -298,18 +291,18 @@ fun ReadRecordScreen(
                                     }
                                     onConfirmDelete(selectedItemKeys.size, action)
                                 },
-                                imageVector = Icons.Default.Delete,
+                                symbol = Symbols.Delete,
                                 contentDescription = stringResource(R.string.delete_selected)
                             )
                         } else {
                             val (icon, description) = when (displayMode) {
-                                DisplayMode.AGGREGATE -> Icons.Default.Timeline to
+                                DisplayMode.AGGREGATE -> Symbols.Timeline to
                                         stringResource(R.string.a11y_switch_to_timeline_view)
 
-                                DisplayMode.TIMELINE -> Icons.Default.Schedule to
+                                DisplayMode.TIMELINE -> Symbols.Schedule to
                                         stringResource(R.string.a11y_switch_to_latest_view)
 
-                                DisplayMode.LATEST -> Icons.AutoMirrored.Filled.List to
+                                DisplayMode.LATEST -> Symbols.List to
                                         stringResource(R.string.a11y_switch_to_aggregate_view)
                             }
                             TopBarActionButton(
@@ -322,17 +315,17 @@ fun ReadRecordScreen(
                                     onIntent(ReadRecordIntent.SetDisplayMode(newMode))
                                     selectedItemKeys = emptySet()
                                 },
-                                imageVector = icon,
+                                symbol = icon,
                                 contentDescription = description
                             )
                             TopBarActionButton(
                                 onClick = { showSearch = !showSearch },
-                                imageVector = Icons.Default.Search,
+                                symbol = Symbols.Search,
                                 contentDescription = stringResource(R.string.search)
                             )
                             TopBarActionButton(
                                 onClick = { showActionsSheet = true },
-                                imageVector = Icons.Default.MoreVert,
+                                symbol = Symbols.MoreVert,
                                 contentDescription = stringResource(R.string.more_actions)
                             )
                         }
@@ -712,40 +705,40 @@ private fun ReadRecordActionsSheet(
                 title = stringResource(
                     if (showCalendar) R.string.hide_read_calendar else R.string.show_read_calendar
                 ),
-                imageVector = Icons.Default.CalendarMonth,
+                symbol = Symbols.CalendarMonth,
                 onClick = onToggleCalendar
             )
             CompactSwitchSettingItem(
                 title = stringResource(R.string.enable_read_record),
                 checked = readRecordEnabled,
                 description = stringResource(R.string.enable_read_record_summary),
-                imageVector = Icons.Default.Schedule,
+                symbol = Symbols.Schedule,
                 onCheckedChange = onReadRecordEnabledChange
             )
             CompactClickableSettingItem(
                 title = stringResource(R.string.read_record_scan_issues),
                 description = stringResource(R.string.read_record_scan_issues_summary),
-                imageVector = Icons.Default.Search,
+                symbol = Symbols.Search,
                 onClick = onScanRepair
             )
             CompactClickableSettingItem(
                 title = stringResource(R.string.read_record_repair),
                 description = stringResource(R.string.read_record_repair_summary),
-                imageVector = Icons.Default.Merge,
+                symbol = Symbols.Merge,
                 onClick = onRepairDatabase
             )
             if (skipDeleteConfirm) {
                 CompactClickableSettingItem(
                     title = stringResource(R.string.restore_delete_confirmation),
                     description = stringResource(R.string.restore_delete_confirmation_summary),
-                    imageVector = Icons.Default.Delete,
+                    symbol = Symbols.Delete,
                     onClick = onResetDeleteConfirm,
                 )
             }
             CompactClickableSettingItem(
                 title = stringResource(R.string.clear_read_records),
                 description = stringResource(R.string.clear_read_records_summary),
-                imageVector = Icons.Default.Delete,
+                symbol = Symbols.Delete,
                 onClick = onClearReadRecords
             )
         }
@@ -1000,7 +993,7 @@ fun LazyListScope.renderListByMode(
                                 } else {
                                     SwipeActionContainer(
                                         startAction = SwipeAction(
-                                            icon = Icons.Default.Delete,
+                                            icon = Symbols.Delete,
                                             background = LegadoTheme.colorScheme.error,
                                             onSwipe = {
                                                 onConfirmDelete(1) {
@@ -1064,7 +1057,7 @@ fun LazyListScope.renderListByMode(
                                 } else {
                                     SwipeActionContainer(
                                         startAction = SwipeAction(
-                                            icon = Icons.Default.Delete,
+                                            icon = Symbols.Delete,
                                             background = LegadoTheme.colorScheme.error,
                                             onSwipe = {
                                                 onConfirmDelete(0) {
@@ -1113,7 +1106,7 @@ fun LazyListScope.renderListByMode(
                     SwipeActionContainer(
                         modifier = Modifier.animateItem(),
                         startAction = SwipeAction(
-                            icon = Icons.Default.Delete,
+                            icon = Symbols.Delete,
                             background = LegadoTheme.colorScheme.error,
                             onSwipe = {
                                 onConfirmDelete(1) {
@@ -1123,7 +1116,7 @@ fun LazyListScope.renderListByMode(
                             contentDescription = deleteActionDescription
                         ),
                         endAction = SwipeAction(
-                            icon = Icons.Default.Merge,
+                            icon = Symbols.Merge,
                             background = LegadoTheme.colorScheme.primary,
                             onSwipe = {
                                 onMergeClick(record)

@@ -1,5 +1,8 @@
 package io.legado.app.ui.widget.components.dialog
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -16,9 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Restore
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,9 +42,6 @@ import io.legado.app.ui.widget.components.button.series.MediumTonalButton
 import io.legado.app.ui.widget.components.modalBottomSheet.AppModalBottomSheet
 import io.legado.app.ui.widget.components.text.AppText
 import io.legado.app.utils.isHex
-import top.yukonga.miuix.kmp.basic.ColorPalette
-import top.yukonga.miuix.kmp.basic.ColorPicker
-import top.yukonga.miuix.kmp.basic.ColorSpace
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +76,7 @@ fun ColorPickerSheet(
                     hexInput = "#00000000"
                     isHexInputError = false
                 },
-                icon = Icons.Default.Restore,
+                icon = Symbols.Restore,
                 contentDescription = stringResource(R.string.reset),
             )
         },
@@ -90,7 +87,7 @@ fun ColorPickerSheet(
                     onDismissRequest()
                 },
                 enabled = parsedHexColor != null && !isHexInputError,
-                icon = Icons.Default.Save,
+                icon = Symbols.Save,
                 contentDescription = stringResource(R.string.action_save),
             )
         },
@@ -180,3 +177,41 @@ private fun parseHexColor(input: String): Int? {
 
 private fun Int.asHexColorString(): String =
     "#${Integer.toHexString(this).uppercase().padStart(8, '0')}"
+
+@Composable
+private fun ColorPalette(
+    color: Color,
+    onColorChanged: (Color) -> Unit,
+    rows: Int,
+    hueColumns: Int,
+    modifier: Modifier = Modifier,
+    showPreview: Boolean = false,
+) {
+    Column(modifier = modifier) {
+        if (showPreview) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(32.dp)
+                    .background(color, RoundedCornerShape(8.dp))
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        repeat(rows) { row ->
+            Row(modifier = Modifier.fillMaxWidth()) {
+                repeat(hueColumns) { col ->
+                    val hue = col / hueColumns.toFloat() * 360f
+                    val value = 1f - row / (rows - 1).coerceAtLeast(1).toFloat() * 0.85f
+                    val cell = Color.hsv(hue, 1f, value.coerceIn(0.15f, 1f))
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(16.dp)
+                            .background(cell)
+                            .clickable { onColorChanged(cell) }
+                    )
+                }
+            }
+        }
+    }
+}

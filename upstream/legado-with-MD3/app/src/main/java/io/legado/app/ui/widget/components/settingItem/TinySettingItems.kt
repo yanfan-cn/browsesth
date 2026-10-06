@@ -1,5 +1,8 @@
 package io.legado.app.ui.widget.components.settingItem
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -22,14 +25,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,7 +40,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -98,7 +92,7 @@ val LocalSliderDragState = staticCompositionLocalOf<SliderDragState?> { null }
 fun TinySettingItem(
     title: String,
     description: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     modifier: Modifier = Modifier,
     color: Color? = LegadoTheme.colorScheme.surfaceContainerLow,
     trailingContent: (@Composable () -> Unit)? = null,
@@ -150,9 +144,8 @@ fun TinySettingItem(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                imageVector?.let {
-                    Icon(
-                        imageVector = it,
+                symbol?.let {
+                    SymbolIcon(symbol = it,
                         contentDescription = null,
                         tint = LegadoTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
                         modifier = Modifier.size(18.dp),
@@ -186,8 +179,7 @@ fun TinySettingItem(
                                 targetValue = if (expanded) 180f else 0f,
                                 label = "tinySettingArrow",
                             )
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
+                            SymbolIcon(symbol = Symbols.KeyboardArrowDown,
                                 contentDescription = null,
                                 tint = LegadoTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
                                 modifier = Modifier
@@ -222,7 +214,7 @@ fun TinyDropdownSettingItem(
     displayEntries: Array<String>,
     entryValues: Array<String>,
     description: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     modifier: Modifier = Modifier,
     color: Color? = LegadoTheme.colorScheme.surfaceContainerLow,
     onValueChange: (String) -> Unit,
@@ -236,7 +228,7 @@ fun TinyDropdownSettingItem(
         TinySettingItem(
             title = title,
             description = description,
-            imageVector = imageVector,
+            symbol = symbol,
             modifier = modifier,
             color = color,
             trailingContent = {
@@ -265,8 +257,7 @@ fun TinyDropdownSettingItem(
                     },
                     trailingIcon = if (selectedValue == entryValues[index]) {
                         {
-                            Icon(
-                                Icons.Default.Check,
+                            SymbolIcon(Symbols.Check,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -285,7 +276,7 @@ fun TinySliderSettingItem(
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int = 0,
     description: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     modifier: Modifier = Modifier,
     color: Color? = LegadoTheme.colorScheme.surfaceContainerLow,
     enabled: Boolean = true,
@@ -310,7 +301,7 @@ fun TinySliderSettingItem(
     TinySettingItem(
         title = title,
         description = description,
-        imageVector = imageVector,
+        symbol = symbol,
         modifier = modifier,
         color = color,
         expanded = expanded,
@@ -364,7 +355,7 @@ fun TinySwitchSettingItem(
     title: String,
     checked: Boolean,
     description: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     modifier: Modifier = Modifier,
     color: Color? = LegadoTheme.colorScheme.surfaceContainerLow,
     enabled: Boolean = true,
@@ -373,7 +364,7 @@ fun TinySwitchSettingItem(
     TinySettingItem(
         title = title,
         description = description,
-        imageVector = imageVector,
+        symbol = symbol,
         modifier = modifier,
         color = color,
         enabled = enabled,
@@ -396,7 +387,7 @@ fun TinySwitchSettingItem(
 fun TinyClickableSettingItem(
     title: String,
     description: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     modifier: Modifier = Modifier,
     color: Color? = LegadoTheme.colorScheme.surfaceContainerLow,
     trailingContent: (@Composable () -> Unit)? = null,
@@ -406,12 +397,11 @@ fun TinyClickableSettingItem(
     TinySettingItem(
         title = title,
         description = description,
-        imageVector = imageVector,
+        symbol = symbol,
         modifier = modifier,
         color = color,
         trailingContent = trailingContent ?: {
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
+            SymbolIcon(symbol = Symbols.ChevronRight,
                 contentDescription = null,
                 tint = LegadoTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp),
@@ -427,7 +417,7 @@ fun TinyColorSettingItem(
     title: String,
     colorValue: Int,
     description: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     modifier: Modifier = Modifier,
     color: Color? = LegadoTheme.colorScheme.surfaceContainerLow,
     enabled: Boolean = true,
@@ -436,7 +426,7 @@ fun TinyColorSettingItem(
     TinySettingItem(
         title = title,
         description = description,
-        imageVector = imageVector,
+        symbol = symbol,
         modifier = modifier,
         color = color,
         enabled = enabled,
@@ -466,7 +456,7 @@ fun TinyColorModeSettingItem(
     nightColor: Int,
     onClickColor: (isNight: Boolean) -> Unit,
     description: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     modifier: Modifier = Modifier,
     color: Color? = LegadoTheme.colorScheme.surfaceContainerLow,
     enabled: Boolean = true,
@@ -477,7 +467,7 @@ fun TinyColorModeSettingItem(
     TinySettingItem(
         title = title,
         description = description,
-        imageVector = imageVector,
+        symbol = symbol,
         modifier = modifier,
         color = color,
         enabled = enabled,
@@ -534,8 +524,7 @@ private fun ColorModePill(
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.Default.DarkMode,
+            SymbolIcon(symbol = Symbols.DarkMode,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = if (!isNightMode) {
@@ -544,8 +533,7 @@ private fun ColorModePill(
                     LegadoTheme.colorScheme.onSurfaceVariant
                 },
             )
-            Icon(
-                imageVector = Icons.Default.LightMode,
+            SymbolIcon(symbol = Symbols.LightMode,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = if (isNightMode) {
@@ -574,8 +562,7 @@ private fun ColorModePill(
             contentAlignment = Alignment.Center,
         ) {
             if (currentColor == 0) {
-                Icon(
-                    imageVector = Icons.Default.Add,
+                SymbolIcon(symbol = Symbols.Add,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = LegadoTheme.colorScheme.onSurfaceVariant,
@@ -597,7 +584,7 @@ fun TinyClearColorModeSettingItem(
     onClickColor: (isNight: Boolean) -> Unit,
     onClearColor: (isNight: Boolean) -> Unit,
     description: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     modifier: Modifier = Modifier,
     color: Color? = LegadoTheme.colorScheme.surfaceContainerLow,
     enabled: Boolean = true,
@@ -608,7 +595,7 @@ fun TinyClearColorModeSettingItem(
     TinySettingItem(
         title = title,
         description = description,
-        imageVector = imageVector,
+        symbol = symbol,
         modifier = modifier,
         color = color,
         enabled = enabled,
@@ -657,8 +644,7 @@ private fun ClearColorModePill(
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
+                SymbolIcon(symbol = Symbols.Refresh,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = LegadoTheme.colorScheme.onSurfaceVariant,
@@ -689,7 +675,7 @@ fun TinyBgImageModeSettingItem(
     onClickImage: (isNight: Boolean) -> Unit,
     onClearImage: (isNight: Boolean) -> Unit,
     description: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     modifier: Modifier = Modifier,
     color: Color? = LegadoTheme.colorScheme.surfaceContainerLow,
     enabled: Boolean = true,
@@ -699,7 +685,7 @@ fun TinyBgImageModeSettingItem(
     TinySettingItem(
         title = title,
         description = description,
-        imageVector = imageVector,
+        symbol = symbol,
         modifier = modifier,
         color = color,
         enabled = enabled,
@@ -794,16 +780,14 @@ private fun BgImageCard(
                         .clickable(enabled = enabled, onClick = onReset),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
+                    SymbolIcon(symbol = Symbols.Refresh,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
                         tint = LegadoTheme.colorScheme.onSurface,
                     )
                 }
             } else {
-                Icon(
-                    imageVector = Icons.Default.Add,
+                SymbolIcon(symbol = Symbols.Add,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = LegadoTheme.colorScheme.onSurfaceVariant,

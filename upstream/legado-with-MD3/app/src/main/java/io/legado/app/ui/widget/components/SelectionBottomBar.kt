@@ -1,5 +1,8 @@
 package io.legado.app.ui.widget.components
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -11,10 +14,6 @@ import androidx.compose.foundation.layout.tappableElement
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
@@ -33,7 +32,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.legado.app.R
@@ -45,10 +43,6 @@ import io.legado.app.ui.widget.components.icon.AppIcons
 import io.legado.app.ui.widget.components.menuItem.RoundDropdownMenu
 import io.legado.app.ui.widget.components.menuItem.RoundDropdownMenuItem
 import io.legado.app.ui.widget.components.text.AppText
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.basic.FloatingToolbar as MiuixFloatingToolbar
-import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
 
 data class SelectionActions(
     val primaryAction: ActionItem,
@@ -60,7 +54,7 @@ data class SelectionActions(
 
 data class ActionItem(
     val text: String,
-    val icon: ImageVector = Icons.Default.ExpandMore,
+    val icon: MaterialSymbol = Symbols.ExpandMore,
     val onClick: () -> Unit
 )
 
@@ -74,7 +68,6 @@ fun SelectionBottomBar(
     secondaryActions: List<ActionItem>
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    val isMiuix = ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)
     val selectAllDescription = stringResource(R.string.select_all)
     val invertSelectionDescription = stringResource(R.string.invert_selection)
     val moreActionsDescription = stringResource(R.string.more_menu)
@@ -84,80 +77,19 @@ fun SelectionBottomBar(
             .union(WindowInsets.ime)
     )
 
-    if (isMiuix) {
-        MiuixFloatingToolbar(
-            modifier = safeModifier
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(8.dp)
-            ) {
-                MiuixIconButton(onClick = onSelectAll) {
-                    MiuixIcon(
-                        imageVector = Icons.Default.SelectAll,
-                        contentDescription = selectAllDescription
-                    )
-                }
-                MiuixIconButton(onClick = onSelectInvert) {
-                    MiuixIcon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = invertSelectionDescription
-                    )
-                }
-
-                MiuixIconButton(
-                    onClick = primaryAction.onClick,
-                    backgroundColor = MiuixTheme.colorScheme.secondaryContainer,
-                    minWidth = 64.dp
-                ) {
-                    MiuixIcon(
-                        imageVector = primaryAction.icon,
-                        contentDescription = primaryAction.text,
-                        tint = MiuixTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-
-                if (secondaryActions.isNotEmpty()) {
-                    Box {
-                        MiuixIconButton(onClick = { showMenu = true }) {
-                            MiuixIcon(
-                                imageVector = AppIcons.MoreVert,
-                                contentDescription = moreActionsDescription
-                            )
-                        }
-                        RoundDropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            secondaryActions.forEach { action ->
-                                RoundDropdownMenuItem(
-                                    text = action.text,
-                                    onClick = {
-                                        action.onClick()
-                                        showMenu = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    } else {
-        HorizontalFloatingToolbar(
+    HorizontalFloatingToolbar(
             modifier = safeModifier,
             expanded = true,
             leadingContent = {
                 IconButton(onClick = onSelectAll) {
                     AppIcon(
-                        imageVector = Icons.Default.SelectAll,
+                        symbol = Symbols.SelectAll,
                         contentDescription = selectAllDescription
                     )
                 }
                 IconButton(onClick = onSelectInvert) {
                     AppIcon(
-                        imageVector = Icons.Default.Refresh,
+                        symbol = Symbols.Refresh,
                         contentDescription = invertSelectionDescription
                     )
                 }
@@ -167,7 +99,7 @@ fun SelectionBottomBar(
                     Box {
                         IconButton(onClick = { showMenu = true }) {
                             AppIcon(
-                                imageVector = AppIcons.MoreVert,
+                                symbol = AppIcons.MoreVert,
                                 contentDescription = moreActionsDescription
                             )
                         }
@@ -205,12 +137,11 @@ fun SelectionBottomBar(
                         ),
                     ) {
                         AppIcon(
-                            imageVector = primaryAction.icon,
+                            symbol = primaryAction.icon,
                             contentDescription = primaryAction.text
                         )
                     }
                 }
             }
         )
-    }
 }

@@ -46,11 +46,12 @@ object WebPageAnalyzeJs {
             "var bodyText=textOf(document.querySelector('article')||document.querySelector('main')||document.body);" +
             "var textLen=bodyText.length;" +
             "var imgCount=imgs.length;" +
+            // SPEC-046: prefer mixed novel reader whenever there is real body text;
+            // manga only for image-dominant / almost-no-text pages.
             "var kind='unknown';" +
-            "if(imgCount>=4&&textLen<1200)kind='manga';" +
-            "else if(imgCount>=8&&textLen<3000)kind='manga';" +
-            "else if(textLen>=200)kind='novel';" +
-            "else if(imgCount>=3)kind='manga';" +
+            "if(textLen>=200)kind='novel';" +
+            "else if(imgCount>=3&&textLen<200)kind='manga';" +
+            "else if(imgCount>=1&&textLen<80)kind='manga';" +
             "return JSON.stringify({kind:kind,title:title,images:imgs,textLen:textLen,imgCount:imgCount});" +
             "})();"
 }

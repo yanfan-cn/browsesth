@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.readaloud.player
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -33,16 +35,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FastForward
-import androidx.compose.material.icons.filled.FastRewind
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.WbTwilight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -82,7 +74,11 @@ import io.legado.app.ui.book.readaloud.ReadAloudTimerConfig
 import io.legado.app.ui.book.readaloud.ReadAloudTimerSheet
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.hazeStyle.HazeLegado
+import io.legado.app.ui.util.BlendColorEntry
+import io.legado.app.ui.util.BlurBlendMode
+import io.legado.app.ui.util.BlurDefaults
 import io.legado.app.ui.util.rememberBlurBackdrop
+import io.legado.app.ui.util.textureBlur
 import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.button.series.MediumPlainButton
 import io.legado.app.ui.widget.components.button.series.MediumTonalButton
@@ -102,11 +98,6 @@ import io.legado.app.ui.widget.components.text.AppText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurBlendMode
-import top.yukonga.miuix.kmp.blur.BlurDefaults
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
@@ -206,7 +197,7 @@ fun ReadAloudPlayerScreenContent(
                     }
                     MediumTonalButton(
                         onClick = onOpenConfig,
-                        icon = Icons.Default.Settings,
+                        icon = Symbols.Settings,
                         contentDescription = stringResource(R.string.setting),
                     )
                 }
@@ -279,12 +270,12 @@ fun ReadAloudPlayerScreenContent(
                     ) {
                         MediumPlainButton(
                             onClick = { onIntent(ReadAloudPlayerIntent.PreviousParagraph) },
-                            icon = Icons.Default.SkipPrevious,
+                            icon = Symbols.SkipPrevious,
                             contentDescription = stringResource(R.string.prev_sentence),
                         )
                         MediumTonalButton(
                             onClick = { onIntent(ReadAloudPlayerIntent.PreviousChapter) },
-                            icon = Icons.Default.FastRewind,
+                            icon = Symbols.FastRewind,
                             contentDescription = stringResource(R.string.previous_chapter),
                             modifier = Modifier.size(48.dp),
                         )
@@ -297,13 +288,13 @@ fun ReadAloudPlayerScreenContent(
                         )
                         MediumTonalButton(
                             onClick = { onIntent(ReadAloudPlayerIntent.NextChapter) },
-                            icon = Icons.Default.FastForward,
+                            icon = Symbols.FastForward,
                             contentDescription = stringResource(R.string.next_chapter),
                             modifier = Modifier.size(48.dp),
                         )
                         MediumPlainButton(
                             onClick = { onIntent(ReadAloudPlayerIntent.NextParagraph) },
-                            icon = Icons.Default.SkipNext,
+                            icon = Symbols.SkipNext,
                             contentDescription = stringResource(R.string.next_sentence),
                         )
                     }
@@ -316,7 +307,7 @@ fun ReadAloudPlayerScreenContent(
                         SmallAnimatedButton(
                             containerColor = Color.Transparent,
                             checked = false,
-                            icon = Icons.Default.Tune,
+                            icon = Symbols.Tune,
                             text = stringResource(R.string.switch_to_classic_read_aloud),
                             contentDescription = stringResource(R.string.switch_to_classic_read_aloud),
                             onCheckedChange = { onIntent(ReadAloudPlayerIntent.SwitchToClassic) },
@@ -324,7 +315,7 @@ fun ReadAloudPlayerScreenContent(
                         SmallAnimatedButton(
                             containerColor = Color.Transparent,
                             checked = false,
-                            icon = Icons.Default.WbTwilight,
+                            icon = Symbols.WbTwilight,
                             text = playerBgModeLabel(state.bgMode),
                             contentDescription = playerBgModeLabel(state.bgMode),
                             onCheckedChange = { onIntent(ReadAloudPlayerIntent.CycleBgMode) },
@@ -332,7 +323,7 @@ fun ReadAloudPlayerScreenContent(
                         SmallAnimatedButton(
                             containerColor = Color.Transparent,
                             checked = false,
-                            icon = Icons.Default.Speed,
+                            icon = Symbols.Speed,
                             text = stringResource(R.string.read_aloud_adjust_speed),
                             contentDescription = stringResource(R.string.read_aloud_adjust_speed),
                             onCheckedChange = {
@@ -342,7 +333,7 @@ fun ReadAloudPlayerScreenContent(
                         SmallAnimatedButton(
                             containerColor = Color.Transparent,
                             checked = false,
-                            icon = Icons.Default.Timer,
+                            icon = Symbols.Timer,
                             text = stringResource(R.string.set_timer),
                             contentDescription = stringResource(R.string.set_timer),
                             onCheckedChange = {
@@ -364,11 +355,7 @@ fun ReadAloudPlayerScreenContent(
                 path = state.coverPath,
                 sourceOrigin = state.sourceOrigin,
                 bgMode = state.bgMode,
-                modifier = if (flowingLightActive && textBackdrop != null) {
-                    Modifier.layerBackdrop(textBackdrop)
-                } else {
-                    Modifier
-                },
+                modifier = Modifier,
             )
             HorizontalPager(
                 state = horizontalPagerState,

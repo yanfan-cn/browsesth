@@ -1,5 +1,7 @@
 package io.legado.app.ui.main.bookshelf
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.content.ClipData
 import android.content.res.Configuration
 import android.net.Uri
@@ -51,24 +53,6 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.Bookmarks
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.SelectAll
-import androidx.compose.material.icons.filled.UploadFile
-import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material.icons.outlined.ViewCarousel
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -600,14 +584,14 @@ fun BookshelfScreen(
                     AnimatedVisibility(visible = isEditMode) {
                         TopBarActionButton(
                             onClick = { onIntent(BookshelfIntent.SelectAllVisible) },
-                            imageVector = Icons.Default.SelectAll,
+                            symbol = Symbols.SelectAll,
                             contentDescription = stringResource(R.string.select_all)
                         )
                     }
                     AnimatedVisibility(visible = isEditMode) {
                         TopBarActionButton(
                             onClick = { onIntent(BookshelfIntent.InvertVisibleSelection) },
-                            imageVector = Icons.Default.Refresh,
+                            symbol = Symbols.Refresh,
                             contentDescription = stringResource(R.string.revert_selection)
                         )
                     }
@@ -618,7 +602,7 @@ fun BookshelfScreen(
                                     onIntent(BookshelfIntent.ShowOverlay(BookshelfOverlay.BatchDownloadConfirmDialog))
                                 }
                             },
-                            imageVector = Icons.Default.Download,
+                            symbol = Symbols.Download,
                             contentDescription = stringResource(R.string.action_download)
                         )
                     }
@@ -629,7 +613,7 @@ fun BookshelfScreen(
                                     onIntent(BookshelfIntent.ShowOverlay(BookshelfOverlay.GroupSelectSheet))
                                 }
                             },
-                            imageVector = Icons.Default.Bookmarks,
+                            symbol = Symbols.Bookmarks,
                             contentDescription = stringResource(R.string.move_to_group)
                         )
                     }
@@ -647,7 +631,7 @@ fun BookshelfScreen(
                                     )
                                 }
                             },
-                            imageVector = Icons.Default.Lock,
+                            symbol = Symbols.Lock,
                             contentDescription = stringResource(
                                 if (targetPrivate) {
                                     R.string.private_mark_book
@@ -662,7 +646,7 @@ fun BookshelfScreen(
                         Box {
                             TopBarActionButton(
                                 onClick = { showTopBarMenu = true },
-                                imageVector = AppIcons.MoreVert,
+                                symbol = AppIcons.MoreVert,
                                 contentDescription = stringResource(R.string.more_menu)
                             )
                             RoundDropdownMenu(
@@ -672,12 +656,12 @@ fun BookshelfScreen(
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.add_remote_book),
                                     onClick = { onNavigateToRemoteImport(); dismiss() },
-                                    leadingIcon = { Icon(Icons.Default.Wifi, null) }
+                                    leadingIcon = { SymbolIcon(Symbols.Wifi, null) }
                                 )
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.book_local),
                                     onClick = { onNavigateToLocalImport(); dismiss() },
-                                    leadingIcon = { Icon(Icons.Default.Save, null) }
+                                    leadingIcon = { SymbolIcon(Symbols.Save, null) }
                                 )
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.update_toc),
@@ -685,7 +669,7 @@ fun BookshelfScreen(
                                         onIntent(BookshelfIntent.RefreshToc(uiState.items))
                                         dismiss()
                                     },
-                                    leadingIcon = { Icon(Icons.Default.Refresh, null) }
+                                    leadingIcon = { SymbolIcon(Symbols.Refresh, null) }
                                 )
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.layout_setting),
@@ -693,7 +677,7 @@ fun BookshelfScreen(
                                         onIntent(BookshelfIntent.ShowOverlay(BookshelfOverlay.ConfigSheet))
                                         dismiss()
                                     },
-                                    leadingIcon = { Icon(Icons.Default.GridView, null) }
+                                    leadingIcon = { SymbolIcon(Symbols.GridView, null) }
                                 )
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.group_manage),
@@ -701,7 +685,7 @@ fun BookshelfScreen(
                                         onIntent(BookshelfIntent.ShowOverlay(BookshelfOverlay.GroupManageSheet))
                                         dismiss()
                                     },
-                                    leadingIcon = { Icon(Icons.Outlined.ViewCarousel, null) }
+                                    leadingIcon = { SymbolIcon(Symbols.ViewCarousel, null) }
                                 )
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.add_url),
@@ -709,7 +693,7 @@ fun BookshelfScreen(
                                         onIntent(BookshelfIntent.ShowOverlay(BookshelfOverlay.AddUrlDialog))
                                         dismiss()
                                     },
-                                    leadingIcon = { Icon(Icons.Default.Link, null) }
+                                    leadingIcon = { SymbolIcon(Symbols.Link, null) }
                                 )
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.selection_mode),
@@ -717,7 +701,7 @@ fun BookshelfScreen(
                                         toggleEditMode()
                                         dismiss()
                                     },
-                                    leadingIcon = { Icon(Icons.Default.Edit, null) }
+                                    leadingIcon = { SymbolIcon(Symbols.Edit, null) }
                                 )
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.bookshelf_management),
@@ -728,7 +712,7 @@ fun BookshelfScreen(
                                         onNavigateToCache(groupId)
                                         dismiss()
                                     },
-                                    leadingIcon = { Icon(Icons.Default.Bookmarks, null) }
+                                    leadingIcon = { SymbolIcon(Symbols.Bookmarks, null) }
                                 )
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.export_bookshelf),
@@ -736,7 +720,7 @@ fun BookshelfScreen(
                                         onIntent(BookshelfIntent.ShowOverlay(BookshelfOverlay.ExportSheet))
                                         dismiss()
                                     },
-                                    leadingIcon = { Icon(Icons.Default.UploadFile, null) }
+                                    leadingIcon = { SymbolIcon(Symbols.UploadFile, null) }
                                 )
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.import_bookshelf),
@@ -744,7 +728,7 @@ fun BookshelfScreen(
                                         onIntent(BookshelfIntent.ShowOverlay(BookshelfOverlay.ImportSheet))
                                         dismiss()
                                     },
-                                    leadingIcon = { Icon(Icons.Default.CloudDownload, null) }
+                                    leadingIcon = { SymbolIcon(Symbols.CloudDownload, null) }
                                 )
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.log),
@@ -752,7 +736,7 @@ fun BookshelfScreen(
                                         onIntent(BookshelfIntent.ShowOverlay(BookshelfOverlay.LogSheet))
                                         dismiss()
                                     },
-                                    leadingIcon = { Icon(Icons.Default.History, null) }
+                                    leadingIcon = { SymbolIcon(Symbols.History, null) }
                                 )
                             }
                         }
@@ -794,7 +778,7 @@ fun BookshelfScreen(
                                             }
                                         },
                                         style = ToggleStyle.Outlined,
-                                        icon = Icons.AutoMirrored.Filled.FormatListBulleted,
+                                        icon = Symbols.FormatListBulleted,
                                         contentDescription = stringResource(R.string.group_manage)
                                     )
                                     RoundDropdownMenu(
@@ -822,8 +806,7 @@ fun BookshelfScreen(
                                                         selectedTabIndex == index
                                                     }
                                                     if (isSelected) {
-                                                        Icon(
-                                                            Icons.Default.Check,
+                                                        SymbolIcon(Symbols.Check,
                                                             null,
                                                             modifier = Modifier.size(18.dp)
                                                         )
@@ -858,8 +841,7 @@ fun BookshelfScreen(
                                                         },
                                                         trailingIcon = {
                                                             if (uiState.selectedGroupId == group.groupId) {
-                                                                Icon(
-                                                                    Icons.Default.Check,
+                                                                SymbolIcon(Symbols.Check,
                                                                     null,
                                                                     modifier = Modifier.size(18.dp)
                                                                 )
@@ -877,8 +859,7 @@ fun BookshelfScreen(
                                                         },
                                                         trailingIcon = {
                                                             if (uiState.selectedGroupId == group.groupId) {
-                                                                Icon(
-                                                                    Icons.Default.Check,
+                                                                SymbolIcon(Symbols.Check,
                                                                     null,
                                                                     modifier = Modifier.size(18.dp)
                                                                 )
@@ -1264,8 +1245,7 @@ fun BookshelfScreen(
                                     },
                                     trailingIcon = {
                                         if (currentMenuGroupId == group.groupId) {
-                                            Icon(
-                                                Icons.Default.Check,
+                                            SymbolIcon(Symbols.Check,
                                                 null,
                                                 modifier = Modifier.size(18.dp)
                                             )
@@ -1315,14 +1295,14 @@ private fun BookshelfTopBar(
                 uiState.isEditMode -> {
                     TopBarNavigationButton(
                         onClick = onExitEditMode,
-                        imageVector = AppIcons.Close,
+                        symbol = AppIcons.Close,
                         contentDescription = exitEditModeDescription
                     )
                 }
                 onNavigateBackToBrowser != null -> {
                     TopBarNavigationButton(
                         onClick = onNavigateBackToBrowser,
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        symbol = Symbols.ArrowBack,
                         contentDescription = "返回浏览器"
                     )
                 }
@@ -1339,7 +1319,7 @@ private fun BookshelfTopBar(
         actions = {
             TopBarActionButton(
                 onClick = onSearchClick,
-                imageVector = AppIcons.Search,
+                symbol = AppIcons.Search,
                 contentDescription = searchContentDescription
             )
             actions()
@@ -1661,7 +1641,7 @@ fun BookshelfPage(
     val showFastScroll = uiState.settings.showBookshelfFastScroller
     val listContentDescription = stringResource(R.string.bookshelf)
     val totalHorizontalPadding =
-        if (ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)) 12.dp else 16.dp
+        16.dp
     val gridContentHorizontalPadding = totalHorizontalPadding / 2
     val gridInnerHorizontalPadding = totalHorizontalPadding / 2
     val hapticFeedback = LocalHapticFeedback.current

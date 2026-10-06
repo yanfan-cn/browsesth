@@ -1,5 +1,7 @@
 package io.legado.app.ui.ai.chat
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -14,11 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,7 +58,7 @@ fun AiThinkingCard(
         isStreaming -> "思考中"
         else -> "思考"
     }
-    val headerIcon = if (hasTools) Icons.Default.Build else Icons.Default.AutoAwesome
+    val headerIcon = if (hasTools) Symbols.Build else Symbols.AutoAwesome
 
     // Live timer while streaming (fallback before first content token arrives)
     var liveSeconds by remember { mutableStateOf(0) }
@@ -99,7 +96,7 @@ fun AiThinkingCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             AppIcon(
-                imageVector = headerIcon,
+                symbol = headerIcon,
                 contentDescription = null,
                 tint = LegadoTheme.colorScheme.onSurface,
                 modifier = Modifier.size(14.dp)
@@ -120,7 +117,7 @@ fun AiThinkingCard(
             }
 
             AppIcon(
-                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                symbol = if (expanded) Symbols.ExpandLess else Symbols.ExpandMore,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = LegadoTheme.colorScheme.onSurfaceVariant

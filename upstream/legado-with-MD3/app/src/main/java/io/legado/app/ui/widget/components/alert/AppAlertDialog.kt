@@ -26,7 +26,6 @@ import io.legado.app.ui.theme.ProvideAppDensity
 import io.legado.app.ui.theme.ThemeResolver
 import io.legado.app.ui.widget.components.button.PrimaryButton
 import io.legado.app.ui.widget.components.button.SecondaryButton
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -42,58 +41,7 @@ fun AppAlertDialog(
     dismissText: String = "取消",
     onDismiss: (() -> Unit)? = null,
 ) {
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        WindowDialog(
-            show = show,
-            modifier = modifier,
-            title = title,
-            summary = text,
-            onDismissRequest = onDismissRequest,
-            content = {
-                ProvideAppDensity {
-                    if (content != null) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 12.dp)
-                                .verticalScroll(rememberScrollState())
-                        ) {
-                            content()
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 24.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (onDismiss != null) {
-                            SecondaryButton(
-                                text = dismissText,
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    onDismiss()
-                                }
-                            )
-                        }
-
-                        if (onConfirm != null) {
-                            PrimaryButton(
-                                text = confirmText,
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    onConfirm()
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        )
-    } else {
-        if (show) {
+    if (show) {
             AlertDialog(
                 onDismissRequest = onDismissRequest,
                 modifier = modifier,
@@ -146,7 +94,6 @@ fun AppAlertDialog(
                 }
             )
         }
-    }
 }
 
 /**

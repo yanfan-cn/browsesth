@@ -8,9 +8,6 @@ import androidx.compose.ui.Modifier
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.LegadoTheme.composeEngine
 import io.legado.app.ui.theme.ThemeResolver
-import top.yukonga.miuix.kmp.basic.Button as MiuixButton
-import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 @Composable
 fun PrimaryButton(
@@ -19,24 +16,13 @@ fun PrimaryButton(
     enabled: Boolean = true,
     text: String
 ) {
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        MiuixButton(
-            onClick = onClick,
-            modifier = modifier,
-            enabled = enabled,
-            colors = MiuixButtonDefaults.buttonColorsPrimary()
-        ) {
-            MiuixText(text = text, style = LegadoTheme.typography.labelLarge)
-        }
-    } else {
-        Button(
+    Button(
             onClick = onClick,
             modifier = modifier,
             enabled = enabled,
         ) {
             Text(text = text, style = LegadoTheme.typography.labelLarge)
         }
-    }
 }
 
 @Composable
@@ -46,22 +32,11 @@ fun SecondaryButton(
     enabled: Boolean = true,
     text: String
 ) {
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        MiuixButton(
-            onClick = onClick,
-            modifier = modifier,
-            enabled = enabled,
-            colors = MiuixButtonDefaults.buttonColors()
-        ) {
-            MiuixText(text = text,style = LegadoTheme.typography.labelLarge)
-        }
-    } else {
-        OutlinedButton(
+    OutlinedButton(
             onClick = onClick,
             modifier = modifier,
             enabled = enabled,
         ) {
             Text(text = text, style = LegadoTheme.typography.labelLarge)
         }
-    }
 }

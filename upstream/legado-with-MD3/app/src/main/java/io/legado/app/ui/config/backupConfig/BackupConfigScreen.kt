@@ -1,5 +1,7 @@
 package io.legado.app.ui.config.backupConfig
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -14,10 +16,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -399,7 +397,7 @@ private fun IgnoreItemsSheet(
         endAction = {
             MediumTonalButton(
                 onClick = onConfirm,
-                icon = Icons.Default.Save,
+                icon = Symbols.Save,
                 contentDescription = stringResource(R.string.save),
             )
         },
@@ -483,11 +481,10 @@ private fun BackupConfigDialogs(
                             IconButton(onClick = {
                                 onIntent(BackupConfigIntent.TogglePasswordVisibility)
                             }) {
-                                Icon(
-                                    imageVector = if (it.passwordVisible) {
-                                        Icons.Filled.Visibility
+                                SymbolIcon(symbol = if (it.passwordVisible) {
+                                        Symbols.Visibility
                                     } else {
-                                        Icons.Filled.VisibilityOff
+                                        Symbols.VisibilityOff
                                     },
                                     contentDescription = stringResource(
                                         if (it.passwordVisible) R.string.hide_password

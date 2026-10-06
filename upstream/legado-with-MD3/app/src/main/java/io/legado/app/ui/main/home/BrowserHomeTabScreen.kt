@@ -2,6 +2,7 @@ package io.legado.app.ui.main.home
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -13,7 +14,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
@@ -28,8 +31,12 @@ import io.legado.app.ui.browser.BrowserNtpScreen
 import io.legado.app.ui.browser.BrowserSessionActions
 import io.legado.app.ui.browser.BrowserSessionScreen
 import io.legado.app.ui.browser.BrowserTheme
+import io.legado.app.ui.browser.TabletBrowserLayout
 import io.legado.app.ui.browser.TabletBrowserShell
+import io.legado.app.ui.browser.TabletEmbeddedReaderHost
+import io.legado.app.ui.browser.TabletEmbeddedReaderKind
 import io.legado.app.ui.browser.TabletSidePanel
+import kotlinx.coroutines.flow.first
 
 /**
  * Home tab: multi-tab NTP ↔ session (SPEC-012/018).
@@ -102,7 +109,27 @@ private fun BrowserHomeTabBody(
         mutableStateOf(BrowserOmniboxLabel.resolve(active?.omniboxLabel, active?.url))
     }
     var addressFocused by remember { mutableStateOf(false) }
+    var submittingAddress by remember { mutableStateOf(false) }
     var sessionActions by remember { mutableStateOf<BrowserSessionActions?>(null) }
+    var embeddedReaderKind by rememberSaveable { mutableStateOf<String?>(null) }
+    var embeddedReaderUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    val embeddedKind = when (embeddedReaderKind) {
+        "novel" -> TabletEmbeddedReaderKind.Novel
+        "manga" -> TabletEmbeddedReaderKind.Manga
+        else -> null
+    }
+
+    fun openEmbeddedReader(kind: TabletEmbeddedReaderKind, bookUrl: String) {
+        embeddedReaderKind = if (kind == TabletEmbeddedReaderKind.Novel) "novel" else "manga"
+        embeddedReaderUrl = bookUrl
+        chromeVisible = true
+        sidePanel = TabletSidePanel.None
+    }
+
+    fun closeEmbeddedReader() {
+        embeddedReaderKind = null
+        embeddedReaderUrl = null
+    }
 
     // SPEC-024: sync omnibox from search label, not page URL.
     LaunchedEffect(active?.id) {
@@ -139,16 +166,25 @@ private fun BrowserHomeTabBody(
         address = address,
         onAddressChange = { address = it },
         onAddressFocusChange = { focused ->
-            if (addressFocused && !focused) {
+            if (
+                TabletBrowserLayout.omniboxShouldRestoreOnFocusLost(
+                    wasFocused = addressFocused,
+                    nowFocused = focused,
+                    submitting = submittingAddress,
+                )
+            ) {
                 address = BrowserOmniboxLabel.resolve(active?.omniboxLabel, active?.url)
             }
             addressFocused = focused
+            if (focused) submittingAddress = false
         },
         onSubmitAddress = {
             val raw = address.trim()
             if (raw.isNotEmpty()) {
+                submittingAddress = true
                 addressFocused = false
                 address = raw
+                closeEmbeddedReader()
                 BrowserTabManager.updateActiveOmniboxLabel(raw)
                 sessionActions?.loadUrl(raw)
                     ?: BrowserTabManager.openUrlInActive(raw, omniboxLabel = raw)
@@ -159,13 +195,14 @@ private fun BrowserHomeTabBody(
         onRefresh = { sessionActions?.reload() },
         onReader = { sessionActions?.openReader() },
         onOpenBookshelf = onOpenBookshelf,
-        chromeVisible = chromeVisible || !sessionActive,
+        chromeVisible = chromeVisible || !sessionActive || embeddedKind != null,
         sidePanel = sidePanel,
         onSidePanelChange = { sidePanel = it },
         onOpenUrl = { BrowserTabManager.openUrlInActive(it) },
         onOpenBrowserSettings = onOpenBrowserSettings,
         sessionActions = sessionActions,
     ) {
+        Box(Modifier.fillMaxSize()) {
         BrowserNtpSessionSwitch(
             showNtp = showNtp,
             ntp = {
@@ -198,8 +235,8 @@ private fun BrowserHomeTabBody(
                     onOpenBookmarks = { sidePanel = TabletSidePanel.Bookmarks },
                     onOpenHistory = { sidePanel = TabletSidePanel.History },
                     onOpenTabs = { sidePanel = TabletSidePanel.Tabs },
-                    onOpenReader = onOpenReader,
-                    onOpenMangaReader = onOpenMangaReader,
+                    onOpenReader = { openEmbeddedReader(TabletEmbeddedReaderKind.Novel, it) },
+                    onOpenMangaReader = { openEmbeddedReader(TabletEmbeddedReaderKind.Manga, it) },
                     onPageMeta = { pageUrl, title ->
                         if (!addressFocused) {
                             address = BrowserOmniboxLabel.resolve(tab.omniboxLabel, pageUrl)
@@ -209,6 +246,10 @@ private fun BrowserHomeTabBody(
                     tabletEmbedded = true,
                     onBindActions = { sessionActions = it },
                     onScrollDirection = { dir ->
+                        if (embeddedKind != null) {
+                            chromeVisible = true
+                            return@BrowserSessionScreen
+                        }
                         if (!chromePrefs.autoHideTopBar) {
                             chromeVisible = true
                             return@BrowserSessionScreen
@@ -219,6 +260,16 @@ private fun BrowserHomeTabBody(
                 }
             },
         )
+        val overlayUrl = embeddedReaderUrl
+        if (embeddedKind != null && !overlayUrl.isNullOrBlank()) {
+            TabletEmbeddedReaderHost(
+                kind = embeddedKind,
+                bookUrl = overlayUrl,
+                onClose = { closeEmbeddedReader() },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        }
     }
 }
 
@@ -228,18 +279,61 @@ private fun BrowserNtpSessionSwitch(
     ntp: @Composable () -> Unit,
     session: @Composable () -> Unit,
 ) {
-    // SPEC-033: never compose NTP and session (AwContents) at the same time.
-    // AnimatedContent kept both during the slide and crashed after repeated searches.
+    // SPEC-033/039: never compose NTP and session (AwContents) together.
+    // Sequential Legado-style push/pop (slide only, no fade/scale on WebView).
     val spec = tween<IntOffset>(durationMillis = 480, easing = FastOutSlowInEasing)
-    Box(Modifier.fillMaxSize()) {
+    val ntpState = remember {
+        MutableTransitionState(showNtp).apply { targetState = showNtp }
+    }
+    val sessionState = remember {
+        MutableTransitionState(!showNtp).apply { targetState = !showNtp }
+    }
+
+    LaunchedEffect(showNtp) {
+        val wantNtp = showNtp
+        val wantSession = !showNtp
+        // Already settled (incl. first composition) — do not replay exit/enter.
+        if (ntpState.isIdle && sessionState.isIdle &&
+            ntpState.currentState == wantNtp && ntpState.targetState == wantNtp &&
+            sessionState.currentState == wantSession && sessionState.targetState == wantSession
+        ) {
+            return@LaunchedEffect
+        }
         if (!showNtp) {
+            // Push: NTP exits left, then session enters from right.
+            sessionState.targetState = false
+            if (sessionState.currentState) {
+                snapshotFlow { sessionState.isIdle && !sessionState.currentState }.first { it }
+            }
+            ntpState.targetState = false
+            snapshotFlow { ntpState.isIdle && !ntpState.currentState }.first { it }
+            sessionState.targetState = true
+        } else {
+            // Pop: session exits right, then NTP enters from left.
+            ntpState.targetState = false
+            if (ntpState.currentState) {
+                snapshotFlow { ntpState.isIdle && !ntpState.currentState }.first { it }
+            }
+            sessionState.targetState = false
+            snapshotFlow { sessionState.isIdle && !sessionState.currentState }.first { it }
+            ntpState.targetState = true
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        AnimatedVisibility(
+            visibleState = sessionState,
+            modifier = Modifier.fillMaxSize(),
+            enter = slideInHorizontally(animationSpec = spec) { fullWidth -> fullWidth },
+            exit = slideOutHorizontally(animationSpec = spec) { fullWidth -> fullWidth },
+        ) {
             session()
         }
         AnimatedVisibility(
-            visible = showNtp,
+            visibleState = ntpState,
             modifier = Modifier.fillMaxSize(),
-            enter = slideInHorizontally(animationSpec = spec) { it },
-            exit = slideOutHorizontally(animationSpec = spec) { it },
+            enter = slideInHorizontally(animationSpec = spec) { fullWidth -> -fullWidth },
+            exit = slideOutHorizontally(animationSpec = spec) { fullWidth -> -fullWidth },
         ) {
             ntp()
         }

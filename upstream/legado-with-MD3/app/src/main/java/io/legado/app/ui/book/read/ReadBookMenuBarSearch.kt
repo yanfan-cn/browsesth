@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.read
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,10 +22,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
@@ -30,7 +29,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -113,7 +111,7 @@ internal fun SearchBottomMenuContent(
         ) {
             SearchMenuActionButton(
                 modifier = Modifier.weight(2f),
-                icon = Icons.Default.Search,
+                icon = Symbols.Search,
                 text = stringResource(R.string.all_results),
                 onClick = {
                     onIntent(ReadBookIntent.OpenSearch(word = null, autoFocus = false))
@@ -121,7 +119,7 @@ internal fun SearchBottomMenuContent(
             )
             SearchMenuActionButton(
                 modifier = Modifier.weight(1f),
-                icon = Icons.Default.Menu,
+                icon = Symbols.Menu,
                 text = stringResource(R.string.main_menu),
                 onClick = {
                     onIntent(ReadBookIntent.HideSearchMenu)
@@ -130,7 +128,7 @@ internal fun SearchBottomMenuContent(
             )
             SearchMenuActionButton(
                 modifier = Modifier.weight(0.55f),
-                icon = Icons.Default.Close,
+                icon = Symbols.Close,
                 text = null,
                 iconContentDescription = stringResource(R.string.exit),
                 onClick = { onIntent(ReadBookIntent.ExitSearch) },
@@ -175,14 +173,14 @@ private fun SearchInfoPill(
 @Composable
 private fun SearchMenuActionButton(
     modifier: Modifier = Modifier,
-    icon: ImageVector,
+    icon: MaterialSymbol,
     text: String?,
     iconContentDescription: String? = null,
     onClick: () -> Unit,
 ) {
     SearchPillSurface(modifier = modifier, onClick = onClick) {
-        Icon(
-            imageVector = icon,
+        SymbolIcon(
+            symbol = icon,
             contentDescription = iconContentDescription,
             tint = LegadoTheme.colorScheme.primary,
             modifier = Modifier.size(16.dp),

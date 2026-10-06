@@ -11,10 +11,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import io.legado.app.ui.theme.LegadoTheme
+import io.legado.app.ui.util.isRuntimeShaderSupported
 import io.legado.app.ui.util.shouldShowSplitPane
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import kotlin.math.floor
 
 @Composable

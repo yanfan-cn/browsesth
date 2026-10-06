@@ -10,14 +10,24 @@ data class BrowserShortcut(
     val title: String,
     val url: String,
 ) {
-    fun faviconUrl(): String {
-        val host = try {
-            Uri.parse(url).host ?: return ""
-        } catch (_: Throwable) {
-            return ""
-        }
-        return "https://www.google.com/s2/favicons?domain=$host&sz=128"
+    fun host(): String = try {
+        Uri.parse(url).host?.removePrefix("www.").orEmpty()
+    } catch (_: Throwable) {
+        ""
     }
+
+    /** SPEC-049: try site icon, then public resolvers (mainland-friendly first). */
+    fun faviconCandidates(): List<String> {
+        val host = host()
+        if (host.isBlank()) return emptyList()
+        return listOf(
+            "https://$host/favicon.ico",
+            "https://icons.duckduckgo.com/ip3/$host.ico",
+            "https://www.google.com/s2/favicons?sz=128&domain=$host",
+        )
+    }
+
+    fun faviconUrl(): String = faviconCandidates().firstOrNull().orEmpty()
 }
 
 /** Customizable NTP shortcuts (Chrome-like speed dial). */

@@ -21,33 +21,20 @@ fun ConfirmDismissButtonsRow(
     dismissEnabled: Boolean = true,
     confirmEnabled: Boolean = true,
 ) {
-    val isMiuix = ThemeResolver.isMiuixEngine(composeEngine)
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = if (isMiuix) {
-            Arrangement.spacedBy(12.dp)
-        } else {
-            Arrangement.spacedBy(12.dp, Alignment.End)
-        }
+        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)
     ) {
         SecondaryButton(
             onClick = onDismiss,
-            modifier = if (isMiuix) {
-                Modifier.weight(1f)
-            } else {
-                Modifier.widthIn(min = 88.dp)
-            },
+            modifier = Modifier.widthIn(min = 88.dp),
             enabled = dismissEnabled,
             text = dismissText
         )
         PrimaryButton(
             onClick = onConfirm,
-            modifier = if (isMiuix) {
-                Modifier.weight(1f)
-            } else {
-                Modifier.widthIn(min = 88.dp)
-            },
+            modifier = Modifier.widthIn(min = 88.dp),
             enabled = confirmEnabled,
             text = confirmText
         )

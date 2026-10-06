@@ -1,5 +1,7 @@
 package io.legado.app.ui.main.bookshelf.autoGroup
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,13 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -100,14 +95,14 @@ fun AiAutoGroupSheet(
             when (state.phase) {
                 AiAutoGroupPhase.Reviewing -> MediumTonalButton(
                     onClick = { viewModel.onIntent(AiAutoGroupIntent.RequestApply) },
-                    icon = Icons.Default.Check,
+                    icon = Symbols.Check,
                     contentDescription = stringResource(R.string.ai_auto_group_confirm_execute),
                     enabled = state.assignedBookCount > 0,
                 )
 
                 AiAutoGroupPhase.Result -> MediumPlainButton(
                     onClick = closeSheet,
-                    icon = Icons.Default.Close,
+                    icon = Symbols.Close,
                     contentDescription = stringResource(R.string.close),
                 )
 
@@ -351,7 +346,7 @@ private fun AutoGroupProgressContent(
             Spacer(modifier = Modifier.height(16.dp))
             MediumPlainButton(
                 onClick = onCancel,
-                icon = Icons.Default.Close,
+                icon = Symbols.Close,
                 text = stringResource(R.string.cancel),
             )
         }
@@ -384,13 +379,13 @@ private fun AutoGroupReviewContent(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     MediumTonalButton(
                         onClick = { onIntent(AiAutoGroupIntent.Revise) },
-                        icon = Icons.Default.Refresh,
+                        icon = Symbols.Refresh,
                         text = stringResource(R.string.ai_auto_group_readjust),
                         enabled = state.revisionInstruction.isNotBlank(),
                     )
                     MediumPlainButton(
                         onClick = { onIntent(AiAutoGroupIntent.RequestApply) },
-                        icon = Icons.Default.PlayArrow,
+                        icon = Symbols.PlayArrow,
                         text = stringResource(R.string.ai_auto_group_confirm_execute),
                         enabled = state.assignedBookCount > 0,
                     )
@@ -416,7 +411,7 @@ private fun AutoGroupReviewContent(
                     onIntent(AiAutoGroupIntent.AddGroup(newGroupName))
                     newGroupName = ""
                 },
-                icon = Icons.Default.Add,
+                icon = Symbols.Add,
                 contentDescription = stringResource(R.string.ai_auto_group_add_group),
             )
         }
@@ -517,7 +512,7 @@ private fun AutoGroupCard(
                 )
                 MediumPlainButton(
                     onClick = { onIntent(AiAutoGroupIntent.RemoveGroup(group.key)) },
-                    icon = Icons.Default.Delete,
+                    icon = Symbols.Delete,
                     contentDescription = stringResource(R.string.ai_auto_group_delete_group),
                 )
             }
@@ -578,7 +573,7 @@ private fun AutoGroupBookItem(
         trailingAction = {
             SmallPlainButton(
                 onClick = { onIntent(AiAutoGroupIntent.IgnoreBook(book.bookUrl)) },
-                icon = Icons.Default.Close,
+                icon = Symbols.Close,
                 contentDescription = stringResource(R.string.ai_auto_group_ignore),
             )
         },
@@ -660,7 +655,7 @@ private fun AutoGroupResultContent(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Default.Check, contentDescription = null)
+                SymbolIcon(Symbols.Check, contentDescription = null)
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = resultText,

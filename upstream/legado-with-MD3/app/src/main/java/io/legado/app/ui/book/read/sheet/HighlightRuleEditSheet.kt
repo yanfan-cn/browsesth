@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -23,8 +25,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -263,7 +263,7 @@ fun HighlightRuleEditSheet(
                         )
                     )
                 },
-                icon = Icons.Default.Done,
+                icon = Symbols.Done,
                 contentDescription = stringResource(R.string.save),
             )
         },
@@ -861,7 +861,7 @@ private fun NinePatchEditorDialog(
         endAction = {
             MediumTonalButton(
                 onClick = { onSave(left, right, top, bottom) },
-                icon = Icons.Default.Done,
+                icon = Symbols.Done,
                 contentDescription = stringResource(R.string.save),
             )
         },

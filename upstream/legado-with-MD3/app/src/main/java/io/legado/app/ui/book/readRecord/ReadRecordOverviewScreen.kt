@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.readRecord
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
@@ -24,12 +26,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowLeft
-import androidx.compose.material.icons.automirrored.filled.ArrowRight
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.GridOn
-import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -237,7 +233,7 @@ fun DateNavigator(
     ) {
         MediumPlainButton(
             onClick = onPrevClick,
-            icon = Icons.AutoMirrored.Filled.ArrowLeft,
+            icon = Symbols.ArrowLeft,
             contentDescription = stringResource(R.string.previous)
         )
         AnimatedContent(
@@ -275,7 +271,7 @@ fun DateNavigator(
         }
         MediumPlainButton(
             onClick = onNextClick,
-            icon = Icons.AutoMirrored.Filled.ArrowRight,
+            icon = Symbols.ArrowRight,
             contentDescription = stringResource(R.string.next)
         )
     }
@@ -290,8 +286,7 @@ fun HeatmapCard(state: ReadRecordOverviewUiState) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.GridOn,
+                SymbolIcon(symbol = Symbols.GridOn,
                     contentDescription = null,
                     tint = LegadoTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
@@ -327,8 +322,7 @@ fun TopReadingListCard(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Leaderboard,
+                SymbolIcon(symbol = Symbols.Leaderboard,
                     contentDescription = null,
                     tint = LegadoTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
@@ -440,8 +434,7 @@ fun ReadingCalendarCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.CalendarMonth,
+                SymbolIcon(symbol = Symbols.CalendarMonth,
                     contentDescription = null,
                     tint = LegadoTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)

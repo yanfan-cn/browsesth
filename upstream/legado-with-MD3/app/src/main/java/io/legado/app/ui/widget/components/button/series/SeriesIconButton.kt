@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.button.series
+import io.legado.app.ui.widget.components.icon.SymbolIcon
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.snap
@@ -34,7 +36,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -44,7 +45,9 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.icon.AppIcon
+import io.legado.app.ui.widget.components.icon.AppSymbolIcon
 import io.legado.app.ui.widget.components.text.AppText
+import io.legado.app.ui.widget.components.icon.AppSymbolIcon
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 internal val SeriesIconSize: Dp
@@ -148,7 +151,7 @@ internal fun SeriesButton(
 
 @Composable
 internal fun SeriesIconButton(
-    icon: ImageVector,
+    icon: MaterialSymbol,
     contentDescription: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -179,8 +182,8 @@ internal fun SeriesIconButton(
         selectedContainerColor = selectedContainerColor,
         selectedContentColor = selectedContentColor
     ) { resolvedContentColor ->
-        AppIcon(
-            imageVector = icon,
+        AppSymbolIcon(
+            symbol = icon,
             contentDescription = contentDescription,
             tint = resolvedContentColor,
             modifier = Modifier.size(iconSize)
@@ -190,7 +193,7 @@ internal fun SeriesIconButton(
 
 @Composable
 internal fun SeriesButtonContent(
-    icon: ImageVector?,
+    icon: MaterialSymbol?,
     text: String?,
     contentDescription: String?,
     iconSize: Dp,
@@ -213,7 +216,7 @@ internal fun SeriesButtonContent(
     ) {
         if (icon != null) {
             AppIcon(
-                imageVector = icon,
+                symbol = icon,
                 contentDescription = contentDescription,
                 tint = contentColor,
                 modifier = Modifier.size(iconSize)
@@ -231,7 +234,7 @@ internal fun SeriesButtonContent(
 
 @Composable
 internal fun SeriesAnimatedButtonContent(
-    icon: ImageVector,
+    icon: MaterialSymbol,
     text: String?,
     contentDescription: String?,
     showText: Boolean,
@@ -246,8 +249,8 @@ internal fun SeriesAnimatedButtonContent(
         modifier = Modifier.padding(if (hasText) padding else PaddingValues(0.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AppIcon(
-            imageVector = icon,
+        AppSymbolIcon(
+            symbol = icon,
             contentDescription = contentDescription,
             tint = contentColor,
             modifier = Modifier.size(iconSize)

@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -11,33 +14,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Toc
-import androidx.compose.material.icons.filled.Animation
-import androidx.compose.material.icons.filled.AutoStories
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.CleanHands
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.DisplaySettings
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.FindReplace
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.SwapVert
-import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.legado.app.R
@@ -60,7 +42,7 @@ import io.legado.app.ui.widget.components.reader.ReaderMenuActionSquare
 private data class MoreActionSpec(
     val id: String,
     val label: String,
-    val icon: ImageVector,
+    val icon: MaterialSymbol,
     val applicable: Boolean = true,
     val selected: Boolean = false,
     val onClick: () -> Unit,
@@ -108,7 +90,7 @@ fun ReaderMoreActionsSheet(
                 actions = orderedVisibleActions(config, specs) + MoreActionSpec(
                     id = "configure_more_actions",
                     label = stringResource(R.string.more_actions_config),
-                    icon = Icons.Default.Settings,
+                    icon = Symbols.Settings,
                     onClick = { editing = true },
                 ),
                 state = state,
@@ -293,78 +275,78 @@ private fun moreActionSpecs(
     dispatch: (ReadBookIntent) -> Unit,
 ): List<MoreActionSpec> = listOf(
     MoreActionSpec(
-        "source_custom_button", stringResource(R.string.custom_button), Icons.Default.Extension,
+        "source_custom_button", stringResource(R.string.custom_button), Symbols.Extension,
         applicable = state.bookSource?.customButton == true,
         onClick = { dispatch(ReadBookIntent.SourceCustomButton(false)) },
     ),
     MoreActionSpec(
-        "change_source", stringResource(R.string.change_origin), Icons.Default.SwapHoriz,
+        "change_source", stringResource(R.string.change_origin), Symbols.SwapHoriz,
         applicable = !state.isLocalBook, onClick = { dispatch(ReadBookIntent.MenuChangeSource) }),
     MoreActionSpec(
-        "refresh", stringResource(R.string.menu_refresh), Icons.Default.Refresh,
+        "refresh", stringResource(R.string.menu_refresh), Symbols.Refresh,
         applicable = !state.isLocalBook, onClick = { dispatch(ReadBookIntent.MenuRefreshDur) }),
     MoreActionSpec(
-        "download", stringResource(R.string.offline_cache), Icons.Default.CloudDownload,
+        "download", stringResource(R.string.offline_cache), Symbols.CloudDownload,
         applicable = !state.isLocalBook,
         onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.Download)) }),
     MoreActionSpec(
-        "toc_rule", stringResource(R.string.txt_toc_rule), Icons.AutoMirrored.Filled.Toc,
+        "toc_rule", stringResource(R.string.txt_toc_rule), Symbols.Toc,
         applicable = state.isLocalTxt, onClick = { dispatch(ReadBookIntent.MenuTocRegex) }),
     MoreActionSpec(
-        "charset", stringResource(R.string.set_charset), Icons.Default.Translate,
+        "charset", stringResource(R.string.set_charset), Symbols.Translate,
         applicable = state.isLocalBook,
         onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.Charset)) }),
     MoreActionSpec(
-        "edit_content", stringResource(R.string.edit_content), Icons.Default.Edit,
+        "edit_content", stringResource(R.string.edit_content), Symbols.Edit,
         onClick = { dispatch(ReadBookIntent.OpenContentEdit) }),
     MoreActionSpec(
-        "add_bookmark", stringResource(R.string.bookmark_add), Icons.Default.Bookmark,
+        "add_bookmark", stringResource(R.string.bookmark_add), Symbols.Bookmark,
         onClick = { dispatch(ReadBookIntent.AddBookmark) }),
     MoreActionSpec(
-        "text_processing", stringResource(R.string.text_processing), Icons.Default.FindReplace,
+        "text_processing", stringResource(R.string.text_processing), Symbols.FindReplace,
         onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.TextProcessing)) }),
     MoreActionSpec(
-        "highlight_rule", stringResource(R.string.highlight_rule_config), Icons.Default.Tune,
+        "highlight_rule", stringResource(R.string.highlight_rule_config), Symbols.Tune,
         onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.HighlightRuleConfig)) }),
     MoreActionSpec(
-        "read_style", stringResource(R.string.read_config), Icons.Default.DisplaySettings,
+        "read_style", stringResource(R.string.read_config), Symbols.DisplaySettings,
         onClick = { dispatch(ReadBookIntent.OpenReadMenuRoute(ReadBookMenuRoute.ReadStyle)) }),
     MoreActionSpec(
-        "reverse_content", stringResource(R.string.reverse_content), Icons.Default.SwapVert,
+        "reverse_content", stringResource(R.string.reverse_content), Symbols.SwapVert,
         onClick = { dispatch(ReadBookIntent.MenuReverseContent) }),
     MoreActionSpec(
-        "re_segment", stringResource(R.string.re_segment), Icons.AutoMirrored.Filled.Toc,
+        "re_segment", stringResource(R.string.re_segment), Symbols.Toc,
         selected = state.reSegment, onClick = { onIntent(ReadBookIntent.MenuReSegment) }),
     MoreActionSpec(
-        "del_ruby", stringResource(R.string.del_ruby_tag), Icons.Default.CleanHands,
+        "del_ruby", stringResource(R.string.del_ruby_tag), Symbols.CleanHands,
         applicable = state.isEpub, selected = state.delRubyTag,
         onClick = { onIntent(ReadBookIntent.MenuDelRubyTag) }),
     MoreActionSpec(
-        "del_h", stringResource(R.string.del_h_tag), Icons.Default.CleanHands,
+        "del_h", stringResource(R.string.del_h_tag), Symbols.CleanHands,
         applicable = state.isEpub, selected = state.delHTag,
         onClick = { onIntent(ReadBookIntent.MenuDelHTag) }),
     MoreActionSpec(
-        "image_style", stringResource(R.string.image_style), Icons.Default.Image,
+        "image_style", stringResource(R.string.image_style), Symbols.Image,
         onClick = {}),
     MoreActionSpec(
-        "page_anim", stringResource(R.string.book_page_anim), Icons.Default.Animation,
+        "page_anim", stringResource(R.string.book_page_anim), Symbols.Animation,
         onClick = {}),
     MoreActionSpec(
-        "simulated_reading", stringResource(R.string.simulated_reading), Icons.Default.AutoStories,
+        "simulated_reading", stringResource(R.string.simulated_reading), Symbols.AutoStories,
         onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.SimulatedReading)) }),
     MoreActionSpec(
-        "get_progress", stringResource(R.string.get_book_progress), Icons.Default.Sync,
+        "get_progress", stringResource(R.string.get_book_progress), Symbols.Sync,
         applicable = state.isReadingProgressSyncConfigured,
         onClick = { dispatch(ReadBookIntent.MenuGetProgress) }),
     MoreActionSpec(
-        "cover_progress", stringResource(R.string.cover_book_progress), Icons.Default.Sync,
+        "cover_progress", stringResource(R.string.cover_book_progress), Symbols.Sync,
         applicable = state.isReadingProgressSyncConfigured,
         onClick = { dispatch(ReadBookIntent.MenuCoverProgress) }),
     MoreActionSpec(
-        "bottom_button_config", stringResource(R.string.config_btn), Icons.Default.Settings,
+        "bottom_button_config", stringResource(R.string.config_btn), Symbols.Settings,
         onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.ToolButtonConfig)) }),
     MoreActionSpec(
-        "log", stringResource(R.string.log), Icons.Default.BugReport,
+        "log", stringResource(R.string.log), Symbols.BugReport,
         onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.AppLog)) }),
 )
 

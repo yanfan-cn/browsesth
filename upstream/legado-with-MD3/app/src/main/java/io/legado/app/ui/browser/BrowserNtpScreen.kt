@@ -1,14 +1,19 @@
 package io.legado.app.ui.browser
 
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,20 +33,16 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.FilterNone
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableIntStateOf
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import io.legado.app.ui.theme.LocalTopBarBackdrop
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -61,6 +62,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -68,10 +70,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
 import androidx.compose.ui.zIndex
-import coil3.compose.AsyncImage
+import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import io.legado.app.R
 import io.legado.app.browser.engine.BingWallpaperClient
 import io.legado.app.browser.engine.BrowserChromePrefs
 import io.legado.app.browser.engine.BrowserNtpPrefs
@@ -81,8 +85,13 @@ import io.legado.app.browser.engine.BrowserShortcutStore
 import io.legado.app.browser.engine.resolveBrowserNavigationInput
 import io.legado.app.data.entities.Book
 import io.legado.app.ui.book.info.ChangeCoverSheet
+import io.legado.app.ui.qrcode.QrCodeResult
 import io.legado.app.ui.theme.LegadoTheme
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import io.legado.app.utils.toastOnUi
+import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
@@ -97,6 +106,7 @@ private data class NtpColors(
     val logoAccent: Color,
     val cta: Color,
     val ctaText: Color,
+    val divider: Color,
 )
 
 @Composable
@@ -116,6 +126,7 @@ private fun rememberNtpColors(forceDark: Boolean?): NtpColors {
             logoAccent = BrowserUiTokens.PrimaryOnDark,
             cta = BrowserUiTokens.PrimaryOnDark,
             ctaText = BrowserUiTokens.PageBgDark,
+            divider = Color.White.copy(alpha = 0.08f),
         )
     } else {
         NtpColors(
@@ -127,11 +138,12 @@ private fun rememberNtpColors(forceDark: Boolean?): NtpColors {
             logoAccent = BrowserUiTokens.Primary,
             cta = BrowserUiTokens.Primary,
             ctaText = Color.White,
+            divider = Color.Black.copy(alpha = 0.06f),
         )
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun BrowserNtpScreen(
     incognito: Boolean,
@@ -142,7 +154,7 @@ fun BrowserNtpScreen(
     onOpenBookmarks: () -> Unit = {},
     onOpenTabs: () -> Unit = {},
     rootModifier: Modifier = Modifier,
-    /** SPEC-018: tablet-only NTP layout (60% width, no corner buttons, wallpaper). */
+    /** SPEC-018/040: tablet NTP layout (55% width, wallpaper, no corner chrome). */
     tabletLayout: Boolean = false,
     viewModel: BrowserNtpViewModel = koinViewModel(),
 ) {
@@ -156,10 +168,14 @@ fun BrowserNtpScreen(
     var query by remember { mutableStateOf("") }
     var shortcuts by remember { mutableStateOf(shortcutStore.list()) }
     var engineMenu by remember { mutableStateOf(false) }
+    var customizeMenu by remember { mutableStateOf(false) }
     var editShortcut by remember { mutableStateOf<BrowserShortcut?>(null) }
     var addingShortcut by remember { mutableStateOf(false) }
     var coverBook by remember { mutableStateOf<Book?>(null) }
     var wallpaperUrl by remember { mutableStateOf(chromePrefs.wallpaperUrl) }
+    var dailyWallpaper by remember { mutableStateOf(chromePrefs.dailyWallpaperEnabled) }
+    var showBookshelf by remember { mutableStateOf(ntpPrefs.showBookshelfCard) }
+    var showShortcuts by remember { mutableStateOf(ntpPrefs.showShortcutGrid) }
 
     val forceDark = when (ntpPrefs.ntpThemeMode) {
         "light" -> false
@@ -167,14 +183,33 @@ fun BrowserNtpScreen(
         else -> null
     }
     val colors = rememberNtpColors(forceDark)
-
     val books by viewModel.recentBooks.collectAsState()
+    val hasQuery = query.isNotBlank()
+    val shortcutColumns = if (tabletLayout) 6 else 4
 
-    LaunchedEffect(tabletLayout, chromePrefs.dailyWallpaperEnabled) {
-        if (tabletLayout && chromePrefs.dailyWallpaperEnabled) {
+    val qrLauncher = rememberLauncherForActivityResult(QrCodeResult()) { result ->
+        val raw = result?.trim().orEmpty()
+        if (raw.isEmpty()) return@rememberLauncherForActivityResult
+        query = raw
+        val url = resolveBrowserNavigationInput(raw, engine)
+        if (url.isNotEmpty()) {
+            keyboardController?.hide()
+            focusManager.clearFocus(force = true)
+            onOpenUrl(url, incognito, raw)
+        }
+    }
+
+    var firstFrameDone by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { firstFrameDone = true }
+
+    LaunchedEffect(dailyWallpaper, firstFrameDone) {
+        if (!firstFrameDone) return@LaunchedEffect
+        if (dailyWallpaper) {
             wallpaperUrl = withContext(Dispatchers.IO) {
                 BingWallpaperClient.ensureToday(context, chromePrefs)
             }.orEmpty()
+        } else {
+            wallpaperUrl = ""
         }
     }
 
@@ -187,319 +222,409 @@ fun BrowserNtpScreen(
         onOpenUrl(url, incognito, raw)
     }
 
+    val pageBg = if (incognito) BrowserUiTokens.IncognitoPageBg else colors.pageBg
     Box(
         modifier = rootModifier
             .fillMaxSize()
-            .background(if (incognito) BrowserUiTokens.IncognitoPageBg else colors.pageBg),
+            .background(pageBg),
     ) {
-        if (tabletLayout && wallpaperUrl.isNotBlank() && !incognito) {
-            AsyncImage(
-                model = wallpaperUrl,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.35f)),
-            )
+        // SPEC-049: sample source must NOT contain glass descendants — nested
+        // layerBackdrop + browserControlLiquidGlass caused RenderThread SIGSEGV.
+        val ntpBackdrop = rememberLayerBackdrop()
+        val sampleWallpaper = firstFrameDone && wallpaperUrl.isNotBlank() && !incognito && dailyWallpaper
+        CompositionLocalProvider(
+            LocalTopBarBackdrop provides if (sampleWallpaper) ntpBackdrop else null,
+        ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(if (sampleWallpaper) Modifier.layerBackdrop(ntpBackdrop) else Modifier)
+                .background(pageBg),
+        ) {
+            if (wallpaperUrl.isNotBlank() && !incognito && dailyWallpaper) {
+                SubcomposeAsyncImage(
+                    model = wallpaperUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.35f)),
+                )
+            }
         }
+
+        // SPEC-049: compact 54dp chrome + glass customize panel (sibling of sample source)
+        val chromeTint = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .zIndex(2f)
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .height(BrowserUiTokens.TopBarHeight)
+                .padding(horizontal = BrowserUiTokens.SpaceSm),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceMd),
+        ) {
+            Box {
+                NtpGlassIcon(
+                    icon = Symbols.Tune,
+                    desc = "主页自定义",
+                    tint = chromeTint,
+                    onClick = { customizeMenu = true },
+                )
+                if (customizeMenu) {
+                    NtpCustomizePanel(
+                        dailyWallpaper = dailyWallpaper,
+                        showBookshelf = showBookshelf,
+                        showShortcuts = showShortcuts,
+                        textColor = chromeTint,
+                        onDismiss = { customizeMenu = false },
+                        onDailyWallpaper = {
+                            dailyWallpaper = it
+                            chromePrefs.dailyWallpaperEnabled = it
+                        },
+                        onShowBookshelf = {
+                            showBookshelf = it
+                            ntpPrefs.showBookshelfCard = it
+                        },
+                        onShowShortcuts = {
+                            showShortcuts = it
+                            ntpPrefs.showShortcutGrid = it
+                        },
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            if (!tabletLayout) {
+                NtpGlassIcon(
+                    icon = Symbols.History,
+                    desc = "历史记录",
+                    tint = chromeTint,
+                    onClick = onOpenHistory,
+                )
+                NtpGlassIcon(
+                    icon = Symbols.Bookmark,
+                    desc = "收藏",
+                    tint = chromeTint,
+                    onClick = onOpenBookmarks,
+                )
+                NtpGlassIcon(
+                    icon = Symbols.FilterNone,
+                    desc = "标签页",
+                    tint = chromeTint,
+                    onClick = onOpenTabs,
+                )
+            }
+        }
+
         Column(
             modifier = Modifier
                 .then(
                     if (tabletLayout) {
                         Modifier
-                            .fillMaxWidth(0.6f)
+                            .fillMaxWidth(0.55f)
                             .align(Alignment.TopCenter)
-                            .padding(top = 48.dp, bottom = 48.dp)
+                            .padding(top = 40.dp, bottom = 40.dp)
                     } else {
                         Modifier
                             .fillMaxSize()
                             .padding(horizontal = BrowserUiTokens.PagePaddingH)
-                            .padding(top = 160.dp, bottom = 120.dp)
+                            .statusBarsPadding()
+                            .padding(top = BrowserUiTokens.TopBarHeight + 8.dp, bottom = 72.dp)
                     },
                 )
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-        Text(
-            text = "Browsesth",
-            color = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.logoAccent,
-            fontSize = 36.sp,
-            fontWeight = FontWeight.Medium,
-            letterSpacing = (-0.5).sp,
-        )
-        Spacer(modifier = Modifier.height(28.dp))
+            Text(
+                text = stringResource(R.string.app_name),
+                color = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.logoAccent,
+                fontSize = 36.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = (-0.5).sp,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
 
-        // Search bar
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Row(
+            // SPEC-049: dual-row capsule, no divider, liquid glass
+            val fieldBg = if (incognito) BrowserUiTokens.IncognitoFieldBg else colors.fieldBg
+            val textColor = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText
+            val secondary = if (incognito) BrowserUiTokens.TextSecondaryDark else colors.secondaryText
+            val capsuleShape = RoundedCornerShape(28.dp)
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(BrowserUiTokens.InputHeightLarge)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(if (incognito) BrowserUiTokens.IncognitoFieldBg else colors.fieldBg)
-                    .padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .clip(capsuleShape)
+                    .browserControlLiquidGlass(capsuleShape, interactive = false, showShadow = false)
+                    .background(fieldBg.copy(alpha = 0.28f)),
             ) {
-                Box {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .clickable { engineMenu = true },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Image(
-                            painter = painterResource(engine.logoRes),
-                            contentDescription = engine.displayName,
-                            modifier = Modifier.size(22.dp),
-                            contentScale = ContentScale.Fit,
-                        )
-                    }
-                    DropdownMenu(expanded = engineMenu, onDismissRequest = { engineMenu = false }) {
-                        BrowserSearchEngine.entries.forEach { item ->
-                            DropdownMenuItem(
-                                text = { Text(item.displayName) },
-                                onClick = {
-                                    engine = item
-                                    ntpPrefs.searchEngineId = item.id
-                                    engineMenu = false
-                                },
-                                leadingIcon = {
-                                    Image(
-                                        painter = painterResource(item.logoRes),
-                                        contentDescription = item.displayName,
-                                        modifier = Modifier.size(22.dp),
-                                        contentScale = ContentScale.Fit,
-                                    )
-                                },
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                BasicTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    textStyle = TextStyle(
-                        color = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText,
-                        fontSize = 16.sp,
-                    ),
-                    cursorBrush = SolidColor(colors.cta),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                    keyboardActions = KeyboardActions(onGo = { submit() }),
-                    decorationBox = { inner ->
-                        if (query.isEmpty()) {
-                            Text(
-                                "在 ${engine.displayName} 中搜索或输入网址",
-                                color = if (incognito) BrowserUiTokens.TextSecondaryDark else colors.secondaryText,
-                                fontSize = 14.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        inner()
-                    },
-                )
-            }
-        }
-
-        Box(modifier = Modifier.height(BrowserUiTokens.SpaceMd))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceSm),
-        ) {
-            Box(modifier = Modifier.weight(1f)) {
-                NtpPillButton(
-                    label = "AI 模式",
-                    icon = {
-                        Icon(Icons.Default.AutoAwesome, null, tint = colors.secondaryText, modifier = Modifier.size(18.dp))
-                    },
-                    bg = if (incognito) BrowserUiTokens.IncognitoFieldBg else colors.fieldBg,
-                    fg = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText,
-                    onClick = { context.toastOnUi("AI 模式即将推出") },
-                )
-            }
-            Box(modifier = Modifier.weight(1f)) {
-                NtpPillButton(
-                    label = if (incognito) "退出无痕" else "无痕模式",
-                    icon = {
-                        Icon(Icons.Default.VisibilityOff, null, tint = colors.secondaryText, modifier = Modifier.size(18.dp))
-                    },
-                    bg = if (incognito) BrowserUiTokens.Primary else colors.fieldBg,
-                    fg = if (incognito) Color.White else colors.primaryText,
-                    onClick = {
-                        if (incognito) {
-                            BrowserNtpPrefs.clearIncognitoData()
-                            onIncognitoChange(false)
-                            context.toastOnUi("已退出无痕模式")
-                        } else {
-                            onIncognitoChange(true)
-                            context.toastOnUi("已进入无痕模式")
-                        }
-                    },
-                )
-            }
-        }
-
-        Box(modifier = Modifier.height(20.dp))
-
-        // Shortcuts card
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(BrowserUiTokens.CardCorner),
-            color = if (incognito) BrowserUiTokens.IncognitoFieldBg else colors.cardBg,
-            shadowElevation = 0.dp,
-            tonalElevation = 0.dp,
-        ) {
-            Column(modifier = Modifier.padding(vertical = 18.dp, horizontal = BrowserUiTokens.SpaceSm)) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    shortcuts.take(8).forEach { item ->
-                        ShortcutChip(
-                            shortcut = item,
-                            labelColor = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText,
-                            onOpen = { onOpenUrl(item.url, incognito, null) },
-                            onEdit = { editShortcut = item },
-                        )
-                    }
-                    AddShortcutChip(
-                        labelColor = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.secondaryText,
-                        fieldBg = if (incognito) BrowserUiTokens.CardBgDark else colors.fieldBg,
-                        onClick = { addingShortcut = true },
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(BrowserUiTokens.SpaceLg))
-
-        // Bookshelf card
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(BrowserUiTokens.CardCorner),
-            color = if (incognito) BrowserUiTokens.IncognitoFieldBg else colors.cardBg,
-            shadowElevation = 0.dp,
-            tonalElevation = 0.dp,
-        ) {
-            Column(modifier = Modifier.padding(BrowserUiTokens.SpaceLg)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        "书架",
-                        color = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Center,
-                    )
-                }
-                Text(
-                    "最近在读",
-                    color = if (incognito) BrowserUiTokens.TextSecondaryDark else colors.secondaryText,
-                    fontSize = 12.sp,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = BrowserUiTokens.SpaceMd),
-                    textAlign = TextAlign.Center,
-                )
-                if (books.isEmpty()) {
-                    Text(
-                        "书架暂无内容，可在「书架」页添加",
-                        color = colors.secondaryText,
-                        fontSize = 12.sp,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = BrowserUiTokens.SpaceXl),
-                        textAlign = TextAlign.Center,
-                    )
-                } else {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceMd),
-                        contentPadding = PaddingValues(horizontal = BrowserUiTokens.SpaceXs),
-                    ) {
-                        items(books, key = { it.bookUrl }) { book ->
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .width(72.dp)
-                                    .combinedClickable(
-                                        onClick = { onOpenBook(book) },
-                                        onLongClick = { coverBook = book },
-                                    ),
-                            ) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .data(book.getDisplayCover())
-                                        .crossfade(true)
-                                        .build(),
-                                    contentDescription = book.name,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(width = 72.dp, height = 96.dp)
-                                        .clip(RoundedCornerShape(BrowserUiTokens.ButtonCorner))
-                                        .background(colors.fieldBg),
-                                )
+                        .height(48.dp)
+                        .padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                                .clickable { engineMenu = true },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Image(
+                                painter = painterResource(engine.logoRes),
+                                contentDescription = engine.displayName,
+                                modifier = Modifier.size(22.dp),
+                                contentScale = ContentScale.Fit,
+                            )
+                        }
+                        SearchEnginePickerPopup(
+                            expanded = engineMenu,
+                            onDismiss = { engineMenu = false },
+                            selected = engine,
+                            onSelect = {
+                                engine = it
+                                ntpPrefs.searchEngineId = it.id
+                            },
+                            textColor = textColor,
+                            mutedColor = secondary,
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    BasicTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        textStyle = TextStyle(color = textColor, fontSize = 16.sp),
+                        cursorBrush = SolidColor(colors.cta),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                        keyboardActions = KeyboardActions(onGo = { submit() }),
+                        decorationBox = { inner ->
+                            if (query.isEmpty()) {
                                 Text(
-                                    book.name,
-                                    color = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText,
-                                    fontSize = 12.sp,
-                                    maxLines = 2,
+                                    "在 ${engine.displayName} 中搜索或输入网址",
+                                    color = secondary,
+                                    fontSize = 14.sp,
+                                    maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(top = 6.dp),
                                 )
+                            }
+                            inner()
+                        },
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        NtpActionChip(
+                            label = "AI 模式",
+                            icon = {
+                                SymbolIcon(
+                                    Symbols.AutoAwesome,
+                                    null,
+                                    tint = secondary,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            },
+                            fg = textColor,
+                            bg = Color.Transparent,
+                            onClick = { context.toastOnUi("AI 模式即将推出") },
+                        )
+                        NtpActionChip(
+                            label = if (incognito) "退出无痕" else "无痕浏览",
+                            icon = {
+                                SymbolIcon(
+                                    Symbols.VisibilityOff,
+                                    null,
+                                    tint = if (incognito) Color.White else secondary,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            },
+                            fg = if (incognito) Color.White else textColor,
+                            bg = if (incognito) BrowserUiTokens.Primary else Color.Transparent,
+                            onClick = {
+                                if (incognito) {
+                                    BrowserNtpPrefs.clearIncognitoData()
+                                    onIncognitoChange(false)
+                                    context.toastOnUi("已退出无痕浏览")
+                                } else {
+                                    onIncognitoChange(true)
+                                    context.toastOnUi("已进入无痕浏览")
+                                }
+                            },
+                        )
+                    }
+                    NtpGlassIcon(
+                        icon = Symbols.QrCodeScanner,
+                        desc = "扫码",
+                        tint = secondary,
+                        onClick = { qrLauncher.launch(null) },
+                    )
+                    NtpGlassIcon(
+                        icon = Symbols.Search,
+                        desc = "搜索",
+                        tint = if (hasQuery) colors.cta else secondary,
+                        filled = hasQuery,
+                        enabled = hasQuery,
+                        onClick = { if (hasQuery) submit() },
+                    )
+                }
+            }
+
+            if (showShortcuts) {
+                Spacer(modifier = Modifier.height(28.dp))
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val cell = maxWidth / shortcutColumns
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        maxItemsInEachRow = shortcutColumns,
+                        horizontalArrangement = Arrangement.Start,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        shortcuts.forEach { item ->
+                            ShortcutChip(
+                                shortcut = item,
+                                labelColor = if (incognito) {
+                                    BrowserUiTokens.TextPrimaryDark
+                                } else {
+                                    colors.primaryText
+                                },
+                                cellWidth = cell,
+                                loadFavicon = firstFrameDone,
+                                onOpen = { onOpenUrl(item.url, incognito, null) },
+                                onEdit = { editShortcut = item },
+                            )
+                        }
+                        AddShortcutChip(
+                            labelColor = if (incognito) {
+                                BrowserUiTokens.TextPrimaryDark
+                            } else {
+                                colors.secondaryText
+                            },
+                            ringColor = if (incognito) {
+                                BrowserUiTokens.TextSecondaryDark
+                            } else {
+                                colors.secondaryText.copy(alpha = 0.45f)
+                            },
+                            cellWidth = cell,
+                            onClick = { addingShortcut = true },
+                        )
+                    }
+                }
+            }
+
+            if (showBookshelf) {
+                Spacer(modifier = Modifier.height(BrowserUiTokens.SpaceXl))
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(BrowserUiTokens.CardCorner))
+                        .browserControlLiquidGlass(
+                            RoundedCornerShape(BrowserUiTokens.CardCorner),
+                            interactive = false,
+                        ),
+                    shape = RoundedCornerShape(BrowserUiTokens.CardCorner),
+                    color = Color.Transparent,
+                    shadowElevation = 0.dp,
+                    tonalElevation = 0.dp,
+                ) {
+                    Column(modifier = Modifier.padding(BrowserUiTokens.SpaceLg)) {
+                        Text(
+                            "书架",
+                            color = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            "最近在读",
+                            color = if (incognito) {
+                                BrowserUiTokens.TextSecondaryDark
+                            } else {
+                                colors.secondaryText
+                            },
+                            fontSize = 12.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = BrowserUiTokens.SpaceMd),
+                            textAlign = TextAlign.Center,
+                        )
+                        if (books.isEmpty()) {
+                            Text(
+                                "书架暂无内容，可在「书架」页添加",
+                                color = colors.secondaryText,
+                                fontSize = 12.sp,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = BrowserUiTokens.SpaceXl),
+                                textAlign = TextAlign.Center,
+                            )
+                        } else {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceMd),
+                                contentPadding = PaddingValues(horizontal = BrowserUiTokens.SpaceXs),
+                            ) {
+                                items(books, key = { it.bookUrl }) { book ->
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier
+                                            .width(72.dp)
+                                            .combinedClickable(
+                                                onClick = { onOpenBook(book) },
+                                                onLongClick = { coverBook = book },
+                                            ),
+                                    ) {
+                                        SubcomposeAsyncImage(
+                                            model = ImageRequest.Builder(context)
+                                                .data(book.getDisplayCover())
+                                                .crossfade(true)
+                                                .build(),
+                                            contentDescription = book.name,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .size(width = 72.dp, height = 96.dp)
+                                                .clip(RoundedCornerShape(BrowserUiTokens.ButtonCorner))
+                                                .background(colors.fieldBg),
+                                        )
+                                        Text(
+                                            book.name,
+                                            color = if (incognito) {
+                                                BrowserUiTokens.TextPrimaryDark
+                                            } else {
+                                                colors.primaryText
+                                            },
+                                            fontSize = 12.sp,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.padding(top = 6.dp),
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
         }
-        } // scroll Column
-
-        // Phone only — tablet chrome already has these (SPEC-018).
-        if (!tabletLayout) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .zIndex(1f)
-                    .statusBarsPadding()
-                    .padding(top = 4.dp, end = 4.dp),
-            ) {
-                IconButton(onClick = onOpenHistory) {
-                    Icon(
-                        Icons.Default.History,
-                        contentDescription = "历史记录",
-                        tint = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText,
-                    )
-                }
-                IconButton(onClick = onOpenBookmarks) {
-                    Icon(
-                        Icons.Default.Bookmark,
-                        contentDescription = "收藏",
-                        tint = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText,
-                    )
-                }
-                IconButton(onClick = onOpenTabs) {
-                    Icon(
-                        Icons.Default.FilterNone,
-                        contentDescription = "标签页",
-                        tint = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText,
-                    )
-                }
-            }
-        }
-    } // Box
 
     val editing = editShortcut
     if (editing != null || addingShortcut) {
@@ -520,7 +645,7 @@ fun BrowserNtpScreen(
                     OutlinedTextField(
                         value = title,
                         onValueChange = { title = it },
-                        label = { Text("名称") },
+                        label = { Text("名称（可留空，自动用域名）") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -545,9 +670,16 @@ fun BrowserNtpScreen(
                             context.toastOnUi("请输入网址")
                             return@TextButton
                         }
+                        val hostLabel = try {
+                            Uri.parse(cleanUrl).host
+                                ?.removePrefix("www.")
+                                .orEmpty()
+                        } catch (_: Throwable) {
+                            ""
+                        }
                         val item = BrowserShortcut(
                             id = editing?.id ?: UUID.randomUUID().toString(),
-                            title = title.ifBlank { cleanUrl },
+                            title = title.ifBlank { hostLabel.ifBlank { cleanUrl } },
                             url = cleanUrl,
                         )
                         shortcutStore.upsert(item)
@@ -591,30 +723,110 @@ fun BrowserNtpScreen(
             context.toastOnUi("封面已更新")
         },
     )
+        } // CompositionLocalProvider
+    } // root Box
 }
 
 @Composable
-private fun NtpPillButton(
-    label: String,
-    icon: @Composable () -> Unit,
-    bg: Color,
-    fg: Color,
+private fun NtpGlassIcon(
+    icon: MaterialSymbol,
+    desc: String,
+    tint: Color,
+    filled: Boolean = false,
+    enabled: Boolean = true,
     onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(BrowserUiTokens.ControlMedium)
+            .browserControlLiquidGlass(CircleShape, interactive = false, showShadow = false)
+            .clip(CircleShape)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        SymbolIcon(
+            icon,
+            contentDescription = desc,
+            tint = tint.copy(alpha = if (enabled) 1f else 0.45f),
+            filled = filled,
+            size = 22.dp,
+        )
+    }
+}
+
+@Composable
+private fun NtpCustomizePanel(
+    dailyWallpaper: Boolean,
+    showBookshelf: Boolean,
+    showShortcuts: Boolean,
+    textColor: Color,
+    onDismiss: () -> Unit,
+    onDailyWallpaper: (Boolean) -> Unit,
+    onShowBookshelf: (Boolean) -> Unit,
+    onShowShortcuts: (Boolean) -> Unit,
+) {
+    Popup(
+        alignment = Alignment.TopStart,
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.PopupProperties(focusable = true),
+    ) {
+        val shape = RoundedCornerShape(BrowserUiTokens.CardCorner)
+        Column(
+            modifier = Modifier
+                .width(240.dp)
+                .padding(top = 4.dp, start = 4.dp)
+                .clip(shape)
+                .browserControlLiquidGlass(shape, interactive = false)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        ) {
+            Text("主页", color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            NtpCustomizeRow("每日壁纸", dailyWallpaper, textColor, onDailyWallpaper)
+            NtpCustomizeRow("书架卡", showBookshelf, textColor, onShowBookshelf)
+            NtpCustomizeRow("快捷书签", showShortcuts, textColor, onShowShortcuts)
+        }
+    }
+}
+
+@Composable
+private fun NtpCustomizeRow(
+    title: String,
+    checked: Boolean,
+    textColor: Color,
+    onChecked: (Boolean) -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(BrowserUiTokens.ControlLarge)
-            .clip(RoundedCornerShape(BrowserUiTokens.ButtonCorner))
+            .height(44.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, color = textColor, fontSize = 16.sp, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onChecked)
+    }
+}
+
+@Composable
+private fun NtpActionChip(
+    label: String,
+    icon: @Composable () -> Unit,
+    fg: Color,
+    bg: Color,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .height(32.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .browserControlLiquidGlass(RoundedCornerShape(16.dp), interactive = false)
             .background(bg)
             .clickable(onClick = onClick)
-            .padding(horizontal = BrowserUiTokens.SpaceMd),
+            .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
         icon()
-        Box(modifier = Modifier.width(6.dp))
-        Text(label, color = fg, fontSize = 14.sp, maxLines = 1)
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(label, color = fg, fontSize = 13.sp, maxLines = 1)
     }
 }
 
@@ -623,38 +835,32 @@ private fun NtpPillButton(
 private fun ShortcutChip(
     shortcut: BrowserShortcut,
     labelColor: Color,
+    cellWidth: androidx.compose.ui.unit.Dp,
+    loadFavicon: Boolean,
     onOpen: () -> Unit,
     onEdit: () -> Unit,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .width(72.dp)
+            .width(cellWidth)
             .combinedClickable(
                 onClick = onOpen,
                 onLongClick = onEdit,
-            ),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(Color.White),
-            contentAlignment = Alignment.Center,
-        ) {
-            AsyncImage(
-                model = shortcut.faviconUrl(),
-                contentDescription = shortcut.title,
-                modifier = Modifier.size(28.dp),
-                contentScale = ContentScale.Fit,
             )
-        }
+            .padding(horizontal = 4.dp),
+    ) {
+        FaviconBubble(
+            title = shortcut.title,
+            urls = if (loadFavicon) shortcut.faviconCandidates() else emptyList(),
+        )
         Text(
             shortcut.title,
             color = labelColor,
             fontSize = 12.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp),
         )
     }
@@ -663,24 +869,75 @@ private fun ShortcutChip(
 @Composable
 private fun AddShortcutChip(
     labelColor: Color,
-    fieldBg: Color,
+    ringColor: Color,
+    cellWidth: androidx.compose.ui.unit.Dp,
     onClick: () -> Unit,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .width(72.dp)
-            .clickable(onClick = onClick),
+            .width(cellWidth)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(52.dp)
                 .clip(CircleShape)
-                .background(fieldBg),
+                .browserControlLiquidGlass(CircleShape, interactive = false, showShadow = false)
+                .border(1.dp, ringColor, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Default.Add, contentDescription = "添加", tint = labelColor)
+            SymbolIcon(Symbols.Add, contentDescription = "添加", tint = labelColor)
         }
-        Text("添加", color = labelColor, fontSize = 12.sp, modifier = Modifier.padding(top = BrowserUiTokens.SpaceSm))
+        Text(
+            "添加",
+            color = labelColor,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = BrowserUiTokens.SpaceSm),
+        )
+    }
+}
+
+@Composable
+private fun FaviconBubble(title: String, urls: List<String>) {
+    val letter = title.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "#"
+    var index by remember(title, urls.size) { mutableIntStateOf(0) }
+    val url = urls.getOrNull(index).orEmpty()
+    Box(
+        modifier = Modifier
+            .size(52.dp)
+            .clip(CircleShape)
+            .browserControlLiquidGlass(CircleShape, interactive = false, showShadow = false)
+            .background(Color.White.copy(alpha = 0.88f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            letter,
+            color = BrowserUiTokens.Primary,
+            fontWeight = FontWeight.Medium,
+            fontSize = 20.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (url.isNotBlank()) {
+            SubcomposeAsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(url)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = title,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(10.dp),
+                contentScale = ContentScale.Fit,
+                loading = { },
+                error = {
+                    LaunchedEffect(url) {
+                        if (index < urls.lastIndex) index += 1
+                    }
+                },
+            )
+        }
     }
 }

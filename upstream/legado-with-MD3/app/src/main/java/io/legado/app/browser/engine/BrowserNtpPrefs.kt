@@ -26,6 +26,16 @@ class BrowserNtpPrefs(context: Context) {
             prefs.edit().putString(KEY_THEME, value).apply()
         }
 
+    /** SPEC-040: show bookshelf card on NTP. */
+    var showBookshelfCard: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_BOOKSHELF, true)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_BOOKSHELF, value).apply()
+
+    /** SPEC-040: show shortcut grid on NTP. */
+    var showShortcutGrid: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_SHORTCUTS, true)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_SHORTCUTS, value).apply()
+
     fun searchEngine(): BrowserSearchEngine = BrowserSearchEngine.fromId(searchEngineId)
 
     companion object {
@@ -35,6 +45,8 @@ class BrowserNtpPrefs(context: Context) {
         private const val KEY_ENGINE = "search_engine"
         /** Public for [io.legado.app.ui.browser.BrowserTheme] preference listener. */
         const val KEY_THEME = "ntp_theme"
+        private const val KEY_SHOW_BOOKSHELF = "show_bookshelf_card"
+        private const val KEY_SHOW_SHORTCUTS = "show_shortcut_grid"
         const val INCOGNITO_CONTEXT = "browsesth_incognito"
 
         fun browserContext(incognito: Boolean): AwBrowserContext {

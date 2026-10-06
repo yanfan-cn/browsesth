@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.log
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -7,8 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,7 +54,7 @@ fun AppLogSheet(
                     clearAllLogs()
                     logs = emptyList()
                 },
-                icon = Icons.Default.DeleteSweep,
+                icon = Symbols.DeleteSweep,
                 contentDescription = stringResource(R.string.clear)
             )
         }

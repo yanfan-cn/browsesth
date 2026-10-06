@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -9,8 +11,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -90,8 +90,7 @@ fun CollapsibleHeader(
             )
 
             if (showIcon) {
-                Icon(
-                    imageVector = Icons.Default.ExpandMore,
+                SymbolIcon(symbol = Symbols.ExpandMore,
                     contentDescription = if (isCollapsed) {
                         stringResource(R.string.expand)
                     } else {

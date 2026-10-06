@@ -1,11 +1,10 @@
 package io.legado.app.ui.widget.components.rules
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -63,7 +62,7 @@ fun <T> RuleListScaffold(
                     alignment = Alignment.BottomEnd,
                 ),
                 tooltipText = stringResource(R.string.add),
-                icon = Icons.Default.Add
+                icon = Symbols.Add
             )
         }
     },
@@ -106,7 +105,7 @@ fun <T> RuleListScaffold(
             onSelectInvert = onSelectInvert,
             primaryAction = ActionItem(
                 text = stringResource(R.string.delete),
-                icon = Icons.Default.Delete,
+                icon = Symbols.Delete,
                 onClick = { showDeleteConfirmDialog = true }
             ),
             secondaryActions = selectionSecondaryActions

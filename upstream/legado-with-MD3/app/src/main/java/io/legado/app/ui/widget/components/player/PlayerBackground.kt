@@ -12,10 +12,10 @@ import androidx.compose.ui.unit.dp
 import io.legado.app.R
 import io.legado.app.constant.ReadAloudBgMode
 import io.legado.app.ui.theme.LegadoTheme
+import io.legado.app.ui.util.isRuntimeShaderSupported
 import io.legado.app.ui.widget.components.effect.BgEffectBackground
 import io.legado.app.ui.widget.components.effect.BgEffectConfig
 import io.legado.app.ui.widget.components.image.cover.CoverBlurBackdrop
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 
 /**
  * 播放器通用背景：纯色 / 封面模糊 / 流动光 / 透明 四种模式。

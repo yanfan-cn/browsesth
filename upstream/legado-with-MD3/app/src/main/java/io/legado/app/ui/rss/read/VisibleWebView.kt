@@ -147,7 +147,7 @@ fun VisibleWebViewCompose(
     }
     androidx.compose.foundation.layout.Box(modifier = modifier) {
         androidx.compose.material3.Text(
-            text = "系统 WebView 已禁用（Browsesth 使用 Aloha 主浏览器）",
+            text = "系统 WebView 已禁用（巡页使用 Aloha 主浏览器）",
         )
     }
 }

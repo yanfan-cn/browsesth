@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.conflict
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,8 +14,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -109,7 +109,7 @@ fun BookshelfConflictSheet(
         endAction = {
             MediumTonalButton(
                 onClick = { showOptions = true },
-                icon = Icons.Outlined.Settings,
+                icon = Symbols.Settings,
                 contentDescription = stringResource(R.string.setting)
             )
         },

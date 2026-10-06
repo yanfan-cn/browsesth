@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.explore
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -26,10 +28,6 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.outlined.FilterAlt
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
@@ -307,20 +305,20 @@ fun ExploreShowScreen(
                                     )
                                 )
                             },
-                            imageVector = Icons.AutoMirrored.Outlined.FormatListBulleted,
+                            symbol = Symbols.FormatListBulleted,
                             contentDescription = stringResource(R.string.a11y_grid_columns)
                         )
                     }
 
                     TopBarActionButton(
                         onClick = { onIntent(ExploreShowIntent.ShowSheet(ExploreShowSheet.KindSelect)) },
-                        imageVector = Icons.Outlined.FilterAlt,
+                        symbol = Symbols.FilterAlt,
                         contentDescription = stringResource(R.string.select_or_search_category)
                     )
 
                     TopBarActionButton(
                         onClick = { onIntent(ExploreShowIntent.ToggleLayout) },
-                        imageVector = if (!isGridMode) Icons.AutoMirrored.Outlined.FormatListBulleted else Icons.Default.GridView,
+                        symbol = if (!isGridMode) Symbols.FormatListBulleted else Symbols.GridView,
                         contentDescription = stringResource(R.string.a11y_switch_layout)
                     )
                 },

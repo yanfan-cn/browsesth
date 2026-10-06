@@ -1,5 +1,7 @@
 package io.legado.app.ui.main.homepage
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -27,10 +29,6 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -212,7 +210,7 @@ fun HomepageModuleFeed(
                                                         )
                                                     ) {
                                                         AppIcon(
-                                                            imageVector = Icons.Outlined.Info,
+                                                            symbol = Symbols.Info,
                                                             contentDescription = null,
                                                             tint = LegadoTheme.colorScheme.error
                                                         )
@@ -252,7 +250,7 @@ fun HomepageModuleFeed(
                                                             verticalAlignment = Alignment.CenterVertically
                                                         ) {
                                                             AppIcon(
-                                                                imageVector = Icons.Default.Refresh,
+                                                                symbol = Symbols.Refresh,
                                                                 contentDescription = null,
                                                                 tint = LegadoTheme.colorScheme.error
                                                             )
@@ -547,7 +545,7 @@ private fun ModuleHeader(
         if (onNavigate != null) {
             SmallTonalButton(
                 onClick = onNavigate,
-                icon = Icons.AutoMirrored.Filled.ArrowForward,
+                icon = Symbols.ArrowForward,
                 contentDescription = stringResource(R.string.homepage_show_all),
             )
         }

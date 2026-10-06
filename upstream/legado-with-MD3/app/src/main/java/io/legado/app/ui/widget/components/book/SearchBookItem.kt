@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.book
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -20,9 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -110,8 +109,8 @@ fun SearchBookListItem(
             }
 
             val shelfIcon = when (shelfState) {
-                BookShelfState.IN_SHELF -> Icons.Default.Check
-                BookShelfState.SAME_NAME_AUTHOR -> Icons.Default.Shuffle
+                BookShelfState.IN_SHELF -> Symbols.Check
+                BookShelfState.SAME_NAME_AUTHOR -> Symbols.Shuffle
                 else -> null
             }
 
@@ -276,8 +275,8 @@ fun SearchBookGridItem(
             }
 
             val shelfIcon = when (shelfState) {
-                BookShelfState.IN_SHELF -> Icons.Default.Check
-                BookShelfState.SAME_NAME_AUTHOR -> Icons.Default.Shuffle
+                BookShelfState.IN_SHELF -> Symbols.Check
+                BookShelfState.SAME_NAME_AUTHOR -> Symbols.Shuffle
                 else -> null
             }
 

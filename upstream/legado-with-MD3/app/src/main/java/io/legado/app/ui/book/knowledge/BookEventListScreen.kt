@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.knowledge
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,8 +11,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -86,7 +86,7 @@ fun BookEventListScreen(
         floatingActionButton = {
             AppFloatingActionButton(
                 onClick = { onIntent(EventListIntent.AddEvent) },
-                icon = Icons.Default.Add,
+                icon = Symbols.Add,
                 tooltipText = stringResource(R.string.add_event),
             )
         },

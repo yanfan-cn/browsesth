@@ -1,12 +1,12 @@
 package io.legado.app.ui.config.ai.prompt
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -103,8 +103,7 @@ fun AiPromptConfigScreen(
                                         onIntent(AiPromptConfigIntent.ResetPrompt(item.taskType))
                                     }
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Restore,
+                                    SymbolIcon(symbol = Symbols.Restore,
                                         contentDescription = stringResource(R.string.ai_prompt_reset_single)
                                     )
                                 }

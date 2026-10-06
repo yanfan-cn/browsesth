@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,10 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,7 +72,7 @@ fun EffectiveReplacesSheet(
     ) {
         MediumTonalButton(
             onClick = onOpenContentProcesses,
-            icon = Icons.Default.Edit,
+            icon = Symbols.Edit,
             text = stringResource(R.string.content_processes),
             modifier = Modifier
                 .fillMaxWidth()
@@ -126,7 +124,7 @@ fun EffectiveReplacesSheet(
                                         )
                                         Spacer(Modifier.width(4.dp))
                                         AppIcon(
-                                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                            symbol = Symbols.ArrowForward,
                                             contentDescription = null,
                                             modifier = Modifier.size(14.dp),
                                             tint = LegadoTheme.colorScheme.onSurfaceVariant,
@@ -156,7 +154,7 @@ fun EffectiveReplacesSheet(
                                         else -> onDisableRule(rule)
                                     }
                                 },
-                icon = Icons.Default.Close,
+                icon = Symbols.Close,
                 contentDescription = stringResource(R.string.close)
                             )
                         }

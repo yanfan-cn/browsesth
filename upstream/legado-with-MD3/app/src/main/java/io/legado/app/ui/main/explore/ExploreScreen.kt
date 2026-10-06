@@ -1,5 +1,7 @@
 package io.legado.app.ui.main.explore
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
@@ -19,16 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material.icons.automirrored.outlined.Label
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.VerticalAlignTop
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -82,7 +74,6 @@ import io.legado.app.ui.widget.components.text.AppText
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @OptIn(
     ExperimentalMaterial3Api::class,
@@ -167,8 +158,6 @@ fun ExploreScreen(
         }
     }
 
-    val composeEngine = ThemeResolver.isMiuixEngine(composeEngine)
-
     ListScaffold(
         title = stringResource(R.string.discovery),
         state = state,
@@ -178,13 +167,13 @@ fun ExploreScreen(
         searchPlaceholder = stringResource(R.string.search),
         dropDownMenuContent = { dismiss ->
             RoundDropdownMenuItem(
-                leadingIcon = { MenuItemIcon(Icons.Default.Group) },
+                leadingIcon = { MenuItemIcon(Symbols.Group) },
                 text = stringResource(R.string.all),
                 onClick = { onIntent(ExploreIntent.SetGroup("")); dismiss() }
             )
             state.groups.forEach { group ->
                 RoundDropdownMenuItem(
-                    leadingIcon = { MenuItemIcon(Icons.AutoMirrored.Outlined.Label) },
+                    leadingIcon = { MenuItemIcon(Symbols.Label) },
                     text = group,
                     onClick = { onIntent(ExploreIntent.SetGroup(group)); dismiss() }
                 )
@@ -234,7 +223,7 @@ fun ExploreScreen(
                             onLogin = { onIntent(ExploreIntent.OpenLogin(item)) },
                             onRefresh = { onIntent(ExploreIntent.RefreshKinds(item)) },
                             onDelete = { sourceToDeleteUrl = item.bookSourceUrl },
-                            isMiuix = composeEngine
+                            isMiuix = false
                         )
                         }
 
@@ -254,7 +243,7 @@ fun ExploreScreen(
                                             onOpenExploreShow(kind.title, listItem.sourceUrl, url)
                                         },
                                         modifier = Modifier.weight(span.toFloat()),
-                                        isMiuix = composeEngine,
+                                        isMiuix = false,
                                         displayNameOverride = state.kindDisplayNames[kind.title],
                                         valueOverride = state.kindValues[kind.title],
                                         onValueChange = { value ->
@@ -355,18 +344,18 @@ fun ExploreSourceHeader(
 
     val containerColor by animateColorAsState(
         targetValue = if (isExpanded)
-            if (isMiuix) MiuixTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.secondaryContainer
+            MaterialTheme.colorScheme.secondaryContainer
         else
-            if (isMiuix) MiuixTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+            MaterialTheme.colorScheme.surfaceContainerLow,
         animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
         label = "CardColor"
     )
 
     val contentColor by animateColorAsState(
         targetValue = if (isExpanded)
-            if (isMiuix) MiuixTheme.colorScheme.primary else MaterialTheme.colorScheme.primary
+            MaterialTheme.colorScheme.primary
         else
-            if (isMiuix) MiuixTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface,
+            MaterialTheme.colorScheme.onSurface,
         animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
         label = "CardColor"
     )
@@ -408,8 +397,7 @@ fun ExploreSourceHeader(
                             modifier = Modifier.size(18.dp)
                         )
                     } else {
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
+                        SymbolIcon(symbol = Symbols.ChevronRight,
                             contentDescription = null,
                             modifier = Modifier
                                 .rotate(rotation)
@@ -421,36 +409,36 @@ fun ExploreSourceHeader(
                 RoundDropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                     PillHeaderDivider(title = item.bookSourceName)
                     RoundDropdownMenuItem(
-                        leadingIcon = { MenuItemIcon(Icons.Default.VerticalAlignTop) },
+                        leadingIcon = { MenuItemIcon(Symbols.VerticalAlignTop) },
                         text = stringResource(R.string.to_top),
                         onClick = { onTop(); showMenu = false }
                     )
                     RoundDropdownMenuItem(
-                        leadingIcon = { MenuItemIcon(Icons.Default.Edit) },
+                        leadingIcon = { MenuItemIcon(Symbols.Edit) },
                         text = stringResource(R.string.edit),
                         onClick = { onEdit(); showMenu = false }
                     )
                     RoundDropdownMenuItem(
-                        leadingIcon = { MenuItemIcon(Icons.Default.Search) },
+                        leadingIcon = { MenuItemIcon(Symbols.Search) },
                         text = stringResource(R.string.search),
                         onClick = { onSearch(); showMenu = false }
                     )
                     if (item.hasLoginUrl) {
                         RoundDropdownMenuItem(
-                            leadingIcon = { MenuItemIcon(Icons.AutoMirrored.Filled.Login) },
+                            leadingIcon = { MenuItemIcon(Symbols.Login) },
                             text = stringResource(R.string.login),
                             onClick = { onLogin(); showMenu = false }
                         )
                     }
                     RoundDropdownMenuItem(
-                        leadingIcon = { MenuItemIcon(Icons.Default.Refresh) },
+                        leadingIcon = { MenuItemIcon(Symbols.Refresh) },
                         text = stringResource(R.string.refresh),
                         onClick = { onRefresh(); showMenu = false }
                     )
                     RoundDropdownMenuItem(
                         leadingIcon = {
                             MenuItemIcon(
-                                Icons.Default.Delete,
+                                Symbols.Delete,
                                 tint = MaterialTheme.colorScheme.error
                             )
                         },

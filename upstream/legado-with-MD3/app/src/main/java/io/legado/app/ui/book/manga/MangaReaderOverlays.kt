@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.manga
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
@@ -35,16 +38,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.AutoMode
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -59,7 +52,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -240,7 +232,7 @@ private fun MangaMenuTopBar(
             MangaTitleCapsule(state, onIntent, glassEnabled = topBarGlass, backdrop = backdrop)
             if (compact) {
                 MangaMenuIconButton(
-                    Icons.Filled.MoreVert,
+                    Symbols.MoreVert,
                     stringResource(R.string.more_actions),
                     glassEnabled = topBarGlass,
                     backdrop = backdrop,
@@ -360,19 +352,19 @@ private fun MangaMenuMergedActions(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         MergedMangaIconButton(
-            Icons.Filled.SwapHoriz,
+            Symbols.SwapHoriz,
             tint,
             stringResource(R.string.change_origin),
         ) { onIntent(MangaReaderIntent.ChangeSource) }
         MergedMangaDivider(tint)
         MergedMangaIconButton(
-            Icons.Filled.Refresh,
+            Symbols.Refresh,
             tint,
             stringResource(R.string.refresh),
         ) { onIntent(MangaReaderIntent.RefreshChapter) }
         MergedMangaDivider(tint)
         MergedMangaIconButton(
-            Icons.Filled.MoreVert,
+            Symbols.MoreVert,
             tint,
             stringResource(R.string.more_actions),
         ) { onIntent(MangaReaderIntent.OpenSourceActions) }
@@ -381,7 +373,7 @@ private fun MangaMenuMergedActions(
 
 @Composable
 private fun MergedMangaIconButton(
-    icon: ImageVector,
+    icon: MaterialSymbol,
     tint: Color,
     contentDescription: String?,
     onClick: () -> Unit,
@@ -398,8 +390,8 @@ private fun MergedMangaIconButton(
             )
             .semantics { contentDescription?.let { this.contentDescription = it } },
     ) {
-        Icon(
-            imageVector = icon,
+        SymbolIcon(
+            symbol = icon,
             contentDescription = null,
             tint = tint,
             modifier = Modifier.size(20.dp),
@@ -559,7 +551,7 @@ private fun MangaMenuBottomBar(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 MangaMenuIconButton(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    Symbols.NavigateBefore,
                                     stringResource(R.string.previous_chapter),
                                     glassEnabled = glassOnControls,
                                     backdrop = backdrop,
@@ -583,7 +575,7 @@ private fun MangaMenuBottomBar(
                                     glassThumbEnabled = glassOnControls,
                                 )
                                 MangaMenuIconButton(
-                                    Icons.AutoMirrored.Filled.ArrowForward,
+                                    Symbols.ArrowForward,
                                     stringResource(R.string.next_chapter),
                                     glassEnabled = glassOnControls,
                                     backdrop = backdrop,
@@ -597,20 +589,20 @@ private fun MangaMenuBottomBar(
                             buildList {
                                 add(
                                 ReaderMenuAction(
-                                    Icons.AutoMirrored.Filled.List,
+                                    Symbols.List,
                                     stringResource(R.string.chapter_list)
                                 ) {
                                     onIntent(MangaReaderIntent.OpenCatalog)
                                 })
                                 if (state.cacheAvailable) add(
                                     ReaderMenuAction(
-                                        Icons.Filled.CloudDownload,
+                                        Symbols.CloudDownload,
                                         stringResource(R.string.offline_cache),
                                     ) { onIntent(MangaReaderIntent.OpenCacheActions) }
                                 )
                                 add(
                                 ReaderMenuAction(
-                                    icon = Icons.Filled.AutoMode,
+                                    icon = Symbols.AutoMode,
                                     description = if (state.autoReadEnabled) {
                                         stringResource(R.string.stop)
                                     } else {
@@ -628,7 +620,7 @@ private fun MangaMenuBottomBar(
                                 )
                                 add(
                                 ReaderMenuAction(
-                                    Icons.Filled.Tune,
+                                    Symbols.Tune,
                                     stringResource(R.string.manga_reader_page_settings)
                                 ) {
                                     onIntent(
@@ -676,7 +668,7 @@ private fun MangaMenuToolRow(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MangaMenuIconButton(
-    icon: ImageVector,
+    icon: MaterialSymbol,
     description: String,
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
@@ -732,8 +724,8 @@ private fun MangaMenuIconButton(
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            imageVector = icon,
+        SymbolIcon(
+            symbol = icon,
             contentDescription = null,
             tint = tint,
             modifier = Modifier.size(20.dp),

@@ -1,5 +1,8 @@
 package io.legado.app.ui.widget.components.settingItem
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -11,8 +14,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -29,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.role
@@ -48,7 +48,7 @@ import io.legado.app.ui.widget.components.text.AppText
 fun SettingItem(
     modifier: Modifier = Modifier,
     painter: Painter? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     color: Color? = null,
     cornerRadius: androidx.compose.ui.unit.Dp = 4.dp,
     title: String,
@@ -104,7 +104,7 @@ fun SettingItem(
                             onLongClick?.invoke()
                         }
                     ),
-                leadingContent = if (painter != null || imageVector != null) {
+                leadingContent = if (painter != null || symbol != null) {
                     {
                         if (painter != null) {
                             Icon(
@@ -112,9 +112,8 @@ fun SettingItem(
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        } else if (imageVector != null) {
-                            Icon(
-                                imageVector = imageVector,
+                        } else if (symbol != null) {
+                            SymbolIcon(symbol = symbol,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -148,8 +147,7 @@ fun SettingItem(
                                 if (expanded) 180f else 0f,
                                 label = "arrow"
                             )
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
+                            SymbolIcon(symbol = Symbols.KeyboardArrowDown,
                                 contentDescription = null,
                                 modifier = Modifier.rotate(rotation)
                             )

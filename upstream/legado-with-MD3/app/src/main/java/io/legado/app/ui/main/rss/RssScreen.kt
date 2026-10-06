@@ -1,5 +1,7 @@
 package io.legado.app.ui.main.rss
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,14 +21,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Subscriptions
-import androidx.compose.material.icons.filled.VerticalAlignTop
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -230,7 +224,7 @@ fun RssScreen(
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 AppIcon(
-                                    imageVector = Icons.Default.Subscriptions,
+                                    symbol = Symbols.Subscriptions,
                                     contentDescription = null
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -257,7 +251,7 @@ fun RssScreen(
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 AppIcon(
-                                    imageVector = Icons.Default.Star,
+                                    symbol = Symbols.Star,
                                     contentDescription = null
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -344,7 +338,7 @@ fun RssSourceGridItem(
             ) {
                 PillHeaderDivider(title = source.sourceName)
                 RoundDropdownMenuItem(
-                    leadingIcon = { MenuItemIcon(Icons.Default.VerticalAlignTop) },
+                    leadingIcon = { MenuItemIcon(Symbols.VerticalAlignTop) },
                     text = stringResource(R.string.to_top),
                     onClick = {
                         onTop()
@@ -352,7 +346,7 @@ fun RssSourceGridItem(
                     }
                 )
                 RoundDropdownMenuItem(
-                    leadingIcon = { MenuItemIcon(Icons.Default.Edit) },
+                    leadingIcon = { MenuItemIcon(Symbols.Edit) },
                     text = stringResource(R.string.edit),
                     onClick = {
                         onEdit()
@@ -361,7 +355,7 @@ fun RssSourceGridItem(
                 )
                 if (!source.loginUrl.isNullOrBlank()) {
                     RoundDropdownMenuItem(
-                        leadingIcon = { MenuItemIcon(Icons.AutoMirrored.Filled.Login) },
+                        leadingIcon = { MenuItemIcon(Symbols.Login) },
                         text = stringResource(R.string.login),
                         onClick = {
                             onLogin()
@@ -370,7 +364,7 @@ fun RssSourceGridItem(
                     )
                 }
                 RoundDropdownMenuItem(
-                    leadingIcon = { MenuItemIcon(Icons.Default.Close) },
+                    leadingIcon = { MenuItemIcon(Symbols.Close) },
                     text = stringResource(R.string.disable_source),
                     onClick = {
                         onDisable()
@@ -380,7 +374,7 @@ fun RssSourceGridItem(
                 RoundDropdownMenuItem(
                     leadingIcon = {
                         MenuItemIcon(
-                            Icons.Default.Delete,
+                            Symbols.Delete,
                             tint = LegadoTheme.colorScheme.error
                         )
                     },

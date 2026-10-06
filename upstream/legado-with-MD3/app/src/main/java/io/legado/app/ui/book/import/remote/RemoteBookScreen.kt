@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.import.remote
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
@@ -24,22 +26,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.outlined.AddCircleOutline
-import androidx.compose.material.icons.outlined.Book
-import androidx.compose.material.icons.outlined.CloudSync
-import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -170,7 +156,7 @@ fun RemoteBookRouteScreen(
             {
                 MediumPlainButton(
                     onClick = { showSheet = RemoteBookSheet.ServerConfig(null) },
-                    icon = Icons.Default.Add,
+                    icon = Symbols.Add,
                     contentDescription = stringResource(R.string.add)
                 )
             }
@@ -282,7 +268,7 @@ fun RemoteBookScreen(
         topBarActions = {
             TopBarActionButton(
                 onClick = onOpenServers,
-                imageVector = Icons.Default.Storage,
+                symbol = Symbols.Storage,
                 contentDescription = stringResource(R.string.a11y_server_list)
             )
         },
@@ -295,7 +281,7 @@ fun RemoteBookScreen(
                 },
                 trailingIcon = {
                     if (state.sortKey == RemoteBookSort.Name) {
-                        Icon(Icons.Default.Check, null)
+                        SymbolIcon(Symbols.Check, null)
                     }
                 }
             )
@@ -307,7 +293,7 @@ fun RemoteBookScreen(
                 },
                 trailingIcon = {
                     if (state.sortKey == RemoteBookSort.Default) {
-                        Icon(Icons.Default.Check, null)
+                        SymbolIcon(Symbols.Check, null)
                     }
                 }
             )
@@ -326,7 +312,7 @@ fun RemoteBookScreen(
             onSelectInvert = { onIntent(RemoteBookIntent.SelectInvert) },
             primaryAction = ActionItem(
                 text = "添加至书架",
-                icon = Icons.Default.CloudDownload,
+                icon = Symbols.CloudDownload,
                 onClick = {
                     val selectedBooks = state.items
                         .filter { it.id in state.selectedIds }
@@ -456,14 +442,14 @@ private fun ServerItem(
                     onEdit?.let {
                         SmallPlainButton(
                             onClick = it,
-                            icon = Icons.Default.Edit,
+                            icon = Symbols.Edit,
                             contentDescription = stringResource(R.string.edit)
                         )
                     }
                     onDelete?.let {
                         SmallPlainButton(
                             onClick = it,
-                            icon = Icons.Default.Delete,
+                            icon = Symbols.Delete,
                             contentDescription = stringResource(R.string.delete)
                         )
                     }
@@ -536,8 +522,8 @@ private fun ServerConfigSheetContent(
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(
-                        if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                    SymbolIcon(
+                        if (passwordVisible) Symbols.Visibility else Symbols.VisibilityOff,
                         contentDescription = stringResource(
                             if (passwordVisible) R.string.hide_password else R.string.show_password
                         )
@@ -616,8 +602,7 @@ private fun PathNavigationBar(
                     )
 
                     if (!isLast) {
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
+                        SymbolIcon(symbol = Symbols.ChevronRight,
                             contentDescription = null,
                             modifier = Modifier.size(12.dp),
                             tint = LegadoTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -630,7 +615,7 @@ private fun PathNavigationBar(
         if (canGoBack) {
             SmallTonalButton(
                 onClick = onNavigateBack,
-                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                icon = Symbols.ArrowBack,
                 contentDescription = stringResource(R.string.a11y_parent_folder)
             )
         }
@@ -667,11 +652,10 @@ private fun RemoteBookItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            Icon(
-                imageVector = when {
-                    book.isDir -> Icons.Default.Folder
-                    book.isOnBookShelf -> Icons.Outlined.Book
-                    else -> Icons.Outlined.Description
+            SymbolIcon(symbol = when {
+                    book.isDir -> Symbols.Folder
+                    book.isOnBookShelf -> Symbols.Book
+                    else -> Symbols.Description
                 },
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
@@ -738,9 +722,9 @@ private fun RemoteBookItem(
                         }
                     },
                     icon = if (book.isOnBookShelf)
-                        Icons.Outlined.CloudSync
+                        Symbols.CloudSync
                     else
-                        Icons.Outlined.AddCircleOutline,
+                        Symbols.AddCircleOutline,
                     contentDescription = if (book.isOnBookShelf) "更新" else "加入",
                 )
             }

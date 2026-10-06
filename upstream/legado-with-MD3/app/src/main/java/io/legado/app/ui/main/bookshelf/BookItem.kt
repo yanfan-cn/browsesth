@@ -1,5 +1,7 @@
 package io.legado.app.ui.main.bookshelf
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -26,9 +28,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -613,7 +612,7 @@ fun BookGroupItemHorizontalCovers(
                     }
                     AppIcon(
                         modifier = Modifier.padding(end = 4.dp),
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        symbol = Symbols.KeyboardArrowRight,
                         contentDescription = null,
                         tint = LegadoTheme.colorScheme.onSurfaceVariant
                     )
@@ -854,7 +853,7 @@ fun BookItem(
             {
                 TextCard(
                     text = unreadText,
-                    icon = if (showUpdateBadge) Icons.Default.Update else null,
+                    icon = if (showUpdateBadge) Symbols.Update else null,
                     iconSize = 12.dp,
                     cornerRadius = 4.dp,
                     horizontalPadding = 4.dp,

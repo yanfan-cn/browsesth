@@ -1,5 +1,7 @@
 package io.legado.app.ui.ai.chat
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
@@ -21,9 +23,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -149,8 +148,7 @@ fun ReasoningCard(
                 .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.Lightbulb,
+            SymbolIcon(symbol = Symbols.Lightbulb,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = LegadoTheme.colorScheme.secondary
@@ -177,11 +175,10 @@ fun ReasoningCard(
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
-            Icon(
-                imageVector = if (state.expandState.expanded)
-                    Icons.Default.KeyboardArrowDown
+            SymbolIcon(symbol = if (state.expandState.expanded)
+                    Symbols.KeyboardArrowDown
                 else
-                    Icons.Default.KeyboardArrowDown,
+                    Symbols.KeyboardArrowDown,
                 contentDescription = null,
                 modifier = Modifier
                     .size(18.dp)

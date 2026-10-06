@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,17 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -70,13 +62,13 @@ fun ReadAloudContent(
         ) {
             MediumTonalButton(
                 onClick = { onIntent(ReadBookIntent.ReadAloudPrevParagraph) },
-                icon = Icons.Default.SkipPrevious,
+                icon = Symbols.SkipPrevious,
                 contentDescription = stringResource(R.string.prev_sentence),
             )
             Spacer(Modifier.width(6.dp))
             MediumTonalButton(
                 onClick = { onIntent(ReadBookIntent.ReadAloudTogglePause) },
-                icon = if (state.isReadAloudPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                icon = if (state.isReadAloudPaused) Symbols.PlayArrow else Symbols.Pause,
                 contentDescription = stringResource(
                     if (state.isReadAloudPaused) R.string.audio_play else R.string.pause
                 ),
@@ -87,13 +79,13 @@ fun ReadAloudContent(
                     onIntent(ReadBookIntent.ReadAloudStop)
                     onDismissRequest()
                 },
-                icon = Icons.Default.Stop,
+                icon = Symbols.Stop,
                 contentDescription = stringResource(R.string.stop),
             )
             Spacer(Modifier.width(6.dp))
             MediumTonalButton(
                 onClick = { onIntent(ReadBookIntent.ReadAloudNextParagraph) },
-                icon = Icons.Default.SkipNext,
+                icon = Symbols.SkipNext,
                 text = stringResource(R.string.next_sentence),
             )
         }
@@ -155,27 +147,27 @@ fun ReadAloudContent(
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             ActionButton(
-                icon = Icons.Default.Menu,
+                icon = Symbols.Menu,
                 label = stringResource(R.string.main_menu),
                 onClick = onOpenMainMenu,
             )
             ActionButton(
-                icon = Icons.AutoMirrored.Filled.List,
+                icon = Symbols.List,
                 label = stringResource(R.string.chapter_list),
                 onClick = onOpenChapterList,
             )
             ActionButton(
-                icon = Icons.Default.VisibilityOff,
+                icon = Symbols.VisibilityOff,
                 label = stringResource(R.string.to_backstage),
                 onClick = onGoToBackground,
             )
             ActionButton(
-                icon = Icons.Default.Settings,
+                icon = Symbols.Settings,
                 label = stringResource(R.string.setting),
                 onClick = onShowReadAloudConfig,
             )
             ActionButton(
-                icon = Icons.Default.Headphones,
+                icon = Symbols.Headphones,
                 label = stringResource(R.string.switch_to_read_aloud_player),
                 onClick = { onIntent(ReadBookIntent.OpenReadAloudPlayer) },
             )
@@ -201,7 +193,7 @@ private fun readAloudTimerSummary(state: ReadBookUiState): String = when {
 
 @Composable
 private fun ActionButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: io.legado.app.ui.widget.components.icon.MaterialSymbol,
     label: String,
     onClick: () -> Unit,
 ) {

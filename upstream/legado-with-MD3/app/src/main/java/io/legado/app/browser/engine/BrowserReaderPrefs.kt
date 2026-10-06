@@ -13,6 +13,11 @@ class BrowserReaderPrefs(context: Context) {
         get() = TriggerMode.fromStorage(prefs.getString(KEY_TRIGGER, TriggerMode.Manual.storage))
         set(value) = prefs.edit().putString(KEY_TRIGGER, value.storage).apply()
 
+    /** SPEC-042: open browser ephemeral novel with translationMode on. */
+    var autoTranslateOnOpen: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_TRANSLATE, true)
+        set(value) = prefs.edit().putBoolean(KEY_AUTO_TRANSLATE, value).apply()
+
     enum class TriggerMode(val storage: String, val label: String) {
         Manual("manual", "手动"),
         AutoDetect("auto_detect", "自动识别"),
@@ -28,6 +33,7 @@ class BrowserReaderPrefs(context: Context) {
     companion object {
         private const val PREFS = "browsesth_browser_reader"
         private const val KEY_TRIGGER = "trigger_mode"
+        private const val KEY_AUTO_TRANSLATE = "auto_translate_on_open"
 
         /** Heuristic paths for [TriggerMode.SiteAuto]. */
         fun looksLikeReaderSite(url: String): Boolean {

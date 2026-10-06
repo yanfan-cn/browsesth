@@ -1,19 +1,17 @@
 package io.legado.app.ui.widget.components.settingItem
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.ThemeResolver
 import io.legado.app.ui.widget.components.SplicedColumnDivider
 import io.legado.app.ui.widget.components.menuItem.RoundDropdownMenuItem
-import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.preference.OverlaySpinnerPreference
 
 @Composable
 fun DropdownListSettingItem(
@@ -22,45 +20,20 @@ fun DropdownListSettingItem(
     displayEntries: Array<String>,
     entryValues: Array<String>,
     description: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     onValueChange: (String) -> Unit
 ) {
     val composeEngine = LegadoTheme.composeEngine
     SplicedColumnDivider()
 
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        val selectedIndex = entryValues.indexOf(selectedValue).coerceAtLeast(0)
-        val spinnerItems = displayEntries.map { display ->
-            DropdownItem(title = display)
-        }
-
-        OverlaySpinnerPreference(
-            title = title,
-            summary = description,
-            items = spinnerItems,
-            selectedIndex = selectedIndex,
-            startAction = imageVector?.let { icon ->
-                {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null
-                    )
-                }
-            },
-            onSelectedIndexChange = { index ->
-                onValueChange(entryValues[index])
-            }
-        )
-    } else {
-
-        val currentEntry =
+    val currentEntry =
             displayEntries.getOrNull(entryValues.indexOf(selectedValue)) ?: selectedValue
 
         SettingItem(
             title = title,
             description = description,
             option = currentEntry,
-            imageVector = imageVector,
+            symbol = symbol,
             onClick = { },
             dropdownMenu = { onDismiss ->
                 displayEntries.forEachIndexed { index, display ->
@@ -72,8 +45,7 @@ fun DropdownListSettingItem(
                         },
                         trailingIcon = if (selectedValue == entryValues[index]) {
                             {
-                                Icon(
-                                    Icons.Default.Check,
+                                SymbolIcon(Symbols.Check,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -83,5 +55,4 @@ fun DropdownListSettingItem(
                 }
             }
         )
-    }
 }

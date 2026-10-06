@@ -1,5 +1,7 @@
 package io.legado.app.ui.ai.chat
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.expandVertically
@@ -20,9 +22,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -81,11 +80,10 @@ fun AiThinkingStepsCard(
                         .clickable { expanded = !expanded },
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        imageVector = if (expanded)
-                            Icons.Default.KeyboardArrowDown
+                    SymbolIcon(symbol = if (expanded)
+                            Symbols.KeyboardArrowDown
                         else
-                            Icons.Default.KeyboardArrowDown,
+                            Symbols.KeyboardArrowDown,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                         tint = LegadoTheme.colorScheme.primary,
@@ -179,8 +177,7 @@ private fun ToolStepRow(
                     .background(LegadoTheme.colorScheme.surfaceContainerHigh),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = Icons.Default.Build,
+                SymbolIcon(symbol = Symbols.Build,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
                     tint = LegadoTheme.colorScheme.primary,
@@ -211,8 +208,7 @@ private fun ToolStepRow(
             )
 
             if (hasContent) {
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
+                SymbolIcon(symbol = Symbols.KeyboardArrowDown,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = LegadoTheme.colorScheme.outline

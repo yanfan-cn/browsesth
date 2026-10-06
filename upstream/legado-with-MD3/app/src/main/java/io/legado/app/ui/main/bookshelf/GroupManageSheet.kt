@@ -1,5 +1,7 @@
 package io.legado.app.ui.main.bookshelf
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.animateDpAsState
@@ -20,10 +22,6 @@ import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -149,13 +147,13 @@ fun GroupManageSheet(
                     var showMenu by remember { mutableStateOf(false) }
                     MediumTonalButton(
                         onClick = { showMenu = true },
-                        icon = Icons.Default.Add,
+                        icon = Symbols.Add,
                         contentDescription = stringResource(R.string.add),
                     )
                     RoundDropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         RoundDropdownMenuItem(
                             text = stringResource(R.string.group_add),
-                            leadingIcon = { Icon(Icons.Default.Add, null) },
+                            leadingIcon = { SymbolIcon(Symbols.Add, null) },
                             onClick = {
                                 showMenu = false
                                 editingGroup = null
@@ -165,7 +163,7 @@ fun GroupManageSheet(
                         )
                         RoundDropdownMenuItem(
                             text = stringResource(R.string.ai_auto_group),
-                            leadingIcon = { Icon(Icons.Default.AutoAwesome, null) },
+                            leadingIcon = { SymbolIcon(Symbols.AutoAwesome, null) },
                             onClick = {
                                 showMenu = false
                                 aiAutoGroupSessionKey += 1L
@@ -174,7 +172,7 @@ fun GroupManageSheet(
                         )
                         RoundDropdownMenuItem(
                             text = stringResource(R.string.tag_group_add_rule),
-                            leadingIcon = { Icon(Icons.Default.Add, null) },
+                            leadingIcon = { SymbolIcon(Symbols.Add, null) },
                             onClick = {
                                 showMenu = false
                                 editingTagRule = null
@@ -183,7 +181,7 @@ fun GroupManageSheet(
                         )
                         RoundDropdownMenuItem(
                             text = stringResource(R.string.tag_group_sync),
-                            leadingIcon = { Icon(Icons.Default.Sync, null) },
+                            leadingIcon = { SymbolIcon(Symbols.Sync, null) },
                             onClick = {
                                 showMenu = false
                                 tagGroupRuleViewModel.onIntent(TagGroupRuleIntent.SyncGroups)
@@ -352,7 +350,7 @@ private fun LazyGridItemScope.GroupManageGridItem(
                         AppIcon(
                             modifier = Modifier
                                 .size(12.dp),
-                            imageVector = AppIcons.Edit,
+                            symbol = AppIcons.Edit,
                             contentDescription = stringResource(R.string.edit)
                         )
                     }

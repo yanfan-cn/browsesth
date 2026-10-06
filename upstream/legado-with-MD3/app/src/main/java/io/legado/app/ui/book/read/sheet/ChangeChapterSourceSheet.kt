@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,12 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PauseCircleOutline
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -71,7 +67,7 @@ fun ChangeChapterSourceSheet(
                 Box {
                     MediumTonalButton(
                         onClick = { showOptionsMenu = true },
-                icon = Icons.Default.MoreVert,
+                icon = Symbols.MoreVert,
                 contentDescription = stringResource(R.string.more_menu)
                     )
                     RoundDropdownMenu(
@@ -119,14 +115,14 @@ fun ChangeChapterSourceSheet(
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     MediumTonalButton(
                         onClick = { onIntent(ChangeChapterSourceIntent.StartStopSearch) },
-                icon = if (state.isSearching) Icons.Default.PauseCircleOutline else Icons.Default.Refresh,
+                icon = if (state.isSearching) Symbols.PauseCircleOutline else Symbols.Refresh,
                 contentDescription = stringResource(
                     if (state.isSearching) R.string.pause else R.string.refresh
                 ),
                     )
                     MediumTonalButton(
                         onClick = { showFilterSheet = true },
-                icon = Icons.Default.FilterList,
+                icon = Symbols.FilterList,
                 contentDescription = stringResource(R.string.screen)
                     )
                 }
@@ -265,7 +261,7 @@ private fun SearchContent(
                     leadingContent = {
                         MediumPlainButton(
                             onClick = { onBookScoreClick(item) },
-                            icon = Icons.Default.PushPin,
+                            icon = Symbols.PushPin,
                             tint = if (bookScore > 0) LegadoTheme.colorScheme.primary else LegadoTheme.colorScheme.outline,
                             contentDescription = stringResource(R.string.a11y_pin_source)
                         )

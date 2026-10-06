@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,11 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -127,7 +124,7 @@ fun MarkingSheet(
             if (editing != null) {
                 MediumTonalButton(
                     onClick = onDelete,
-                    icon = Icons.Default.Delete,
+                    icon = Symbols.Delete,
                     contentDescription = stringResource(R.string.delete)
                 )
             }
@@ -146,7 +143,7 @@ fun MarkingSheet(
                     )
                     onSave(style, noteState.text.toString())
                 },
-                icon = Icons.Default.Save,
+                icon = Symbols.Save,
                 contentDescription = stringResource(android.R.string.ok)
             )
         }
@@ -204,8 +201,7 @@ fun MarkingSheet(
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
+                            SymbolIcon(symbol = Symbols.Check,
                                 contentDescription = null,
                                 tint = if (selected) {
                                     LegadoTheme.colorScheme.primary
@@ -338,8 +334,7 @@ private fun MarkingColorSwatch(
         contentAlignment = Alignment.Center,
     ) {
         if (custom && color == null) {
-            Icon(
-                imageVector = Icons.Default.Palette,
+            SymbolIcon(symbol = Symbols.Palette,
                 contentDescription = stringResource(R.string.bookmark_mark_custom_color),
                 tint = LegadoTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(16.dp),

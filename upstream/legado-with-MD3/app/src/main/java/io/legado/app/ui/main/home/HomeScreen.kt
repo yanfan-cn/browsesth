@@ -1,5 +1,8 @@
 package io.legado.app.ui.main.home
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
@@ -35,17 +38,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.CloudSync
-import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Leaderboard
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.OutlinedTextField
@@ -66,7 +58,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -447,13 +438,13 @@ fun HomeScreen(
                 actions = {
                     TopBarActionButton(
                         onClick = onToggleHomepageManage,
-                        imageVector = AppIcons.Settings,
+                        symbol = AppIcons.Settings,
                         contentDescription = stringResource(R.string.homepage_module_manage),
                     )
                     Box {
                         TopBarActionButton(
                             onClick = { showPageMenu = true },
-                            imageVector = AppIcons.MoreVert,
+                            symbol = AppIcons.MoreVert,
                             contentDescription = stringResource(R.string.more_menu),
                         )
                         RoundDropdownMenu(
@@ -674,7 +665,7 @@ private fun HomeDashboardContent(
                 if (hasStatRead) {
                     StatisticCard(
                         modifier = Modifier.weight(1f),
-                        icon = Icons.Default.Leaderboard,
+                        icon = Symbols.Leaderboard,
                         title = stringResource(R.string.home_total_read_books),
                         value = state.totalReadBooks.toString(),
                         unit = stringResource(R.string.unit_books),
@@ -684,7 +675,7 @@ private fun HomeDashboardContent(
                 if (hasStatTime) {
                     StatisticCard(
                         modifier = Modifier.weight(1f),
-                        icon = Icons.Default.AccessTime,
+                        icon = Symbols.AccessTime,
                         title = stringResource(R.string.home_total_reading_time),
                         value = String.format(
                             "%.1f",
@@ -730,7 +721,7 @@ private fun HomeDashboardContent(
 @Composable
 private fun StatisticCard(
     modifier: Modifier,
-    icon: ImageVector,
+    icon: MaterialSymbol,
     title: String,
     value: String,
     unit: String,
@@ -753,7 +744,7 @@ private fun StatisticCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             AppIcon(
-                imageVector = icon,
+                symbol = icon,
                 contentDescription = null,
                 tint = LegadoTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp),
@@ -826,7 +817,7 @@ private fun RecentBookCard(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     AppIcon(
-                        imageVector = Icons.Default.Book,
+                        symbol = Symbols.Book,
                         contentDescription = null,
                         tint = LegadoTheme.colorScheme.primary,
                     )
@@ -1070,7 +1061,7 @@ private fun ReadingGoalCard(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 AppIcon(
-                    imageVector = Icons.Default.TrackChanges,
+                    symbol = Symbols.TrackChanges,
                     contentDescription = null,
                     tint = LegadoTheme.colorScheme.primary,
                 )
@@ -1081,7 +1072,7 @@ private fun ReadingGoalCard(
                 Spacer(modifier = Modifier.weight(1f))
                 MediumTonalButton(
                     onClick = onClick,
-                    icon = Icons.Default.Edit,
+                    icon = Symbols.Edit,
                     contentDescription = stringResource(R.string.home_set_goal),
                 )
             }
@@ -1205,7 +1196,7 @@ private fun WebDavBackupCard(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 AppIcon(
-                    imageVector = Icons.Default.CloudSync,
+                    symbol = Symbols.CloudSync,
                     contentDescription = null,
                     tint = LegadoTheme.colorScheme.primary,
                     modifier = Modifier.offset(y = 1.dp),
@@ -1236,7 +1227,7 @@ private fun WebDavBackupCard(
                 SmallTonalButton(
                     modifier = Modifier.fillMaxWidth(),
                     onClick = onRetry,
-                    icon = Icons.Default.Refresh,
+                    icon = Symbols.Refresh,
                     text = stringResource(R.string.retry),
                 )
             } else {
@@ -1248,21 +1239,21 @@ private fun WebDavBackupCard(
                         modifier = Modifier.weight(1f),
                         onClick = onBackup,
                         enabled = !isActionRunning,
-                        icon = Icons.Default.CloudUpload,
+                        icon = Symbols.CloudUpload,
                         text = stringResource(R.string.backup),
                     )
                     SmallTonalButton(
                         modifier = Modifier.weight(1f),
                         onClick = onRestore,
                         enabled = !isActionRunning,
-                        icon = Icons.Default.CloudDownload,
+                        icon = Symbols.CloudDownload,
                         text = stringResource(R.string.restore),
                     )
                     SmallTonalButton(
                         modifier = Modifier.weight(1f),
                         onClick = onOpenSettings,
                         enabled = !isActionRunning,
-                        icon = Icons.Default.Settings,
+                        icon = Symbols.Settings,
                         text = stringResource(R.string.setting),
                     )
                 }

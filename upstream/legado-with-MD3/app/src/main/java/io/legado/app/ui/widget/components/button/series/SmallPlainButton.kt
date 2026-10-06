@@ -1,9 +1,9 @@
 package io.legado.app.ui.widget.components.button.series
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.legado.app.ui.theme.LegadoTheme
@@ -20,7 +20,7 @@ fun SmallPlainButton(
     onLongClick: (() -> Unit)? = null,
     enabled: Boolean = true,
     selected: Boolean = false,
-    icon: ImageVector? = null,
+    icon: MaterialSymbol? = null,
     text: String? = null,
     contentDescription: String? = null
 ) {

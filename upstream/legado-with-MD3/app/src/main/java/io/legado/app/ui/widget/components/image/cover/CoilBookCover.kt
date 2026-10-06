@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.image.cover
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.text.Layout
@@ -19,8 +21,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -180,8 +180,7 @@ fun BookCoverImage(
         }
 
         if (showDefaultIcon) {
-            Icon(
-                Icons.Default.Book,
+            SymbolIcon(Symbols.Book,
                 contentDescription = null,
                 tint = LegadoTheme.colorScheme.secondary,
                 modifier = Modifier

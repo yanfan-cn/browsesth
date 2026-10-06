@@ -1,5 +1,7 @@
 package io.legado.app.ui.main
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.content.Intent
 import android.os.Build
 import androidx.activity.ComponentActivity
@@ -32,11 +34,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuOpen
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -67,6 +64,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import io.legado.app.browser.engine.BrowserFormFactor
+import io.legado.app.ui.browser.TabletBrowserLayout
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -117,12 +115,6 @@ import io.legado.app.utils.startActivityForBook
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
-import top.yukonga.miuix.kmp.basic.FloatingActionButton
-import top.yukonga.miuix.kmp.basic.NavigationRailDefaults
-import top.yukonga.miuix.kmp.basic.NavigationRailValue
-import top.yukonga.miuix.kmp.basic.rememberNavigationRailState
-import top.yukonga.miuix.kmp.basic.NavigationRail as MiuixNavigationRail
-import top.yukonga.miuix.kmp.basic.NavigationRailItem as MiuixNavigationRailItem
 
 private val MainNavigationTabMinWidth = 76.dp
 
@@ -290,83 +282,7 @@ fun MainScreen(
 
     Row(modifier = Modifier.fillMaxSize()) {
         if (useRail && mainUiState.showBottomView) {
-            if (ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)) {
-                val miuixNavState = rememberNavigationRailState(
-                    initialValue = if (mainUiState.navExtended) {
-                        NavigationRailValue.Expanded
-                    } else {
-                        NavigationRailValue.Collapsed
-                    }
-                )
-                LaunchedEffect(miuixNavState.currentValue) {
-                    onIntent(MainUiIntent.SetNavigationRailExpanded(miuixNavState.isExpanded))
-                }
-                MiuixNavigationRail(
-                    state = miuixNavState,
-                    header = {
-                        FloatingActionButton(
-                            modifier = Modifier
-                                .align(Alignment.Start)
-                                .padding(start = NavigationRailDefaults.ExpandedItemHorizontalMargin),
-                            onClick = { onNavigateToSearch(null) },
-                        ) {
-                            AppIcon(
-                                Icons.Default.Search,
-                                contentDescription = null,
-                                tint = Color.White
-                            )
-                        }
-                    }
-                ) {
-                    destinations.forEachIndexed { index, destination ->
-                        val selected = pagerState.targetPage == index
-                        var showGroupMenu by remember { mutableStateOf(false) }
-                        val haptic = LocalHapticFeedback.current
-                        val destinationLabel = stringResource(destination.labelId)
-                        Box {
-                            MiuixNavigationRailItem(
-                                modifier = Modifier
-                                    .semantics(mergeDescendants = true) {
-                                        contentDescription = destinationLabel
-                                    }
-                                    .then(
-                                        if (destination == MainDestination.Bookshelf) {
-                                            Modifier.combinedClickable(
-                                                interactionSource = remember { MutableInteractionSource() },
-                                                indication = null,
-                                                onClick = {
-                                                    handleMainDestinationClick(
-                                                        index,
-                                                        destination
-                                                    )
-                                                },
-                                                onLongClick = {
-                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    showGroupMenu = true
-                                                }
-                                            )
-                                        } else Modifier
-                                    ),
-                                selected = selected,
-                                onClick = { handleMainDestinationClick(index, destination) },
-                                icon = AppIcons.mainDestination(destination, selected),
-                                label = destinationLabel,
-                            )
-                            if (destination == MainDestination.Bookshelf && showGroupMenu) {
-                                BookshelfRailGroupMenuRoute(
-                                    expanded = showGroupMenu,
-                                    onDismissRequest = { showGroupMenu = false },
-                                    onBeforeSelectGroup = {
-                                        if (pagerState.currentPage != index) {
-                                            pagerState.scrollToPage(index)
-                                        }
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            } else WideNavigationRail(
+            WideNavigationRail(
                 state = navState,
                 header = {
                     val expanded = navState.targetValue == WideNavigationRailValue.Expanded
@@ -383,11 +299,11 @@ fun MainScreen(
                                 }
                             }
                         ) {
-                            Icon(
+                            SymbolIcon(
                                 if (expanded)
-                                    Icons.AutoMirrored.Filled.MenuOpen
+                                    Symbols.MenuOpen
                                 else
-                                    Icons.Default.Menu,
+                                    Symbols.Menu,
                                 contentDescription = stringResource(
                                     if (expanded) R.string.collapse else R.string.expand
                                 )
@@ -400,7 +316,7 @@ fun MainScreen(
                             modifier = Modifier.padding(start = 20.dp),
                             onClick = { onNavigateToSearch(null) },
                             expanded = expanded,
-                            icon = { AppIcon(Icons.Default.Search, contentDescription = null) },
+                            icon = { AppIcon(Symbols.Search, contentDescription = null) },
                             text = { AppText(stringResource(R.string.search)) }
                         )
                     }
@@ -549,7 +465,11 @@ fun MainScreen(
                             ),
                         // SPEC-021: restore finger-follow tab swipe (Legado MD3 parity).
                         // Nested scroll stays idle on browser Home so vertical web scroll is not stolen.
-                        userScrollEnabled = !browserSessionActive,
+                        userScrollEnabled = TabletBrowserLayout.pagerUserScrollEnabled(
+                            isTablet = isTabletFormFactor,
+                            onBrowserHome = onBrowserHome,
+                            sessionActive = browserSessionActive,
+                        ),
                         // SPEC-009/021: warm neighbors like upstream; keep 0 while AwContents live.
                         beyondViewportPageCount = if (hideMainBottomBarForBrowserSession) {
                             0
@@ -909,8 +829,7 @@ private fun BookshelfRailGroupMenu(
                 },
                 trailingIcon = {
                     if (state.selectedGroupIndex == groupIndex) {
-                        Icon(
-                            Icons.Default.Check,
+                        SymbolIcon(Symbols.Check,
                             null,
                             modifier = Modifier.size(18.dp)
                         )

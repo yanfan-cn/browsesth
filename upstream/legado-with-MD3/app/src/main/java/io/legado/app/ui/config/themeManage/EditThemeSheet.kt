@@ -1,5 +1,7 @@
 package io.legado.app.ui.config.themeManage
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -14,8 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -66,7 +66,7 @@ fun EditThemeSheet(
                         onSave(name, data)
                     }
                 },
-                icon = Icons.Default.Done,
+                icon = Symbols.Done,
                 contentDescription = stringResource(R.string.save)
             )
         }

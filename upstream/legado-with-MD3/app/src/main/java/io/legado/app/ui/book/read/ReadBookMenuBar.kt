@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.content.Context
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -35,8 +37,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -826,7 +826,7 @@ private fun ReadBookMenuRoutePage(
         ) {
             SmallTonalButton(
                 onClick = onBack,
-                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                icon = Symbols.ArrowBack,
                 contentDescription = stringResource(R.string.back),
             )
             Text(

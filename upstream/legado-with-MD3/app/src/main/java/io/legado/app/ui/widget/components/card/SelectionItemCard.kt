@@ -53,7 +53,6 @@ import io.legado.app.ui.widget.components.menuItem.RoundDropdownMenu
 import io.legado.app.ui.widget.components.text.AppText
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.ReorderableLazyListState
-import top.yukonga.miuix.kmp.basic.BasicComponent
 
 @Composable
 fun SelectionItemCard(
@@ -78,14 +77,13 @@ fun SelectionItemCard(
     editContentDescription: String? = null,
     moreContentDescription: String? = null
 ) {
-    val composeEngine = ThemeResolver.isMiuixEngine(composeEngine)
     val animatedContainerColor by animateColorAsState(
         targetValue = if (isSelected)
             selectedContainerColor
-                ?: if (composeEngine) LegadoTheme.colorScheme.secondaryContainer else LegadoTheme.colorScheme.secondaryContainer
+                ?: LegadoTheme.colorScheme.secondaryContainer
         else
             containerColor
-                ?: if (composeEngine) LegadoTheme.colorScheme.surfaceContainer else LegadoTheme.colorScheme.surfaceContainerLow,
+                ?: LegadoTheme.colorScheme.surfaceContainerLow,
         animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
         label = "CardColor"
     )
@@ -182,30 +180,7 @@ fun SelectionItemCardContent(
             }
         }
 
-        if (ThemeResolver.isMiuixEngine(composeEngine)) {
-            BasicComponent(
-                modifier = Modifier.weight(1f)
-            ) {
-                AppText(
-                    text = title,
-                    style = LegadoTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                when {
-                    supportingContent != null -> supportingContent()
-                    !subtitle.isNullOrBlank() -> {
-                        AppText(
-                            text = subtitle,
-                            style = LegadoTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-        } else {
-            ListItem(
+        ListItem(
                 modifier = Modifier.weight(1f),
                 supportingContent = when {
                     supportingContent != null -> supportingContent
@@ -230,7 +205,6 @@ fun SelectionItemCardContent(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-        }
 
         Row(
             verticalAlignment = Alignment.CenterVertically,

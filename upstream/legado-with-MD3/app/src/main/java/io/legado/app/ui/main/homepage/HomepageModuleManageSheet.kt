@@ -1,5 +1,7 @@
 package io.legado.app.ui.main.homepage
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -10,10 +12,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -133,7 +131,7 @@ fun <T> HomepageModuleManageSheet(
             if (showCustomSetAddModules) {
                 MediumTonalButton(
                         onClick = { showCustomSetAddModules = false },
-                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        icon = Symbols.ArrowBack,
                         contentDescription = stringResource(R.string.back)
                 )
             } else if (browsingSourceUrl != null || showSourceBrowser) {
@@ -143,13 +141,13 @@ fun <T> HomepageModuleManageSheet(
                         else if (showSourceBrowser) showSourceBrowser = false
                         else browsingSourceUrl = null
                     },
-                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        icon = Symbols.ArrowBack,
                         contentDescription = stringResource(R.string.back)
                 )
             } else if (selectingSetUrl != null) {
                 MediumTonalButton(
                         onClick = { selectingSetUrl = null },
-                        icon = Icons.AutoMirrored.Filled.ArrowBack,
+                        icon = Symbols.ArrowBack,
                         contentDescription = stringResource(R.string.back)
                 )
             }
@@ -163,7 +161,7 @@ fun <T> HomepageModuleManageSheet(
             ) {
                 MediumTonalButton(
                         onClick = { showAddKindGroupDialog = true },
-                        icon = Icons.Default.Check,
+                        icon = Symbols.Check,
                         contentDescription = stringResource(R.string.confirm)
                 )
             } else if ((showSourceBrowser || browsingSourceUrl != null) && !browsingDetail) {
@@ -171,7 +169,7 @@ fun <T> HomepageModuleManageSheet(
                 Box {
                     MediumTonalButton(
                         onClick = { expanded = true },
-                        icon = Icons.Default.FilterList,
+                        icon = Symbols.FilterList,
                         contentDescription = stringResource(R.string.screen)
                     )
                     RoundDropdownMenu(
@@ -181,7 +179,7 @@ fun <T> HomepageModuleManageSheet(
                             text = stringResource(R.string.homepage_all_groups),
                             onClick = { groupFilter = null; expanded = false },
                             trailingIcon = if (groupFilter == null) {
-                                { AppIcon(Icons.Default.Check, null, Modifier.size(18.dp)) }
+                                { AppIcon(Symbols.Check, null, Modifier.size(18.dp)) }
                             } else null
                         )
                         allGroups.forEach { group ->
@@ -189,7 +187,7 @@ fun <T> HomepageModuleManageSheet(
                                 text = group,
                                 onClick = { groupFilter = group; expanded = false },
                                 trailingIcon = if (groupFilter == group) {
-                                    { AppIcon(Icons.Default.Check, null, Modifier.size(18.dp)) }
+                                    { AppIcon(Symbols.Check, null, Modifier.size(18.dp)) }
                                 } else null
                             )
                         }

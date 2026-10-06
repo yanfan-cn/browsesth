@@ -62,6 +62,7 @@ private fun BrowserConfigBody(
     var ntpTheme by remember { mutableStateOf(ntpPrefs.ntpThemeMode) }
     var dailyWallpaper by remember { mutableStateOf(chromePrefs.dailyWallpaperEnabled) }
     var autoHideTop by remember { mutableStateOf(chromePrefs.autoHideTopBar) }
+    var webDarkMode by remember { mutableStateOf(chromePrefs.webContentDarkMode) }
     var uaMode by remember { mutableStateOf(chromePrefs.uaModeOrDefault(isTablet)) }
     var hosts by remember { mutableStateOf(prefs.listedHosts()) }
     var expandedHost by remember { mutableStateOf<String?>(null) }
@@ -107,6 +108,18 @@ private fun BrowserConfigBody(
                             chromePrefs.dailyWallpaperEnabled = it
                         },
                     )
+                    ClickableSettingItem(
+                        title = "网页深色",
+                        description = "当前：${webDarkModeLabel(webDarkMode)}（点击切换：自动 / 开 / 关；新标签页生效）",
+                        onClick = {
+                            webDarkMode = when (webDarkMode) {
+                                BrowserChromePrefs.WEB_DARK_AUTO -> BrowserChromePrefs.WEB_DARK_ON
+                                BrowserChromePrefs.WEB_DARK_ON -> BrowserChromePrefs.WEB_DARK_OFF
+                                else -> BrowserChromePrefs.WEB_DARK_AUTO
+                            }
+                            chromePrefs.webContentDarkMode = webDarkMode
+                        },
+                    )
                 }
             }
             item {
@@ -141,6 +154,7 @@ private fun BrowserConfigBody(
                 SplicedColumnGroup(title = "阅读模式") {
                     val readerPrefs = remember { BrowserReaderPrefs(context) }
                     var trigger by remember { mutableStateOf(readerPrefs.triggerMode) }
+                    var autoTranslate by remember { mutableStateOf(readerPrefs.autoTranslateOnOpen) }
                     ClickableSettingItem(
                         title = "进入阅读模式",
                         description = "当前：${trigger.label}（点击切换：手动 / 自动识别 / 站点自动）",
@@ -154,6 +168,15 @@ private fun BrowserConfigBody(
                                     BrowserReaderPrefs.TriggerMode.Manual
                             }
                             readerPrefs.triggerMode = trigger
+                        },
+                    )
+                    SwitchSettingItem(
+                        title = "打开阅读时自动翻译",
+                        description = "从浏览器进入小说阅读时开启章节翻译（需已配置翻译）",
+                        checked = autoTranslate,
+                        onCheckedChange = {
+                            autoTranslate = it
+                            readerPrefs.autoTranslateOnOpen = it
                         },
                     )
                 }
@@ -235,4 +258,10 @@ private fun BrowserConfigBody(
             }
         }
     }
+}
+
+private fun webDarkModeLabel(mode: String): String = when (mode) {
+    BrowserChromePrefs.WEB_DARK_OFF -> "关"
+    BrowserChromePrefs.WEB_DARK_ON -> "开"
+    else -> "自动"
 }

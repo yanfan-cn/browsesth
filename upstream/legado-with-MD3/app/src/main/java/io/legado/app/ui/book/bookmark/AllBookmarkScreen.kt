@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.bookmark
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -26,8 +28,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -199,13 +199,13 @@ fun AllBookmarkScreen(
                                 showSearch = !showSearch
                                 if (!showSearch) onIntent(AllBookmarkIntent.SetSearchQuery(""))
                             },
-                            imageVector = Icons.Default.Search,
+                            symbol = Symbols.Search,
                             contentDescription = stringResource(R.string.search),
                         )
                         if (selectedBook != null) {
                             TopBarActionButton(
                                 onClick = { showMenu = true },
-                                imageVector = AppIcons.MoreVert,
+                                symbol = AppIcons.MoreVert,
                                 contentDescription = stringResource(R.string.more_menu),
                             )
                             RoundDropdownMenu(

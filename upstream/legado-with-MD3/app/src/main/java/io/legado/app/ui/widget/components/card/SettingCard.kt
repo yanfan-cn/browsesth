@@ -11,10 +11,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.legado.app.ui.theme.LegadoTheme
-import io.legado.app.ui.theme.ThemeResolver
-import top.yukonga.miuix.kmp.basic.BasicComponent
-
-// import top.yukonga.miuix.kmp.basic.theme.LocalColors as MiuixLocalColors
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -28,14 +24,7 @@ fun SettingCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val composeEngine = LegadoTheme.composeEngine
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        BasicComponent(
-            modifier = modifier,
-            onClick = onClick,
-            content = content
-        )
-    } else {
-        val baseColors = colors ?: CardDefaults.cardColors(
+    val baseColors = colors ?: CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
         )
@@ -50,5 +39,4 @@ fun SettingCard(
             border = border,
             content = content,
         )
-    }
 }

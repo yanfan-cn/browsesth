@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.heatmap
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,10 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.FormatListNumbered
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -69,8 +67,8 @@ fun HeatmapCalendarStartAction(
         },
         style = ToggleStyle.Tonal,
         contentDescription = stringResource(R.string.by_duration),
-        icon = Icons.Default.FormatListNumbered,
-        iconChecked = Icons.Default.AccessTime
+        icon = Symbols.FormatListNumbered,
+        iconChecked = Symbols.AccessTime
     )
 }
 
@@ -83,7 +81,7 @@ fun HeatmapCalendarEndAction(
 ) {
     MediumTonalButton(
         onClick = onClearDate,
-        icon = Icons.Outlined.Delete,
+        icon = Symbols.Delete,
         contentDescription = stringResource(R.string.clear),
     )
 }

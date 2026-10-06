@@ -1,5 +1,8 @@
 package io.legado.app.ui.browser
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -30,20 +33,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.AutoStories
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Computer
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.FilterNone
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -71,7 +60,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -114,8 +102,13 @@ import io.legado.app.browser.reader.WebChapterHttpFetcher
 import io.legado.app.browser.reader.WebMangaBookFactory
 import io.legado.app.browser.reader.WebMangaImageFilter
 import io.legado.app.browser.reader.WebPageAnalyzeJs
+import io.legado.app.browser.reader.WebPageLangDetect
+import io.legado.app.browser.reader.WebPageLangDetectJs
+import io.legado.app.browser.reader.WebPageTranslate
 import io.legado.app.browser.reader.WebTocDiscoverJs
+import io.legado.app.domain.gateway.TranslationSettingsGateway
 import io.legado.app.ui.association.OnLineImportActivity
+import org.koin.core.context.GlobalContext
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.LocalTopBarBackdrop
 import io.legado.app.ui.widget.components.AppScaffold
@@ -194,7 +187,6 @@ fun BrowserSessionScreen(
 
     var progress by remember { mutableIntStateOf(100) }
     var mainFrameLoading by remember { mutableStateOf(false) }
-    var chromeTab by remember { mutableIntStateOf(0) }
     var hostRef by remember { mutableStateOf<AwContentsHostView?>(null) }
     var clientRef by remember { mutableStateOf<BrowserAwContentsClient?>(null) }
     // SPEC-024: omnibox shows search / typed text, never loaded page URL.
@@ -214,10 +206,18 @@ fun BrowserSessionScreen(
     val floatingBottomPad = BrowserUiTokens.FloatingChromeBottomGap + navBottom
     val floatingChromeTopGap = BrowserUiTokens.FloatingChromeTopGap
     val phoneChromeBarHeight = 64.dp
+    var showTranslatePrompt by remember { mutableStateOf(false) }
+    val translatePromptExtra = if (showTranslatePrompt) 56.dp else 0.dp
     val floatingChromeReserve =
         floatingChromeTopGap + maxOf(phoneChromeBarHeight, BrowserUiTokens.ReaderFabSize) +
-            floatingBottomPad
-    val webBottomInset = if (!tabletEmbedded && phoneChromeVisible) floatingChromeReserve else 0.dp
+            floatingBottomPad + translatePromptExtra
+    val webBottomInset = if (!tabletEmbedded && phoneChromeVisible) {
+        floatingChromeReserve
+    } else if (tabletEmbedded && showTranslatePrompt) {
+        72.dp
+    } else {
+        0.dp
+    }
 
     fun applyOmniboxLabel(label: String?) {
         val text = label?.trim().orEmpty()
@@ -244,6 +244,10 @@ fun BrowserSessionScreen(
     var showModePicker by remember { mutableStateOf(false) }
     var pendingAnalyze by remember { mutableStateOf<WebMangaBookFactory.AnalyzeResult?>(null) }
     var autoOpenedForUrl by remember { mutableStateOf<String?>(null) }
+    /** SPEC-045: translate prompt above browser chrome (state declared earlier for inset). */
+    var translatePromptUrl by remember { mutableStateOf<String?>(null) }
+    var dismissedTranslateUrls by remember { mutableStateOf(setOf<String>()) }
+    var langDetectJob by remember { mutableStateOf<Job?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val scheme = LegadoTheme.colorScheme
@@ -312,7 +316,11 @@ fun BrowserSessionScreen(
         return merged.values.toList() to title
     }
 
-    suspend fun openNovelReader(pageUrl: String, titleHint: String? = null) {
+    suspend fun openNovelReader(
+        pageUrl: String,
+        titleHint: String? = null,
+        forceTranslate: Boolean? = null,
+    ) {
         val host = hostRef
         val open = onOpenReader
         if (host == null || open == null) {
@@ -332,8 +340,10 @@ fun BrowserSessionScreen(
             ?: extracted?.title.orEmpty().ifBlank { "网页正文" }
         val series = toc?.seriesUrl?.takeIf { it.isNotBlank() && toc.chapters.size >= 2 }
             ?: pageUrl
+        val enableTranslate = forceTranslate
+            ?: BrowserReaderPrefs(context).autoTranslateOnOpen
         val book = withContext(Dispatchers.IO) {
-            WebArticleBookFactory.createEphemeralBook(
+            val created = WebArticleBookFactory.createEphemeralBook(
                 context,
                 pageUrl,
                 WebArticleBookFactory.Extracted(
@@ -344,8 +354,77 @@ fun BrowserSessionScreen(
                 seriesKey = series,
                 tocChapters = toc?.chapters.orEmpty(),
             )
+            // SPEC-042/045: chapter translation when opening from browser.
+            if (enableTranslate) {
+                created.setTranslationMode(true)
+                created.save()
+            }
+            created
         }
         open(book.bookUrl)
+    }
+
+    fun maybeDetectTranslatePrompt(url: String) {
+        if (incognito) return
+        if (!url.startsWith("http")) return
+        if (WebPageTranslate.isTranslateServiceUrl(url)) {
+            showTranslatePrompt = false
+            return
+        }
+        if (url in dismissedTranslateUrls) {
+            showTranslatePrompt = false
+            return
+        }
+        langDetectJob?.cancel()
+        langDetectJob = scope.launch {
+            delay(600)
+            val host = hostRef ?: return@launch
+            val current = clientRef?.lastUrl.orEmpty().ifBlank { address }
+            if (current != url) return@launch
+            val raw = host.evalJs(WebPageLangDetectJs.SCRIPT)
+            val sample = WebPageLangDetect.parse(raw) ?: return@launch
+            if (!WebPageLangDetect.shouldPrompt(sample.lang, sample.sample)) {
+                showTranslatePrompt = false
+                translatePromptUrl = null
+                return@launch
+            }
+            showTranslatePrompt = true
+            translatePromptUrl = url
+        }
+    }
+
+    fun dismissTranslatePrompt() {
+        val u = translatePromptUrl ?: clientRef?.lastUrl.orEmpty().ifBlank { address }
+        if (u.isNotBlank()) {
+            dismissedTranslateUrls = dismissedTranslateUrls + u
+        }
+        showTranslatePrompt = false
+        translatePromptUrl = null
+    }
+
+    fun acceptTranslatePrompt() {
+        val pageUrl = translatePromptUrl
+            ?: clientRef?.lastUrl.orEmpty().ifBlank { address }
+        dismissTranslatePrompt()
+        if (!pageUrl.startsWith("http")) {
+            context.toastOnUi("无法翻译当前页")
+            return
+        }
+        // SPEC-047/048: stay in browser; webpage translate by selected provider.
+        val settings = GlobalContext.get().get<TranslationSettingsGateway>().currentSettings
+        val translated = WebPageTranslate.pageTranslateUrl(
+            pageUrl = pageUrl,
+            provider = settings.provider,
+            targetLanguage = settings.targetLanguage,
+        )
+        if (translated.isEmpty()) {
+            context.toastOnUi("无法翻译当前页")
+            return
+        }
+        applyOmniboxLabel("翻译中…")
+        hostRef?.loadUrl(translated)
+        BrowserSessionHolder.markLoaded()
+        onPageMeta?.invoke(translated, "翻译中…")
     }
 
     suspend fun openMangaReader(pageUrl: String, analyze: WebMangaBookFactory.AnalyzeResult) {
@@ -427,7 +506,13 @@ fun BrowserSessionScreen(
                 context.toastOnUi("页面分析失败，请重试")
                 return@startExtract
             }
-            val kind = forceKind ?: analyze.kind
+            // SPEC-046: with real body text, always prefer mixed novel reader
+            // unless the user explicitly forced manga.
+            val kind = when {
+                forceKind != null -> forceKind
+                analyze.textLen >= 200 -> WebMangaBookFactory.Kind.Novel
+                else -> analyze.kind
+            }
             when (kind) {
                 WebMangaBookFactory.Kind.Manga -> openMangaReader(pageUrl, analyze)
                 WebMangaBookFactory.Kind.Novel -> openNovelReader(pageUrl, analyze.title)
@@ -622,8 +707,7 @@ fun BrowserSessionScreen(
                                     .clickable(onClick = onNavigateBack),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                SymbolIcon(Symbols.ArrowBack,
                                     contentDescription = "返回",
                                     tint = scheme.onSurface,
                                     modifier = Modifier.size(20.dp),
@@ -680,8 +764,7 @@ fun BrowserSessionScreen(
                                 .clickable { hostRef?.reload() },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Icon(
-                                Icons.Default.Refresh,
+                            SymbolIcon(Symbols.Refresh,
                                 contentDescription = "刷新",
                                 tint = scheme.onSurface,
                                 modifier = Modifier.size(20.dp),
@@ -721,6 +804,8 @@ fun BrowserSessionScreen(
                         onMainFrameLoadStarted = {
                             mainFrameLoading = true
                             progress = 0
+                            showTranslatePrompt = false
+                            langDetectJob?.cancel()
                         },
                         onOverrideUrl = { handleSpecialUrl(it) },
                         onNavigationOverride = { target -> hostRef?.loadUrl(target) },
@@ -765,6 +850,11 @@ fun BrowserSessionScreen(
                                 applyCustomHide(url)
                             }
                             maybeAutoOpenReader(url)
+                            // SPEC-045: non-Simplified-Chinese → ask translate above chrome.
+                            if (url != translatePromptUrl) {
+                                showTranslatePrompt = false
+                            }
+                            maybeDetectTranslatePrompt(url)
                         },
                     )
                 },
@@ -805,6 +895,7 @@ fun BrowserSessionScreen(
 
             // Floating chrome — phone only (SPEC-011 2A); tablet uses top chrome (SPEC-018).
             // SPEC-022 B: auto-hide on scroll down.
+            // SPEC-045: translate prompt sits above the bottom chrome (phone) / content bottom (tablet).
             if (!tabletEmbedded) {
                 AnimatedVisibility(
                     visible = phoneChromeVisible,
@@ -812,19 +903,29 @@ fun BrowserSessionScreen(
                     enter = fadeIn() + slideInVertically { it },
                     exit = fadeOut() + slideOutVertically { it },
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = BrowserUiTokens.PagePaddingH)
                             .padding(bottom = floatingBottomPad)
                             .padding(top = floatingChromeTopGap),
+                    ) {
+                        if (showTranslatePrompt) {
+                            TranslatePromptBar(
+                                onTranslate = { acceptTranslatePrompt() },
+                                onDismiss = { dismissTranslatePrompt() },
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
                             val blurOn = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                             val barBackdrop = LocalTopBarBackdrop.current ?: chromeBackdrop
+                            // SPEC-038: action bar, not tab strip — no sticky selected index.
                             fun activateChromeTab(index: Int) {
-                                chromeTab = index
                                 when (index) {
                                     0 -> hostRef?.goBack()
                                     1 -> hostRef?.goForward()
@@ -837,19 +938,19 @@ fun BrowserSessionScreen(
                             }
                             FloatingBottomBar(
                                 modifier = Modifier.fillMaxWidth(),
-                                selectedIndex = { chromeTab },
+                                selectedIndex = { 0 },
                                 onSelected = { activateChromeTab(it) },
                                 onReselected = { activateChromeTab(it) },
                                 backdrop = barBackdrop,
                                 tabsCount = 4,
                                 isBlurEnabled = blurOn,
                                 enableDragSwitch = false,
+                                persistentSelection = false,
                             ) {
                                 FloatingBottomBarItem(
                                     onClick = { activateChromeTab(0) },
                                 ) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.ArrowBack,
+                                    SymbolIcon(Symbols.ArrowBack,
                                         contentDescription = "后退",
                                         tint = scheme.onSurface,
                                     )
@@ -857,8 +958,7 @@ fun BrowserSessionScreen(
                                 FloatingBottomBarItem(
                                     onClick = { activateChromeTab(1) },
                                 ) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.ArrowForward,
+                                    SymbolIcon(Symbols.ArrowForwardIos,
                                         contentDescription = "前进",
                                         tint = scheme.onSurface,
                                     )
@@ -866,8 +966,7 @@ fun BrowserSessionScreen(
                                 FloatingBottomBarItem(
                                     onClick = { activateChromeTab(2) },
                                 ) {
-                                    Icon(
-                                        Icons.Default.Menu,
+                                    SymbolIcon(Symbols.Menu,
                                         contentDescription = "工具箱",
                                         tint = scheme.onSurface,
                                     )
@@ -875,8 +974,7 @@ fun BrowserSessionScreen(
                                 FloatingBottomBarItem(
                                     onClick = { activateChromeTab(3) },
                                 ) {
-                                    Icon(
-                                        Icons.Default.FilterNone,
+                                    SymbolIcon(Symbols.FilterNone,
                                         contentDescription = "标签页",
                                         tint = scheme.onSurface,
                                     )
@@ -891,14 +989,28 @@ fun BrowserSessionScreen(
                                 .clickable(enabled = !extracting) { openReaderView() },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.AutoStories,
+                            SymbolIcon(symbol = Symbols.AutoStories,
                                 contentDescription = "阅读视图",
                                 tint = Color.White,
                                 modifier = Modifier.size(BrowserUiTokens.ControlSmall),
                             )
                         }
                     }
+                    }
+                }
+            } else if (showTranslatePrompt) {
+                // SPEC-045 tablet: prompt near bottom of content (shell has top chrome only).
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = BrowserUiTokens.PagePaddingH)
+                        .padding(bottom = 16.dp),
+                ) {
+                    TranslatePromptBar(
+                        onTranslate = { acceptTranslatePrompt() },
+                        onDismiss = { dismissTranslatePrompt() },
+                    )
                 }
             }
 
@@ -940,7 +1052,7 @@ fun BrowserSessionScreen(
         onDismissRequest = { showToolbox = false },
     ) {
         ToolboxRow(
-            icon = Icons.Default.Bookmark,
+            icon = Symbols.Bookmark,
             label = "添加书签",
             onClick = {
                 val url = clientRef?.lastUrl?.takeIf { it.startsWith("http") } ?: address
@@ -950,7 +1062,7 @@ fun BrowserSessionScreen(
             },
         )
         ToolboxRow(
-            icon = Icons.Default.History,
+            icon = Symbols.History,
             label = "查看历史",
             onClick = {
                 showToolbox = false
@@ -959,7 +1071,7 @@ fun BrowserSessionScreen(
             },
         )
         ToolboxRow(
-            icon = Icons.Default.Bookmark,
+            icon = Symbols.Bookmark,
             label = "书签列表",
             onClick = {
                 showToolbox = false
@@ -968,7 +1080,7 @@ fun BrowserSessionScreen(
             },
         )
         ToolboxRow(
-            icon = Icons.Default.ContentCopy,
+            icon = Symbols.ContentCopy,
             label = "复制链接",
             onClick = {
                 showToolbox = false
@@ -977,7 +1089,7 @@ fun BrowserSessionScreen(
             },
         )
         ToolboxRow(
-            icon = Icons.Default.Block,
+            icon = Symbols.Block,
             label = "点选屏蔽",
             onClick = {
                 showToolbox = false
@@ -992,8 +1104,7 @@ fun BrowserSessionScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                Icons.Default.Block,
+            SymbolIcon(Symbols.Block,
                 contentDescription = null,
                 tint = scheme.primary,
             )
@@ -1020,7 +1131,7 @@ fun BrowserSessionScreen(
         }
         HorizontalDivider()
         ToolboxRow(
-            icon = if (uaMode == BrowserUa.Mode.Desktop) Icons.Default.Computer else Icons.Default.PhoneAndroid,
+            icon = if (uaMode == BrowserUa.Mode.Desktop) Symbols.Computer else Symbols.PhoneAndroid,
             label = "UA：${uaMode.label}（点击切换）",
             onClick = {
                 uaMode = when (uaMode) {
@@ -1032,7 +1143,7 @@ fun BrowserSessionScreen(
             },
         )
         ToolboxRow(
-            icon = Icons.Default.Settings,
+            icon = Symbols.Settings,
             label = "设置",
             onClick = {
                 showToolbox = false
@@ -1116,15 +1227,49 @@ fun BrowserSessionScreen(
 }
 
 @Composable
+private fun TranslatePromptBar(
+    onTranslate: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val scheme = LegadoTheme.colorScheme
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(CardCorner),
+        colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerHigh),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "翻译此网页？",
+                modifier = Modifier.weight(1f),
+                color = scheme.onSurface,
+                fontSize = 14.sp,
+            )
+            TextButton(onClick = onDismiss) {
+                Text("不")
+            }
+            TextButton(onClick = onTranslate) {
+                Text("翻译")
+            }
+        }
+    }
+}
+
+@Composable
 private fun BrowserChromeIconButton(
-    imageVector: ImageVector,
+    symbol: MaterialSymbol,
     contentDescription: String,
     onClick: () -> Unit,
     tint: Color = LegadoTheme.colorScheme.onSurface,
 ) {
     IconButton(onClick = onClick, modifier = Modifier.size(44.dp)) {
-        Icon(
-            imageVector = imageVector,
+        SymbolIcon(
+            symbol = symbol,
             contentDescription = contentDescription,
             modifier = Modifier.size(24.dp),
             tint = tint,
@@ -1134,7 +1279,7 @@ private fun BrowserChromeIconButton(
 
 @Composable
 private fun ToolboxRow(
-    icon: ImageVector,
+    icon: MaterialSymbol,
     label: String,
     onClick: () -> Unit,
 ) {
@@ -1146,7 +1291,7 @@ private fun ToolboxRow(
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = scheme.primary)
+        SymbolIcon(icon, contentDescription = null, tint = scheme.primary)
         Spacer(modifier = Modifier.width(16.dp))
         Text(label, color = scheme.onSurface, fontSize = 16.sp)
     }

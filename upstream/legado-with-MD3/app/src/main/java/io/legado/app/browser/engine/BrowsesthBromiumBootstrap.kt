@@ -72,7 +72,8 @@ object BrowsesthBromiumBootstrap {
         AwBrowserProcess.runPreBrowserProcessStart()
         AwBrowserProcess.finishBrowserProcessStart()
 
-        // SPEC-032: Cookie/Eyeo overrides wait until first AwContents (6.8 startup parity).
+        // SPEC-032: Cookie/Eyeo 不加在 initializeAll（二次冷启动闪退）。
+        // SPEC-034: 也不加在 AwContents.attach（打开网页闪退）。6.9 打开路径同样不在 attach 做这段 JNI。
         Bromium.clearTemporaryDownloads()
         initialized = true
         Log.i(TAG, "BrowsesthBromiumBootstrap.initializeAll finished (plat=$platSupportSource)")

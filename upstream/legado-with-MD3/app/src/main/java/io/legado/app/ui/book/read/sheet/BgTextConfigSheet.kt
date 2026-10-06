@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,12 +19,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,7 +30,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
@@ -106,32 +102,32 @@ fun BgTextConfigSheet(
             ) {
                 ActionCard(
                     title = stringResource(R.string.edit),
-                    imageVector = Icons.Default.Edit,
+                    symbol = Symbols.Edit,
                     modifier = Modifier.weight(1f),
                     onClick = { showEditNameDialog = true },
                 )
                 ActionCard(
                     title = stringResource(R.string.delete),
-                    imageVector = Icons.Default.Delete,
+                    symbol = Symbols.Delete,
                     modifier = Modifier.weight(1f),
                     enabled = styleConfig.styleSelect >= 5,
                     onClick = { onIntent(ReadBookIntent.DeleteCurrentReadStyleConfig) },
                 )
                 ActionCard(
                     title = stringResource(R.string.restore),
-                    imageVector = Icons.Default.Refresh,
+                    symbol = Symbols.Refresh,
                     modifier = Modifier.weight(1f),
                     onClick = { showPresetDialog = true },
                 )
                 ActionCard(
                     title = stringResource(R.string.import_str),
-                    imageVector = Icons.Default.Download,
+                    symbol = Symbols.Download,
                     modifier = Modifier.weight(1f),
                     onClick = onImportConfig,
                 )
                 ActionCard(
                     title = stringResource(R.string.export_str),
-                    imageVector = Icons.Default.Upload,
+                    symbol = Symbols.Upload,
                     modifier = Modifier.weight(1f),
                     onClick = onExportConfig,
                 )
@@ -276,7 +272,7 @@ fun BgTextConfigSheet(
 @Composable
 private fun ActionCard(
     title: String,
-    imageVector: ImageVector,
+    symbol: MaterialSymbol,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     onClick: () -> Unit,
@@ -294,8 +290,7 @@ private fun ActionCard(
                 .fillMaxWidth()
                 .height(56.dp),
         ) {
-            Icon(
-                imageVector = imageVector,
+            SymbolIcon(symbol = symbol,
                 contentDescription = null,
                 tint = LegadoTheme.colorScheme.onSurfaceVariant.copy(alpha = contentAlpha),
                 modifier = Modifier.size(20.dp),

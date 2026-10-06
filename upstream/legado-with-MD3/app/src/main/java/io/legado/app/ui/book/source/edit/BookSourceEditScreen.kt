@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.source.edit
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.basicMarquee
@@ -17,9 +19,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -100,12 +99,12 @@ fun BookSourceEditScreen(
                     actions = {
                         TopBarActionButton(
                             onClick = { onIntent(BookSourceEditIntent.SaveAndDebug) },
-                            imageVector = Icons.Default.BugReport,
+                            symbol = Symbols.BugReport,
                             contentDescription = stringResource(R.string.debug_source),
                         )
                         TopBarActionButton(
                             onClick = { onMenuExpandedChange(true) },
-                            imageVector = AppIcons.MoreVert,
+                            symbol = AppIcons.MoreVert,
                             contentDescription = stringResource(R.string.more_menu),
                         )
                         BookSourceEditMenu(menuExpanded, onMenuExpandedChange, state, onIntent)
@@ -125,7 +124,7 @@ fun BookSourceEditScreen(
             AppFloatingActionButton(
                 onClick = { onIntent(BookSourceEditIntent.Save) },
                 tooltipText = stringResource(R.string.action_save),
-                icon = Icons.Default.Save,
+                icon = Symbols.Save,
             )
         },
     ) { padding ->
@@ -357,7 +356,7 @@ fun SourceEditOptionCard(
                 visible = checked == true
             ) {
                 AppIcon(
-                    imageVector = AppIcons.Check,
+                    symbol = AppIcons.Check,
                     contentDescription = null,
                     modifier = Modifier
                         .padding(end = 8.dp)

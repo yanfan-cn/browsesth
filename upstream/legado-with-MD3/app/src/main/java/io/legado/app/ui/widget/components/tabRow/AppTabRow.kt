@@ -12,8 +12,6 @@ import androidx.compose.ui.unit.dp
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.ThemeResolver
 import io.legado.app.ui.widget.components.text.AppText
-import top.yukonga.miuix.kmp.basic.TabRowDefaults
-import top.yukonga.miuix.kmp.basic.TabRowWithContour
 
 @Composable
 fun AppTabRow(
@@ -25,19 +23,7 @@ fun AppTabRow(
 ) {
     val composeEngine = LegadoTheme.composeEngine
 
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        TabRowWithContour(
-            tabs = tabTitles,
-            selectedTabIndex = selectedTabIndex,
-            onTabSelected = onTabSelected,
-            modifier = modifier
-                .padding(vertical = 4.dp),
-            colors = TabRowDefaults.tabRowColors(
-                backgroundColor = Color.Transparent
-            )
-        )
-    } else {
-        if (isScrollable) {
+    if (isScrollable) {
             PrimaryScrollableTabRow(
                 selectedTabIndex = selectedTabIndex,
                 edgePadding = 0.dp,
@@ -70,7 +56,6 @@ fun AppTabRow(
                 }
             }
         }
-    }
 }
 
 @Composable

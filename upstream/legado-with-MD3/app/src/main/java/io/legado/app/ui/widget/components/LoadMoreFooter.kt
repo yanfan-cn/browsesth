@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,9 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -122,7 +121,7 @@ fun LoadMoreFooter(
                             ) {
 
                                 AppIcon(
-                                    imageVector = Icons.Outlined.Info,
+                                    symbol = Symbols.Info,
                                     contentDescription = null,
                                     tint = LegadoTheme.colorScheme.error
                                 )
@@ -156,7 +155,7 @@ fun LoadMoreFooter(
                                 ) {
 
                                     AppIcon(
-                                        imageVector = Icons.Default.Refresh,
+                                        symbol = Symbols.Refresh,
                                         contentDescription = null,
                                         tint = LegadoTheme.colorScheme.error
                                     )
@@ -203,7 +202,7 @@ fun LoadMoreFooter(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     AppIcon(
-                                        imageVector = Icons.Outlined.Info,
+                                        symbol = Symbols.Info,
                                         contentDescription = null,
                                         tint = LegadoTheme.colorScheme.onSurface
                                     )
@@ -233,7 +232,7 @@ fun LoadMoreFooter(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         AppIcon(
-                                            imageVector = Icons.Default.Refresh,
+                                            symbol = Symbols.Refresh,
                                             contentDescription = null,
                                             tint = LegadoTheme.colorScheme.primary
                                         )
@@ -260,7 +259,7 @@ fun LoadMoreFooter(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     AppIcon(
-                                        imageVector = Icons.Outlined.Info,
+                                        symbol = Symbols.Info,
                                         contentDescription = null,
                                         tint = LegadoTheme.colorScheme.onSurface
                                     )
@@ -300,7 +299,7 @@ fun LoadMoreFooter(
                                 ) {
 
                                     AppIcon(
-                                        imageVector = Icons.Outlined.Info,
+                                        symbol = Symbols.Info,
                                         contentDescription = null,
                                         tint = LegadoTheme.colorScheme.onSurface
                                     )

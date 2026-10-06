@@ -1,5 +1,7 @@
 package io.legado.app.ui.config.themeConfig
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,8 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -109,7 +109,7 @@ fun NavIconManageSheet(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         AppIcon(
-                            imageVector = AppIcons.mainDestination(
+                            symbol = AppIcons.mainDestination(
                                 destination.mainDestination,
                                 selected = false,
                             ),
@@ -169,7 +169,7 @@ private fun NavigationIconSlot(
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     AppIcon(
-                        imageVector = Icons.Default.Add,
+                        symbol = Symbols.Add,
                         contentDescription = stringResource(
                             R.string.theme_config_add_nav_icon,
                             label

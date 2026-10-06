@@ -1,5 +1,6 @@
 package io.legado.app.ui.widget.components.modalBottomSheet
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -13,7 +14,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.card.NormalCard
@@ -53,7 +53,7 @@ fun OptionSheet(
 
 @Composable
 fun RowScope.OptionCard(
-    icon: ImageVector,
+    icon: MaterialSymbol,
     text: String,
     onClick: () -> Unit
 ) {
@@ -71,7 +71,7 @@ fun RowScope.OptionCard(
             verticalArrangement = Arrangement.Center
         ) {
             AppIcon(
-                imageVector = icon,
+                symbol = icon,
                 contentDescription = null,
                 modifier = Modifier.size(32.dp),
                 tint = LegadoTheme.colorScheme.primary

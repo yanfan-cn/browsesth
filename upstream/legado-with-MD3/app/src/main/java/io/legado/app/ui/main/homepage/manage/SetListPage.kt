@@ -1,14 +1,13 @@
 package io.legado.app.ui.main.homepage.manage
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -93,12 +92,12 @@ fun SetListPage(
                 trailingAction = {
                     SmallPlainButton(
                         onClick = { onRenameSet(set.sourceUrl) },
-                        icon = Icons.Default.DriveFileRenameOutline,
+                        icon = Symbols.DriveFileRenameOutline,
                         contentDescription = stringResource(R.string.homepage_rename_custom_set)
                     )
                     SmallPlainButton(
                         onClick = { onDeleteSet(set.sourceUrl) },
-                        icon = Icons.Default.Delete,
+                        icon = Symbols.Delete,
                         contentDescription = stringResource(R.string.delete)
                     )
                 }

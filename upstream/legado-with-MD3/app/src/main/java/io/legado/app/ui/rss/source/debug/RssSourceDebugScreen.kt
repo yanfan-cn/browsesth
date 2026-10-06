@@ -1,5 +1,7 @@
 package io.legado.app.ui.rss.source.debug
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,10 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ClearAll
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -74,7 +72,7 @@ fun RssSourceDebugScreen(
                 actions = {
                     TopBarActionButton(
                         { onIntent(RssSourceDebugIntent.Clear) },
-                        Icons.Default.ClearAll,
+                        Symbols.ClearAll,
                         "清空日志"
                     )
                 },
@@ -84,7 +82,7 @@ fun RssSourceDebugScreen(
         floatingActionButton = {
             AppFloatingActionButton(
                 onClick = { onIntent(if (state.status == BookSourceDebugStatus.Running) RssSourceDebugIntent.Stop else RssSourceDebugIntent.Start) },
-                icon = if (state.status == BookSourceDebugStatus.Running) Icons.Default.Stop else Icons.Default.PlayArrow,
+                icon = if (state.status == BookSourceDebugStatus.Running) Symbols.Stop else Symbols.PlayArrow,
                 tooltipText = if (state.status == BookSourceDebugStatus.Running) "停止" else "开始调试",
             )
         },

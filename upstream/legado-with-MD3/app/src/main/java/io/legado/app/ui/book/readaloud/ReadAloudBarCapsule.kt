@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.readaloud
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -19,10 +21,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -348,13 +346,13 @@ fun ReadAloudBarCapsule(
             MediumPlainButton(
                 onClick = onTogglePause,
                 enabled = controlsEnabled,
-                icon = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                icon = if (isPaused) Symbols.PlayArrow else Symbols.Pause,
                 contentDescription = stringResource(if (isPaused) R.string.resume else R.string.pause)
             )
             MediumPlainButton(
                 onClick = onStop,
                 enabled = controlsEnabled,
-                icon = Icons.Default.Close,
+                icon = Symbols.Close,
                 contentDescription = stringResource(R.string.exit)
             )
         }

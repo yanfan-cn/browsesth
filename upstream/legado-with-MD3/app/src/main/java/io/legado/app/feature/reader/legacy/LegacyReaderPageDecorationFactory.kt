@@ -19,7 +19,9 @@ import io.legado.app.feature.reader.core.model.ReaderTipValueType
 import io.legado.app.feature.reader.core.model.ReaderTipVisual
 import io.legado.app.feature.reader.core.model.resolveReaderTipColor
 import io.legado.app.feature.reader.platform.ReaderAndroidPaintFactory
+import io.legado.app.browser.engine.BrowserFormFactor
 import io.legado.app.help.config.ReadBookConfig
+import io.legado.app.ui.browser.TabletBrowserLayout
 import io.legado.app.model.ReadBook
 import io.legado.app.utils.dpToPx
 import io.legado.app.utils.spToPx
@@ -330,11 +332,11 @@ object LegacyReaderPageDecorationFactory : KoinComponent {
 
     private const val ZERO_PROGRESS = "0.0%"
 
-    private fun headerVisible(): Boolean = when (ReadBookConfig.headerMode) {
-        1 -> true
-        2 -> false
-        else -> ReadBookConfig.hideStatusBar
-    }
+    private fun headerVisible(): Boolean = TabletBrowserLayout.headerVisible(
+        headerMode = ReadBookConfig.headerMode,
+        hideStatusBar = ReadBookConfig.hideStatusBar,
+        isTablet = BrowserFormFactor.isTablet(appCtx),
+    )
 
     private fun footerVisible(): Boolean = ReadBookConfig.footerMode != 1
 }

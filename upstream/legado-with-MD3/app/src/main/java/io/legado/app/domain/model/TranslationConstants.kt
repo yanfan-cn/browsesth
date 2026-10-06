@@ -5,12 +5,25 @@ object TranslationConstants {
     const val PROVIDER_OPENAI = "openai"
     const val PROVIDER_APP_AI = "app_ai"
     const val PROVIDER_GOOGLE = "google"
+    /** SPEC-048: Baidu Translate (mainland-friendly default). */
+    const val PROVIDER_BAIDU = "baidu"
+    /** Reserved; not exposed in UI yet (SPEC-048 deferred). */
+    const val PROVIDER_MICROSOFT = "microsoft"
+
     const val MIN_TEMPERATURE = 0f
     const val MAX_TEMPERATURE = 2f
     const val DEFAULT_TEMPERATURE = 0.7f
 
-    val providerDisplayNames = listOf("Google Translate", "应用 AI 接口")
-    val providerValues = listOf(PROVIDER_GOOGLE, PROVIDER_APP_AI)
+    val providerDisplayNames = listOf(
+        "百度翻译",
+        "应用 AI 接口",
+        "Google Translate",
+    )
+    val providerValues = listOf(
+        PROVIDER_BAIDU,
+        PROVIDER_APP_AI,
+        PROVIDER_GOOGLE,
+    )
 
     val targetLanguages = listOf(
         "zh" to "简体中文",

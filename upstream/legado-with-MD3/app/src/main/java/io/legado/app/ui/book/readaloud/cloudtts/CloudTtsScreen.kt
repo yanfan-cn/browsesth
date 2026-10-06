@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.readaloud.cloudtts
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.content.ClipData
 import android.media.MediaPlayer
 import androidx.compose.foundation.layout.Arrangement
@@ -15,17 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.RecordVoiceOver
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -145,7 +136,7 @@ fun CloudTtsScreen(
                         Box {
                             TopBarActionButton(
                                 onClick = { expanded = true },
-                                imageVector = AppIcons.MoreVert,
+                                symbol = AppIcons.MoreVert,
                                 contentDescription = stringResource(R.string.more_menu),
                             )
                             RoundDropdownMenu(expanded, { expanded = false }) {
@@ -198,8 +189,8 @@ fun CloudTtsScreen(
                     if (state.selectedTab == CloudTtsTab.Engines) showAddEngineSheet = true
                     else onIntent(CloudTtsIntent.AddVoice)
                 },
-                icon = if (state.selectedTab == CloudTtsTab.Engines) Icons.Default.Add
-                    else Icons.Default.RecordVoiceOver,
+                icon = if (state.selectedTab == CloudTtsTab.Engines) Symbols.Add
+                    else Symbols.RecordVoiceOver,
                 tooltipText = stringResource(
                     if (state.selectedTab == CloudTtsTab.Engines) R.string.cloud_tts_add_engine
                     else R.string.cloud_tts_add_voice
@@ -229,7 +220,7 @@ fun CloudTtsScreen(
                         trailingContent = if (voice.deletable) {{
                             MediumTonalButton(
                                 onClick = { onIntent(CloudTtsIntent.RequestDeleteVoice(voice.id)) },
-                                icon = Icons.Default.Delete,
+                                icon = Symbols.Delete,
                                 contentDescription = stringResource(R.string.delete),
                             )
                         }} else null,
@@ -251,12 +242,12 @@ fun CloudTtsScreen(
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                 MediumTonalButton(
                                     onClick = { onIntent(CloudTtsIntent.EditEngine(engine.id)) },
-                                    icon = Icons.Default.Edit,
+                                    icon = Symbols.Edit,
                                     contentDescription = stringResource(R.string.edit),
                                 )
                                 MediumTonalButton(
                                     onClick = { onIntent(CloudTtsIntent.DeleteEngine(engine.id)) },
-                                    icon = Icons.Default.Delete,
+                                    icon = Symbols.Delete,
                                     contentDescription = stringResource(R.string.delete),
                                 )
                             }
@@ -294,12 +285,12 @@ fun CloudTtsScreen(
                                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                     MediumTonalButton(
                                         onClick = { onIntent(CloudTtsIntent.EditHttpTts(engine.engineId)) },
-                                        icon = Icons.Default.Edit,
+                                        icon = Symbols.Edit,
                                         contentDescription = stringResource(R.string.edit),
                                     )
                                     MediumTonalButton(
                                         onClick = { onIntent(CloudTtsIntent.DeleteHttpTts(engine.engineId)) },
-                                        icon = Icons.Default.Delete,
+                                        icon = Symbols.Delete,
                                         contentDescription = stringResource(R.string.delete),
                                     )
                                 }
@@ -334,7 +325,7 @@ fun CloudTtsScreen(
         title = stringResource(R.string.speak_engine),
     ) {
         OptionCard(
-            icon = Icons.Default.Cloud,
+            icon = Symbols.Cloud,
             text = stringResource(R.string.cloud_tts_add_engine),
             onClick = {
                 showAddEngineSheet = false
@@ -342,7 +333,7 @@ fun CloudTtsScreen(
             },
         )
         OptionCard(
-            icon = Icons.Default.RecordVoiceOver,
+            icon = Symbols.RecordVoiceOver,
             text = stringResource(R.string.cloud_tts_add_http_engine),
             onClick = {
                 showAddEngineSheet = false
@@ -424,14 +415,14 @@ fun CloudTtsScreen(
         startAction = {
             MediumTonalButton(
                 onClick = { onIntent(CloudTtsIntent.DismissError) },
-                icon = Icons.Default.Close,
+                icon = Symbols.Close,
                 contentDescription = stringResource(R.string.close),
             )
         },
         endAction = {
             MediumTonalButton(
                 onClick = { onIntent(CloudTtsIntent.CopyError) },
-                icon = Icons.Default.ContentCopy,
+                icon = Symbols.ContentCopy,
                 contentDescription = stringResource(R.string.cloud_tts_copy_error),
             )
         },
@@ -496,7 +487,7 @@ private fun HttpTtsEditorSheet(
             Box {
                 MediumTonalButton(
                     onClick = { expanded = true },
-                    icon = Icons.Default.MoreVert,
+                    icon = Symbols.MoreVert,
                     contentDescription = stringResource(R.string.more_menu),
                 )
                 RoundDropdownMenu(expanded, { expanded = false }) {
@@ -544,7 +535,7 @@ private fun HttpTtsEditorSheet(
         endAction = {
             MediumTonalButton(
                 onClick = { onIntent(CloudTtsIntent.SaveHttpTts(current())) },
-                icon = Icons.Default.Save,
+                icon = Symbols.Save,
                 contentDescription = stringResource(R.string.save),
             )
         },
@@ -667,14 +658,14 @@ private fun CloudTtsEngineEditorSheet(
         startAction = {
             MediumTonalButton(
                 onClick = { onIntent(CloudTtsIntent.DismissEngineEditor) },
-                icon = Icons.Default.Close,
+                icon = Symbols.Close,
                 contentDescription = stringResource(R.string.cancel),
             )
         },
         endAction = {
             MediumTonalButton(
                 onClick = { onIntent(CloudTtsIntent.Save) },
-                icon = Icons.Default.Check,
+                icon = Symbols.Check,
                 contentDescription = stringResource(R.string.save),
             )
         },
@@ -835,7 +826,7 @@ private fun TtsVoicePresetEditorSheet(
         startAction = {
             MediumTonalButton(
                 onClick = { onIntent(CloudTtsIntent.DismissVoiceEditor) },
-                icon = Icons.Default.Close,
+                icon = Symbols.Close,
                 contentDescription = stringResource(R.string.cancel),
             )
         },
@@ -843,7 +834,7 @@ private fun TtsVoicePresetEditorSheet(
             MediumTonalButton(
                 onClick = { onIntent(CloudTtsIntent.Save) },
                 enabled = editor?.voiceId?.isNotBlank() == true,
-                icon = Icons.Default.Check,
+                icon = Symbols.Check,
                 contentDescription = stringResource(R.string.save),
             )
         },
@@ -1070,7 +1061,7 @@ private fun VoiceEnginePickerSheet(
         startAction = {
             MediumTonalButton(
                 onClick = { onIntent(CloudTtsIntent.DismissVoiceEnginePicker) },
-                icon = Icons.Default.Close,
+                icon = Symbols.Close,
                 contentDescription = stringResource(R.string.cancel),
             )
         },

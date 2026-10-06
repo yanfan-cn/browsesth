@@ -2,6 +2,8 @@
 
 package io.legado.app.ui.rss.read
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.annotation.SuppressLint
 import android.view.View
 import android.view.ViewGroup
@@ -18,16 +20,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CleaningServices
-import androidx.compose.material.icons.filled.OpenInBrowser
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -298,7 +290,7 @@ fun RssReadRouteScreen(
                     },
                     actions = {
                         TopBarActionButton(
-                            imageVector = Icons.Default.Refresh,
+                            symbol = Symbols.Refresh,
                             contentDescription = stringResource(R.string.refresh),
                             onClick = {
                                 if (viewModel.rssSource?.singleUrl == true) {
@@ -311,7 +303,7 @@ fun RssReadRouteScreen(
                         )
                         if (!startPage) {
                             TopBarActionButton(
-                                imageVector = Icons.Default.Star,
+                                symbol = Symbols.Star,
                                 contentDescription = stringResource(R.string.favorite),
                                 onClick = {
                                     viewModel.addFavorite()
@@ -323,7 +315,7 @@ fun RssReadRouteScreen(
                         }
                         Box {
                         TopBarActionButton(
-                            imageVector = AppIcons.MoreVert,
+                            symbol = AppIcons.MoreVert,
                             contentDescription = stringResource(R.string.more_menu),
                             onClick = { showMenu = true }
                         )
@@ -333,7 +325,7 @@ fun RssReadRouteScreen(
                             ) { dismiss ->
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.share),
-                                    leadingIcon = { MenuItemIcon(Icons.Default.Share) },
+                                    leadingIcon = { MenuItemIcon(Symbols.Share) },
                                     onClick = {
                                         dismiss()
                                         webView?.url?.let {
@@ -348,7 +340,7 @@ fun RssReadRouteScreen(
                                         R.string.read_aloud
                                     ),
                                     leadingIcon = {
-                                        MenuItemIcon(if (isSpeaking) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp)
+                                        MenuItemIcon(if (isSpeaking) Symbols.Stop else Symbols.VolumeUp)
                                     },
                                     onClick = {
                                         dismiss()
@@ -368,7 +360,7 @@ fun RssReadRouteScreen(
                                 if (!viewModel.rssSource?.loginUrl.isNullOrBlank()) {
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.login),
-                                    leadingIcon = { MenuItemIcon(Icons.AutoMirrored.Filled.Login) },
+                                    leadingIcon = { MenuItemIcon(Symbols.Login) },
                                     onClick = {
                                         dismiss()
                                         context.startActivity(
@@ -394,7 +386,7 @@ fun RssReadRouteScreen(
                                 )
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.open_in_browser),
-                                    leadingIcon = { MenuItemIcon(Icons.Default.OpenInBrowser) },
+                                    leadingIcon = { MenuItemIcon(Symbols.OpenInBrowser) },
                                     onClick = {
                                         dismiss()
                                         webView?.url?.let { context.openUrl(it) }
@@ -423,7 +415,7 @@ fun RssReadRouteScreen(
                                     },
                                     trailingIcon = {
                                         if (policy == redirectPolicy) {
-                                            Icon(Icons.Default.Check, null)
+                                            SymbolIcon(Symbols.Check, null)
                                         }
                                     }
                                 )
@@ -552,7 +544,7 @@ private fun FavoriteEditSheet(
         endAction = {
             MediumTonalButton(
                 onClick = onDelete,
-                icon = Icons.Default.CleaningServices,
+                icon = Symbols.CleaningServices,
                 contentDescription = stringResource(R.string.delete)
             )
         }

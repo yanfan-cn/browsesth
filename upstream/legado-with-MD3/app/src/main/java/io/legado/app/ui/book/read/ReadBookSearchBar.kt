@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -7,9 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -56,8 +55,7 @@ fun ReadBookSearchBar(
                 containerColor = LegadoTheme.colorScheme.surfaceContainerLow,
                 contentColor = LegadoTheme.colorScheme.onSurfaceVariant,
             ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
+                SymbolIcon(Symbols.NavigateBefore,
                     contentDescription = stringResource(R.string.a11y_previous_result),
                     modifier = Modifier.size(20.dp),
                 )
@@ -81,8 +79,7 @@ fun ReadBookSearchBar(
                 containerColor = LegadoTheme.colorScheme.surfaceContainerLow,
                 contentColor = LegadoTheme.colorScheme.onSurfaceVariant,
             ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
+                SymbolIcon(Symbols.ArrowForward,
                     contentDescription = stringResource(R.string.a11y_next_result),
                     modifier = Modifier.size(20.dp),
                 )

@@ -1,5 +1,6 @@
 package io.legado.app.ui.widget.components
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.clickable
@@ -17,7 +18,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
@@ -35,7 +35,7 @@ fun EmptyMessage(
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
     buttonText: String? = null,
-    buttonImageVector: ImageVector = AppIcons.Search,
+    buttonMaterialSymbol: MaterialSymbol = AppIcons.Search,
     onButtonClick: (() -> Unit)? = null,
     faces: List<String> = listOf(
         "(；′⌒`)", "(つ﹏⊂)", "(•̀ᴗ•́)و", "(๑•́ ₃ •̀๑)",
@@ -87,7 +87,7 @@ fun EmptyMessage(
             SmallTonalButton(
                 onClick = onButtonClick,
                 text = buttonText,
-                icon = buttonImageVector
+                icon = buttonMaterialSymbol
             )
         }
     }
@@ -99,7 +99,7 @@ fun EmptyMessage(
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
     buttonText: String? = null,
-    buttonImageVector: ImageVector = AppIcons.Search,
+    buttonMaterialSymbol: MaterialSymbol = AppIcons.Search,
     onButtonClick: (() -> Unit)? = null,
     faces: List<String> = listOf(
         "(；′⌒`)", "(つ﹏⊂)", "(•̀ᴗ•́)و", "(๑•́ ₃ •̀๑)",
@@ -114,7 +114,7 @@ fun EmptyMessage(
         modifier = modifier,
         isLoading = isLoading,
         buttonText = buttonText,
-        buttonImageVector = buttonImageVector,
+        buttonMaterialSymbol = buttonMaterialSymbol,
         onButtonClick = onButtonClick,
         faces = faces,
         faceTextSize = faceTextSize,

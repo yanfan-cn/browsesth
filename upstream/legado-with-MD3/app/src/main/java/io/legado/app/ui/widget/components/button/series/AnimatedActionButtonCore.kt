@@ -17,17 +17,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import kotlinx.coroutines.delay
 
 @Composable
 internal fun AnimatedActionButtonCore(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    iconChecked: ImageVector,
-    iconUnchecked: ImageVector,
+    iconChecked: MaterialSymbol,
+    iconUnchecked: MaterialSymbol,
     activeText: String,
     inactiveText: String,
     modifier: Modifier = Modifier,
@@ -40,7 +40,7 @@ internal fun AnimatedActionButtonCore(
         onToggle: (Boolean) -> Unit,
         content: @Composable RowScope.() -> Unit
     ) -> Unit,
-    icon: @Composable (imageVector: ImageVector, modifier: Modifier, tint: Color?) -> Unit,
+    icon: @Composable (symbol: MaterialSymbol, modifier: Modifier, tint: Color?) -> Unit,
     text: @Composable (text: String, modifier: Modifier, style: TextStyle, color: Color?) -> Unit
 ) {
     var showText by remember { mutableStateOf(false) }

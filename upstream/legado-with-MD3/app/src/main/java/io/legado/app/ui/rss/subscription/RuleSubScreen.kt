@@ -1,5 +1,7 @@
 package io.legado.app.ui.rss.subscription
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,10 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -129,7 +127,7 @@ fun RuleSubScreen(
             RoundDropdownMenuItem(
                 text = stringResource(R.string.sort),
                 leadingIcon = {
-                    Icon(Icons.AutoMirrored.Filled.Sort, null, modifier = Modifier.size(18.dp))
+                    SymbolIcon(Symbols.Sort, null, modifier = Modifier.size(18.dp))
                 },
                 onClick = {
                     onIntent(RuleSubIntent.ResetOrder)
@@ -148,7 +146,7 @@ fun RuleSubScreen(
                     onIntent(RuleSubIntent.Add)
                 },
                 tooltipText = stringResource(R.string.add),
-                icon = Icons.Default.Add
+                icon = Symbols.Add
             )
         }
     ) { paddingValues ->
@@ -191,7 +189,7 @@ fun RuleSubScreen(
                         trailingAction = {
                             SmallPlainButton(
                                 onClick = { onIntent(RuleSubIntent.Edit(ruleSub)) },
-                                icon = Icons.Default.Edit,
+                                icon = Symbols.Edit,
                                 contentDescription = stringResource(R.string.edit)
                             )
                         },

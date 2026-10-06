@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.import.local
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,17 +22,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AddCircleOutline
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.outlined.Book
-import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -112,7 +103,7 @@ private fun ImportBookContent(
         topBarActions = {
             TopBarActionButton(
                 onClick = onSelectFolder,
-                imageVector = Icons.Default.FolderOpen,
+                symbol = Symbols.FolderOpen,
                 contentDescription = stringResource(R.string.select_folder)
             )
         },
@@ -132,7 +123,7 @@ private fun ImportBookContent(
                 },
                 trailingIcon = {
                     if (state.sort == 0) {
-                        Icon(Icons.Default.Check, null)
+                        SymbolIcon(Symbols.Check, null)
                     }
                 }
             )
@@ -144,7 +135,7 @@ private fun ImportBookContent(
                 },
                 trailingIcon = {
                     if (state.sort == 1) {
-                        Icon(Icons.Default.Check, null)
+                        SymbolIcon(Symbols.Check, null)
                     }
                 }
             )
@@ -156,7 +147,7 @@ private fun ImportBookContent(
                 },
                 trailingIcon = {
                     if (state.sort == 2) {
-                        Icon(Icons.Default.Check, null)
+                        SymbolIcon(Symbols.Check, null)
                     }
                 }
             )
@@ -189,13 +180,13 @@ private fun ImportBookContent(
             onSelectInvert = onSelectInvert,
             primaryAction = ActionItem(
                 text = stringResource(R.string.add_to_bookshelf),
-                icon = Icons.Default.CloudDownload,
+                icon = Symbols.CloudDownload,
                 onClick = onAddToBookshelf
             ),
             secondaryActions = listOf(
                 ActionItem(
                     text = stringResource(R.string.delete),
-                    icon = Icons.Default.Delete,
+                    icon = Symbols.Delete,
                     onClick = onDeleteSelection
                 )
             )
@@ -476,8 +467,7 @@ private fun ImportPathNavigationBar(
                             .padding(horizontal = 4.dp, vertical = 4.dp)
                     )
                     if (!isLast) {
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
+                        SymbolIcon(symbol = Symbols.ChevronRight,
                             contentDescription = null,
                             modifier = Modifier.size(12.dp),
                             tint = LegadoTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -490,7 +480,7 @@ private fun ImportPathNavigationBar(
         if (canGoBack) {
             SmallTonalButton(
                 onClick = onNavigateBack,
-                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                icon = Symbols.ArrowBack,
                 contentDescription = stringResource(R.string.back)
             )
         }
@@ -525,10 +515,10 @@ private fun ImportBookItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             AppIcon(
-                imageVector = when {
-                    item.isDir -> Icons.Default.Folder
-                    item.isOnBookShelf -> Icons.Outlined.Book
-                    else -> Icons.Outlined.Description
+                symbol = when {
+                    item.isDir -> Symbols.Folder
+                    item.isOnBookShelf -> Symbols.Book
+                    else -> Symbols.Description
                 },
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
@@ -574,7 +564,7 @@ private fun ImportBookItem(
                 Spacer(modifier = Modifier.width(8.dp))
                 SmallPlainButton(
                     onClick = onAddToBookshelf,
-                    icon = if (isSelected) Icons.Default.Check else Icons.Default.AddCircleOutline,
+                    icon = if (isSelected) Symbols.Check else Symbols.AddCircleOutline,
                     contentDescription = stringResource(R.string.add_to_bookshelf)
                 )
             }

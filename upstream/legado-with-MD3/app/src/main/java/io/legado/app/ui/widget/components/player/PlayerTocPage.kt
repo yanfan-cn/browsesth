@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.player
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,9 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -139,10 +138,10 @@ fun PlayerTocPage(
                         ) {
                             if (isCurrent) {
                                 AppIcon(
-                                    imageVector = if (isPaused) {
-                                        Icons.Default.PlayArrow
+                                    symbol = if (isPaused) {
+                                        Symbols.PlayArrow
                                     } else {
-                                        Icons.Default.Pause
+                                        Symbols.Pause
                                     },
                                     contentDescription = null,
                                     modifier = Modifier

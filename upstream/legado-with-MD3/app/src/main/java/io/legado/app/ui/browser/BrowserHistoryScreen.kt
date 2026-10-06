@@ -1,5 +1,7 @@
 package io.legado.app.ui.browser
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -18,9 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -104,7 +103,7 @@ private fun BrowserHistoryBody(
                 actions = {
                     TopBarActionButton(
                         onClick = { confirmClear = true },
-                        imageVector = Icons.Default.DeleteSweep,
+                        symbol = Symbols.DeleteSweep,
                         contentDescription = "清空历史",
                     )
                 },
@@ -129,8 +128,7 @@ private fun BrowserHistoryBody(
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    Icons.Default.Search,
+                SymbolIcon(Symbols.Search,
                     contentDescription = null,
                     tint = scheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp),

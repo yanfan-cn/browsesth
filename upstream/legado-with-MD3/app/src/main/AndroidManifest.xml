@@ -2,8 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-sdk tools:overrideLibrary="top.yukonga.miuix.kmp.blur" />
-
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- 自 Android 17 (API 37) 起本地网络保护强制生效：接受局域网入站连接需要该运行时权限，
          否则 Web 服务对局域网内其他设备不可达。targetSdk < 37 时不得声明该权限。 -->
@@ -51,7 +49,8 @@
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
-            android:icon="@mipmap/launcherw">
+            android:icon="@mipmap/launcherw"
+            android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -67,7 +66,8 @@
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
-            android:icon="@mipmap/launcher0">
+            android:icon="@mipmap/launcher0"
+            android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -84,7 +84,8 @@
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
-            android:icon="@mipmap/launcher1">
+            android:icon="@mipmap/launcher1"
+            android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -101,7 +102,8 @@
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
-            android:icon="@mipmap/launcher2">
+            android:icon="@mipmap/launcher2"
+            android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -118,7 +120,8 @@
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
-            android:icon="@mipmap/launcher3">
+            android:icon="@mipmap/launcher3"
+            android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -135,7 +138,8 @@
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
-            android:icon="@mipmap/launcher4">
+            android:icon="@mipmap/launcher4"
+            android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -152,7 +156,8 @@
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
-            android:icon="@mipmap/launcher5">
+            android:icon="@mipmap/launcher5"
+            android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -169,7 +174,8 @@
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
-            android:icon="@mipmap/launcher6">
+            android:icon="@mipmap/launcher6"
+            android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -187,7 +193,8 @@
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:enableOnBackInvokedCallback="true"
             android:windowSoftInputMode="adjustResize"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

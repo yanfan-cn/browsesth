@@ -1,14 +1,13 @@
 package io.legado.app.ui.widget.components
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.TextFields
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.net.toUri
@@ -33,7 +32,7 @@ fun FontSelectSheet(
     onSelectFont: (FileDoc) -> Unit,
     onOpenFolderPicker: () -> Unit,
     startAction: (@Composable () -> Unit)? = null,
-    folderIcon: ImageVector = Icons.Default.FolderOpen,
+    folderIcon: MaterialSymbol = Symbols.FolderOpen,
     folderContentDescription: String? = null,
     onSelectSystemTypeface: ((Int) -> Unit)? = null,
     systemTypefaces: Array<String>? = null,
@@ -80,7 +79,7 @@ fun FontSelectSheet(
                 }
                 MediumTonalButton(
                     onClick = { showTypefaceMenu = true },
-                    icon = Icons.Default.TextFields,
+                    icon = Symbols.TextFields,
                     contentDescription = stringResource(R.string.select_font),
                 )
             }

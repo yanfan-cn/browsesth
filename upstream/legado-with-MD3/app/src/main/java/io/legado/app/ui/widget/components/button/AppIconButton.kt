@@ -12,8 +12,6 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.ThemeResolver
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
-import top.yukonga.miuix.kmp.basic.IconButtonDefaults as MiuixIconButtonDefaults
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -33,22 +31,8 @@ fun AppIconButton(
     miuixMinWidth: Dp? = null,
     content: @Composable () -> Unit
 ) {
-    val isMiuix = ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)
 
-    if (isMiuix) {
-        MiuixIconButton(
-            onClick = onClick,
-            modifier = modifier,
-            enabled = enabled,
-            holdDownState = holdDownState,
-            backgroundColor = miuixBackgroundColor,
-            cornerRadius = miuixCornerRadius ?: MiuixIconButtonDefaults.CornerRadius,
-            minHeight = miuixMinHeight ?: MiuixIconButtonDefaults.MinHeight,
-            minWidth = miuixMinWidth ?: MiuixIconButtonDefaults.MinWidth,
-            content = content
-        )
-    } else {
-        IconButton(
+    IconButton(
             onClick = onClick,
             modifier = modifier,
             enabled = enabled,
@@ -57,5 +41,4 @@ fun AppIconButton(
             shape = shape,
             content = content
         )
-    }
 }

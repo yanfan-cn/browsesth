@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.readaloud.casting
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,13 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.RecordVoiceOver
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
@@ -81,12 +76,12 @@ fun BookVoiceCastingScreen(
                 navigationIcon = { TopBarNavigationButton(onClick = onBack) },
                 actions = {
                     TopBarActionButton(
-                        imageVector = Icons.Default.RecordVoiceOver,
+                        symbol = Symbols.RecordVoiceOver,
                         contentDescription = stringResource(R.string.read_aloud_engines_and_voices),
                         onClick = onManageCloudTts,
                     )
                     TopBarActionButton(
-                        imageVector = Icons.Default.Refresh,
+                        symbol = Symbols.Refresh,
                         contentDescription = stringResource(R.string.refresh),
                         onClick = { onIntent(BookVoiceCastingIntent.Refresh) },
                     )
@@ -225,10 +220,10 @@ private fun VoiceCastingCard(
                     contentAlignment = Alignment.Center,
                 ) {
                     AppIcon(
-                        imageVector = when (item.kind) {
-                            CastingSubjectKind.Narrator -> Icons.AutoMirrored.Filled.MenuBook
-                            CastingSubjectKind.Character -> Icons.Default.Person
-                            else -> Icons.Default.RecordVoiceOver
+                        symbol = when (item.kind) {
+                            CastingSubjectKind.Narrator -> Symbols.MenuBook
+                            CastingSubjectKind.Character -> Symbols.Person
+                            else -> Symbols.RecordVoiceOver
                         },
                         contentDescription = null,
                     )
@@ -257,7 +252,7 @@ private fun VoiceCastingCard(
             trailingContent = if (item.hasBinding && !item.voiceAvailable) {
                 {
                     AppIcon(
-                        imageVector = Icons.Default.Warning,
+                        symbol = Symbols.Warning,
                         contentDescription = stringResource(R.string.voice_unavailable),
                         tint = LegadoTheme.colorScheme.error,
                     )
@@ -309,7 +304,7 @@ private fun VoicePickerSheet(
                             trailingContent = if (picker.selectedVoiceId == voice.id) {
                                 {
                                     AppIcon(
-                                        imageVector = Icons.Default.Check,
+                                        symbol = Symbols.Check,
                                         contentDescription = null,
                                         tint = LegadoTheme.colorScheme.primary,
                                     )

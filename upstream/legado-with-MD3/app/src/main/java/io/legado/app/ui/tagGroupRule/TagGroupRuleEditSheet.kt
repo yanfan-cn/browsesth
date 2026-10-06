@@ -1,5 +1,7 @@
 package io.legado.app.ui.tagGroupRule
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,12 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.NoteAdd
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -73,7 +69,7 @@ fun TagGroupRuleEditSheet(
         startAction = {
             MediumTonalButton(
                 onClick = onDismissRequest,
-                icon = Icons.Default.Close,
+                icon = Symbols.Close,
                 contentDescription = stringResource(R.string.close),
             )
         },
@@ -81,13 +77,13 @@ fun TagGroupRuleEditSheet(
             Box {
                 MediumTonalButton(
                     onClick = { showMenu = true },
-                    icon = Icons.Default.MoreVert,
+                    icon = Symbols.MoreVert,
                     contentDescription = stringResource(R.string.more_menu)
                 )
                 RoundDropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                     RoundDropdownMenuItem(
                         text = stringResource(R.string.copy_rule),
-                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.NoteAdd, null) },
+                        leadingIcon = { SymbolIcon(Symbols.NoteAdd, null) },
                         onClick = {
                             onCopy(getCurrentRule())
                             showMenu = false
@@ -95,7 +91,7 @@ fun TagGroupRuleEditSheet(
                     )
                     RoundDropdownMenuItem(
                         text = stringResource(R.string.paste_rule),
-                        leadingIcon = { Icon(Icons.Default.ContentPaste, null) },
+                        leadingIcon = { SymbolIcon(Symbols.ContentPaste, null) },
                         onClick = {
                             scope.launch {
                                 onPaste()?.let { pasted ->
@@ -144,7 +140,7 @@ fun TagGroupRuleEditSheet(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp),
-                icon = Icons.Default.Save
+                icon = Symbols.Save
             )
         }
     }

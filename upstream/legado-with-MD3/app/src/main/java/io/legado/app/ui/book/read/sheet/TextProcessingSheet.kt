@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,14 +23,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuOpen
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.FindReplace
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -162,8 +157,7 @@ fun TextProcessingSheet(
                             },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.MenuOpen,
+                        SymbolIcon(symbol = Symbols.MenuOpen,
                             contentDescription = stringResource(R.string.open),
                             modifier = Modifier.size(16.dp),
                         )
@@ -278,14 +272,14 @@ private fun ReplaceRulesPage(
             )
             CompactTextProcessTool(
                 selected = replaceEnabled,
-                icon = Icons.Default.FindReplace,
+                icon = Symbols.FindReplace,
                 contentDescription = stringResource(R.string.replace_purify),
                 onClick = { onIntent(ReadBookIntent.ChangeReplaceRule(!replaceEnabled)) },
             )
             Box {
                 CompactTextProcessTool(
                     selected = filter != ReplaceFilter.Effective,
-                    icon = Icons.Default.FilterList,
+                    icon = Symbols.FilterList,
                     contentDescription = stringResource(R.string.replace_filter),
                     onClick = { filterExpanded = true },
                 )
@@ -491,13 +485,13 @@ private fun ContentProcessRow(
                 onCheckedChange = {
                     onIntent(ReadBookIntent.ToggleContentProcess(item.id, it))
                 },
-                icon = Icons.Default.VisibilityOff,
-                iconChecked = Icons.Default.Visibility,
+                icon = Symbols.VisibilityOff,
+                iconChecked = Symbols.Visibility,
                 contentDescription = stringResource(R.string.enable),
             )
             MediumTonalButton(
                 onClick = { onIntent(ReadBookIntent.RequestDeleteContentProcess(item)) },
-                icon = Icons.Default.Delete,
+                icon = Symbols.Delete,
                 contentDescription = stringResource(R.string.delete),
             )
         }
@@ -529,7 +523,7 @@ private fun CompactTextProcessSearch(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Icon(Icons.Default.Search, null, modifier = Modifier.size(14.dp))
+                SymbolIcon(Symbols.Search, null, modifier = Modifier.size(14.dp))
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                     if (query.isEmpty()) AppText(
                         text = stringResource(R.string.search),
@@ -546,7 +540,7 @@ private fun CompactTextProcessSearch(
 @Composable
 private fun CompactTextProcessTool(
     selected: Boolean,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: io.legado.app.ui.widget.components.icon.MaterialSymbol,
     contentDescription: String,
     onClick: () -> Unit,
 ) {
@@ -561,7 +555,7 @@ private fun CompactTextProcessTool(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription, modifier = Modifier.size(16.dp))
+        SymbolIcon(icon, contentDescription, modifier = Modifier.size(16.dp))
     }
 }
 

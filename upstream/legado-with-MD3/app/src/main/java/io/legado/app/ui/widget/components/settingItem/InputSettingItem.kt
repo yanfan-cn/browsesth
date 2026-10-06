@@ -23,8 +23,6 @@ import io.legado.app.ui.theme.ThemeResolver
 import io.legado.app.ui.widget.components.button.ConfirmDismissButtonsRow
 import io.legado.app.ui.widget.components.SplicedColumnDivider
 import io.legado.app.ui.widget.components.text.AppText
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.TextField as MiuixTextField
 
 @Composable
 fun InputSettingItem(
@@ -49,47 +47,7 @@ fun InputSettingItem(
     val composeEngine = LegadoTheme.composeEngine
     SplicedColumnDivider()
 
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            BasicComponent(
-                title = title,
-                summary = value,
-                onClick = { expanded = !expanded }
-            )
-
-            AnimatedVisibility(visible = expanded) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                ) {
-                    MiuixTextField(
-                        state = state,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = stringResource(R.string.edit),
-                        onKeyboardAction = {
-                            onConfirm(state.text.toString())
-                            expanded = false
-                        }
-                    )
-
-                    ConfirmDismissButtonsRow(
-                        modifier = Modifier.padding(top = 16.dp),
-                        onDismiss = {
-                            state.edit { replace(0, length, defaultValue.toString()) }
-                        },
-                        onConfirm = {
-                            onConfirm(state.text.toString())
-                            expanded = false
-                        },
-                        dismissText = stringResource(R.string.text_default),
-                        confirmText = stringResource(R.string.confirm)
-                    )
-                }
-            }
-        }
-    } else {
-        SettingItem(
+    SettingItem(
             title = title,
             description = description,
             option = value,
@@ -128,5 +86,4 @@ fun InputSettingItem(
                 )
             }
         )
-    }
 }

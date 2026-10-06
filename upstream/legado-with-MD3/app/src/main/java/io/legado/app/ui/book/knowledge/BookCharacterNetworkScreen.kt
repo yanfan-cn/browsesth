@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.knowledge
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,11 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -304,7 +301,7 @@ private fun AddRelationCard(
             MediumTonalButton(
                 onClick = { onIntent(CharacterNetworkIntent.AddRelation) },
                 enabled = !state.isSaving,
-                icon = Icons.Default.Add,
+                icon = Symbols.Add,
                 text = stringResource(R.string.add_character_relation),
             )
         }
@@ -340,13 +337,13 @@ private fun RelationEditorCard(
                 SmallTonalButton(
                     onClick = { onIntent(CharacterNetworkIntent.SaveRelation(relation.id)) },
                     enabled = !isSaving,
-                    icon = Icons.Default.Save,
+                    icon = Symbols.Save,
                     contentDescription = stringResource(R.string.save),
                 )
                 SmallTonalButton(
                     onClick = { showDeleteDialog.value = true },
                     enabled = !isSaving,
-                    icon = Icons.Default.Delete,
+                    icon = Symbols.Delete,
                     contentDescription = stringResource(R.string.delete),
                 )
             }
@@ -417,7 +414,7 @@ private fun CharacterAvatar(
                 onError = { avatarLoadFailed.value = true },
             )
         } else {
-            AppIcon(Icons.Default.Person, null)
+            AppIcon(Symbols.Person, null)
         }
     }
 }

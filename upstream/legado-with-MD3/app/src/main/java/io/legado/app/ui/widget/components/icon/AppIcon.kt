@@ -12,8 +12,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.takeOrElse
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -58,18 +56,38 @@ fun AppIcon(
 
 @Composable
 fun AppIcon(
-    imageVector: ImageVector?,
+    symbol: MaterialSymbol?,
     contentDescription: String?,
     modifier: Modifier = Modifier,
     tint: Color = Color.Unspecified,
+    filled: Boolean = false,
 ) {
-    if (imageVector == null) return
+    if (symbol == null) return
+    val defaultTintColor = LegadoTheme.colorScheme.onSurface
+    val finalTint = tint.takeOrElse { defaultTintColor }
+    SymbolIcon(
+        symbol = symbol,
+        contentDescription = contentDescription,
+        modifier = modifier,
+        tint = finalTint,
+        filled = filled,
+    )
+}
 
+@Composable
+fun AppSymbolIcon(
+    symbol: MaterialSymbol,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    tint: Color = Color.Unspecified,
+    filled: Boolean = false,
+) {
     AppIcon(
-        painter = rememberVectorPainter(imageVector),
+        symbol = symbol,
         contentDescription = contentDescription,
         modifier = modifier,
         tint = tint,
+        filled = filled,
     )
 }
 

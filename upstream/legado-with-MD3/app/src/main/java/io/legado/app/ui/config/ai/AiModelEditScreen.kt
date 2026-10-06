@@ -1,9 +1,9 @@
 package io.legado.app.ui.config.ai
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -119,7 +119,7 @@ fun AiModelEditScreen(
         floatingActionButton = {
             AppFloatingActionButton(
                 onClick = { onIntent(AiModelEditIntent.Save) },
-                icon = Icons.Default.Save,
+                icon = Symbols.Save,
                 tooltipText = stringResource(R.string.ai_save_default_model)
             )
         }

@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.changeSource
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,13 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PauseCircleOutline
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -233,7 +228,7 @@ fun ChangeSourceSheet(
                 Box {
                     MediumTonalButton(
                         onClick = { showOptionsMenu = true },
-                icon = Icons.Default.MoreVert,
+                icon = Symbols.MoreVert,
                 contentDescription = stringResource(R.string.more_menu)
                     )
                     RoundDropdownMenu(
@@ -287,7 +282,7 @@ fun ChangeSourceSheet(
                 }
                 MediumTonalButton(
                     onClick = { showMigrationOptions = true },
-                    icon = Icons.Outlined.Settings,
+                    icon = Symbols.Settings,
                     contentDescription = stringResource(R.string.setting)
                 )
             }
@@ -296,12 +291,12 @@ fun ChangeSourceSheet(
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 MediumTonalButton(
                     onClick = { viewModel.startOrStopSearch() },
-                    icon = if (isSearching) Icons.Default.PauseCircleOutline else Icons.Default.Refresh,
+                    icon = if (isSearching) Symbols.PauseCircleOutline else Symbols.Refresh,
                     contentDescription = stringResource(if (isSearching) R.string.pause else R.string.refresh),
                 )
                 MediumTonalButton(
                     onClick = { showFilterSheet = true },
-                    icon = Icons.Default.FilterList,
+                    icon = Symbols.FilterList,
                     contentDescription = stringResource(R.string.screen)
                 )
             }
@@ -357,7 +352,7 @@ fun ChangeSourceSheet(
                                 onClick = {
                                     viewModel.onBookScoreClick(item)
                                 },
-                                icon = Icons.Default.PushPin,
+                                icon = Symbols.PushPin,
                                 tint = if (bookScore > 0) LegadoTheme.colorScheme.primary else LegadoTheme.colorScheme.outline,
                                 contentDescription = stringResource(R.string.a11y_pin_source)
                             )

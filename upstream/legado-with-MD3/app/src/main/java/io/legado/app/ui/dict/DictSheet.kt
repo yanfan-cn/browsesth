@@ -1,5 +1,7 @@
 package io.legado.app.ui.dict
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.annotation.SuppressLint
 import android.net.Uri
 import android.webkit.WebChromeClient
@@ -21,8 +23,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -90,7 +90,7 @@ fun DictSheet(
         endAction = {
             MediumTonalButton(
                 onClick = { viewModel.onIntent(DictIntent.OpenSelectedRuleInWebView) },
-                icon = Icons.Default.OpenInBrowser,
+                icon = Symbols.OpenInBrowser,
                 contentDescription = stringResource(R.string.source_tab_web_view),
             )
         },

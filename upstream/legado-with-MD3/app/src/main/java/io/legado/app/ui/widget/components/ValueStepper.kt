@@ -1,11 +1,10 @@
 package io.legado.app.ui.widget.components
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,7 +39,7 @@ fun ValueStepper(
                 onValueChange(newValue)
             },
             enabled = enabled,
-            icon = Icons.Default.Remove,
+            icon = Symbols.Remove,
             contentDescription = stringResource(R.string.a11y_decrease),
         )
         if (content != null) {
@@ -66,7 +65,7 @@ fun ValueStepper(
                 onValueChange(newValue)
             },
             enabled = enabled,
-            icon = Icons.Default.Add,
+            icon = Symbols.Add,
             contentDescription = stringResource(R.string.a11y_increase),
         )
     }

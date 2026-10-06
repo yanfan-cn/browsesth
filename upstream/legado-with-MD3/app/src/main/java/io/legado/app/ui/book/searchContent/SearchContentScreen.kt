@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.searchContent
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
@@ -17,16 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.CollectionsBookmark
-import androidx.compose.material.icons.filled.FindReplace
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -177,8 +169,8 @@ fun SearchContentScreen(
                         TopBarAnimatedActionButton(
                             checked = replaceEnabled,
                             onCheckedChange = { onIntent(SearchContentIntent.ToggleReplace(it)) },
-                            iconChecked = Icons.Default.FindReplace,
-                            iconUnchecked = Icons.Default.FindReplace,
+                            iconChecked = Symbols.FindReplace,
+                            iconUnchecked = Symbols.FindReplace,
                             activeText = "替换开启",
                             inactiveText = "替换关闭"
                         )
@@ -186,8 +178,8 @@ fun SearchContentScreen(
                         TopBarAnimatedActionButton(
                             checked = regexReplace,
                             onCheckedChange = { onIntent(SearchContentIntent.ToggleRegex(it)) },
-                            iconChecked = Icons.Default.Code,
-                            iconUnchecked = Icons.Default.Code,
+                            iconChecked = Symbols.Code,
+                            iconUnchecked = Symbols.Code,
                             activeText = "正则开启",
                             inactiveText = "正则关闭"
                         )
@@ -244,10 +236,10 @@ fun SearchContentScreen(
                     label = "FabIconTransition"
                 ) { searching ->
                     if (searching) {
-                        AppIcon(Icons.Default.Stop, contentDescription = stringResource(R.string.stop))
+                        AppIcon(Symbols.Stop, contentDescription = stringResource(R.string.stop))
                     } else {
                         AppIcon(
-                            Icons.Default.MyLocation,
+                            Symbols.MyLocation,
                             contentDescription = stringResource(R.string.a11y_locate_current_chapter)
                         )
                     }
@@ -353,8 +345,8 @@ fun SearchHistoryList(
                 checked = onlyThisBook,
                 onCheckedChange = { onToggleScope() },
                 style = ToggleStyle.Tonal,
-                iconChecked = Icons.Default.Book,
-                icon = Icons.Default.CollectionsBookmark,
+                iconChecked = Symbols.Book,
+                icon = Symbols.CollectionsBookmark,
                 text = "仅本书"
             )
         }
@@ -374,12 +366,12 @@ fun SearchHistoryList(
                             .clickable { onHistoryClick(item) }
                             .animateItem(),
                         leadingContent = {
-                            Icon(Icons.Default.History, contentDescription = null)
+                            SymbolIcon(Symbols.History, contentDescription = null)
                         },
                         trailingContent = {
                             SmallPlainButton(
                                 onClick = { onDeleteHistory(item) },
-                                icon = Icons.Default.Close,
+                                icon = Symbols.Close,
                                 contentDescription = stringResource(R.string.delete)
                             )
                         },
@@ -406,7 +398,7 @@ fun SearchHistoryList(
                         MediumOutlinedButton(
                             onClick = onClearHistory,
                             modifier = Modifier.fillMaxWidth(0.6f),
-                            icon = Icons.Outlined.DeleteSweep,
+                            icon = Symbols.DeleteSweep,
                             text = "清除搜索历史"
                         )
                     }

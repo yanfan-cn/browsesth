@@ -1,5 +1,8 @@
 package io.legado.app.ui.widget.components.topbar
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -9,8 +12,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,7 +19,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import io.legado.app.R
 import io.legado.app.ui.theme.adaptiveHorizontalPadding
@@ -36,13 +36,13 @@ fun <T> DynamicTopAppBar(
     state: ListUiState<T>,
     scrollBehavior: GlassTopAppBarScrollBehavior,
     onBackClick: (() -> Unit)? = null,
-    backNavigationIcon: ImageVector = AppIcons.Back,
+    backNavigationIcon: MaterialSymbol = AppIcons.Back,
     showSearchAction: Boolean = true,
     onSearchToggle: (Boolean) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onSearchSubmit: (String) -> Unit = {},
     searchPlaceholder: String?,
-    searchLeadingIcon: ImageVector = Icons.Default.Search,
+    searchLeadingIcon: MaterialSymbol = Symbols.Search,
     searchTrailingIcon: @Composable (() -> Unit)? = null,
     searchDropdownMenu: (@Composable (onDismiss: () -> Unit) -> Unit)? = null,
     onClearSelection: () -> Unit,
@@ -85,7 +85,7 @@ fun <T> DynamicTopAppBar(
             if (isSelecting || onBackClick != null) {
                 TopBarNavigationButton(
                     onClick = { if (isSelecting) onClearSelection() else onBackClick?.invoke() },
-                    imageVector = if (isSelecting) AppIcons.Close else backNavigationIcon,
+                    symbol = if (isSelecting) AppIcons.Close else backNavigationIcon,
                     contentDescription = stringResource(
                         if (isSelecting) R.string.cancel_select else R.string.back
                     )
@@ -98,7 +98,7 @@ fun <T> DynamicTopAppBar(
                 if (showSearchAction) {
                     TopBarActionButton(
                         onClick = { onSearchToggle(!state.isSearch) },
-                        imageVector = AppIcons.Search,
+                        symbol = AppIcons.Search,
                         contentDescription = stringResource(R.string.search)
                     )
                 }
@@ -109,7 +109,7 @@ fun <T> DynamicTopAppBar(
                     Box {
                         TopBarActionButton(
                             onClick = { showMenu = true },
-                            imageVector = AppIcons.MoreVert,
+                            symbol = AppIcons.MoreVert,
                             contentDescription = stringResource(R.string.more_menu)
                         )
                         RoundDropdownMenu(

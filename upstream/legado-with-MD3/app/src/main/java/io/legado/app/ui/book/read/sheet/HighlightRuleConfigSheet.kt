@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,11 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -129,7 +126,7 @@ fun HighlightRuleConfigSheet(
         startAction = {
             MediumTonalButton(
                 onClick = { onIntent(ReadBookIntent.AddHighlightRule) },
-                icon = Icons.Default.Add,
+                icon = Symbols.Add,
                 contentDescription = stringResource(R.string.add)
             )
         },
@@ -138,7 +135,7 @@ fun HighlightRuleConfigSheet(
             Box {
                 MediumTonalButton(
                     onClick = { expanded = true },
-                    icon = Icons.Default.MoreVert,
+                    icon = Symbols.MoreVert,
                     contentDescription = stringResource(R.string.more_menu)
                 )
                 RoundDropdownMenu(
@@ -276,12 +273,12 @@ private fun HighlightRuleItem(
                 )
                 SmallTonalButton(
                     onClick = onEditClick,
-                    icon = Icons.Default.Edit,
+                    icon = Symbols.Edit,
                     contentDescription = stringResource(R.string.edit)
                 )
                 SmallTonalButton(
                     onClick = onDeleteClick,
-                    icon = Icons.Default.Delete,
+                    icon = Symbols.Delete,
                     contentDescription = stringResource(R.string.delete)
                 )
             }

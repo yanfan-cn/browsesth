@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.manga
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,28 +11,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.DownloadForOffline
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.legado.app.R
@@ -42,7 +29,7 @@ import io.legado.app.ui.widget.components.reader.ReaderMenuActionSquare
 
 private data class MangaMoreAction(
     val label: String,
-    val icon: ImageVector,
+    val icon: MaterialSymbol,
     val intent: MangaReaderIntent,
     val longClickIntent: MangaReaderIntent? = null,
 )
@@ -82,7 +69,7 @@ internal fun MangaReaderSourceActionsSheet(
             if (state.sourceCustomButtonAvailable) add(
                 MangaMoreAction(
                     stringResource(R.string.custom_button),
-                    Icons.Default.Extension,
+                    Symbols.Extension,
                     MangaReaderIntent.SourceCustomButton(false),
                     MangaReaderIntent.SourceCustomButton(true),
                 )
@@ -91,32 +78,32 @@ internal fun MangaReaderSourceActionsSheet(
                 listOf(
                     MangaMoreAction(
                         stringResource(R.string.change_origin),
-                        Icons.Default.SwapHoriz,
+                        Symbols.SwapHoriz,
                         MangaReaderIntent.ChangeSource
                     ),
                     MangaMoreAction(
                         stringResource(R.string.refresh),
-                        Icons.Default.Refresh,
+                        Symbols.Refresh,
                         MangaReaderIntent.RefreshChapter
                     ),
                     MangaMoreAction(
                         stringResource(R.string.login),
-                        Icons.AutoMirrored.Filled.Login,
+                        Symbols.Login,
                         MangaReaderIntent.OpenSourceLogin
                     ),
                     MangaMoreAction(
                         stringResource(R.string.manga_reader_buy_chapter),
-                        Icons.Default.ShoppingCart,
+                        Symbols.ShoppingCart,
                         MangaReaderIntent.RequestPayCurrentChapter
                     ),
                     MangaMoreAction(
                         stringResource(R.string.edit_source),
-                        Icons.Default.Edit,
+                        Symbols.Edit,
                         MangaReaderIntent.OpenSourceEdit
                     ),
                     MangaMoreAction(
                         stringResource(R.string.disable_source),
-                        Icons.Default.MoreVert,
+                        Symbols.MoreVert,
                         MangaReaderIntent.DisableCurrentSource
                     ),
                 )
@@ -188,45 +175,45 @@ internal fun MangaReaderPageActionsSheet(
         val actions = buildList {
             add(
                 MangaMoreAction(
-                    stringResource(R.string.save_image), Icons.Default.Save,
+                    stringResource(R.string.save_image), Symbols.Save,
                     MangaReaderIntent.ExecutePageAction(MangaPageAction.SAVE)
                 )
             )
             add(
                 MangaMoreAction(
-                    stringResource(R.string.share), Icons.Default.Share,
+                    stringResource(R.string.share), Symbols.Share,
                     MangaReaderIntent.ExecutePageAction(MangaPageAction.SHARE)
                 )
             )
             add(
                 MangaMoreAction(
-                    stringResource(R.string.copy_text), Icons.Default.ContentCopy,
+                    stringResource(R.string.copy_text), Symbols.ContentCopy,
                     MangaReaderIntent.ExecutePageAction(MangaPageAction.COPY)
                 )
             )
             add(
                 MangaMoreAction(
-                    stringResource(R.string.manga_reader_set_cover), Icons.Default.Image,
+                    stringResource(R.string.manga_reader_set_cover), Symbols.Image,
                     MangaReaderIntent.ExecutePageAction(MangaPageAction.SET_COVER)
                 )
             )
             if (hasSpread) {
                 add(
                     MangaMoreAction(
-                        stringResource(R.string.manga_reader_save_spread), Icons.Default.Save,
+                        stringResource(R.string.manga_reader_save_spread), Symbols.Save,
                         MangaReaderIntent.ExecutePageAction(MangaPageAction.SAVE_SPREAD)
                     )
                 )
                 add(
                     MangaMoreAction(
-                        stringResource(R.string.manga_reader_share_spread), Icons.Default.Share,
+                        stringResource(R.string.manga_reader_share_spread), Symbols.Share,
                         MangaReaderIntent.ExecutePageAction(MangaPageAction.SHARE_SPREAD)
                     )
                 )
                 add(
                     MangaMoreAction(
                         stringResource(R.string.manga_reader_copy_spread),
-                        Icons.Default.ContentCopy,
+                        Symbols.ContentCopy,
                         MangaReaderIntent.ExecutePageAction(MangaPageAction.COPY_SPREAD)
                     )
                 )
@@ -266,17 +253,17 @@ internal fun MangaReaderCacheActionsSheet(
         val actions = listOf(
             MangaMoreAction(
                 stringResource(R.string.manga_reader_cache_current),
-                Icons.Default.Download,
+                Symbols.Download,
                 MangaReaderIntent.CacheChapters(MangaCacheSelection.CURRENT),
             ),
             MangaMoreAction(
                 stringResource(R.string.manga_reader_cache_following),
-                Icons.Default.CloudDownload,
+                Symbols.CloudDownload,
                 MangaReaderIntent.CacheChapters(MangaCacheSelection.FOLLOWING),
             ),
             MangaMoreAction(
                 stringResource(R.string.manga_reader_cache_all),
-                Icons.Default.DownloadForOffline,
+                Symbols.DownloadForOffline,
                 MangaReaderIntent.CacheChapters(MangaCacheSelection.ALL),
             ),
         )

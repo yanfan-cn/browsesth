@@ -1,5 +1,6 @@
 package io.legado.app.ui.widget.components.reader
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -20,7 +21,6 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.AppSlider
@@ -99,7 +99,7 @@ fun DefaultReaderMenuBottomSurface(content: @Composable () -> Unit) {
 
 @Stable
 data class ReaderMenuAction(
-    val icon: ImageVector,
+    val icon: MaterialSymbol,
     val description: String,
     val onLongClick: (() -> Unit)? = null,
     val onClick: () -> Unit,

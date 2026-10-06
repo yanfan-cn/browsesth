@@ -25,7 +25,6 @@ import io.legado.app.ui.theme.LocalAppUiConfiguration
 import io.legado.app.ui.theme.ThemeResolver
 import io.legado.app.ui.widget.components.divider.SettingItemDivider
 import io.legado.app.ui.widget.components.title.AdaptiveTitle
-import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 
 val LocalSplicedColumnGroupState = compositionLocalOf { SplicedColumnGroupState(
     enableItemDivider = false,
@@ -86,33 +85,7 @@ fun SplicedColumnGroup(
         }
 
         CompositionLocalProvider(LocalSplicedColumnGroupState provides groupState) {
-            if (ThemeResolver.isMiuixEngine(composeEngine)) {
-                MiuixCard(
-                    modifier = Modifier.then(
-                        border?.let { Modifier.border(it, RoundedCornerShape(cornerRadius)) }
-                            ?: Modifier
-                    ),
-                    cornerRadius = cornerRadius,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .animateContentSize()
-                            .clip(RoundedCornerShape(cornerRadius))
-                    ) {
-                        Spacer(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .appContainerBackground(AppContainerBackgroundType.Large)
-                        )
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            currentIndex.intValue = 0
-                            items()
-                        }
-                    }
-                }
-            } else {
-                Box(
+            Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .animateContentSize()
@@ -131,7 +104,6 @@ fun SplicedColumnGroup(
                         items()
                     }
                 }
-            }
         }
     }
 }

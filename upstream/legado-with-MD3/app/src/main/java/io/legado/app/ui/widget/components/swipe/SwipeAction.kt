@@ -1,10 +1,10 @@
 package io.legado.app.ui.widget.components.swipe
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 
 data class SwipeAction(
-    val icon: ImageVector,
+    val icon: MaterialSymbol,
     val background: Color,
     val onSwipe: () -> Unit,
     val hapticFeedback: Boolean = true,

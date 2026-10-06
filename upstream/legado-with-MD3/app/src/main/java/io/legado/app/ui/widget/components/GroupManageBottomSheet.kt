@@ -1,5 +1,7 @@
 ﻿package io.legado.app.ui.widget.components
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -8,10 +10,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -98,14 +96,12 @@ private fun GroupItem(
         trailingContent = {
             Row {
                 IconButton(onClick = { expanded = !expanded }) {
-                    Icon(
-                        Icons.Default.Edit,
+                    SymbolIcon(Symbols.Edit,
                         contentDescription = stringResource(id = R.string.edit)
                     )
                 }
                 IconButton(onClick = { onDeleteGroup(group) }) {
-                    Icon(
-                        Icons.Default.Delete,
+                    SymbolIcon(Symbols.Delete,
                         contentDescription = stringResource(id = R.string.delete)
                     )
                 }
@@ -139,7 +135,7 @@ private fun GroupItem(
                         onUpdateGroup(group, state.text.toString())
                         expanded = false
                     },
-                    icon = Icons.Default.Check,
+                    icon = Symbols.Check,
                     text = stringResource(id = R.string.ok)
                 )
             }

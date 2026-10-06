@@ -1,5 +1,8 @@
 package io.legado.app.ui.widget.components.reader
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,15 +15,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,7 +32,7 @@ import io.legado.app.ui.widget.components.text.AppText
 
 @Composable
 fun ReaderMenuActionSquare(
-    icon: ImageVector,
+    icon: MaterialSymbol,
     text: String,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
@@ -75,8 +75,7 @@ fun ReaderMenuActionSquare(
                 modifier = Modifier.fillMaxWidth().height(16.dp).clickable(onClick = onMoreClick),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = Icons.Default.ExpandMore,
+                SymbolIcon(symbol = Symbols.ExpandMore,
                     contentDescription = stringResource(R.string.more_actions),
                     modifier = Modifier.size(12.dp),
                 )

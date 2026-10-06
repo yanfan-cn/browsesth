@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.privacy
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.os.Build
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -17,8 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -196,7 +196,7 @@ fun PrivateLockIcon(
 ) {
     AppIcon(
         modifier = modifier,
-        imageVector = Icons.Default.Lock,
+        symbol = Symbols.Lock,
         contentDescription = null,
         tint = tint
     )

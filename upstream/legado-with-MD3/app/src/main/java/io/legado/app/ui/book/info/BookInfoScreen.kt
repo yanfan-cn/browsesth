@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.info
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -45,19 +48,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.BookmarkAdd
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.Timeline
-import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -85,7 +75,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -155,7 +144,6 @@ import io.legado.app.ui.widget.components.text.MarkdownBlock
 import io.legado.app.ui.widget.components.topbar.GlassTopAppBarDefaults
 import io.legado.app.ui.widget.components.topbar.GlassTopAppBarScrollBehavior
 import io.legado.app.ui.widget.components.topbar.M3GlassScrollBehavior
-import io.legado.app.ui.widget.components.topbar.MiuixGlassScrollBehavior
 import io.legado.app.ui.widget.components.topbar.TopBarActionButton
 import io.legado.app.ui.widget.components.topbar.TopBarActionsRow
 import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
@@ -170,10 +158,8 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import kotlin.math.abs
 import io.legado.app.model.BookCover as BookCoverModel
-import top.yukonga.miuix.kmp.basic.TopAppBar as MiuixTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -291,12 +277,7 @@ private fun BookInfoScreenContent(
     usesDefaultCover: Boolean,
     onNetworkCoverLoadError: (String?) -> Unit,
 ) {
-    val isMiuix = ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)
-    val scrollBehavior = if (isMiuix) {
-        MiuixGlassScrollBehavior(MiuixScrollBehavior())
-    } else {
-        M3GlassScrollBehavior(TopAppBarDefaults.exitUntilCollapsedScrollBehavior())
-    }
+    val scrollBehavior = M3GlassScrollBehavior(TopAppBarDefaults.exitUntilCollapsedScrollBehavior())
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -337,7 +318,7 @@ private fun BookInfoScreenContent(
                     onClick = { onIntent(BookInfoIntent.ReadClick) },
                     containerColor = LegadoTheme.colorScheme.primaryContainer,
                     contentColor = LegadoTheme.colorScheme.onPrimaryContainer,
-                    icon = { Icon(Icons.Default.Book, null) },
+                    icon = { SymbolIcon(Symbols.Book, null) },
                     text = { Text(stringResource(R.string.reading)) },
                 )
             }
@@ -734,12 +715,7 @@ private fun BookInfoTransparentTopAppBar(
     scrollBehavior: GlassTopAppBarScrollBehavior,
 ) {
     val hazeState = LocalHazeState.current
-    val isMiuix = ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)
-    val collapsedColor = if (isMiuix) {
-        GlassTopAppBarDefaults.getMiuixAppBarColor()
-    } else {
-        GlassTopAppBarDefaults.scrolledContainerColor()
-    }
+    val collapsedColor = GlassTopAppBarDefaults.scrolledContainerColor()
     val isAtTop = scrollBehavior.collapsedFraction <= 0.001f
     val resolvedColor = if (isAtTop) Color.Transparent else collapsedColor
     val topBarColors = TopAppBarDefaults.topAppBarColors(
@@ -747,33 +723,7 @@ private fun BookInfoTransparentTopAppBar(
         scrolledContainerColor = resolvedColor,
     )
 
-    if (isMiuix) {
-        MiuixTopAppBar(
-            modifier = hazeState?.let { Modifier.responsiveHazeEffectFixedStyle(it) } ?: Modifier,
-            title = "",
-            subtitle = "",
-            navigationIcon = {
-                TopBarNavigationButton(onClick = onBackPressed)
-            },
-            actions = {
-                TopBarActionsRow(
-                    modifier = Modifier.padding(
-                        end = miuixTopBarActionsEndPadding()
-                    )
-                ) {
-                    BookInfoTopBarActions(
-                        state = state,
-                        onMenuAction = onMenuAction,
-                    )
-                }
-            },
-            color = resolvedColor,
-            navigationIconPadding = miuixTopBarSlotPadding(),
-            actionIconPadding = miuixTopBarSlotPadding(),
-            scrollBehavior = (scrollBehavior as? MiuixGlassScrollBehavior)?.miuixBehavior,
-        )
-    } else {
-        MediumFlexibleTopAppBar(
+    MediumFlexibleTopAppBar(
             modifier = hazeState?.let { Modifier.responsiveHazeEffectFixedStyle(it) } ?: Modifier,
             title = { Text(text = "", maxLines = 1) },
             navigationIcon = {
@@ -792,7 +742,6 @@ private fun BookInfoTransparentTopAppBar(
             scrollBehavior = (scrollBehavior as? M3GlassScrollBehavior)?.m3Behavior,
             colors = topBarColors,
         )
-    }
 }
 
 @Composable
@@ -876,13 +825,13 @@ private fun BookInfoTopBarActions(
     if (state.inBookshelf) {
         TopBarActionButton(
             onClick = { onMenuAction(BookInfoMenuAction.Edit) },
-            imageVector = Icons.Default.Edit,
+            symbol = Symbols.Edit,
             contentDescription = stringResource(R.string.edit)
         )
     }
     TopBarActionButton(
         onClick = { onMenuAction(BookInfoMenuAction.Share) },
-        imageVector = Icons.Default.Share,
+        symbol = Symbols.Share,
         contentDescription = stringResource(R.string.share)
     )
     BookInfoOverflowAction(
@@ -901,7 +850,7 @@ private fun BookInfoOverflowAction(
     Box {
         TopBarActionButton(
             onClick = { expanded = true },
-            imageVector = AppIcons.MoreVert,
+            symbol = AppIcons.MoreVert,
             contentDescription = stringResource(R.string.more_actions),
         )
         BookInfoOverflowMenu(
@@ -1407,9 +1356,9 @@ private fun BookInfoActions(
         BookInfoActionCard(
             modifier = Modifier.weight(1f),
             icon = when {
-                conflictHighlight -> Icons.Default.Shuffle
-                inBookshelf -> Icons.Outlined.Book
-                else -> Icons.Default.BookmarkAdd
+                conflictHighlight -> Symbols.Shuffle
+                inBookshelf -> Symbols.Book
+                else -> Symbols.BookmarkAdd
             },
             label = shelfLabel,
             contentDescription = shelfDescription,
@@ -1437,19 +1386,19 @@ private fun BookInfoActions(
         )
         BookInfoActionCard(
             modifier = Modifier.weight(1f),
-            icon = Icons.AutoMirrored.Outlined.FormatListBulleted,
+            icon = Symbols.FormatListBulleted,
             label = stringResource(R.string.view_toc),
             onClick = onTocClick
         )
         BookInfoActionCard(
             modifier = Modifier.weight(1f),
-            icon = Icons.Default.Code,
+            icon = Symbols.Code,
             label = stringResource(R.string.change_origin),
             onClick = onSourceClick
         )
         BookInfoActionCard(
             modifier = Modifier.weight(1f),
-            icon = Icons.Default.Timeline,
+            icon = Symbols.Timeline,
             label = stringResource(R.string.read_record),
             onClick = onReadRecordClick
         )
@@ -1459,7 +1408,7 @@ private fun BookInfoActions(
 @Composable
 private fun BookInfoActionCard(
     modifier: Modifier = Modifier,
-    icon: ImageVector,
+    icon: MaterialSymbol,
     label: String,
     contentDescription: String = label,
     containerColor: Color = LegadoTheme.colorScheme.surfaceContainerLow,
@@ -2038,7 +1987,7 @@ private fun RelatedBooksBanner(
                 )
                 SmallTonalButton(
                     onClick = onMoreClick,
-                    icon = Icons.AutoMirrored.Filled.ArrowForward,
+                    icon = Symbols.ArrowForward,
                     contentDescription = stringResource(R.string.a11y_related_books_more, title),
                 )
             }
@@ -2084,25 +2033,25 @@ private fun BookInfoCharacters(
             )
             SmallTonalButton(
                 onClick = onViewAllClick,
-                icon = Icons.AutoMirrored.Outlined.FormatListBulleted,
+                icon = Symbols.FormatListBulleted,
                 contentDescription = stringResource(R.string.book_characters),
             )
             Spacer(modifier = Modifier.width(4.dp))
             SmallTonalButton(
                 onClick = onNetworkClick,
-                icon = Icons.Default.Group,
+                icon = Symbols.Group,
                 contentDescription = stringResource(R.string.character_network),
             )
             Spacer(modifier = Modifier.width(4.dp))
             SmallTonalButton(
                 onClick = onKnowledgeClick,
-                icon = Icons.Default.Book,
+                icon = Symbols.Book,
                 contentDescription = stringResource(R.string.book_knowledge),
             )
             Spacer(modifier = Modifier.width(4.dp))
             SmallTonalButton(
                 onClick = onEventsClick,
-                icon = Icons.Default.Timeline,
+                icon = Symbols.Timeline,
                 contentDescription = stringResource(R.string.plot_events),
             )
         }
@@ -2170,7 +2119,7 @@ private fun CharacterEntryCard(
                         )
                     } else {
                         AppIcon(
-                            imageVector = Icons.Default.Person,
+                            symbol = Symbols.Person,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                             tint = LegadoTheme.colorScheme.onSurfaceVariant,
@@ -2235,7 +2184,7 @@ private fun BookInfoKnowledge(
             )
             SmallTonalButton(
                 onClick = onViewAllClick,
-                icon = Icons.AutoMirrored.Filled.ArrowForward,
+                icon = Symbols.ArrowForward,
                 contentDescription = stringResource(R.string.view_all),
             )
         }
@@ -2312,7 +2261,7 @@ private fun BookInfoEvents(
             )
             SmallTonalButton(
                 onClick = onViewAllClick,
-                icon = Icons.AutoMirrored.Filled.ArrowForward,
+                icon = Symbols.ArrowForward,
                 contentDescription = stringResource(R.string.view_all),
             )
         }

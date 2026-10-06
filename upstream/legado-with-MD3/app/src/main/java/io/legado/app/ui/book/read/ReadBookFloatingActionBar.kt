@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -9,13 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -79,13 +74,13 @@ private fun ReadAloudDetachedCapsule(onIntent: (ReadBookIntent) -> Unit) {
     ) {
         MediumTonalButton(
             onClick = { onIntent(ReadBookIntent.BackToSpeakingPosition) },
-            icon = Icons.AutoMirrored.Filled.VolumeUp,
+            icon = Symbols.VolumeUp,
             text = stringResource(R.string.back_to_speaking_position),
             contentDescription = stringResource(R.string.back_to_speaking_position),
         )
         MediumTonalButton(
             onClick = { onIntent(ReadBookIntent.ReadAloudFromHere) },
-            icon = Icons.Default.PlayArrow,
+            icon = Symbols.PlayArrow,
             text = stringResource(R.string.read_aloud_from_here),
             contentDescription = stringResource(R.string.read_aloud_from_here),
         )
@@ -99,13 +94,13 @@ private fun ReadingAnchorCapsule(onIntent: (ReadBookIntent) -> Unit) {
     ) {
         MediumTonalButton(
             onClick = { onIntent(ReadBookIntent.RestoreLastBookProgress) },
-            icon = Icons.Default.History,
+            icon = Symbols.History,
             text = stringResource(R.string.return_reading_position),
             contentDescription = stringResource(R.string.return_reading_position),
         )
         MediumTonalButton(
             onClick = { onIntent(ReadBookIntent.KeepCurrentBookProgress) },
-            icon = Icons.Default.Close,
+            icon = Symbols.Close,
             text = stringResource(R.string.dismiss_reading_anchor),
             contentDescription = stringResource(R.string.dismiss_reading_anchor),
         )
@@ -133,13 +128,13 @@ private fun ThemeReminderCapsule(
                 onIntent(ReadBookIntent.DismissReminder)
                 reminder.actionIntent?.let { onIntent(it) }
             },
-            icon = if (isDark) Icons.Default.DarkMode else Icons.Default.LightMode,
+            icon = if (isDark) Symbols.DarkMode else Symbols.LightMode,
             text = actionText,
             contentDescription = actionText,
         )
         MediumTonalButton(
             onClick = { onIntent(ReadBookIntent.DismissReminder) },
-            icon = Icons.Default.Close,
+            icon = Symbols.Close,
             text = stringResource(R.string.dismiss_reading_anchor),
             contentDescription = stringResource(R.string.dismiss_reading_anchor),
         )

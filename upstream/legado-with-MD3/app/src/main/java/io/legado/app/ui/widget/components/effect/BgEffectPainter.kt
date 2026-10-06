@@ -1,12 +1,15 @@
 package io.legado.app.ui.widget.components.effect
 
+import android.graphics.RuntimeShader
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.ui.graphics.Brush
-import top.yukonga.miuix.kmp.blur.RuntimeShader
-import top.yukonga.miuix.kmp.blur.asBrush
+import androidx.compose.ui.graphics.ShaderBrush
 import kotlin.math.cos
 import kotlin.math.sin
+
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+private fun RuntimeShader.asBrush(): Brush = ShaderBrush(this)
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 internal class BgEffectPainter(

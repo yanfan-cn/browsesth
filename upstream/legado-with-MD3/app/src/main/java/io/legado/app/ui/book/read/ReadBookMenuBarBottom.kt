@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.read
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -19,11 +22,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.BrightnessAuto
-import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,7 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -163,7 +160,7 @@ internal fun MenuBottomBar(
             ) {
                 BottomBarGlassIconButton(
                     onClick = { onIntent(ReadBookIntent.PrevChapter) },
-                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    icon = Symbols.NavigateBefore,
                     colors = colors,
                     backdrop = backdrop,
                     menuConfig = state.menuConfig,
@@ -192,7 +189,7 @@ internal fun MenuBottomBar(
 
                 BottomBarGlassIconButton(
                     onClick = { onIntent(ReadBookIntent.NextChapter) },
-                    icon = Icons.AutoMirrored.Filled.ArrowForward,
+                    icon = Symbols.ArrowForward,
                     colors = colors,
                     backdrop = backdrop,
                     menuConfig = state.menuConfig,
@@ -269,7 +266,7 @@ internal fun MenuBottomBar(
 @Composable
 private fun BottomBarGlassIconButton(
     onClick: () -> Unit,
-    icon: ImageVector,
+    icon: MaterialSymbol,
     colors: ReadMenuColors,
     backdrop: Backdrop?,
     menuConfig: ReadMenuConfig,
@@ -358,7 +355,7 @@ internal fun BrightnessBar(
         ) {
             ReadMenuGlassIconButton(
                 onClick = ::toggleAuto,
-                icon = Icons.Filled.BrightnessAuto,
+                icon = Symbols.BrightnessAuto,
                 colors = colors,
                 backdrop = backdrop,
                 menuConfig = menuConfig,
@@ -383,7 +380,7 @@ internal fun BrightnessBar(
             )
             ReadMenuGlassIconButton(
                 onClick = onTogglePosition,
-                icon = Icons.Filled.SwapHoriz,
+                icon = Symbols.SwapHoriz,
                 colors = colors,
                 backdrop = backdrop,
                 menuConfig = menuConfig,
@@ -402,7 +399,7 @@ internal fun BrightnessBar(
         ) {
             ReadMenuGlassIconButton(
                 onClick = ::toggleAuto,
-                icon = Icons.Filled.BrightnessAuto,
+                icon = Symbols.BrightnessAuto,
                 colors = colors,
                 backdrop = backdrop,
                 menuConfig = menuConfig,

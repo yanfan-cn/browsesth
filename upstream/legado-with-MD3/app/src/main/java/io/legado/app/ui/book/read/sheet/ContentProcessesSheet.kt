@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,10 +12,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -206,13 +204,13 @@ private fun ContentProcessItem(
                 MediumToggleButton(
                     checked = item.enabled,
                     onCheckedChange = { onToggle() },
-                    icon = Icons.Default.VisibilityOff,
-                    iconChecked = Icons.Default.Visibility,
+                    icon = Symbols.VisibilityOff,
+                    iconChecked = Symbols.Visibility,
                     contentDescription = stringResource(R.string.enable),
                 )
                 MediumTonalButton(
                     onClick = onDelete,
-                    icon = Icons.Default.Delete,
+                    icon = Symbols.Delete,
                     contentDescription = stringResource(R.string.delete),
                 )
             }

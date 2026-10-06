@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -19,12 +22,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,7 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -132,7 +128,7 @@ fun TextSelectMenuConfigSheet(
                     onSaved(draftItems)
                     onDismissRequest()
                 },
-                icon = Icons.Default.Save,
+                icon = Symbols.Save,
                 contentDescription = stringResource(R.string.save)
             )
         }
@@ -190,7 +186,7 @@ fun TextSelectMenuConfigSheet(
                                 SelectMenuItemRow(
                                     item = item,
                                     showIcon = showSelectMenuIcon,
-                                    groupActionIcon = Icons.Default.Remove,
+                                    groupActionIcon = Symbols.Remove,
                                     groupActionContentDescription = stringResource(R.string.collapsed_menu),
                                     onGroupAction = {
                                         draftItems = draftItems.map {
@@ -244,7 +240,7 @@ fun TextSelectMenuConfigSheet(
                                 SelectMenuItemRow(
                                     item = item,
                                     showIcon = showSelectMenuIcon,
-                                    groupActionIcon = Icons.Default.Add,
+                                    groupActionIcon = Symbols.Add,
                                     groupActionContentDescription = stringResource(R.string.primary_menu),
                                     onGroupAction = {
                                         draftItems = draftItems.map {
@@ -329,7 +325,7 @@ fun TextSelectMenuConfigSheet(
 private fun SelectMenuItemRow(
     item: ActionMenuItem,
     showIcon: Boolean,
-    groupActionIcon: ImageVector,
+    groupActionIcon: MaterialSymbol,
     groupActionContentDescription: String,
     onGroupAction: () -> Unit,
     onMoveToHidden: () -> Unit,
@@ -347,8 +343,7 @@ private fun SelectMenuItemRow(
                 onClick = onGroupAction,
                 modifier = Modifier.size(36.dp),
             ) {
-                Icon(
-                    imageVector = groupActionIcon,
+                SymbolIcon(symbol = groupActionIcon,
                     contentDescription = groupActionContentDescription,
                     tint = LegadoTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp),
@@ -358,8 +353,7 @@ private fun SelectMenuItemRow(
                 onClick = onMoveToHidden,
                 modifier = Modifier.size(36.dp),
             ) {
-                Icon(
-                    imageVector = Icons.Default.VisibilityOff,
+                SymbolIcon(symbol = Symbols.VisibilityOff,
                     contentDescription = stringResource(R.string.hidden_items),
                     tint = LegadoTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp),
@@ -409,8 +403,7 @@ private fun HiddenItemsFlowView(
                         fontSize = 12.sp,
                     )
 
-                    Icon(
-                        imageVector = Icons.Default.Add,
+                    SymbolIcon(symbol = Symbols.Add,
                         contentDescription = null,
                         tint = LegadoTheme.colorScheme.primary,
                         modifier = Modifier.size(16.dp)
@@ -445,8 +438,7 @@ private fun LazyItemScope.SheetHeader(
             description = subtitle,
             color = LegadoTheme.colorScheme.surfaceContainerHigh,
             trailingContent = {
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
+                SymbolIcon(symbol = Symbols.KeyboardArrowDown,
                     contentDescription = null,
                     tint = LegadoTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier

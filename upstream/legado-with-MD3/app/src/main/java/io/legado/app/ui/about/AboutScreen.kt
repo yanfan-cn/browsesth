@@ -57,21 +57,12 @@ fun AboutScreen(
     onBack: () -> Unit = {},
     versionName: String = appInfo.versionName,
 ) {
-    if (ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)) {
-        MiuixAboutScreen(
+    MaterialAboutScreen(
             state = state,
             onIntent = onIntent,
             onBack = onBack,
             versionName = versionName,
         )
-    } else {
-        MaterialAboutScreen(
-            state = state,
-            onIntent = onIntent,
-            onBack = onBack,
-            versionName = versionName,
-        )
-    }
 
     AboutOverlays(
         state = state,

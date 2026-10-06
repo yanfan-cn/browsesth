@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.graphics.Typeface
 import android.net.Uri
 import androidx.annotation.StringRes
@@ -19,9 +21,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -157,8 +156,7 @@ fun FontSelectGrid(
                 var expanded by remember { mutableStateOf(false) }
                 Box {
                     IconButton(onClick = { expanded = true }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Sort,
+                        SymbolIcon(symbol = Symbols.Sort,
                             contentDescription = stringResource(R.string.sort),
                             tint = LegadoTheme.colorScheme.onSurfaceVariant
                         )
@@ -179,8 +177,7 @@ fun FontSelectGrid(
                                     },
                                     trailingIcon = if (fontSort == sort.ordinal) {
                                         {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
+                                            SymbolIcon(symbol = Symbols.Check,
                                                 contentDescription = null,
                                                 tint = LegadoTheme.colorScheme.primary
                                             )
@@ -267,8 +264,7 @@ private fun FontItem(
                 modifier = Modifier.weight(1f),
             )
             if (isSelected) {
-                Icon(
-                    Icons.Default.Check,
+                SymbolIcon(Symbols.Check,
                     contentDescription = null,
                     tint = LegadoTheme.colorScheme.primary,
                     modifier = Modifier.size(18.dp),

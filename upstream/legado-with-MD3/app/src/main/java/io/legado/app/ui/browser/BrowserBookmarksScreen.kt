@@ -1,5 +1,7 @@
 package io.legado.app.ui.browser
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,10 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -82,7 +80,7 @@ private fun BrowserBookmarksBody(
                 actions = {
                     TopBarActionButton(
                         onClick = { showAdd = true },
-                        imageVector = Icons.Default.Add,
+                        symbol = Symbols.Add,
                         contentDescription = "新增书签",
                     )
                 },
@@ -98,8 +96,7 @@ private fun BrowserBookmarksBody(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Icon(
-                    Icons.Default.Star,
+                SymbolIcon(Symbols.Star,
                     contentDescription = null,
                     modifier = Modifier.size(BrowserUiTokens.ReaderFabSize - BrowserUiTokens.SpaceSm),
                     tint = scheme.onSurfaceVariant,
@@ -239,8 +236,7 @@ private fun BookmarkCard(
             )
         }
         IconButton(onClick = onDelete) {
-            Icon(
-                Icons.Default.Delete,
+            SymbolIcon(Symbols.Delete,
                 contentDescription = "删除",
                 tint = scheme.onSurfaceVariant,
             )

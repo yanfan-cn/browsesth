@@ -1,5 +1,7 @@
 package io.legado.app.ui.browser
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,10 +20,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -73,7 +71,7 @@ private fun BrowserTabsBody(
                             onBack()
                             onOpenActiveTab()
                         },
-                        imageVector = Icons.Default.Add,
+                        symbol = Symbols.Add,
                         contentDescription = "新建标签页",
                     )
                 },
@@ -126,8 +124,7 @@ private fun TabCard(
                 .padding(horizontal = BrowserUiTokens.SpaceSm, vertical = BrowserUiTokens.SpaceXs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                Icons.Default.Language,
+            SymbolIcon(Symbols.Language,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = scheme.onSurfaceVariant,
@@ -144,8 +141,7 @@ private fun TabCard(
                 color = scheme.onSurface,
             )
             IconButton(onClick = onClose, modifier = Modifier.size(BrowserUiTokens.ControlSmall)) {
-                Icon(
-                    Icons.Default.Close,
+                SymbolIcon(Symbols.Close,
                     contentDescription = "关闭",
                     modifier = Modifier.size(16.dp),
                 )

@@ -1,5 +1,7 @@
 package io.legado.app.ui.rss.article
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,16 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
-import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CleaningServices
-import androidx.compose.material.icons.filled.Dataset
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Style
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -147,19 +139,19 @@ fun RssSortScreen(
                 title = title,
                 scrollBehavior = scrollBehavior,
                 navigationIcon = {
-                    TopBarNavigationButton(onClick = onBackClick, imageVector = AppIcons.Back)
+                    TopBarNavigationButton(onClick = onBackClick, symbol = AppIcons.Back)
                 },
                 actions = {
                     if (hasSearch) {
                         TopBarActionButton(
                             onClick = { showSearchSheet = true },
-                            imageVector = AppIcons.Search,
+                            symbol = AppIcons.Search,
                             contentDescription = stringResource(R.string.search)
                         )
                     }
                     TopBarActionButton(
                         onClick = { showMainMenu = true },
-                        imageVector = AppIcons.MoreVert,
+                        symbol = AppIcons.MoreVert,
                         contentDescription = stringResource(R.string.more_menu)
                     )
                     RoundDropdownMenu(
@@ -169,7 +161,7 @@ fun RssSortScreen(
                         if (hasLogin) {
                             RoundDropdownMenuItem(
                                 text = stringResource(R.string.login),
-                                leadingIcon = { MenuItemIcon(Icons.AutoMirrored.Filled.Login) },
+                                leadingIcon = { MenuItemIcon(Symbols.Login) },
                                 onClick = {
                                     dismiss()
                                     onLogin()
@@ -178,7 +170,7 @@ fun RssSortScreen(
                         }
                         RoundDropdownMenuItem(
                             text = stringResource(R.string.refresh_sort),
-                            leadingIcon = { MenuItemIcon(Icons.Default.Refresh) },
+                            leadingIcon = { MenuItemIcon(Symbols.Refresh) },
                             onClick = {
                                 dismiss()
                                 onRefreshSort()
@@ -186,7 +178,7 @@ fun RssSortScreen(
                         )
                         RoundDropdownMenuItem(
                             text = stringResource(R.string.set_source_variable),
-                            leadingIcon = { MenuItemIcon(Icons.Default.Dataset) },
+                            leadingIcon = { MenuItemIcon(Symbols.Dataset) },
                             onClick = {
                                 dismiss()
                                 onSetSourceVariable()
@@ -194,7 +186,7 @@ fun RssSortScreen(
                         )
                         RoundDropdownMenuItem(
                             text = stringResource(R.string.edit_source),
-                            leadingIcon = { MenuItemIcon(Icons.Default.Edit) },
+                            leadingIcon = { MenuItemIcon(Symbols.Edit) },
                             onClick = {
                                 dismiss()
                                 onEditSource()
@@ -202,7 +194,7 @@ fun RssSortScreen(
                         )
                         RoundDropdownMenuItem(
                             text = stringResource(R.string.switchLayout),
-                            leadingIcon = { MenuItemIcon(Icons.Default.Style) },
+                            leadingIcon = { MenuItemIcon(Symbols.Style) },
                             onClick = {
                                 dismiss()
                                 onSwitchLayout()
@@ -210,7 +202,7 @@ fun RssSortScreen(
                         )
                         RoundDropdownMenuItem(
                             text = stringResource(R.string.read_record),
-                            leadingIcon = { MenuItemIcon(Icons.Default.History) },
+                            leadingIcon = { MenuItemIcon(Symbols.History) },
                             onClick = {
                                 dismiss()
                                 onReadRecord()
@@ -218,7 +210,7 @@ fun RssSortScreen(
                         )
                         RoundDropdownMenuItem(
                             text = stringResource(R.string.clear),
-                            leadingIcon = { MenuItemIcon(Icons.Default.CleaningServices) },
+                            leadingIcon = { MenuItemIcon(Symbols.CleaningServices) },
                             onClick = {
                                 dismiss()
                                 onClearArticles()
@@ -271,7 +263,7 @@ fun RssSortScreen(
                                         checked = showGroupMenu,
                                         onCheckedChange = { showGroupMenu = it },
                                         style = ToggleStyle.Outlined,
-                                        icon = Icons.AutoMirrored.Filled.FormatListBulleted,
+                                        icon = Symbols.FormatListBulleted,
                                         contentDescription = stringResource(R.string.group_manage)
                                     )
                                     RoundDropdownMenu(
@@ -287,8 +279,7 @@ fun RssSortScreen(
                                                 },
                                                 trailingIcon = {
                                                     if (selectedTabIndex == index) {
-                                                        Icon(
-                                                            Icons.Default.Check,
+                                                        SymbolIcon(Symbols.Check,
                                                             null,
                                                             modifier = Modifier.size(18.dp)
                                                         )
@@ -393,7 +384,7 @@ private fun RssReadRecordSheet(
         endAction = {
             MediumTonalButton(
                 onClick = onClear,
-                icon = Icons.Default.CleaningServices,
+                icon = Symbols.CleaningServices,
                 contentDescription = stringResource(R.string.clear)
             )
         }

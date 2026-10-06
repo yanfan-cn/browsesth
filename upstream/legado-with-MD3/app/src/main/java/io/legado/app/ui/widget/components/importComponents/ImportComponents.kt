@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.importComponents
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,11 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
@@ -185,7 +182,7 @@ fun <T> BatchImportDialog(
             {
                 MediumTonalButton(
                     onClick = { editingIndex = null },
-                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    icon = Symbols.ArrowBack,
                     contentDescription = stringResource(R.string.back)
                 )
             }
@@ -197,7 +194,7 @@ fun <T> BatchImportDialog(
                     topBarActions()
                     MediumTonalButton(
                         onClick = { onToggleAll(!allSelected) },
-                        icon = Icons.Default.SelectAll,
+                        icon = Symbols.SelectAll,
                         contentDescription = stringResource(if (allSelected) R.string.deselect_all else R.string.select_all)
                     )
                 }
@@ -210,7 +207,7 @@ fun <T> BatchImportDialog(
                         val selectedData = currentState.items.filter { it.isSelected }.map { it.data }
                         onConfirm(selectedData)
                     },
-                    icon = Icons.Default.FileDownload,
+                    icon = Symbols.FileDownload,
                     text = stringResource(R.string.import_action)
                 )
             }
@@ -376,7 +373,7 @@ fun ImportItemRow(
 
             SmallPlainButton(
                 onClick = onInfoClick,
-                icon = Icons.Default.Info,
+                icon = Symbols.Info,
                 contentDescription = stringResource(R.string.details)
             )
         }

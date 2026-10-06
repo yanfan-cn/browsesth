@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.source.debug
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,10 +16,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ClearAll
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -75,7 +73,7 @@ fun BookSourceDebugScreen(
                 actions = {
                     TopBarActionButton(
                         onClick = { onIntent(BookSourceDebugIntent.Clear) },
-                        imageVector = Icons.Default.ClearAll,
+                        symbol = Symbols.ClearAll,
                         contentDescription = "清空日志",
                     )
                 },
@@ -90,7 +88,7 @@ fun BookSourceDebugScreen(
                         else BookSourceDebugIntent.Start
                     )
                 },
-                icon = if (state.status == BookSourceDebugStatus.Running) Icons.Default.Stop else Icons.Default.PlayArrow,
+                icon = if (state.status == BookSourceDebugStatus.Running) Symbols.Stop else Symbols.PlayArrow,
                 tooltipText = if (state.status == BookSourceDebugStatus.Running) "停止" else "开始调试",
             )
         },

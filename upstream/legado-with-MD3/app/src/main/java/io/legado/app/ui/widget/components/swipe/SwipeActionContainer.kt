@@ -22,10 +22,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -188,16 +185,6 @@ private fun SwipeBackground(
         },
         label = "bgColor"
     )
-    val iconScale = animateFloatAsState(
-        targetValue = if (isThresholdReached) 1.2f else 1f,
-        label = "iconScale"
-    )
-    val iconTint = if (isThresholdReached) {
-        contentColorFor(action.background)
-    } else {
-        LegadoTheme.colorScheme.onSurfaceVariant
-    }
-    val iconPainter = rememberVectorPainter(action.icon)
 
     Box(
         modifier = Modifier
@@ -224,23 +211,6 @@ private fun SwipeBackground(
                     size = Size(revealedWidth, revealedHeight),
                     cornerRadius = CornerRadius(SwipeRevealCornerRadius.toPx())
                 )
-
-                val iconSize = SwipeActionIconSize.toPx() * iconScale.value
-                // 底块被拉开到能容纳图标之后，图标才居中出现并渐显
-                val iconAlpha = ((revealedWidth - iconSize) / iconSize).coerceIn(0f, 1f)
-                if (iconAlpha <= 0f) return@drawBehind
-
-                val iconLeft = revealedLeft + revealedWidth / 2f - iconSize / 2f
-                val iconTop = size.height / 2f - iconSize / 2f
-                translate(left = iconLeft, top = iconTop) {
-                    with(iconPainter) {
-                        draw(
-                            size = Size(iconSize, iconSize),
-                            alpha = iconAlpha,
-                            colorFilter = ColorFilter.tint(iconTint)
-                        )
-                    }
-                }
             }
     )
 }

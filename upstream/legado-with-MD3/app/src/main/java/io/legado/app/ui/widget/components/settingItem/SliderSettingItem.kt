@@ -11,10 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.LinearScale
-import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.TextField
@@ -40,9 +36,6 @@ import io.legado.app.ui.widget.components.button.ConfirmDismissButtonsRow
 import io.legado.app.ui.widget.components.SplicedColumnDivider
 import io.legado.app.ui.widget.components.sliderAccessibility
 import io.legado.app.ui.widget.components.text.AppText
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Slider as MiuixSlider
-import top.yukonga.miuix.kmp.basic.TextField as MiuixTextField
 
 @Composable
 fun SliderSettingItem(
@@ -103,88 +96,7 @@ fun SliderSettingItem(
 
     SplicedColumnDivider()
 
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-        ) {
-            BasicComponent(
-                title = title,
-                summary = displayDescription,
-                onClick = {
-                    if (expanded) {
-                        commitValue()
-                    }
-                    expanded = !expanded
-                }
-            )
-
-            AnimatedVisibility(visible = expanded) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    AnimatedContent(
-                        targetState = isInputMode,
-                        label = "input_slider_switch"
-                    ) { targetInputMode ->
-                        if (targetInputMode) {
-                            MiuixTextField(
-                                state = textFieldState,
-                                lineLimits = TextFieldLineLimits.SingleLine,
-                                label = stringResource(
-                                    R.string.input_value_range,
-                                    valueRange.start.toInt(),
-                                    valueRange.endInclusive.toInt()
-                                ),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        } else {
-                            MiuixSlider(
-                                value = sliderValue,
-                                onValueChange = {
-                                    sliderValue = snap(it)
-                                },
-                                onValueChangeFinished = {
-                                    onValueChange(sliderValue.coerceIn(valueRange))
-                                },
-                                valueRange = valueRange,
-                                steps = steps,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .sliderAccessibility(
-                                        label = title,
-                                        value = sliderAccessibilityValue,
-                                    )
-                            )
-                        }
-                    }
-
-                    ConfirmDismissButtonsRow(
-                        modifier = Modifier.padding(top = 16.dp),
-                        onDismiss = { isInputMode = !isInputMode },
-                        onConfirm = {
-                            onValueChange(defaultValue)
-                            textFieldState.edit {
-                                replace(0, length, format(defaultValue))
-                            }
-                        },
-                        dismissText = if (isInputMode) {
-                            stringResource(R.string.slider)
-                        } else {
-                            stringResource(R.string.edit)
-                        },
-                        confirmText = stringResource(R.string.text_default)
-                    )
-                }
-            }
-        }
-
-    } else {
-        SettingItem(
+    SettingItem(
             title = title,
             option = displayDescription,
             expanded = expanded,
@@ -264,5 +176,4 @@ fun SliderSettingItem(
                 )
             }
         )
-    }
 }

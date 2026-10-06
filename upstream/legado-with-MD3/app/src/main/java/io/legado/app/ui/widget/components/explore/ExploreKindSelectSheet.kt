@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.explore
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,8 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,7 +53,6 @@ fun ExploreKindSelectSheet(
     var query by remember { mutableStateOf("") }
     val context = LocalContext.current
     val activity = context as? AppCompatActivity
-    val isMiuix = ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)
 
     LaunchedEffect(show, sourceUrl) {
         if (show && !sourceUrl.isNullOrBlank()) {
@@ -83,7 +82,7 @@ fun ExploreKindSelectSheet(
                         onSelected(selectedKinds)
                         onDismissRequest()
                     },
-                    icon = Icons.Default.Check,
+                    icon = Symbols.Check,
                     contentDescription = stringResource(R.string.confirm)
                 )
             }
@@ -139,7 +138,7 @@ fun ExploreKindSelectSheet(
                                     }
                                 },
                                 backgroundColor = LegadoTheme.colorScheme.surface.copy(alpha = 0.5f),
-                                isMiuix = isMiuix,
+                                isMiuix = false,
                                 useCase = useCase
                             )
                         }

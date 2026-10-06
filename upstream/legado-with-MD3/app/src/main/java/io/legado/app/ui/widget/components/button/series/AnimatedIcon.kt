@@ -5,29 +5,31 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.SymbolIcon
 
 @Composable
 fun AnimatedIcon(
-    imageVector: ImageVector,
+    symbol: MaterialSymbol,
     contentDescription: String?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    filled: Boolean = false,
 ) {
     AnimatedContent(
-        targetState = imageVector,
+        targetState = symbol,
         transitionSpec = {
             (fadeIn() + scaleIn(initialScale = 0.8f))
                 .togetherWith(fadeOut())
         },
         label = "IconTransition"
     ) { targetIcon ->
-        Icon(
-            imageVector = targetIcon,
+        SymbolIcon(
+            symbol = targetIcon,
             contentDescription = contentDescription,
-            modifier = modifier
+            modifier = modifier,
+            filled = filled,
         )
     }
 }

@@ -1,5 +1,7 @@
 package io.legado.app.ui.main.homepage.modules
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -14,9 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -100,7 +99,7 @@ fun RankingModule(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val isExpanded = visibleCount > INITIAL_COUNT
                         AppIcon(
-                            imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.ExpandMore,
+                            symbol = if (isExpanded) Symbols.KeyboardArrowUp else Symbols.ExpandMore,
                             contentDescription = null,
                             tint = if (isExpanded) LegadoTheme.colorScheme.outline else LegadoTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)

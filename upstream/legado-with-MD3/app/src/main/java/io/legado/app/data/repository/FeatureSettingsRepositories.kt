@@ -227,13 +227,16 @@ internal fun LabSettings.toPrefMap(): Map<String, Any?> = mapOf(
 
 internal fun Preferences.toTranslationSettings(): TranslationSettings {
     val storedProvider = compatDsString(PreferKey.llmProvider)
-        ?: TranslationConstants.PROVIDER_GOOGLE
+    // SPEC-048: new default Baidu; openai legacy → app_ai; explicit google kept.
+    val provider = when (storedProvider) {
+        null -> TranslationConstants.PROVIDER_BAIDU
+        TranslationConstants.PROVIDER_OPENAI -> TranslationConstants.PROVIDER_APP_AI
+        // SPEC-048: Microsoft deferred — fall back to Baidu.
+        TranslationConstants.PROVIDER_MICROSOFT -> TranslationConstants.PROVIDER_BAIDU
+        else -> storedProvider
+    }
     return TranslationSettings(
-        provider = if (storedProvider == TranslationConstants.PROVIDER_OPENAI) {
-            TranslationConstants.PROVIDER_APP_AI
-        } else {
-            storedProvider
-        },
+        provider = provider,
         targetLanguage = compatDsString(PreferKey.llmTargetLanguage) ?: "zh",
         maxCharsPerChunk = compatDsInt(PreferKey.llmMaxCharsPerChunk) ?: 10000,
         concurrentChunks = compatDsInt(PreferKey.llmConcurrentChunks) ?: 1,

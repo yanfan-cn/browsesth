@@ -1,12 +1,12 @@
 package io.legado.app.ui.ai
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,7 +33,7 @@ fun AiReasoningModeButton(
     var showSheet by rememberSaveable { mutableStateOf(false) }
     MediumTonalButton(
         onClick = { showSheet = true },
-        icon = Icons.Default.Lightbulb,
+        icon = Symbols.Lightbulb,
         enabled = enabled,
         selected = level != AiReasoningLevel.OFF,
         contentDescription = stringResource(R.string.ai_thinking_mode),

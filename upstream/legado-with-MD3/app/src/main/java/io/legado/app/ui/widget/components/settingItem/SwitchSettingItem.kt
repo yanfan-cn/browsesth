@@ -1,5 +1,6 @@
 package io.legado.app.ui.widget.components.settingItem
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -8,12 +9,10 @@ import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.ThemeResolver
 import io.legado.app.ui.widget.components.AdaptiveSwitch
 import io.legado.app.ui.widget.components.SplicedColumnDivider
-import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 
 @Composable
@@ -21,7 +20,7 @@ fun SwitchSettingItem(
     title: String,
     description: String? = null,
     checked: Boolean,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     color: Color? = null,
     enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit
@@ -29,20 +28,10 @@ fun SwitchSettingItem(
     val composeEngine = LegadoTheme.composeEngine
     SplicedColumnDivider()
 
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        SwitchPreference(
-            title = title,
-            summary = description,
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            modifier = Modifier,
-            enabled = enabled,
-        )
-    } else {
-        SettingItem(
+    SettingItem(
             title = title,
             description = description,
-            imageVector = imageVector,
+            symbol = symbol,
             color = color,
             enabled = enabled,
             semanticRole = Role.Switch,
@@ -58,5 +47,4 @@ fun SwitchSettingItem(
                 )
             }
         )
-    }
 }

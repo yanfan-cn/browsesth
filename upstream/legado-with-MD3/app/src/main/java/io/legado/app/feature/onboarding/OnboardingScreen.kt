@@ -1,5 +1,7 @@
 package io.legado.app.feature.onboarding
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
@@ -20,8 +22,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -131,7 +131,7 @@ fun OnboardingScreen(
             MediumTonalButton(
                 onClick = { onIntent(OnboardingIntent.Next) },
                 text = nextButtonText(state.page, state.pageCount),
-                icon = Icons.AutoMirrored.Filled.ArrowForward
+                icon = Symbols.ArrowForward
             )
         }
     }

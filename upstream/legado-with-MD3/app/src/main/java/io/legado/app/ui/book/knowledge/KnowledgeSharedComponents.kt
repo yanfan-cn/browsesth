@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.knowledge
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,9 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -153,7 +152,7 @@ fun KnowledgeFlowTagEditor(
                     )
                 ) {
                     AppIcon(
-                        imageVector = Icons.Default.Add,
+                        symbol = Symbols.Add,
                         contentDescription = stringResource(R.string.add),
                         modifier = Modifier.size(14.dp),
                         tint = LegadoTheme.colorScheme.onSurfaceVariant,
@@ -229,7 +228,7 @@ fun TagChip(
             if (showCloseIcon) {
                 Spacer(modifier = Modifier.width(2.dp))
                 AppIcon(
-                    imageVector = Icons.Default.Close,
+                    symbol = Symbols.Close,
                     contentDescription = null,
                     modifier = Modifier.size(12.dp),
                     tint = LegadoTheme.colorScheme.onSecondaryContainer,

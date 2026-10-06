@@ -1,5 +1,7 @@
 package io.legado.app.ui.ai.chat
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -33,14 +35,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalDrawerSheet
@@ -441,7 +435,7 @@ fun AiChatScreen(
                                                 shouldStickToBottom = true
                                             }
                                         },
-                                        icon = Icons.Default.KeyboardArrowDown,
+                                        icon = Symbols.KeyboardArrowDown,
                                         contentDescription = stringResource(
                                             R.string.ai_scroll_to_bottom
                                         ),
@@ -515,7 +509,7 @@ fun AiChatScreen(
                     ) {
                         MediumTonalButton(
                             onClick = onBackClick,
-                            icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            icon = Symbols.KeyboardArrowLeft,
                             contentDescription = stringResource(R.string.back),
                         )
                         Box(
@@ -553,12 +547,12 @@ fun AiChatScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             MediumTonalButton(
                                 onClick = { scope.launch { drawerState.open() } },
-                                icon = Icons.Default.Menu,
+                                icon = Symbols.Menu,
                                 contentDescription = stringResource(R.string.ai_recent_chats)
                             )
                             MediumTonalButton(
                                 onClick = { onIntent(AiChatIntent.NewConversation) },
-                                icon = Icons.Default.Add,
+                                icon = Symbols.Add,
                                 contentDescription = stringResource(R.string.ai_new_chat)
                             )
                         }
@@ -679,14 +673,14 @@ private fun RecentChatsDrawer(
                         searchQuery = ""
                     }
                 },
-                icon = Icons.Default.Search,
+                icon = Symbols.Search,
                 selected = showSearch,
                 contentDescription = stringResource(R.string.search)
             )
             Spacer(modifier = Modifier.width(8.dp))
             MediumTonalButton(
                 onClick = onNewChat,
-                icon = Icons.Default.Add,
+                icon = Symbols.Add,
                 contentDescription = stringResource(R.string.ai_new_chat)
             )
         }
@@ -917,13 +911,13 @@ private fun ChatInputBar(
             if (isSending) {
                 MediumTonalButton(
                     onClick = onStop,
-                    icon = Icons.Default.Stop,
+                    icon = Symbols.Stop,
                     contentDescription = stringResource(R.string.stop)
                 )
             } else {
                 MediumTonalButton(
                     onClick = onSend,
-                    icon = Icons.AutoMirrored.Filled.Send,
+                    icon = Symbols.Send,
                     enabled = value.isNotBlank(),
                     contentDescription = stringResource(R.string.ai_send)
                 )

@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.toc
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -36,20 +38,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.BookmarkAdd
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.DownloadForOffline
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.VerticalAlignBottom
-import androidx.compose.material.icons.filled.VerticalAlignTop
-import androidx.compose.material.icons.outlined.DownloadForOffline
-import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingToolbarDefaults.ScreenOffset
@@ -305,7 +293,7 @@ fun TocScreen(
         downloadAllText
     ) {
         listOf(
-            FabMenuItem(Icons.Default.LocationOn, locateCurrentReadingText) {
+            FabMenuItem(Symbols.LocationOn, locateCurrentReadingText) {
                 scope.launch {
                     val target = state.items.indexOfFirst { it.isDur }
                     if (target != -1) {
@@ -316,13 +304,13 @@ fun TocScreen(
                     }
                 }
             },
-            FabMenuItem(Icons.Default.VerticalAlignTop, moveToTopText) {
+            FabMenuItem(Symbols.VerticalAlignTop, moveToTopText) {
                 scope.launch { listState.animateScrollToItem(0) }
             },
-            FabMenuItem(Icons.Default.VerticalAlignBottom, moveToBottomText) {
+            FabMenuItem(Symbols.VerticalAlignBottom, moveToBottomText) {
                 scope.launch { listState.animateScrollToItem(state.items.size) }
             },
-            FabMenuItem(Icons.Default.DownloadForOffline, downloadAllText) {
+            FabMenuItem(Symbols.DownloadForOffline, downloadAllText) {
                 onIntent(TocIntent.DownloadAll)
             }
         )
@@ -337,17 +325,17 @@ fun TocScreen(
         listOf(
             ActionItem(
                 text = invertSelectionText,
-                icon = Icons.Default.Refresh,
+                icon = Symbols.Refresh,
                 onClick = { onIntent(TocIntent.InvertSelection) }
             ),
             ActionItem(
                 text = selectFollowingText,
-                icon = Icons.Default.ExpandMore,
+                icon = Symbols.ExpandMore,
                 onClick = { onIntent(TocIntent.SelectFromLast) }
             ),
             ActionItem(
                 text = addBookmarkText,
-                icon = Icons.Default.BookmarkAdd,
+                icon = Symbols.BookmarkAdd,
                 onClick = { onIntent(TocIntent.AddBookmarksForSelected) }
             )
         )
@@ -555,7 +543,7 @@ fun TocScreen(
                                     checked = showVolumeMenu,
                                     onCheckedChange = { showVolumeMenu = it },
                                     style = ToggleStyle.Outlined,
-                                    icon = Icons.AutoMirrored.Filled.FormatListBulleted,
+                                    icon = Symbols.FormatListBulleted,
                                     contentDescription = stringResource(R.string.volume_management)
                                 )
                                 RoundDropdownMenu(
@@ -636,7 +624,7 @@ fun TocScreen(
                             R.string.download_selected_count,
                             state.selectedIds.size
                         ),
-                        icon = Icons.Default.Download,
+                        icon = Symbols.Download,
                         onClick = { onIntent(TocIntent.DownloadSelected) }
                     ),
                     secondaryActions = selectionSecondaryActions
@@ -909,8 +897,7 @@ fun ChapterItem(
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (item.isVip && !item.isPay) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
+                        SymbolIcon(symbol = Symbols.Lock,
                             contentDescription = null,
                             tint = LegadoTheme.colorScheme.error,
                             modifier = Modifier
@@ -1179,8 +1166,7 @@ private fun StatusIcon(
             }
 
             "DUR" -> {
-                Icon(
-                    imageVector = Icons.Rounded.LocationOn,
+                SymbolIcon(symbol = Symbols.LocationOn,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
                     tint = LegadoTheme.colorScheme.secondary
@@ -1211,8 +1197,7 @@ private fun StatusIcon(
             }
 
             "SUCCESS_ICON" -> {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
+                SymbolIcon(symbol = Symbols.CheckCircle,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
                     tint = LegadoTheme.colorScheme.secondary
@@ -1220,8 +1205,7 @@ private fun StatusIcon(
             }
 
             "ERROR" -> {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
+                SymbolIcon(symbol = Symbols.Refresh,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
                     tint = LegadoTheme.colorScheme.error
@@ -1229,8 +1213,7 @@ private fun StatusIcon(
             }
 
             else -> {
-                Icon(
-                    imageVector = Icons.Outlined.DownloadForOffline,
+                SymbolIcon(symbol = Symbols.DownloadForOffline,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
                     tint = LegadoTheme.colorScheme.outline.copy(alpha = 0.5f)

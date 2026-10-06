@@ -1,5 +1,7 @@
 package io.legado.app.ui.replace.edit
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,9 +24,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -155,13 +154,13 @@ fun ReplaceEditScreen(
                     ) {
                         TopBarActionButton(
                             onClick = onSave,
-                            imageVector = Icons.Default.Save,
+                            symbol = Symbols.Save,
                             contentDescription = stringResource(R.string.action_save)
                         )
                     }
                     TopBarActionButton(
                         onClick = { showMenu = true },
-                        imageVector = AppIcons.MoreVert,
+                        symbol = AppIcons.MoreVert,
                         contentDescription = stringResource(R.string.more_actions)
                     )
                     RoundDropdownMenu(
@@ -197,7 +196,7 @@ fun ReplaceEditScreen(
                     ),
                 onClick = onSave,
                 tooltipText = stringResource(R.string.action_save),
-                icon = Icons.Default.Save
+                icon = Symbols.Save
             )
         }, contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
@@ -407,7 +406,7 @@ fun GroupSelector(
         }
         MediumPlainButton(
             onClick = onManageClick,
-            icon = Icons.Default.Settings,
+            icon = Symbols.Settings,
             contentDescription = stringResource(R.string.group_management)
         )
     }

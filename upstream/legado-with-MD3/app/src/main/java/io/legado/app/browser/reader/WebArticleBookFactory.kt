@@ -2,13 +2,16 @@ package io.legado.app.browser.reader
 
 import android.content.Context
 import io.legado.app.constant.BookType
+import io.legado.app.constant.PageAnim
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.book.addType
 import io.legado.app.utils.GSON
+import io.legado.app.utils.HtmlFormatter
 import io.legado.app.utils.fromJsonObject
+import java.net.URL
 import java.security.MessageDigest
 
 /**
@@ -23,6 +26,7 @@ object WebArticleBookFactory {
 
     private data class ExtractDto(
         val title: String? = null,
+        val html: String? = null,
         val text: String? = null,
         val cover: String? = null,
     )
@@ -33,10 +37,17 @@ object WebArticleBookFactory {
         return try {
             val o = GSON.fromJsonObject<ExtractDto>(json).getOrNull() ?: return null
             val title = o.title?.trim().orEmpty()
+            // SPEC-041: prefer HTML (paragraphs + in-body images) over plain text.
+            val html = o.html?.trim().orEmpty()
             val text = o.text?.trim().orEmpty()
+            val body = when {
+                html.length >= 40 -> html
+                text.length >= 40 -> text
+                else -> ""
+            }
             val cover = o.cover?.trim()
                 ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
-            if (text.length < 40) null else Extracted(title.ifBlank { "网页正文" }, text, cover)
+            if (body.length < 40) null else Extracted(title.ifBlank { "网页正文" }, body, cover)
         } catch (_: Throwable) {
             null
         }
@@ -73,6 +84,10 @@ object WebArticleBookFactory {
             type = 0,
         )
         book.addType(BookType.text, BookType.notShelf)
+        // SPEC-046: full-width in-body images for mixed article layout.
+        book.setImageStyle(Book.imgStyleFull)
+        // SPEC-048: mixed web articles default to scroll page turn.
+        book.setPageAnim(PageAnim.scrollPageAnim)
         book.save()
 
         val entities = chapters.mapIndexed { index, ch ->
@@ -84,9 +99,20 @@ object WebArticleBookFactory {
             )
         }
         appDb.bookChapterDao.insert(*entities.toTypedArray())
-        BookHelp.saveText(book, entities[durIndex], extracted.text)
+        // SPEC-044: normalize kept <img src> for the text reader.
+        val body = normalizeMixedHtml(extracted.text, pageUrl)
+        BookHelp.saveText(book, entities[durIndex], body)
         prefetchNeighborChapters(book)
         return book
+    }
+
+    fun normalizeMixedHtml(raw: String, pageUrl: String): String {
+        if (raw.isBlank()) return raw
+        if (!raw.contains("<img", ignoreCase = true) && !raw.contains("<p", ignoreCase = true)) {
+            return raw
+        }
+        val base = runCatching { URL(pageUrl) }.getOrNull()
+        return HtmlFormatter.formatKeepImg(raw, base).ifBlank { raw }
     }
 
     fun prefetchNeighborChapters(book: Book) {
@@ -97,10 +123,10 @@ object WebArticleBookFactory {
             val ch = chapters.getOrNull(idx) ?: return@forEach
             if (BookHelp.getContent(book, ch) != null) return@forEach
             val text = runCatching {
-                WebChapterHttpFetcher.fetchNovelChapterText(ch.url)
+                WebChapterHttpFetcher.fetchNovelChapterHtml(ch.url)
             }.getOrNull().orEmpty()
             if (text.length >= 40) {
-                BookHelp.saveText(book, ch, text)
+                BookHelp.saveText(book, ch, normalizeMixedHtml(text, ch.url))
             }
         }
     }

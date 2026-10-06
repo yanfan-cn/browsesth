@@ -1,5 +1,8 @@
 package io.legado.app.ui.widget.components.list
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -12,8 +15,6 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingToolbarDefaults.ScreenOffset
@@ -25,7 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -47,7 +47,7 @@ fun <T> ListScaffold(
     state: ListUiState<T>,
     subtitle: String? = null,
     onBackClick: (() -> Unit)? = null,
-    backNavigationIcon: ImageVector = AppIcons.Back,
+    backNavigationIcon: MaterialSymbol = AppIcons.Back,
     showSearchAction: Boolean = true,
     onSearchToggle: (Boolean) -> Unit,
     onSearchQueryChange: (String) -> Unit,
@@ -76,7 +76,7 @@ fun <T> ListScaffold(
                     alignment = Alignment.BottomEnd,
                 ),
                 tooltipText = stringResource(R.string.add),
-                icon = Icons.Default.Add
+                icon = Symbols.Add
             )
         }
     },

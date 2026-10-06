@@ -1,5 +1,7 @@
 package io.legado.app.ui.ai.chat
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
@@ -21,12 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -196,7 +192,7 @@ fun AiGeneratedMessageContent(
                 if (onSwitchBranch != null && message.totalBranches > 1) {
                     SmallPlainButton(
                         onClick = { onSwitchBranch(-1) },
-                        icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        icon = Symbols.KeyboardArrowLeft,
                         contentDescription = stringResource(R.string.previous),
                         modifier = Modifier.size(28.dp)
                     )
@@ -207,7 +203,7 @@ fun AiGeneratedMessageContent(
                     )
                     SmallPlainButton(
                         onClick = { onSwitchBranch(1) },
-                        icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        icon = Symbols.KeyboardArrowRight,
                         contentDescription = stringResource(R.string.next),
                         modifier = Modifier.size(28.dp)
                     )
@@ -216,7 +212,7 @@ fun AiGeneratedMessageContent(
                 if (onRegenerate != null) {
                     SmallPlainButton(
                         onClick = onRegenerate,
-                        icon = Icons.Default.Refresh,
+                        icon = Symbols.Refresh,
                         contentDescription = stringResource(R.string.ai_regenerate),
                         modifier = Modifier.size(32.dp)
                     )
@@ -224,7 +220,7 @@ fun AiGeneratedMessageContent(
                 if (onCopy != null) {
                     SmallPlainButton(
                         onClick = onCopy,
-                        icon = Icons.Default.ContentCopy,
+                        icon = Symbols.ContentCopy,
                         contentDescription = stringResource(R.string.copy_text),
                         modifier = Modifier.size(32.dp)
                     )
@@ -387,8 +383,7 @@ private fun TracePanel(
                 color = LegadoTheme.colorScheme.outline
             )
             Spacer(modifier = Modifier.weight(1f))
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowDown,
+            SymbolIcon(symbol = Symbols.KeyboardArrowDown,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
                 tint = LegadoTheme.colorScheme.outline

@@ -1,5 +1,7 @@
 package io.legado.app.ui.login
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.net.Uri
@@ -20,8 +22,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
@@ -93,7 +93,7 @@ fun SourceLoginSheetHost(
         onDismissRequest = { onIntent(SourceLoginIntent.DismissSheet) },
         endAction = {
             MediumTonalButton(
-                icon = Icons.Default.ContentCopy,
+                icon = Symbols.ContentCopy,
                 contentDescription = stringResource(R.string.copy_text),
                 onClick = { header?.content?.let { onIntent(SourceLoginIntent.CopyLoginHeader(it)) } },
             )
@@ -231,7 +231,7 @@ private fun SourceLoginRow(
                 modifier = modifier,
                 backgroundColor = LegadoTheme.colorScheme.surface,
                 minHeight = 44.dp,
-                isMiuix = ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine),
+                isMiuix = false,
                 displayNameOverride = row.title,
                 valueOverride = value,
                 onValueChange = onValueChange,

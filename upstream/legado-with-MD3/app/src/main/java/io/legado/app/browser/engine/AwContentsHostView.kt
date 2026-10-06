@@ -105,9 +105,10 @@ class AwContentsHostView @JvmOverloads constructor(
             val m = settings.javaClass.getMethod("setCacheMode", Int::class.javaPrimitiveType)
             m.invoke(settings, -1)
         }
+        // SPEC-043: Chromium Force Dark / algorithmic darkening (Edge-like).
+        applyWebContentDarkMode(settings, BrowserChromePrefs(context).webContentDarkMode)
 
         val drawFnAccess = BrowserDrawMode.createDrawFnAccess(this)
-        BrowserKernelCompat.applyAfterBrowserProcessStart(context.applicationContext)
         val contents = AwContents(
             browserContext,
             this,
@@ -336,5 +337,38 @@ class AwContentsHostView @JvmOverloads constructor(
 
     companion object {
         private const val TAG = "BrowsesthAwHost"
+
+        /**
+         * SPEC-043: map pref → AwSettings Force Dark.
+         * Constants match Chromium AwSettings: OFF=0, AUTO=1, ON=2;
+         * behavior PREFER_MEDIA_QUERY_OVER_FORCE_DARK=2.
+         */
+        fun applyWebContentDarkMode(settings: AwSettings, mode: String) {
+            val forceMode = when (mode) {
+                BrowserChromePrefs.WEB_DARK_OFF -> 0
+                BrowserChromePrefs.WEB_DARK_ON -> 2
+                else -> 1 // auto
+            }
+            runCatching {
+                settings.javaClass
+                    .getMethod("setForceDarkMode", Int::class.javaPrimitiveType)
+                    .invoke(settings, forceMode)
+            }.onFailure { Log.w(TAG, "setForceDarkMode: ${it.message}") }
+            if (forceMode != 0) {
+                runCatching {
+                    settings.javaClass
+                        .getMethod("setForceDarkBehavior", Int::class.javaPrimitiveType)
+                        .invoke(settings, 2)
+                }.onFailure { Log.w(TAG, "setForceDarkBehavior: ${it.message}") }
+                runCatching {
+                    settings.javaClass
+                        .getMethod(
+                            "setAlgorithmicDarkeningAllowed",
+                            Boolean::class.javaPrimitiveType,
+                        )
+                        .invoke(settings, true)
+                }.onFailure { Log.w(TAG, "setAlgorithmicDarkeningAllowed: ${it.message}") }
+            }
+        }
     }
 }

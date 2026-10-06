@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.rules
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,14 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.NoteAdd
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.RunningWithErrors
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -147,7 +141,7 @@ fun <T> RuleEditSheet(
         startAction = {
             MediumTonalButton(
                 onClick = onDismissRequest,
-                icon = Icons.Default.Close,
+                icon = Symbols.Close,
                 contentDescription = stringResource(R.string.close),
             )
         },
@@ -155,13 +149,13 @@ fun <T> RuleEditSheet(
             Box{
                 MediumTonalButton(
                     onClick = { showMenu = true },
-                    icon = Icons.Default.MoreVert,
+                    icon = Symbols.MoreVert,
                     contentDescription = stringResource(R.string.more_menu)
                 )
                 RoundDropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                     RoundDropdownMenuItem(
                         text = stringResource(R.string.copy_rule),
-                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.NoteAdd, null) },
+                        leadingIcon = { SymbolIcon(Symbols.NoteAdd, null) },
                         onClick = {
                             onCopy(getCurrentEntity())
                             showMenu = false
@@ -169,7 +163,7 @@ fun <T> RuleEditSheet(
                     )
                     RoundDropdownMenuItem(
                         text = stringResource(R.string.paste_rule),
-                        leadingIcon = { Icon(Icons.Default.ContentPaste, null) },
+                        leadingIcon = { SymbolIcon(Symbols.ContentPaste, null) },
                         onClick = {
                             scope.launch {
                                 onPaste()?.let { pasted ->
@@ -258,8 +252,7 @@ fun <T> RuleEditSheet(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                Icon(
-                                    imageVector = if (result.matched) Icons.Default.Check else Icons.Default.Close,
+                                SymbolIcon(symbol = if (result.matched) Symbols.Check else Symbols.Close,
                                     contentDescription = null,
                                     tint = if (result.matched) {
                                         LegadoTheme.colorScheme.primary
@@ -296,14 +289,14 @@ fun <T> RuleEditSheet(
                     AppFloatingActionButton(
                         onClick = { runTest() },
                         tooltipText = stringResource(R.string.test),
-                        icon = Icons.Default.RunningWithErrors,
+                        icon = Symbols.RunningWithErrors,
                         containerColor = LegadoTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 AppFloatingActionButton(
                     onClick = { onSave(getCurrentEntity()) },
                     tooltipText = stringResource(R.string.action_save),
-                    icon = Icons.Default.Save
+                    icon = Symbols.Save
                 )
             }
         }

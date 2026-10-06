@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.cache.manage
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,13 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -170,7 +165,7 @@ private fun BookCacheManageScreen(
                     Box {
                         TopBarActionButton(
                             onClick = { showGroupMenu = true },
-                            imageVector = AppIcons.Filter,
+                            symbol = AppIcons.Filter,
                             contentDescription = stringResource(R.string.a11y_group_filter)
                         )
                         RoundDropdownMenu(
@@ -191,7 +186,7 @@ private fun BookCacheManageScreen(
                     }
                     TopBarActionButton(
                         onClick = { onIntent(BookCacheManageIntent.Refresh) },
-                        imageVector = Icons.Default.Refresh,
+                        symbol = Symbols.Refresh,
                         contentDescription = stringResource(R.string.refresh)
                     )
                 },
@@ -208,7 +203,7 @@ private fun BookCacheManageScreen(
                             onIntent(BookCacheManageIntent.StartAllDownloads)
                         }
                     },
-                    icon = if (hasRunningDownload) Icons.Default.Stop else Icons.Default.Download,
+                    icon = if (hasRunningDownload) Symbols.Stop else Symbols.Download,
                     tooltipText = stringResource(
                         if (hasRunningDownload) {
                             R.string.stop_download
@@ -449,7 +444,7 @@ private fun BookCacheBookCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 AppIcon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    symbol = Symbols.KeyboardArrowRight,
                     contentDescription = null,
                     modifier = Modifier
                         .size(20.dp)
@@ -504,7 +499,7 @@ private fun BookCacheBookCard(
                                 onIntent(BookCacheManageIntent.StartBookDownload(item.bookUrl))
                             }
                         },
-                        icon = if (item.hasActiveDownload) Icons.Default.Stop else Icons.Default.PlayArrow,
+                        icon = if (item.hasActiveDownload) Symbols.Stop else Symbols.PlayArrow,
                         contentDescription = when {
                             item.hasActiveDownload -> stringResource(
                                 R.string.pause_book_download,
@@ -520,7 +515,7 @@ private fun BookCacheBookCard(
                 }
                 SmallTonalButton(
                     onClick = { onDeleteBook(item) },
-                    icon = Icons.Default.Delete,
+                    icon = Symbols.Delete,
                     contentDescription = stringResource(R.string.delete_book_cache, item.name)
                 )
             }
@@ -602,13 +597,13 @@ private fun BookCacheChapterRow(
         if (item.isWaiting || item.isDownloading) {
             SmallTonalButton(
                 onClick = onStop,
-                icon = Icons.Default.Stop,
+                icon = Symbols.Stop,
                 contentDescription = stringResource(R.string.pause_chapter_download, item.title)
             )
         } else if (item.isPaused || !item.isCached) {
             SmallTonalButton(
                 onClick = onDownload,
-                icon = Icons.Default.Download,
+                icon = Symbols.Download,
                 contentDescription = if (item.isPaused) {
                     stringResource(R.string.resume_chapter_download, item.title)
                 } else {
@@ -618,7 +613,7 @@ private fun BookCacheChapterRow(
         }
         SmallTonalButton(
             onClick = onDelete,
-            icon = Icons.Default.Delete,
+            icon = Symbols.Delete,
             contentDescription = stringResource(R.string.delete_chapter_cache, item.title)
         )
     }

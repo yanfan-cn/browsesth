@@ -1,5 +1,7 @@
 package io.legado.app.ui.config.ai
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7,10 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -119,7 +117,7 @@ fun AiProviderEditScreen(
         floatingActionButton = {
             AppFloatingActionButton(
                 onClick = { onIntent(AiProviderEditIntent.SaveProvider) },
-                icon = Icons.Default.Save,
+                icon = Symbols.Save,
                 tooltipText = stringResource(R.string.ai_save_provider)
             )
         }
@@ -239,14 +237,14 @@ fun AiProviderEditScreen(
                     visualTransformation = if (apiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     trailingIcon = {
-                        val image = if (apiKeyVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                        val image = if (apiKeyVisible) Symbols.Visibility else Symbols.VisibilityOff
                         val description = if (apiKeyVisible) {
                             stringResource(R.string.hide_password)
                         } else {
                             stringResource(R.string.show_password)
                         }
                         IconButton(onClick = { apiKeyVisible = !apiKeyVisible }) {
-                            Icon(imageVector = image, contentDescription = description)
+                            SymbolIcon(symbol = image, contentDescription = description)
                         }
                     }
                 )

@@ -1,11 +1,11 @@
 package io.legado.app.ui.widget.components.image.sourceIcon
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.graphics.drawable.Animatable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.RssFeed
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -45,8 +45,7 @@ fun SourceIcon(
     contentScale: ContentScale = ContentScale.Fit,
     imageLoader: ImageLoader = koinInject(),
     placeholderIcon: @Composable () -> Unit = {
-        Icon(
-            Icons.Default.RssFeed,
+        SymbolIcon(Symbols.RssFeed,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.outlineVariant,
             modifier = Modifier.fillMaxSize(0.7f)

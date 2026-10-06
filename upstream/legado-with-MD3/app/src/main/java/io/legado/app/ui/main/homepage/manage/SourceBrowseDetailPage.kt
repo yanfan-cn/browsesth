@@ -1,5 +1,7 @@
 package io.legado.app.ui.main.homepage.manage
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,10 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -180,12 +178,12 @@ fun SourceBrowseDetailPage(
                                 trailingAction = {
                                     SmallPlainButton(
                                         onClick = { onEditModule(module) },
-                                        icon = Icons.Default.Edit,
+                                        icon = Symbols.Edit,
                                         contentDescription = stringResource(R.string.edit)
                                     )
                                     SmallPlainButton(
                                         onClick = { onRequestDeleteModule(module.id) },
-                                        icon = Icons.Default.Delete,
+                                        icon = Symbols.Delete,
                                         contentDescription = stringResource(R.string.delete)
                                     )
                                 }
@@ -224,12 +222,12 @@ fun SourceBrowseDetailPage(
                                     trailingAction = {
                                         SmallPlainButton(
                                             onClick = { onEditModule(module) },
-                                            icon = Icons.Default.Edit,
+                                            icon = Symbols.Edit,
                                             contentDescription = stringResource(R.string.edit)
                                         )
                                         SmallPlainButton(
                                             onClick = { onRequestDeleteModule(module.id) },
-                                            icon = Icons.Default.Delete,
+                                            icon = Symbols.Delete,
                                             contentDescription = stringResource(R.string.delete)
                                         )
                                     }
@@ -351,7 +349,7 @@ fun SourceBrowseDetailPage(
                             if (supportsMultipleKinds && selectedKindTitles.isNotEmpty()) {
                                 SmallPlainButton(
                                     onClick = { onShowAddKindGroupDialog() },
-                                    icon = Icons.Default.Check,
+                                    icon = Symbols.Check,
                                     contentDescription = stringResource(R.string.confirm)
                                 )
                             }

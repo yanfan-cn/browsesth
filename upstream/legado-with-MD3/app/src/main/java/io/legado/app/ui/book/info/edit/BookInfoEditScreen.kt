@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.info.edit
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,16 +23,6 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.ImageSearch
-import androidx.compose.material.icons.filled.Replay
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -106,7 +98,7 @@ fun BookInfoEditScreen(
                 actions = {
                     TopBarActionButton(
                         onClick = { viewModel.save(onSave) },
-                        imageVector = Icons.Default.Save,
+                        symbol = Symbols.Save,
                         contentDescription = stringResource(R.string.save)
                     )
                 },
@@ -193,17 +185,17 @@ fun BookInfoEditContent(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     MediumOutlinedButton(
                         onClick = { showChangeCoverSheet = true },
-                        icon = Icons.Default.ImageSearch,
+                        icon = Symbols.ImageSearch,
                         contentDescription = stringResource(R.string.refresh_cover)
                     )
                     MediumOutlinedButton(
                         onClick = { selectCover.launch() },
-                        icon = Icons.Default.FolderOpen,
+                        icon = Symbols.FolderOpen,
                         contentDescription = stringResource(R.string.select_folder)
                     )
                     MediumOutlinedButton(
                         onClick = { viewModel.resetCover() },
-                        icon = Icons.Default.Replay,
+                        icon = Symbols.Replay,
                         contentDescription = stringResource(R.string.cover_reset)
                     )
                 }
@@ -315,7 +307,7 @@ private fun BookKnowledgeEditCard(
                     MediumOutlinedButton(
                         onClick = { onOpenCharacterList(bookUrl) },
                         enabled = bookUrl.isNotEmpty(),
-                        icon = Icons.AutoMirrored.Outlined.FormatListBulleted,
+                        icon = Symbols.FormatListBulleted,
                         text = stringResource(R.string.book_characters),
                     )
                 }
@@ -323,7 +315,7 @@ private fun BookKnowledgeEditCard(
                     MediumOutlinedButton(
                         onClick = { onOpenCharacterNetwork(bookUrl) },
                         enabled = bookUrl.isNotEmpty(),
-                        icon = Icons.Default.Group,
+                        icon = Symbols.Group,
                         text = stringResource(R.string.character_network),
                     )
                 }
@@ -331,7 +323,7 @@ private fun BookKnowledgeEditCard(
                     MediumOutlinedButton(
                         onClick = { onOpenKnowledgeList(bookUrl) },
                         enabled = bookUrl.isNotEmpty(),
-                        icon = Icons.Default.Book,
+                        icon = Symbols.Book,
                         text = stringResource(R.string.book_knowledge),
                     )
                 }
@@ -339,7 +331,7 @@ private fun BookKnowledgeEditCard(
                     MediumOutlinedButton(
                         onClick = { onOpenEventList(bookUrl) },
                         enabled = bookUrl.isNotEmpty(),
-                        icon = Icons.Default.Timeline,
+                        icon = Symbols.Timeline,
                         text = stringResource(R.string.plot_events),
                     )
                 }
@@ -484,7 +476,7 @@ fun KindEditor(
                 onClick = {
                     onReset()
                 },
-                icon = Icons.Default.Replay,
+                icon = Symbols.Replay,
                 contentDescription = stringResource(R.string.reset)
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -493,7 +485,7 @@ fun KindEditor(
                     editingIndex = -1
                     editText = ""
                 },
-                icon = Icons.Default.Add,
+                icon = Symbols.Add,
                 contentDescription = stringResource(R.string.add)
             )
         }

@@ -1,5 +1,8 @@
 package io.legado.app.ui.widget.components.topbar
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -15,8 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -32,7 +33,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.res.stringResource
@@ -54,10 +54,6 @@ import io.legado.app.ui.widget.components.button.series.TopBarSeriesIconButtonSi
 import io.legado.app.ui.widget.components.button.series.TopBarSeriesIconSize
 import io.legado.app.ui.widget.components.icon.AppIcon
 import io.legado.app.ui.widget.components.icon.AppIcons
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.basic.Icon as MiuixIcon
-import top.yukonga.miuix.kmp.basic.IconButton as MiuixIconButton
-import top.yukonga.miuix.kmp.basic.Text as MiuixText
 
 /** 顶栏按钮样式配置。 */
 enum class TopBarButtonStyle(val storageValue: String) {
@@ -211,7 +207,7 @@ internal fun TopBarActionsRow(
 private fun TopBarButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    imageVector: ImageVector = Icons.AutoMirrored.Filled.ArrowBack,
+    symbol: MaterialSymbol = Symbols.ArrowBack,
     contentDescription: String? = null,
     style: TopBarButtonStyle = currentTopBarButtonStyle()
 ) {
@@ -232,7 +228,7 @@ private fun TopBarButton(
                 )
         ) {
             AppIcon(
-                imageVector = imageVector,
+                symbol = symbol,
                 contentDescription = contentDescription,
                 tint = LegadoTheme.colorScheme.onSurface,
                 modifier = Modifier.size(style.iconSize)
@@ -263,7 +259,7 @@ private fun TopBarButton(
             indication = if (liquidGlassEnabled) null else ripple(bounded = true)
         ) { resolvedContentColor ->
             AppIcon(
-                imageVector = imageVector,
+                symbol = symbol,
                 contentDescription = contentDescription,
                 tint = resolvedContentColor,
                 modifier = Modifier.size(style.iconSize)
@@ -276,125 +272,43 @@ private fun TopBarButton(
 fun TopBarNavigationButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    imageVector: ImageVector = AppIcons.Back,
+    symbol: MaterialSymbol = AppIcons.Back,
     contentDescription: String? = stringResource(id = R.string.back)
 ) {
-    if (ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine) &&
-        currentTopBarButtonStyle() == TopBarButtonStyle.Plain
-    ) {
-        MiuixIconButton(
+    TopBarButton(
             onClick = onClick,
-            modifier = modifier
-        ) {
-            MiuixIcon(
-                imageVector = imageVector,
-                contentDescription = contentDescription
-            )
-        }
-    } else {
-        TopBarButton(
-            onClick = onClick,
-            imageVector = imageVector,
+            symbol = symbol,
             contentDescription = contentDescription,
             modifier = modifier.padding(horizontal = 12.dp)
         )
-    }
 }
 
 @Composable
 fun TopBarActionButton(
     onClick: () -> Unit,
-    imageVector: ImageVector,
+    symbol: MaterialSymbol,
     contentDescription: String?,
     modifier: Modifier = Modifier
 ) {
-    if (ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine) &&
-        currentTopBarButtonStyle() == TopBarButtonStyle.Plain
-    ) {
-        MiuixIconButton(
+    TopBarButton(
             onClick = onClick,
-            modifier = modifier,
-        ) {
-            MiuixIcon(
-                imageVector = imageVector,
-                contentDescription = contentDescription
-            )
-        }
-    } else {
-        TopBarButton(
-            onClick = onClick,
-            imageVector = imageVector,
+            symbol = symbol,
             contentDescription = contentDescription,
             modifier = modifier
         )
-    }
 }
 
 @Composable
 fun TopBarAnimatedActionButton(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    iconChecked: ImageVector,
-    iconUnchecked: ImageVector,
+    iconChecked: MaterialSymbol,
+    iconUnchecked: MaterialSymbol,
     activeText: String,
     inactiveText: String,
     modifier: Modifier = Modifier
 ) {
-    if (ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine) &&
-        currentTopBarButtonStyle() == TopBarButtonStyle.Plain
-    ) {
-        val contentColor by animateColorAsState(
-            targetValue = if (checked) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface,
-            animationSpec = tween(150),
-            label = "MiuixActionButtonContent"
-        )
-
-        AnimatedActionButtonCore(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            iconChecked = iconChecked,
-            iconUnchecked = iconUnchecked,
-            activeText = activeText,
-            inactiveText = inactiveText,
-            modifier = modifier,
-            iconSize = 24.dp,
-            textStyle = LegadoTheme.typography.labelMedium,
-            textStartPadding = 8.dp,
-            contentColor = contentColor,
-            button = { buttonModifier, onToggle, content ->
-                MiuixIconButton(
-                    onClick = { onToggle(!checked) },
-                    modifier = buttonModifier
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                        content = content
-                    )
-                }
-            },
-            icon = { imageVector, iconModifier, tint ->
-                MiuixIcon(
-                    tint = tint ?: Color.Unspecified,
-                    imageVector = imageVector,
-                    contentDescription = null,
-                    modifier = iconModifier
-                )
-            },
-            text = { label, textModifier, style, color ->
-                MiuixText(
-                    text = label,
-                    color = color ?: Color.Unspecified,
-                    style = style,
-                    modifier = textModifier,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-        )
-    } else {
-        val topBarStyle = currentTopBarButtonStyle()
+    val topBarStyle = currentTopBarButtonStyle()
         val isMerged = LocalTopBarMergeState.current
         val containerColor = if (
             !isMerged &&
@@ -468,14 +382,14 @@ fun TopBarAnimatedActionButton(
                     }
                 }
             },
-            icon = { imageVector, iconModifier, _ ->
+            icon = { symbol, iconModifier, _ ->
                 AnimatedContent(
-                    targetState = imageVector,
+                    targetState = symbol,
                     label = "IconAnimation"
                 ) { targetIcon ->
                     AnimatedIcon(
                         modifier = iconModifier,
-                        imageVector = targetIcon,
+                        symbol = targetIcon,
                         contentDescription = null
                     )
                 }
@@ -491,5 +405,4 @@ fun TopBarAnimatedActionButton(
                 )
             }
         )
-    }
 }

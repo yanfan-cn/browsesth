@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,10 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndSelectAll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Restore
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -107,7 +105,7 @@ fun ContentEditSheet(
             Box {
                 MediumTonalButton(
                     onClick = { menuExpanded = true },
-                    icon = Icons.Default.MoreVert,
+                    icon = Symbols.MoreVert,
                     contentDescription = stringResource(R.string.more_menu),
                 )
                 RoundDropdownMenu(
@@ -116,7 +114,7 @@ fun ContentEditSheet(
                 ) { dismiss ->
                     RoundDropdownMenuItem(
                         text = stringResource(R.string.content_edit_reset),
-                        leadingIcon = { MenuItemIcon(Icons.Default.Restore) },
+                        leadingIcon = { MenuItemIcon(Symbols.Restore) },
                         onClick = {
                             dismiss()
                             onIntent(ReadBookIntent.ResetContentEdit)
@@ -145,7 +143,7 @@ fun ContentEditSheet(
                     )
                     onDismissRequest()
                 },
-                icon = Icons.Default.Save,
+                icon = Symbols.Save,
                 contentDescription = stringResource(R.string.action_save),
             )
         },

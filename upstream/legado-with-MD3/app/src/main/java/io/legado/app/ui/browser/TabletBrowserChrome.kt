@@ -1,5 +1,9 @@
 package io.legado.app.ui.browser
 
+import android.content.res.Configuration
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -33,25 +37,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoStories
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Computer
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.FilterNone
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.LibraryBooks
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -69,8 +54,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -201,10 +186,12 @@ fun TabletBrowserShell(
                 enter = slideInHorizontally { it } + fadeIn(),
                 exit = slideOutHorizontally { it } + fadeOut(),
             ) {
+                val portrait = LocalConfiguration.current.orientation ==
+                    Configuration.ORIENTATION_PORTRAIT
                 Box(
                     modifier = ComposeModifier
                         .fillMaxHeight()
-                        .fillMaxWidth(1f / 3f)
+                        .fillMaxWidth(TabletBrowserLayout.sidePanelWidthFraction(portrait))
                         .background(scheme.surfaceContainerHigh)
                         .clickable(enabled = false) {},
                 ) {
@@ -365,8 +352,7 @@ private fun TabletTabStrip(
                     fontSize = 12.sp,
                     color = scheme.onSurface,
                 )
-                Icon(
-                    imageVector = Icons.Default.Close,
+                SymbolIcon(symbol = Symbols.Close,
                     contentDescription = "关闭",
                     modifier = ComposeModifier.size(16.dp).clickable { onCloseTab(tab.id) },
                     tint = scheme.onSurfaceVariant,
@@ -374,7 +360,7 @@ private fun TabletTabStrip(
             }
         }
         IconButton(onClick = onNewTab, modifier = ComposeModifier.size(36.dp)) {
-            Icon(Icons.Default.Add, contentDescription = "新建标签页")
+            SymbolIcon(Symbols.Add, contentDescription = "新建标签页")
         }
     }
 }
@@ -411,9 +397,9 @@ private fun TabletFunctionBar(
             .padding(horizontal = BrowserUiTokens.SpaceSm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ChromeIcon(Icons.AutoMirrored.Filled.ArrowBack, "后退", onBack)
-        ChromeIcon(Icons.AutoMirrored.Filled.ArrowForward, "前进", onForward)
-        ChromeIcon(Icons.Default.Refresh, "刷新", onRefresh)
+        ChromeIcon(Symbols.ArrowBack, "后退", onBack)
+        ChromeIcon(Symbols.ArrowForwardIos, "前进", onForward)
+        ChromeIcon(Symbols.Refresh, "刷新", onRefresh)
         Spacer(modifier = ComposeModifier.width(BrowserUiTokens.SpaceSm))
         Row(
             modifier = ComposeModifier
@@ -440,18 +426,17 @@ private fun TabletFunctionBar(
                         contentScale = ContentScale.Fit,
                     )
                 }
-                DropdownMenu(expanded = engineMenu, onDismissRequest = { engineMenu = false }) {
-                    BrowserSearchEngine.entries.forEach { item ->
-                        DropdownMenuItem(
-                            text = { Text(item.displayName) },
-                            onClick = {
-                                engine = item
-                                ntpPrefs.searchEngineId = item.id
-                                engineMenu = false
-                            },
-                        )
-                    }
-                }
+                SearchEnginePickerPopup(
+                    expanded = engineMenu,
+                    onDismiss = { engineMenu = false },
+                    selected = engine,
+                    onSelect = {
+                        engine = it
+                        ntpPrefs.searchEngineId = it.id
+                    },
+                    textColor = scheme.onSurface,
+                    mutedColor = scheme.onSurfaceVariant,
+                )
             }
             Spacer(modifier = ComposeModifier.width(8.dp))
             BasicTextField(
@@ -466,40 +451,39 @@ private fun TabletFunctionBar(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                 keyboardActions = KeyboardActions(onGo = {
                     if (address.isNotBlank()) {
+                        onSubmitAddress()
                         keyboardController?.hide()
                         focusManager.clearFocus(force = true)
-                        onAddressFocusChange(false)
-                        onSubmitAddress()
                     }
                 }),
             )
         }
-        ChromeIcon(Icons.Default.FilterNone, "标签页", onOpenTabs)
-        ChromeIcon(Icons.Default.Bookmark, "收藏", onOpenBookmarks)
-        ChromeIcon(Icons.Default.History, "历史", onOpenHistory)
+        ChromeIcon(Symbols.FilterNone, "标签页", onOpenTabs)
+        ChromeIcon(Symbols.Bookmark, "收藏", onOpenBookmarks)
+        ChromeIcon(Symbols.History, "历史", onOpenHistory)
         // SPEC-025: bookshelf between history and reader.
-        ChromeIcon(Icons.Default.LibraryBooks, "书架", onOpenBookshelf)
+        ChromeIcon(Symbols.LibraryBooks, "书架", onOpenBookshelf)
         ChromeIcon(
-            Icons.Default.AutoStories,
+            Symbols.AutoStories,
             "阅读模式",
             onReader,
             tint = BrowserUiTokens.Primary,
         )
-        ChromeIcon(Icons.Default.Menu, "工具箱", onOpenToolbox)
+        ChromeIcon(Symbols.Menu, "工具箱", onOpenToolbox)
     }
 }
 
 @Composable
 private fun ChromeIcon(
-    icon: ImageVector,
+    icon: MaterialSymbol,
     desc: String,
     onClick: () -> Unit,
     tint: Color? = null,
 ) {
     val scheme = LegadoTheme.colorScheme
     IconButton(onClick = onClick, modifier = ComposeModifier.size(40.dp)) {
-        Icon(
-            imageVector = icon,
+        SymbolIcon(
+            symbol = icon,
             contentDescription = desc,
             modifier = ComposeModifier.size(22.dp),
             tint = tint ?: scheme.onSurface,
@@ -527,7 +511,7 @@ private fun TabletEntryPanel(
                 color = scheme.onSurface,
             )
             IconButton(onClick = onClose) {
-                Icon(Icons.Default.Close, contentDescription = "关闭")
+                SymbolIcon(Symbols.Close, contentDescription = "关闭")
             }
         }
         HorizontalDivider()
@@ -572,7 +556,7 @@ private fun TabletTabsPanel(onClose: () -> Unit) {
                 onClose()
             }) { Text("新建") }
             IconButton(onClick = onClose) {
-                Icon(Icons.Default.Close, contentDescription = "关闭")
+                SymbolIcon(Symbols.Close, contentDescription = "关闭")
             }
         }
         HorizontalDivider()
@@ -595,7 +579,7 @@ private fun TabletTabsPanel(onClose: () -> Unit) {
                         overflow = TextOverflow.Ellipsis,
                     )
                     IconButton(onClick = { BrowserTabManager.close(tab.id) }) {
-                        Icon(Icons.Default.Close, contentDescription = "关闭标签")
+                        SymbolIcon(Symbols.Close, contentDescription = "关闭标签")
                     }
                 }
             }
@@ -637,22 +621,22 @@ private fun TabletToolboxPanel(
                 color = scheme.onSurface,
             )
             IconButton(onClick = onClose) {
-                Icon(Icons.Default.Close, contentDescription = "关闭")
+                SymbolIcon(Symbols.Close, contentDescription = "关闭")
             }
         }
         HorizontalDivider(modifier = ComposeModifier.padding(vertical = 8.dp))
-        ToolboxSideRow(Icons.Default.Bookmark, "添加书签", onAddBookmark)
-        ToolboxSideRow(Icons.Default.History, "查看历史", onOpenHistory)
-        ToolboxSideRow(Icons.Default.Bookmark, "书签列表", onOpenBookmarks)
-        ToolboxSideRow(Icons.Default.ContentCopy, "复制链接", onCopyLink)
-        ToolboxSideRow(Icons.Default.Block, "点选屏蔽", onStartPickMode)
+        ToolboxSideRow(Symbols.Bookmark, "添加书签", onAddBookmark)
+        ToolboxSideRow(Symbols.History, "查看历史", onOpenHistory)
+        ToolboxSideRow(Symbols.Bookmark, "书签列表", onOpenBookmarks)
+        ToolboxSideRow(Symbols.ContentCopy, "复制链接", onCopyLink)
+        ToolboxSideRow(Symbols.Block, "点选屏蔽", onStartPickMode)
         Row(
             modifier = ComposeModifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Default.Block, contentDescription = null, tint = scheme.primary)
+            SymbolIcon(Symbols.Block, contentDescription = null, tint = scheme.primary)
             Spacer(modifier = ComposeModifier.width(16.dp))
             Text("广告拦截", modifier = ComposeModifier.weight(1f), color = scheme.onSurface)
             Switch(checked = adBlockEnabled, onCheckedChange = onAdBlockChange)
@@ -660,9 +644,9 @@ private fun TabletToolboxPanel(
         HorizontalDivider()
         ToolboxSideRow(
             icon = if (uaMode == BrowserUa.Mode.Desktop) {
-                Icons.Default.Computer
+                Symbols.Computer
             } else {
-                Icons.Default.PhoneAndroid
+                Symbols.PhoneAndroid
             },
             label = "UA：${uaMode.label}（点击切换）",
             onClick = {
@@ -688,14 +672,14 @@ private fun TabletToolboxPanel(
             Switch(checked = autoHide, onCheckedChange = onAutoHideChange)
         }
         HorizontalDivider()
-        ToolboxSideRow(Icons.Default.Settings, "设置", onOpenSettings)
+        ToolboxSideRow(Symbols.Settings, "设置", onOpenSettings)
         Spacer(modifier = ComposeModifier.height(24.dp))
     }
 }
 
 @Composable
 private fun ToolboxSideRow(
-    icon: ImageVector,
+    icon: MaterialSymbol,
     label: String,
     onClick: () -> Unit,
 ) {
@@ -707,7 +691,7 @@ private fun ToolboxSideRow(
             .padding(horizontal = 12.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = scheme.primary)
+        SymbolIcon(icon, contentDescription = null, tint = scheme.primary)
         Spacer(modifier = ComposeModifier.width(16.dp))
         Text(label, color = scheme.onSurface, fontSize = 16.sp)
     }

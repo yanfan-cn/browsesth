@@ -35,7 +35,6 @@ import io.legado.app.ui.widget.components.icon.AppIcon
 import io.legado.app.ui.widget.components.icon.AppIcons
 import io.legado.app.ui.widget.components.text.AppText
 import kotlinx.coroutines.CoroutineScope
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,7 +47,7 @@ fun SearchBar(
     leadingIcon: @Composable (() -> Unit)? = {
         AppIcon(
             modifier = Modifier.padding(horizontal = 12.dp),
-            imageVector = AppIcons.Search,
+            symbol = AppIcons.Search,
             contentDescription = null
         )
     },
@@ -100,36 +99,14 @@ fun SearchBar(
             }
     }
 
-    val isMiuix = ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)
     val resolvedBackgroundColor = if (backgroundColor != Color.Unspecified) {
         backgroundColor
     } else {
-        if (isMiuix) MiuixTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surfaceContainerLow
+        MaterialTheme.colorScheme.surfaceContainerLow
     }
     val resolvedPlaceholder = placeholder ?: stringResource(R.string.search_placeholder)
 
-    if (isMiuix) {
-        AppDenseTextField(
-            state = textFieldState,
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp)
-                .focusRequester(focusRequester),
-            placeholder = { AppText(resolvedPlaceholder) },
-            leadingIcon = leadingIcon,
-            trailingIcon = trailingIcon,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            onKeyboardAction = {
-                submitSearch(textFieldState.text.toString())
-            },
-            lineLimits = TextFieldLineLimits.SingleLine,
-            backgroundColor = resolvedBackgroundColor,
-            miuixUseSearchBarInputField = true,
-            miuixSearchBarLabel = resolvedPlaceholder,
-            miuixOnSearch = submitSearch,
-        )
-    } else {
-        Surface(
+    Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 4.dp),
@@ -152,5 +129,4 @@ fun SearchBar(
                 backgroundColor = Color.Transparent
             )
         }
-    }
 }

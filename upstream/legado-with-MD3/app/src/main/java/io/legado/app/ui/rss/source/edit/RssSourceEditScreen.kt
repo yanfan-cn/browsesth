@@ -1,5 +1,7 @@
 package io.legado.app.ui.rss.source.edit
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,10 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -65,7 +63,7 @@ import io.legado.app.ui.widget.components.variable.VariableEditorSheet
     }
     AppScaffold(modifier=Modifier.nestedScroll(scroll.nestedScrollConnection),topBar={Column{GlassMediumFlexibleTopAppBar(
         title=stringResource(R.string.rss_source_edit),navigationIcon={TopBarNavigationButton(onClick=onBack)},scrollBehavior=scroll,
-        actions={TopBarActionButton({onIntent(RssSourceEditIntent.SaveDebug)},Icons.Default.BugReport,stringResource(R.string.debug_source));TopBarActionButton({menu=true},Icons.Default.MoreVert,stringResource(R.string.more_menu));RssEditMenu(menu,{menu=false},onIntent)}
+        actions={TopBarActionButton({onIntent(RssSourceEditIntent.SaveDebug)},Symbols.BugReport,stringResource(R.string.debug_source));TopBarActionButton({menu=true},Symbols.MoreVert,stringResource(R.string.more_menu));RssEditMenu(menu,{menu=false},onIntent)}
     ); AppTabRow(
         tabs.map { stringResource(it.title) },
         state.selectedTab.ordinal,
@@ -74,7 +72,7 @@ import io.legado.app.ui.widget.components.variable.VariableEditorSheet
     )
     }
     },
-        floatingActionButton={AppFloatingActionButton({onIntent(RssSourceEditIntent.Save)},icon=Icons.Default.Save,tooltipText=stringResource(R.string.action_save))}){padding->
+        floatingActionButton={AppFloatingActionButton({onIntent(RssSourceEditIntent.Save)},icon=Symbols.Save,tooltipText=stringResource(R.string.action_save))}){padding->
         HorizontalPager(pager,Modifier.fillMaxSize()){page->val tab=tabs[page];LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(16.dp,padding.calculateTopPadding()+12.dp,16.dp,padding.calculateBottomPadding()+96.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
             if(tab==RssSourceEditTab.Base)item("options"){RssEditOptions(state,onIntent)}
             items(state.fields[tab].orEmpty(),key={it.path}){field->SourceEditFieldCard(field,Modifier.fillMaxWidth()){onIntent(RssSourceEditIntent.EditField(field.path))}}

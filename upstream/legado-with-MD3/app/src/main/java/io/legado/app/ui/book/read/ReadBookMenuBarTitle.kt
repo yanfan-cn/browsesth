@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.read
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -28,19 +31,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Payment
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.automirrored.filled.Toc
-import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -53,7 +43,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -189,7 +178,7 @@ internal fun MenuTitleBar(
             ) {
                 MenuTitleGlassButton(
                     onClick = { onIntent(ReadBookIntent.CloseReadBook()) },
-                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    icon = Symbols.ArrowBack,
                     contentDescription = stringResource(R.string.back),
                     state = state,
                     colors = colors,
@@ -292,7 +281,7 @@ internal fun MenuTitleBar(
                         onClick = {
                             onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreActions))
                         },
-                        icon = Icons.Default.MoreVert,
+                        icon = Symbols.MoreVert,
                         contentDescription = stringResource(R.string.more_actions),
                         state = state,
                         colors = colors,
@@ -370,7 +359,7 @@ internal fun MenuTitleBar(
                         ) {
                             if (!state.bookSource.loginUrl.isNullOrBlank()) {
                                 RoundDropdownMenuItem(
-                                    leadingIcon = { MenuItemIcon(Icons.AutoMirrored.Filled.Login) },
+                                    leadingIcon = { MenuItemIcon(Symbols.Login) },
                                     text = stringResource(R.string.login),
                                     onClick = {
                                         sourceMenuExpanded = false
@@ -380,7 +369,7 @@ internal fun MenuTitleBar(
                             }
                             if (!state.bookSource.getContentRule().payAction.isNullOrBlank()) {
                                 RoundDropdownMenuItem(
-                                    leadingIcon = { MenuItemIcon(Icons.Default.Payment) },
+                                    leadingIcon = { MenuItemIcon(Symbols.Payment) },
                                     text = stringResource(R.string.chapter_pay),
                                     onClick = {
                                         sourceMenuExpanded = false
@@ -389,7 +378,7 @@ internal fun MenuTitleBar(
                                 )
                             }
                             RoundDropdownMenuItem(
-                                leadingIcon = { MenuItemIcon(Icons.Default.Edit) },
+                                leadingIcon = { MenuItemIcon(Symbols.Edit) },
                                 text = stringResource(R.string.edit_source),
                                 onClick = {
                                     sourceMenuExpanded = false
@@ -397,7 +386,7 @@ internal fun MenuTitleBar(
                                 },
                             )
                             RoundDropdownMenuItem(
-                                leadingIcon = { MenuItemIcon(Icons.Default.Block) },
+                                leadingIcon = { MenuItemIcon(Symbols.Block) },
                                 text = stringResource(R.string.disable_source),
                                 onClick = {
                                     sourceMenuExpanded = false
@@ -418,7 +407,7 @@ internal fun MenuTitleBar(
 @Composable
 private fun MenuTitleGlassButton(
     onClick: () -> Unit,
-    icon: ImageVector,
+    icon: MaterialSymbol,
     state: ReadBookUiState,
     colors: ReadMenuColors,
     backdrop: Backdrop?,
@@ -446,7 +435,7 @@ private fun MenuTitleGlassButton(
 @Composable
 internal fun ReadMenuGlassIconButton(
     onClick: () -> Unit,
-    icon: ImageVector,
+    icon: MaterialSymbol,
     colors: ReadMenuColors,
     backdrop: Backdrop?,
     menuConfig: ReadMenuConfig,
@@ -471,8 +460,8 @@ internal fun ReadMenuGlassIconButton(
         menuBorderEnabled = menuBorderEnabled,
         contentDescription = contentDescription,
     ) { tint ->
-        Icon(
-            imageVector = icon,
+        SymbolIcon(
+            symbol = icon,
             contentDescription = null,
             tint = tint,
             modifier = Modifier.size(20.dp),
@@ -656,7 +645,7 @@ private fun RowScope.TitleCapsuleGlassLayout(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MergedGlassIconButton(
-    icon: ImageVector,
+    icon: MaterialSymbol,
     tint: Color,
     contentDescription: String?,
     onClick: () -> Unit,
@@ -686,8 +675,8 @@ private fun MergedGlassIconButton(
             )
             .semantics { contentDescription?.let { this.contentDescription = it } },
     ) {
-        Icon(
-            imageVector = icon,
+        SymbolIcon(
+            symbol = icon,
             contentDescription = null,
             tint = tint,
             modifier = Modifier.size(20.dp),
@@ -806,7 +795,7 @@ private fun MenuTitleBarMergedGlassButton(
             if (!state.isLocalBook && !compact) {
                 if (state.bookSource?.customButton == true) {
                     MergedGlassIconButton(
-                        icon = Icons.Default.Extension,
+                        icon = Symbols.Extension,
                         tint = tint,
                         contentDescription = stringResource(R.string.custom_button),
                         onClick = { onIntent(ReadBookIntent.SourceCustomButton(false)) },
@@ -816,7 +805,7 @@ private fun MenuTitleBarMergedGlassButton(
                 }
 
                 MergedGlassIconButton(
-                    icon = Icons.Default.SwapHoriz,
+                    icon = Symbols.SwapHoriz,
                     tint = tint,
                     contentDescription = stringResource(R.string.change_origin),
                     onClick = { onIntent(ReadBookIntent.MenuChangeSource) },
@@ -826,7 +815,7 @@ private fun MenuTitleBarMergedGlassButton(
 
                 // Refresh
                 MergedGlassIconButton(
-                    icon = Icons.Default.Refresh,
+                    icon = Symbols.Refresh,
                     tint = tint,
                     contentDescription = stringResource(R.string.menu_refresh_dur),
                     onClick = { onIntent(ReadBookIntent.MenuRefreshDur) },
@@ -836,7 +825,7 @@ private fun MenuTitleBarMergedGlassButton(
 
                 // Download
                 MergedGlassIconButton(
-                    icon = Icons.Default.CloudDownload,
+                    icon = Symbols.CloudDownload,
                     tint = tint,
                     contentDescription = stringResource(R.string.offline_cache),
                     onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.Download)) },
@@ -846,7 +835,7 @@ private fun MenuTitleBarMergedGlassButton(
                 // TXT directory rule
                 if (state.isLocalTxt) {
                     MergedGlassIconButton(
-                        icon = Icons.AutoMirrored.Filled.Toc,
+                        icon = Symbols.Toc,
                         tint = tint,
                         contentDescription = stringResource(R.string.txt_toc_rule),
                         onClick = { onIntent(ReadBookIntent.MenuTocRegex) },
@@ -856,7 +845,7 @@ private fun MenuTitleBarMergedGlassButton(
 
                 // Text encoding
                 MergedGlassIconButton(
-                    icon = Icons.Default.Translate,
+                    icon = Symbols.Translate,
                     tint = tint,
                     contentDescription = stringResource(R.string.set_charset),
                     onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.Charset)) },
@@ -911,7 +900,7 @@ private fun SourceCustomActionButton(
     MenuTitleGlassButton(
         onClick = { onIntent(ReadBookIntent.SourceCustomButton(false)) },
         onLongClick = { onIntent(ReadBookIntent.SourceCustomButton(true)) },
-        icon = Icons.Default.Extension,
+        icon = Symbols.Extension,
         contentDescription = stringResource(R.string.custom_button),
         state = state,
         colors = colors,
@@ -932,7 +921,7 @@ private fun SourceActionButton(
         MenuTitleGlassButton(
             onClick = { onIntent(ReadBookIntent.MenuChangeSource) },
             onLongClick = { expanded = true },
-            icon = Icons.Default.SwapHoriz,
+            icon = Symbols.SwapHoriz,
             contentDescription = stringResource(R.string.change_origin),
             state = state,
             colors = colors,
@@ -965,7 +954,7 @@ private fun RefreshActionButton(
         MenuTitleGlassButton(
             onClick = { onIntent(ReadBookIntent.MenuRefreshDur) },
             onLongClick = { expanded = true },
-            icon = Icons.Default.Refresh,
+            icon = Symbols.Refresh,
             contentDescription = stringResource(R.string.menu_refresh_dur),
             state = state,
             colors = colors,
@@ -994,7 +983,7 @@ private fun DownloadActionButton(
 ) {
     MenuTitleGlassButton(
         onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.Download)) },
-        icon = Icons.Default.CloudDownload,
+        icon = Symbols.CloudDownload,
         contentDescription = stringResource(R.string.offline_cache),
         state = state,
         colors = colors,
@@ -1011,7 +1000,7 @@ private fun TxtTocRuleActionButton(
 ) {
     MenuTitleGlassButton(
         onClick = { onIntent(ReadBookIntent.MenuTocRegex) },
-        icon = Icons.AutoMirrored.Filled.Toc,
+        icon = Symbols.Toc,
         contentDescription = stringResource(R.string.txt_toc_rule),
         state = state,
         colors = colors,
@@ -1028,7 +1017,7 @@ private fun CharsetActionButton(
 ) {
     MenuTitleGlassButton(
         onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.Charset)) },
-        icon = Icons.Default.Translate,
+        icon = Symbols.Translate,
         contentDescription = stringResource(R.string.set_charset),
         state = state,
         colors = colors,

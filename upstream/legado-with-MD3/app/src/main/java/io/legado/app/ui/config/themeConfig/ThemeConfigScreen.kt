@@ -1,5 +1,7 @@
 package io.legado.app.ui.config.themeConfig
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
@@ -25,13 +27,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.BrightnessMedium
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -127,7 +122,7 @@ fun ThemeConfigScreen(
             item {
                 val composeEngine = appShell.composeEngine
                 val isMiuixEngine = remember(composeEngine) {
-                    ThemeResolver.isMiuixEngine(composeEngine)
+                    false
                 }
                 val isDarkTheme = LegadoTheme.isDark
 
@@ -264,23 +259,12 @@ fun ThemeConfigScreen(
                         title = stringResource(R.string.font_setting),
                         onClick = { onIntent(ThemeConfigIntent.ShowSheet(ThemeConfigSheet.Font)) }
                     )
-                    if (theme.appTheme == "12" && (!isMiuixEngine || theme.useMiuixMonet)) {
+                    if (theme.appTheme == "12") {
                         ClickableSettingItem(
                             title = stringResource(R.string.custom_theme_colors),
                             onClick = onNavigateToCustomTheme
                         )
                     }
-                    DropdownListSettingItem(
-                        title = stringResource(R.string.compose_engine),
-                        selectedValue = appShell.composeEngine,
-                        displayEntries = stringArrayResource(R.array.composeEngine),
-                        entryValues = stringArrayResource(R.array.composeEngine_value),
-                        onValueChange = {
-                            onIntent(
-                                ThemeConfigIntent.SetComposeEngine(it)
-                            )
-                        }
-                    )
                     ClickableSettingItem(
                         title = stringResource(R.string.change_icon),
                         description = stringResource(R.string.change_icon_summary),
@@ -878,7 +862,7 @@ fun ThemeConfigScreen(
         show = state.activeSheet == ThemeConfigSheet.TopBottomBar,
         appShell = appShell,
         theme = theme,
-        isMiuixEngine = ThemeResolver.isMiuixEngine(appShell.composeEngine),
+        isMiuixEngine = false,
         onDismissRequest = { onIntent(ThemeConfigIntent.DismissSheet) },
         onIntent = onIntent,
     )
@@ -932,7 +916,7 @@ fun ThemeConfigScreen(
         onOpenFolderPicker = { onIntent(ThemeConfigIntent.RequestFontFolder) },
         startAction = {
             MediumTonalButton(
-                icon = Icons.Default.Delete,
+                icon = Symbols.Delete,
                 contentDescription = stringResource(R.string.clear),
                 onClick = {
                     onIntent(ThemeConfigIntent.ClearAppFont)
@@ -940,7 +924,7 @@ fun ThemeConfigScreen(
                 }
             )
         },
-        folderIcon = Icons.Default.Add,
+        folderIcon = Symbols.Add,
         folderContentDescription = stringResource(R.string.select_folder),
         emptyText = stringResource(R.string.theme_config_no_font_files),
     )
@@ -983,9 +967,9 @@ fun ThemeModeSelector(
     onModeSelected: (String) -> Unit
 ) {
     val modes = listOf(
-        Triple("0", stringResource(R.string.flow_sys), Icons.Filled.BrightnessMedium),
-        Triple("1", stringResource(R.string.light_mode), Icons.Filled.LightMode),
-        Triple("2", stringResource(R.string.dark_mode), Icons.Filled.DarkMode)
+        Triple("0", stringResource(R.string.flow_sys), Symbols.BrightnessMedium),
+        Triple("1", stringResource(R.string.light_mode), Symbols.LightMode),
+        Triple("2", stringResource(R.string.dark_mode), Symbols.DarkMode)
     )
 
     val selectedIndex = modes.indexOfFirst { it.first == selectedMode }
@@ -1008,7 +992,7 @@ fun ThemeModeSelector(
                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                 }
             ) {
-                Icon(imageVector = icon, contentDescription = null)
+                SymbolIcon(symbol = icon, contentDescription = null)
                 Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
                 Text(text = label, overflow = TextOverflow.Ellipsis, maxLines = 1)
             }
@@ -1138,8 +1122,7 @@ fun ThemeColorButton(
                             .clip(RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
+                        SymbolIcon(symbol = Symbols.Check,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(24.dp)

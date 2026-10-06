@@ -1,8 +1,8 @@
 package io.legado.app.ui.widget.components.effect
 
 import androidx.compose.ui.graphics.Color
-import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurBlendMode
+import io.legado.app.ui.util.BlendColorEntry
+import io.legado.app.ui.util.BlurBlendMode
 
 object ColorBlendToken {
     // Info Series

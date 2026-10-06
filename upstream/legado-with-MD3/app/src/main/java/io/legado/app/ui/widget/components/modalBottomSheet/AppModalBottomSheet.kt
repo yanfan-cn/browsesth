@@ -41,7 +41,6 @@ import io.legado.app.ui.theme.ProvideAppContentColor
 import io.legado.app.ui.theme.ProvideAppDensity
 import io.legado.app.ui.theme.ThemeResolver
 import io.legado.app.ui.widget.components.menuItem.LocalUseMiuixWindowPopup
-import top.yukonga.miuix.kmp.window.WindowBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -63,69 +62,7 @@ fun AppModalBottomSheet(
     val sheetContentColor = LegadoTheme.colorScheme.onSurface
     val sheetDragHandleColor = LegadoTheme.colorScheme.onSurfaceVariant
 
-    if (ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)) {
-        WindowBottomSheet(
-            show = show,
-            modifier = modifier,
-            title = title,
-            startAction = startAction?.let { action ->
-                {
-                    ProvideAppDensity {
-                        ProvideAppContentColor(sheetContentColor) {
-                            CompositionLocalProvider(LocalUseMiuixWindowPopup provides true) {
-                                Box(
-                                    modifier = if (contentPaddingEnabled) Modifier
-                                    else Modifier.padding(start = 16.dp),
-                                ) { action() }
-                            }
-                        }
-                    }
-                }
-            },
-            endAction = endAction?.let { action ->
-                {
-                    ProvideAppDensity {
-                        ProvideAppContentColor(sheetContentColor) {
-                            CompositionLocalProvider(LocalUseMiuixWindowPopup provides true) {
-                                Box(
-                                    modifier = if (contentPaddingEnabled) Modifier
-                                    else Modifier.padding(end = 16.dp),
-                                ) { action() }
-                            }
-                        }
-                    }
-                }
-            },
-            insideMargin = if (contentPaddingEnabled) DpSize(16.dp, 0.dp) else DpSize(0.dp, 0.dp),
-            backgroundColor = sheetContainerColor,
-            dragHandleColor = sheetDragHandleColor,
-            onDismissRequest = onDismissRequest,
-            enableWindowDim = true,
-        ) {
-            ProvideAppDensity {
-                ProvideAppContentColor(sheetContentColor) {
-                    CompositionLocalProvider(LocalUseMiuixWindowPopup provides true) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .let {
-                                    if (contentPaddingEnabled) {
-                                        it.padding(bottom = 24.dp)
-                                    } else {
-                                        it.navigationBarsPadding()
-                                    }
-                                }
-                                .let { contentModifier ->
-                                    if (animateContentSize) contentModifier.animateContentSize() else contentModifier
-                                },
-                            content = content
-                        )
-                    }
-                }
-            }
-        }
-    } else {
-        if (show) {
+    if (show) {
             val sheetState = rememberBottomSheetState(
                 initialValue = Hidden,
                 enabledValues = setOf(Hidden, Expanded)
@@ -226,7 +163,6 @@ fun AppModalBottomSheet(
                 }
             }
         }
-    }
 }
 
 /**

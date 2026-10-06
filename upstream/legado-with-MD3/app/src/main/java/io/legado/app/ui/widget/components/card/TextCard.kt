@@ -1,5 +1,6 @@
 package io.legado.app.ui.widget.components.card
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -12,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -27,7 +27,7 @@ import io.legado.app.ui.widget.components.text.AnimatedTextLine
 fun TextCard(
     modifier: Modifier = Modifier,
     text: String? = null,
-    icon: ImageVector? = null,
+    icon: MaterialSymbol? = null,
     onClick: (() -> Unit)? = null,
     backgroundColor: Color? = null,
     contentColor: Color? = null,
@@ -65,7 +65,7 @@ fun TextCard(
 
             if (icon != null) {
                 AppIcon(
-                    imageVector = icon,
+                    symbol = icon,
                     contentDescription = null,
                     tint = finalContentColor,
                     modifier = Modifier.size(iconSize)

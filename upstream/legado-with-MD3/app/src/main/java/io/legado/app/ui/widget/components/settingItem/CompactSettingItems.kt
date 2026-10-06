@@ -1,13 +1,13 @@
 package io.legado.app.ui.widget.components.settingItem
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -23,7 +23,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
@@ -34,12 +33,6 @@ import io.legado.app.ui.widget.components.ValueStepper
 import io.legado.app.ui.widget.components.card.TextCard
 import io.legado.app.ui.widget.components.menuItem.RoundDropdownMenuItem
 import io.legado.app.ui.widget.components.sliderAccessibility
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.preference.WindowDropdownPreference
-import top.yukonga.miuix.kmp.basic.Slider as MiuixSlider
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -49,40 +42,18 @@ fun CompactDropdownSettingItem(
     displayEntries: Array<String>,
     entryValues: Array<String>,
     description: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     color: Color? = LegadoTheme.colorScheme.onSheetContent,
     cornerRadius: androidx.compose.ui.unit.Dp = 8.dp,
     onValueChange: (String) -> Unit
 ) {
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        val selectedIndex = entryValues.indexOf(selectedValue).coerceAtLeast(0)
-        val spinnerItems = displayEntries.toList()
-
-        WindowDropdownPreference(
-            title = title,
-            summary = description,
-            items = spinnerItems,
-            selectedIndex = selectedIndex,
-            startAction = imageVector?.let { icon ->
-                {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null
-                    )
-                }
-            },
-            onSelectedIndexChange = { index ->
-                onValueChange(entryValues[index])
-            }
-        )
-    } else {
-        val currentEntry =
+    val currentEntry =
             displayEntries.getOrNull(entryValues.indexOf(selectedValue)) ?: selectedValue
 
         SettingItem(
             title = title,
             description = description,
-            imageVector = imageVector,
+            symbol = symbol,
             color = color,
             cornerRadius = cornerRadius,
             trailingContent = {
@@ -105,8 +76,7 @@ fun CompactDropdownSettingItem(
                         },
                         trailingIcon = if (selectedValue == entryValues[index]) {
                             {
-                                Icon(
-                                    Icons.Default.Check,
+                                SymbolIcon(Symbols.Check,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -116,7 +86,6 @@ fun CompactDropdownSettingItem(
                 }
             }
         )
-    }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -127,7 +96,7 @@ fun CompactSliderSettingItem(
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int = 0,
     description: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     color: Color? = LegadoTheme.colorScheme.onSheetContent,
     cornerRadius: androidx.compose.ui.unit.Dp = 8.dp,
     onValueChange: (Float) -> Unit
@@ -138,54 +107,10 @@ fun CompactSliderSettingItem(
     var displayValue by remember(value) { mutableFloatStateOf(value) }
     val sliderAccessibilityValue = description ?: displayValue.toString()
 
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            BasicComponent(
-                title = title,
-                summary = description,
-                onClick = { expanded = !expanded },
-                endActions = {
-                    ValueStepper(
-                        value = value,
-                        displayValue = displayValue,
-                        valueRange = valueRange,
-                        onValueChange = onValueChange
-                    )
-                }
-            )
-
-            AnimatedVisibility(visible = expanded) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    MiuixSlider(
-                        value = sliderValue,
-                        onValueChange = {
-                            sliderValue = it
-                            displayValue = it
-                        },
-                        onValueChangeFinished = {
-                            onValueChange(sliderValue)
-                        },
-                        valueRange = valueRange,
-                        steps = steps,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .sliderAccessibility(
-                                label = title,
-                                value = sliderAccessibilityValue,
-                            )
-                    )
-                }
-            }
-        }
-    } else {
-        SettingItem(
+    SettingItem(
             title = title,
             description = description,
-            imageVector = imageVector,
+            symbol = symbol,
             color = color,
             cornerRadius = cornerRadius,
             expanded = expanded,
@@ -219,7 +144,6 @@ fun CompactSliderSettingItem(
                 )
             }
         )
-    }
 
     LaunchedEffect(value) {
         if (!expanded) {
@@ -234,26 +158,16 @@ fun CompactSwitchSettingItem(
     title: String,
     checked: Boolean,
     description: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     color: Color? = LegadoTheme.colorScheme.onSheetContent,
     cornerRadius: androidx.compose.ui.unit.Dp = 8.dp,
     enabled: Boolean = true,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        SwitchPreference(
-            title = title,
-            summary = description,
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            modifier = Modifier,
-            enabled = enabled,
-        )
-    } else {
-        SettingItem(
+    SettingItem(
             title = title,
             description = description,
-            imageVector = imageVector,
+            symbol = symbol,
             color = color,
             cornerRadius = cornerRadius,
             enabled = enabled,
@@ -271,41 +185,30 @@ fun CompactSwitchSettingItem(
                 )
             }
         )
-    }
 }
 
 @Composable
 fun CompactClickableSettingItem(
     title: String,
     description: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     color: Color? = LegadoTheme.colorScheme.onSheetContent,
     cornerRadius: androidx.compose.ui.unit.Dp = 8.dp,
     trailingContent: (@Composable () -> Unit)? = null,
     onClick: () -> Unit
 ) {
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        ArrowPreference(
-            title = title,
-            summary = description,
-            insideMargin = BasicComponentDefaults.InsideMargin,
-            onClick = onClick
-        )
-    } else {
-        SettingItem(
+    SettingItem(
             title = title,
             description = description,
-            imageVector = imageVector,
+            symbol = symbol,
             color = color,
             cornerRadius = cornerRadius,
             trailingContent = trailingContent ?: {
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
+                SymbolIcon(symbol = Symbols.ChevronRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             onClick = onClick
         )
-    }
 }

@@ -1,5 +1,7 @@
 package io.legado.app.ui.config.coverConfig
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -19,12 +21,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
@@ -134,7 +130,7 @@ fun CoverAlbumManageScreen(
                 actions = {
                     TopBarActionButton(
                         onClick = { onIntent(CoverAlbumIntent.CreateClick) },
-                        imageVector = Icons.Default.Add,
+                        symbol = Symbols.Add,
                         contentDescription = stringResource(R.string.cover_album_create),
                     )
                 },
@@ -153,7 +149,7 @@ fun CoverAlbumManageScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     AppIcon(
-                        imageVector = Icons.Outlined.Collections,
+                        symbol = Symbols.Collections,
                         contentDescription = null,
                         modifier = Modifier.size(48.dp),
                         tint = LegadoTheme.colorScheme.onSurfaceVariant,
@@ -248,7 +244,7 @@ private fun CoverAlbumCard(
                     )
                 } else {
                     AppIcon(
-                        imageVector = Icons.Outlined.Collections,
+                        symbol = Symbols.Collections,
                         contentDescription = null,
                         tint = LegadoTheme.colorScheme.onSurfaceVariant,
                     )
@@ -283,12 +279,12 @@ private fun CoverAlbumCard(
             Column {
                 SmallPlainButton(
                     onClick = onRename,
-                    icon = Icons.Default.Edit,
+                    icon = Symbols.Edit,
                     contentDescription = stringResource(R.string.cover_album_rename),
                 )
                 SmallPlainButton(
                     onClick = onDelete,
-                    icon = Icons.Default.Delete,
+                    icon = Symbols.Delete,
                     contentDescription = stringResource(R.string.cover_album_delete),
                 )
             }
@@ -312,7 +308,7 @@ private fun CoverAlbumEditorSheet(
         endAction = {
             MediumTonalButton(
                 onClick = { onAddImages(isDark) },
-                icon = Icons.Default.Add,
+                icon = Symbols.Add,
                 contentDescription = stringResource(R.string.cover_album_add_images),
             )
         },
@@ -369,7 +365,7 @@ private fun CoverAlbumEditorSheet(
                         shape = CircleShape,
                     ) {
                         AppIcon(
-                            imageVector = Icons.Default.Close,
+                            symbol = Symbols.Close,
                             contentDescription = stringResource(R.string.delete),
                             modifier = Modifier.size(16.dp),
                         )

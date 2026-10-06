@@ -32,6 +32,13 @@ class BrowserChromePrefs(context: Context) {
         get() = prefs.getString(KEY_WALLPAPER_DATE, "").orEmpty()
         set(value) = prefs.edit().putString(KEY_WALLPAPER_DATE, value).apply()
 
+    /**
+     * SPEC-043: webpage Force Dark — off | auto | on
+     */
+    var webContentDarkMode: String
+        get() = prefs.getString(KEY_WEB_DARK, "auto") ?: "auto"
+        set(value) = prefs.edit().putString(KEY_WEB_DARK, value).apply()
+
     companion object {
         private const val PREFS = "browsesth_browser_chrome"
         private const val KEY_UA = "ua_mode"
@@ -39,5 +46,10 @@ class BrowserChromePrefs(context: Context) {
         private const val KEY_WALLPAPER = "daily_wallpaper"
         private const val KEY_WALLPAPER_URL = "wallpaper_url"
         private const val KEY_WALLPAPER_DATE = "wallpaper_date"
+        private const val KEY_WEB_DARK = "web_content_dark_mode"
+
+        const val WEB_DARK_OFF = "off"
+        const val WEB_DARK_AUTO = "auto"
+        const val WEB_DARK_ON = "on"
     }
 }

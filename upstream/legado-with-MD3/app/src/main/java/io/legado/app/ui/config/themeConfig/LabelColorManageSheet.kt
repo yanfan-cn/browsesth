@@ -1,15 +1,12 @@
 package io.legado.app.ui.config.themeConfig
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -65,7 +62,7 @@ fun LabelColorManageSheet(
                     tagColors.addAll(generatedColors)
                     onColorsChange(tagColors.toList())
                 },
-                icon = Icons.Default.AutoAwesome,
+                icon = Symbols.AutoAwesome,
                 contentDescription = stringResource(R.string.ai_generate)
             )
         },
@@ -77,7 +74,7 @@ fun LabelColorManageSheet(
                     editingTextColor = 0
                     showColorPicker = true
                 },
-                icon = Icons.Default.Add,
+                icon = Symbols.Add,
                 contentDescription = stringResource(R.string.add)
             )
         }
@@ -120,7 +117,7 @@ fun LabelColorManageSheet(
                                     editingTextColor = colorPair.textColor
                                     showColorPicker = true
                                 },
-                                icon = Icons.Default.Edit,
+                                icon = Symbols.Edit,
                                 contentDescription = stringResource(R.string.edit)
                             )
                             SmallPlainButton(
@@ -128,7 +125,7 @@ fun LabelColorManageSheet(
                                     tagColors.removeAt(index)
                                     onColorsChange(tagColors.toList())
                                 },
-                                icon = Icons.Default.Delete,
+                                icon = Symbols.Delete,
                                 contentDescription = stringResource(R.string.delete)
                             )
                         }

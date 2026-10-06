@@ -33,6 +33,8 @@ object WebArticleChromeFilter {
     fun isChromeLine(line: String): Boolean {
         val t = line.trim()
         if (t.isEmpty()) return true
+        // SPEC-041: keep in-body images for mixed layout.
+        if (t.contains("<img", ignoreCase = true)) return false
         if (t.length <= 24 && (exactLine.contains(t) || exactLine.contains(t.lowercase()))) return true
         // Compact nav rows: 首页 | 目录 | 书架
         if (t.length <= 40 && (t.contains('|') || t.contains('·') || t.contains('/'))) {

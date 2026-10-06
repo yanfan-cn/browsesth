@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.read
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloatAsState
@@ -28,21 +31,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.automirrored.outlined.VolumeUp
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.Bookmark
-import androidx.compose.material.icons.outlined.BorderColor
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.FindReplace
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.VerticalDivider
@@ -57,7 +45,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.LocalDensity
@@ -334,8 +321,7 @@ private fun MultiLineMenuView(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.Settings,
+            SymbolIcon(symbol = Symbols.Settings,
                 contentDescription = stringResource(R.string.edit_menu_items),
                 tint = LegadoTheme.colorScheme.onSurface,
                 modifier = Modifier.size(16.dp)
@@ -405,8 +391,7 @@ private fun QuickMenuView(
                 .padding(start = 12.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = if (hasMore) Icons.Default.MoreVert else Icons.Default.Settings,
+            SymbolIcon(symbol = if (hasMore) Symbols.MoreVert else Symbols.Settings,
                 contentDescription = stringResource(if (hasMore) R.string.more_menu else R.string.setting),
                 tint = LegadoTheme.colorScheme.onSurface,
                 modifier = Modifier.size(16.dp)
@@ -438,8 +423,7 @@ private fun QuickMenuItem(
     ) {
         val builtInIcon = if (showIcon) item.builtInIcon() else null
         if (builtInIcon != null) {
-            Icon(
-                imageVector = builtInIcon,
+            SymbolIcon(symbol = builtInIcon,
                 contentDescription = item.title,
                 tint = LegadoTheme.colorScheme.onSurface,
                 modifier = Modifier.size(16.dp),
@@ -484,8 +468,7 @@ private fun MoreMenuView(
                 .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
             contentAlignment = Alignment.CenterStart
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            SymbolIcon(symbol = Symbols.ArrowBack,
                 contentDescription = stringResource(R.string.back),
                 tint = LegadoTheme.colorScheme.onSurface,
                 modifier = Modifier.size(20.dp)
@@ -526,8 +509,7 @@ private fun MoreMenuView(
                 .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.Settings,
+            SymbolIcon(symbol = Symbols.Settings,
                 contentDescription = stringResource(R.string.edit_menu_items),
                 tint = LegadoTheme.colorScheme.onSurface,
                 modifier = Modifier
@@ -557,8 +539,7 @@ private fun MoreMenuItem(
     ) {
         val builtInIcon = if (showIcon) item.builtInIcon() else null
         if (builtInIcon != null) {
-            Icon(
-                imageVector = builtInIcon,
+            SymbolIcon(symbol = builtInIcon,
                 contentDescription = item.title,
                 tint = LegadoTheme.colorScheme.onSurface,
                 modifier = Modifier.size(20.dp),
@@ -580,18 +561,18 @@ private fun MoreMenuItem(
     }
 }
 
-private fun ActionMenuItem.builtInIcon(): ImageVector? = when (id) {
-    R.id.menu_copy -> Icons.Outlined.ContentCopy
-    R.id.menu_share_str -> Icons.Outlined.Share
-    R.id.menu_browser -> Icons.Outlined.Language
-    R.id.menu_aloud -> Icons.AutoMirrored.Outlined.VolumeUp
-    R.id.menu_bookmark -> Icons.Outlined.Bookmark
-    R.id.menu_mark -> Icons.Outlined.BorderColor
-    R.id.menu_dict -> Icons.AutoMirrored.Outlined.MenuBook
-    R.id.menu_replace -> Icons.Outlined.FindReplace
-    R.id.menu_edit -> Icons.Outlined.Edit
-    R.id.menu_ai_clean, R.id.menu_ai_rewrite -> Icons.Outlined.SmartToy
-    R.id.menu_search_content -> Icons.Outlined.Search
+private fun ActionMenuItem.builtInIcon(): MaterialSymbol? = when (id) {
+    R.id.menu_copy -> Symbols.ContentCopy
+    R.id.menu_share_str -> Symbols.Share
+    R.id.menu_browser -> Symbols.Language
+    R.id.menu_aloud -> Symbols.VolumeUp
+    R.id.menu_bookmark -> Symbols.Bookmark
+    R.id.menu_mark -> Symbols.BorderColor
+    R.id.menu_dict -> Symbols.MenuBook
+    R.id.menu_replace -> Symbols.FindReplace
+    R.id.menu_edit -> Symbols.Edit
+    R.id.menu_ai_clean, R.id.menu_ai_rewrite -> Symbols.SmartToy
+    R.id.menu_search_content -> Symbols.Search
     else -> null
 }
 

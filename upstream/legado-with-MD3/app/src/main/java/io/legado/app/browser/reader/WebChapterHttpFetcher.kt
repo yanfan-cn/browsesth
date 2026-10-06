@@ -128,6 +128,13 @@ object WebChapterHttpFetcher {
         return extractArticleText(html)
     }
 
+    /** SPEC-041: neighbor chapters keep in-body images for mixed layout. */
+    fun fetchNovelChapterHtml(chapterUrl: String, connectTimeoutMs: Int = 8000): String {
+        val html = fetchText(chapterUrl, connectTimeoutMs) ?: return ""
+        val mixed = extractArticleHtml(html, chapterUrl)
+        return mixed.ifBlank { extractArticleText(html) }
+    }
+
     fun fetchText(url: String, connectTimeoutMs: Int): String? {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
@@ -192,6 +199,66 @@ object WebChapterHttpFetcher {
             .trim()
         if (t.length > 200_000) t = t.take(200_000)
         return t
+    }
+
+    /**
+     * SPEC-041: keep paragraph breaks and http(s) img tags for the text reader.
+     */
+    fun extractArticleHtml(html: String, baseUrl: String): String {
+        var t = html
+            .replace(Regex("(?is)<script[^>]*>.*?</script>"), " ")
+            .replace(Regex("(?is)<style[^>]*>.*?</style>"), " ")
+            .replace(Regex("(?is)<!--.*?-->"), " ")
+        val blocks = ArrayList<String>()
+        val token = Regex(
+            """(?is)(<img\b[^>]*>)|(<br\s*/?>)|(</p>)|(</div>)|(</h[1-6]>)|(</li>)|(</blockquote>)""",
+        )
+        var last = 0
+        val matcher = token.findAll(t)
+        fun flushText(chunk: String) {
+            val plain = chunk
+                .replace(Regex("(?is)<[^>]+>"), " ")
+                .replace(Regex("&nbsp;"), " ")
+                .replace(Regex("&lt;"), "<")
+                .replace(Regex("&gt;"), ">")
+                .replace(Regex("&amp;"), "&")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+            if (plain.length >= 2) {
+                blocks += "<p>${plain.replace("<", "&lt;").replace(">", "&gt;")}</p>"
+            }
+        }
+        for (m in matcher) {
+            flushText(t.substring(last, m.range.first))
+            val tok = m.value
+            when {
+                tok.startsWith("<img", ignoreCase = true) -> {
+                    val srcM = Regex(
+                        """(?i)(?:src|data-src|data-original|data-lazy-src)\s*=\s*["']([^"']+)["']""",
+                    ).find(tok)
+                    val raw = srcM?.groupValues?.getOrNull(1)?.trim().orEmpty()
+                    val first = raw.split(',').firstOrNull()?.trim()?.substringBefore(' ')?.trim().orEmpty()
+                    if (!first.startsWith("data:")) {
+                        val abs = absUrl(baseUrl, first)
+                        if (abs != null && abs.startsWith("http") && !looksLikeChromeImage(abs)) {
+                            blocks += """<img src="$abs">"""
+                        }
+                    }
+                }
+                else -> { /* block boundary already flushed text */ }
+            }
+            last = m.range.last + 1
+        }
+        flushText(t.substring(last))
+        var out = blocks.joinToString("\n").trim()
+        if (out.length > 200_000) out = out.take(200_000)
+        return out
+    }
+
+    private fun looksLikeChromeImage(url: String): Boolean {
+        val u = url.lowercase()
+        return listOf("avatar", "/icon", "logo", "emoji", "sprite", "/ads/", "banner", "1x1", "pixel")
+            .any { u.contains(it) }
     }
 
     private fun absUrl(base: String, rel: String): String? = try {

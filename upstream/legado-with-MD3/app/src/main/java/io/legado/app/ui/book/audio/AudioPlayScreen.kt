@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.audio
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
@@ -25,30 +28,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Crop
-import androidx.compose.material.icons.filled.CropFree
-import androidx.compose.material.icons.filled.CropSquare
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FastForward
-import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOne
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.WbTwilight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -62,7 +41,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -104,7 +82,6 @@ import io.legado.app.ui.widget.components.player.PlayerTocPage
 import io.legado.app.ui.widget.components.player.playerBgModeLabel
 import io.legado.app.ui.widget.components.text.AppText
 import kotlinx.coroutines.flow.first
-import top.yukonga.miuix.kmp.blur.layerBackdrop
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -185,7 +162,7 @@ fun AudioPlayScreenContent(
                             RoundDropdownMenuItem(
                                 text = stringResource(R.string.change_origin),
                                 leadingIcon = {
-                                    MenuItemIcon(Icons.Default.SwapHoriz)
+                                    MenuItemIcon(Symbols.SwapHoriz)
                                 },
                                 onClick = {
                                     dismiss()
@@ -196,7 +173,7 @@ fun AudioPlayScreenContent(
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.login),
                                     leadingIcon = {
-                                        MenuItemIcon(Icons.AutoMirrored.Filled.Login)
+                                        MenuItemIcon(Symbols.Login)
                                     },
                                     onClick = {
                                         dismiss()
@@ -207,7 +184,7 @@ fun AudioPlayScreenContent(
                             RoundDropdownMenuItem(
                                 text = stringResource(R.string.copy_play_url),
                                 leadingIcon = {
-                                    MenuItemIcon(Icons.Default.ContentCopy)
+                                    MenuItemIcon(Symbols.ContentCopy)
                                 },
                                 onClick = {
                                     dismiss()
@@ -217,7 +194,7 @@ fun AudioPlayScreenContent(
                             RoundDropdownMenuItem(
                                 text = stringResource(R.string.edit_book_source),
                                 leadingIcon = {
-                                    MenuItemIcon(Icons.Default.Edit)
+                                    MenuItemIcon(Symbols.Edit)
                                 },
                                 onClick = {
                                     dismiss()
@@ -227,7 +204,7 @@ fun AudioPlayScreenContent(
                             RoundDropdownMenuItem(
                                 text = stringResource(R.string.audio_play_skip_credits),
                                 leadingIcon = {
-                                    MenuItemIcon(Icons.Default.FastForward)
+                                    MenuItemIcon(Symbols.FastForward)
                                 },
                                 onClick = {
                                     dismiss()
@@ -237,7 +214,7 @@ fun AudioPlayScreenContent(
                             RoundDropdownMenuItem(
                                 text = stringResource(R.string.audio_play_gain),
                                 leadingIcon = {
-                                    MenuItemIcon(Icons.AutoMirrored.Filled.VolumeUp)
+                                    MenuItemIcon(Symbols.VolumeUp)
                                 },
                                 onClick = {
                                     dismiss()
@@ -247,7 +224,7 @@ fun AudioPlayScreenContent(
                             RoundDropdownMenuItem(
                                 text = stringResource(R.string.audio_play_cover_ratio),
                                 leadingIcon = {
-                                    MenuItemIcon(Icons.Default.Crop)
+                                    MenuItemIcon(Symbols.Crop)
                                 },
                                 onClick = {
                                     dismiss()
@@ -257,7 +234,7 @@ fun AudioPlayScreenContent(
                             RoundDropdownMenuItem(
                                 text = stringResource(R.string.audio_play_wake_lock),
                                 leadingIcon = {
-                                    MenuItemIcon(Icons.Default.Lock)
+                                    MenuItemIcon(Symbols.Lock)
                                 },
                                 isSelected = state.wakeLockEnabled,
                                 onClick = {
@@ -268,7 +245,7 @@ fun AudioPlayScreenContent(
                             RoundDropdownMenuItem(
                                 text = stringResource(R.string.system_media_control_compatibility_change),
                                 leadingIcon = {
-                                    MenuItemIcon(Icons.Default.Headphones)
+                                    MenuItemIcon(Symbols.Headphones)
                                 },
                                 isSelected = state.mediaControlEnabled,
                                 onClick = {
@@ -279,7 +256,7 @@ fun AudioPlayScreenContent(
                             RoundDropdownMenuItem(
                                 text = stringResource(R.string.log),
                                 leadingIcon = {
-                                    MenuItemIcon(Icons.Default.Info)
+                                    MenuItemIcon(Symbols.Info)
                                 },
                                 onClick = {
                                     dismiss()
@@ -348,7 +325,7 @@ fun AudioPlayScreenContent(
                     MediumPlainButton(
                         onClick = { onIntent(AudioPlayIntent.PreviousChapter) },
                         enabled = state.canPrevious,
-                        icon = Icons.Default.SkipPrevious,
+                        icon = Symbols.SkipPrevious,
                         contentDescription = stringResource(R.string.previous_chapter),
                     )
                     AnimatedPlayPauseButton(
@@ -363,7 +340,7 @@ fun AudioPlayScreenContent(
                     MediumPlainButton(
                         onClick = { onIntent(AudioPlayIntent.NextChapter) },
                         enabled = state.canNext,
-                        icon = Icons.Default.SkipNext,
+                        icon = Symbols.SkipNext,
                         contentDescription = stringResource(R.string.next_chapter),
                     )
                 }
@@ -376,7 +353,7 @@ fun AudioPlayScreenContent(
                     SmallAnimatedButton(
                         containerColor = Color.Transparent,
                         checked = false,
-                        icon = Icons.Default.WbTwilight,
+                        icon = Symbols.WbTwilight,
                         text = playerBgModeLabel(state.bgMode),
                         contentDescription = playerBgModeLabel(state.bgMode),
                         onCheckedChange = { onIntent(AudioPlayIntent.CycleBgMode) },
@@ -392,7 +369,7 @@ fun AudioPlayScreenContent(
                     SmallAnimatedButton(
                         containerColor = Color.Transparent,
                         checked = false,
-                        icon = Icons.Default.Speed,
+                        icon = Symbols.Speed,
                         text = stringResource(R.string.audio_play_speed),
                         contentDescription = stringResource(R.string.audio_play_speed),
                         onCheckedChange = {
@@ -402,7 +379,7 @@ fun AudioPlayScreenContent(
                     SmallAnimatedButton(
                         containerColor = Color.Transparent,
                         checked = false,
-                        icon = Icons.Default.Timer,
+                        icon = Symbols.Timer,
                         text = stringResource(R.string.set_timer),
                         contentDescription = stringResource(R.string.set_timer),
                         onCheckedChange = {
@@ -424,11 +401,7 @@ fun AudioPlayScreenContent(
                 path = state.coverPath,
                 sourceOrigin = state.sourceOrigin,
                 bgMode = state.bgMode,
-                modifier = if (flowingLightActive && textBackdrop != null) {
-                    Modifier.layerBackdrop(textBackdrop)
-                } else {
-                    Modifier
-                },
+                modifier = Modifier,
             )
             HorizontalPager(
                 state = horizontalPagerState,
@@ -655,7 +628,7 @@ private fun AudioCoverRatioSheet(
         title = stringResource(R.string.audio_play_cover_ratio),
     ) {
         OptionCard(
-            icon = Icons.Default.CropSquare,
+            icon = Symbols.CropSquare,
             text = stringResource(R.string.cover_ratio_square),
             onClick = {
                 onDismissRequest()
@@ -663,7 +636,7 @@ private fun AudioCoverRatioSheet(
             },
         )
         OptionCard(
-            icon = Icons.Default.RadioButtonUnchecked,
+            icon = Symbols.RadioButtonUnchecked,
             text = stringResource(R.string.cover_ratio_circle),
             onClick = {
                 onDismissRequest()
@@ -671,7 +644,7 @@ private fun AudioCoverRatioSheet(
             },
         )
         OptionCard(
-            icon = Icons.Default.Book,
+            icon = Symbols.Book,
             text = stringResource(R.string.cover_ratio_book),
             onClick = {
                 onDismissRequest()
@@ -679,7 +652,7 @@ private fun AudioCoverRatioSheet(
             },
         )
         OptionCard(
-            icon = Icons.Default.CropFree,
+            icon = Symbols.CropFree,
             text = stringResource(R.string.cover_ratio_unrestricted),
             onClick = {
                 onDismissRequest()
@@ -853,9 +826,9 @@ private fun playModeContentDescription(mode: AudioPlay.PlayMode): String = when 
     AudioPlay.PlayMode.LIST_LOOP -> stringResource(R.string.audio_play_mode_loop)
 }
 
-private fun playModeIcon(mode: AudioPlay.PlayMode): ImageVector = when (mode) {
-    AudioPlay.PlayMode.LIST_END_STOP -> Icons.AutoMirrored.Filled.PlaylistPlay
-    AudioPlay.PlayMode.SINGLE_LOOP -> Icons.Default.RepeatOne
-    AudioPlay.PlayMode.RANDOM -> Icons.Default.Shuffle
-    AudioPlay.PlayMode.LIST_LOOP -> Icons.Default.Repeat
+private fun playModeIcon(mode: AudioPlay.PlayMode): MaterialSymbol = when (mode) {
+    AudioPlay.PlayMode.LIST_END_STOP -> Symbols.PlaylistPlay
+    AudioPlay.PlayMode.SINGLE_LOOP -> Symbols.RepeatOne
+    AudioPlay.PlayMode.RANDOM -> Symbols.Shuffle
+    AudioPlay.PlayMode.LIST_LOOP -> Symbols.Repeat
 }

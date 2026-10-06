@@ -23,10 +23,7 @@ import io.legado.app.ui.theme.LegadoTheme.composeEngine
 import io.legado.app.ui.theme.ThemeResolver
 import io.legado.app.ui.widget.components.topbar.GlassTopAppBarScrollBehavior
 import io.legado.app.ui.widget.components.topbar.M3GlassScrollBehavior
-import io.legado.app.ui.widget.components.topbar.MiuixGlassScrollBehavior
 import kotlinx.coroutines.delay
-import top.yukonga.miuix.kmp.basic.PullToRefresh as MiuixPullToRefresh
-import top.yukonga.miuix.kmp.basic.rememberPullToRefreshState as miuixRememberPullToRefreshState
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -39,41 +36,7 @@ fun AppPullToRefresh(
     scrollBehavior: GlassTopAppBarScrollBehavior? = null,
     content: @Composable () -> Unit,
 ) {
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        // Let the miuix library handle gesture/animation, but skip the persistent
-        // Refreshing state that blocks all scroll events.
-        // localIsRefreshing is true only briefly so the indicator shows then hides,
-        // while the actual refresh runs independently.
-        var localIsRefreshing by remember { mutableStateOf(false) }
-
-        LaunchedEffect(localIsRefreshing) {
-            if (localIsRefreshing) {
-                delay(300)
-                localIsRefreshing = false
-            }
-        }
-
-        MiuixPullToRefresh(
-            isRefreshing = localIsRefreshing,
-            onRefresh = {
-                localIsRefreshing = true
-                onRefresh()
-            },
-            modifier = modifier,
-            contentPadding = PaddingValues(top = topPadding + 16.dp),
-            pullToRefreshState = miuixRememberPullToRefreshState(),
-            topAppBarScrollBehavior = (scrollBehavior as? MiuixGlassScrollBehavior)?.miuixBehavior,
-            refreshTexts = listOf(
-                stringResource(R.string.pull_to_refresh),
-                stringResource(R.string.release_to_refresh),
-                stringResource(R.string.refreshing),
-                stringResource(R.string.refreshing)
-            )
-        ) {
-            content()
-        }
-    } else {
-        val state = rememberPullToRefreshState()
+    val state = rememberPullToRefreshState()
         val actualEnabled = enabled && (
                 isRefreshing ||
                 state.distanceFraction > 0f ||
@@ -103,5 +66,4 @@ fun AppPullToRefresh(
         ) {
             content()
         }
-    }
 }

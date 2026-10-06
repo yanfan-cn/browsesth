@@ -10,14 +10,14 @@ import io.legado.app.ui.theme.LegadoTheme.composeEngine
 
 @Composable
 fun Modifier.adaptiveHorizontalPadding(): Modifier {
-    val horizontal = if (ThemeResolver.isMiuixEngine(composeEngine)) 12.dp else 16.dp
+    val horizontal = 16.dp
     return this.padding(horizontal = horizontal)
 }
 
 @Composable
 fun Modifier.adaptiveHorizontalPaddingTab(): Modifier {
-    val start = if (ThemeResolver.isMiuixEngine(composeEngine)) 12.dp else 0.dp
-    val end = if (ThemeResolver.isMiuixEngine(composeEngine)) 12.dp else 16.dp
+    val start = 0.dp
+    val end = 16.dp
     return this.padding(start = start, end = end)
 }
 
@@ -25,19 +25,19 @@ fun Modifier.adaptiveHorizontalPaddingTab(): Modifier {
 fun Modifier.adaptiveHorizontalPadding(
     vertical: Dp,
 ): Modifier {
-    val horizontal = if (ThemeResolver.isMiuixEngine(composeEngine)) 12.dp else 16.dp
+    val horizontal = 16.dp
     return this.padding(horizontal = horizontal, vertical = vertical)
 }
 
 @Composable
 fun Modifier.adaptiveVerticalPadding(): Modifier {
-    val horizontal = if (ThemeResolver.isMiuixEngine(composeEngine)) 12.dp else 8.dp
+    val horizontal = 8.dp
     return this.padding(horizontal = horizontal)
 }
 
 @Composable
 fun adaptiveHorizonalPadding(): PaddingValues {
-    val horizontal = if (ThemeResolver.isMiuixEngine(composeEngine)) 12.dp else 16.dp
+    val horizontal = 16.dp
     return PaddingValues(
         horizontal = horizontal
     )
@@ -48,7 +48,7 @@ fun adaptiveContentPaddingOnlyVertical(
     top: Dp,
     bottom: Dp
 ): PaddingValues {
-    val adjustedTop = if (ThemeResolver.isMiuixEngine(composeEngine)) top + 8.dp else top
+    val adjustedTop = top
     return PaddingValues(
         top = adjustedTop,
         bottom = bottom,
@@ -62,8 +62,8 @@ fun adaptiveContentPadding(
     top: Dp,
     bottom: Dp
 ): PaddingValues {
-    val horizontal = if (ThemeResolver.isMiuixEngine(composeEngine)) 12.dp else 16.dp
-    val adjustedTop = if (ThemeResolver.isMiuixEngine(composeEngine)) top + 12.dp else top + 16.dp
+    val horizontal = 16.dp
+    val adjustedTop = top + 16.dp
     return PaddingValues(
         top = adjustedTop,
         bottom = bottom,
@@ -80,8 +80,8 @@ fun adaptiveContentPadding(
     m3Horizontal: Dp
 ): PaddingValues {
     val horizontal =
-        if (ThemeResolver.isMiuixEngine(composeEngine)) miuixHorizontal else m3Horizontal
-    val adjustedTop = if (ThemeResolver.isMiuixEngine(composeEngine)) top + 12.dp else top + 16.dp
+        m3Horizontal
+    val adjustedTop = top + 16.dp
     return PaddingValues(
         top = adjustedTop,
         bottom = bottom,
@@ -96,7 +96,7 @@ fun adaptiveContentPadding(
     bottom: Dp,
     horizontal: Dp
 ): PaddingValues {
-    val adjustedTop = if (ThemeResolver.isMiuixEngine(composeEngine)) top + 12.dp else top + 16.dp
+    val adjustedTop = top + 16.dp
     return PaddingValues(
         top = adjustedTop,
         bottom = bottom,
@@ -111,9 +111,9 @@ fun adaptiveContentPaddingBookshelf(
     bottom: Dp,
     horizontal: Dp
 ): PaddingValues {
-    val adjustedTop = if (ThemeResolver.isMiuixEngine(composeEngine)) top + 12.dp else top + 8.dp
+    val adjustedTop = top + 8.dp
     val horizontal =
-        if (ThemeResolver.isMiuixEngine(composeEngine)) 6.dp + horizontal else 4.dp + horizontal
+        4.dp + horizontal
     return PaddingValues(
         top = adjustedTop,
         bottom = bottom,

@@ -57,6 +57,12 @@ object BrowserKernelCompat {
         }
     }
 
+    /**
+     * Cookie / Eyeo JNI. SPEC-034: do **not** call from [initializeAll] (second cold-start abort)
+     * or from [AwContentsHostView.attach] (open-URL abort). 6.9 opened pages without this.
+     * Kept for an explicit debug toggle later.
+     */
+    @Suppress("unused")
     fun applyAfterBrowserProcessStart(context: Context) {
         if (afterStartApplied) return
         if (!serpCompatEnabled(context)) {

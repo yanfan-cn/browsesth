@@ -8,7 +8,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import io.legado.app.ui.theme.LegadoTheme.composeEngine
 import io.legado.app.ui.theme.ThemeResolver
-import top.yukonga.miuix.kmp.basic.Slider as MiuixSlider
 
 @Composable
 fun AppSlider(
@@ -26,8 +25,7 @@ fun AppSlider(
         label = accessibilityLabel,
         value = accessibilityValue,
     )
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        MiuixSlider(
+    Slider(
             value = value,
             onValueChange = onValueChange,
             modifier = sliderModifier,
@@ -36,17 +34,6 @@ fun AppSlider(
             steps = steps,
             onValueChangeFinished = onValueChangeFinished
         )
-    } else {
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = sliderModifier,
-            enabled = enabled,
-            valueRange = valueRange,
-            steps = steps,
-            onValueChangeFinished = onValueChangeFinished
-        )
-    }
 }
 
 internal fun Modifier.sliderAccessibility(

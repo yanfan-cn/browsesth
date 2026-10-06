@@ -14,10 +14,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import io.legado.app.browser.engine.BrowserNtpPrefs
+import io.legado.app.ui.theme.AppColorSchemeMode
 import io.legado.app.ui.theme.LocalLegadoColorScheme
 import io.legado.app.ui.theme.LocalLegadoThemeColors
 import io.legado.app.ui.theme.toLegadoColorScheme
-import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 
 /**
  * SPEC-022/023: browser-only appearance (follow system / light / dark).
@@ -95,7 +95,7 @@ fun BrowserTheme(content: @Composable () -> Unit) {
     val themed = base.copy(
         colorScheme = scheme,
         isDark = dark,
-        themeMode = if (dark) ColorSchemeMode.Dark else ColorSchemeMode.Light,
+        themeMode = if (dark) AppColorSchemeMode.Dark else AppColorSchemeMode.Light,
     )
     val legadoScheme = remember(scheme) {
         scheme.toLegadoColorScheme(

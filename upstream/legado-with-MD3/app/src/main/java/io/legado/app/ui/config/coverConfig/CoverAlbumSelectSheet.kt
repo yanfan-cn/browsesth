@@ -1,5 +1,7 @@
 package io.legado.app.ui.config.coverConfig
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,10 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,7 +44,7 @@ fun CoverAlbumSelectSheet(
         endAction = {
             MediumTonalButton(
                 onClick = onManage,
-                icon = Icons.Default.Settings,
+                icon = Symbols.Settings,
                 contentDescription = stringResource(R.string.manage_cover_albums),
             )
         },
@@ -128,7 +126,7 @@ private fun CoverAlbumSelectionItem(
                     )
                 } else {
                     AppIcon(
-                        imageVector = Icons.Outlined.Collections,
+                        symbol = Symbols.Collections,
                         contentDescription = null,
                         tint = LegadoTheme.colorScheme.onSurfaceVariant,
                     )
@@ -154,7 +152,7 @@ private fun CoverAlbumSelectionItem(
             }
             if (selected) {
                 AppIcon(
-                    imageVector = Icons.Default.Check,
+                    symbol = Symbols.Check,
                     contentDescription = null,
                     tint = LegadoTheme.colorScheme.primary,
                 )

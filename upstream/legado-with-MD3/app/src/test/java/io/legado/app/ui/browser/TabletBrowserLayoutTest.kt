@@ -1,0 +1,97 @@
+package io.legado.app.ui.browser
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class TabletBrowserLayoutTest {
+
+    @Test
+    fun submitInProgressDoesNotRestoreOmnibox() {
+        assertFalse(
+            TabletBrowserLayout.omniboxShouldRestoreOnFocusLost(
+                wasFocused = true,
+                nowFocused = false,
+                submitting = true,
+            ),
+        )
+        assertTrue(
+            TabletBrowserLayout.omniboxShouldRestoreOnFocusLost(
+                wasFocused = true,
+                nowFocused = false,
+                submitting = false,
+            ),
+        )
+    }
+
+    @Test
+    fun tabletHomeDisablesPagerSwipe() {
+        assertFalse(
+            TabletBrowserLayout.pagerUserScrollEnabled(
+                isTablet = true,
+                onBrowserHome = true,
+                sessionActive = false,
+            ),
+        )
+        assertTrue(
+            TabletBrowserLayout.pagerUserScrollEnabled(
+                isTablet = false,
+                onBrowserHome = true,
+                sessionActive = false,
+            ),
+        )
+        assertFalse(
+            TabletBrowserLayout.pagerUserScrollEnabled(
+                isTablet = false,
+                onBrowserHome = true,
+                sessionActive = true,
+            ),
+        )
+        assertTrue(
+            TabletBrowserLayout.pagerUserScrollEnabled(
+                isTablet = true,
+                onBrowserHome = false,
+                sessionActive = false,
+            ),
+        )
+    }
+
+    @Test
+    fun sidePanelHalfInPortraitThirdInLandscape() {
+        assertEquals(0.5f, TabletBrowserLayout.sidePanelWidthFraction(portrait = true))
+        assertEquals(1f / 3f, TabletBrowserLayout.sidePanelWidthFraction(portrait = false))
+    }
+
+    @Test
+    fun tabletDefaultHeaderHiddenPhoneUnchanged() {
+        assertFalse(
+            TabletBrowserLayout.headerVisible(
+                headerMode = 0,
+                hideStatusBar = true,
+                isTablet = true,
+            ),
+        )
+        assertTrue(
+            TabletBrowserLayout.headerVisible(
+                headerMode = 1,
+                hideStatusBar = false,
+                isTablet = true,
+            ),
+        )
+        assertTrue(
+            TabletBrowserLayout.headerVisible(
+                headerMode = 0,
+                hideStatusBar = true,
+                isTablet = false,
+            ),
+        )
+        assertFalse(
+            TabletBrowserLayout.headerVisible(
+                headerMode = 0,
+                hideStatusBar = false,
+                isTablet = false,
+            ),
+        )
+    }
+}

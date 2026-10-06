@@ -1,9 +1,9 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,7 +46,7 @@ fun CharsetConfigSheet(
                         SmallPlainButton(
                             onClick = { expanded = !expanded },
                             selected = expanded,
-                            icon = Icons.Default.KeyboardArrowDown,
+                            icon = Symbols.KeyboardArrowDown,
                             contentDescription = title,
                         )
                     },

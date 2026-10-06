@@ -48,7 +48,6 @@ fun ButtonGroupModule(
     val context = LocalContext.current
     val activity = context as? AppCompatActivity
     val useCase: ExploreKindUiUseCase = koinInject()
-    val isMiuix = ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)
 
     // 解析图标映射表和默认图标
     val (iconMap, defaultIcon) = remember(layoutConfig) {
@@ -97,7 +96,7 @@ fun ButtonGroupModule(
                             onRefreshKinds(globalId)
                         },
                         useCase = useCase,
-                        isMiuix = isMiuix,
+                        isMiuix = false,
                         modifier = Modifier.weight(1f),
                         content = { displayName, isSelected, onClick, trailingIcon ->
                             GlassCard(

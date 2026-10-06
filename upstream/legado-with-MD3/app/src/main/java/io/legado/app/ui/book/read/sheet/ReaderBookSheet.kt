@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -32,26 +35,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.BookmarkAdd
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.FindReplace
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Numbers
-import androidx.compose.material.icons.filled.Payment
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SelectAll
-import androidx.compose.material.icons.filled.SwapVert
-import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
@@ -69,7 +52,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -539,7 +521,7 @@ private fun ReaderBookSourceDropdown(
     ) {
         if (!bookSource?.loginUrl.isNullOrBlank()) {
             RoundDropdownMenuItem(
-                leadingIcon = { MenuItemIcon(Icons.AutoMirrored.Filled.Login) },
+                leadingIcon = { MenuItemIcon(Symbols.Login) },
                 text = stringResource(R.string.login),
                 onClick = {
                     onDismiss()
@@ -549,7 +531,7 @@ private fun ReaderBookSourceDropdown(
         }
         if (!bookSource?.getContentRule()?.payAction.isNullOrBlank()) {
             RoundDropdownMenuItem(
-                leadingIcon = { MenuItemIcon(Icons.Default.Payment) },
+                leadingIcon = { MenuItemIcon(Symbols.Payment) },
                 text = stringResource(R.string.chapter_pay),
                 onClick = {
                     onDismiss()
@@ -558,7 +540,7 @@ private fun ReaderBookSourceDropdown(
             )
         }
         RoundDropdownMenuItem(
-            leadingIcon = { MenuItemIcon(Icons.Default.Edit) },
+            leadingIcon = { MenuItemIcon(Symbols.Edit) },
             text = stringResource(R.string.edit_source),
             onClick = {
                 onDismiss()
@@ -566,7 +548,7 @@ private fun ReaderBookSourceDropdown(
             },
         )
         RoundDropdownMenuItem(
-            leadingIcon = { MenuItemIcon(Icons.Default.Block) },
+            leadingIcon = { MenuItemIcon(Symbols.Block) },
             text = stringResource(R.string.disable_source),
             onClick = {
                 onDismiss()
@@ -666,8 +648,7 @@ private fun CompactSearchField(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
+                SymbolIcon(symbol = Symbols.Search,
                     contentDescription = null,
                     tint = LegadoTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(14.dp),
@@ -695,7 +676,7 @@ private fun CompactSearchField(
 @Composable
 private fun CompactToolIconBox(
     selected: Boolean,
-    icon: ImageVector,
+    icon: MaterialSymbol,
     contentDescription: String,
     onClick: () -> Unit,
 ) {
@@ -717,8 +698,8 @@ private fun CompactToolIconBox(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            imageVector = icon,
+        SymbolIcon(
+            symbol = icon,
             contentDescription = contentDescription,
             tint = contentColor,
             modifier = Modifier.size(16.dp),
@@ -758,19 +739,19 @@ private fun ReaderBookTocPage(
         cancelText,
     ) {
         listOf(
-            FabMenuItem(Icons.Default.SelectAll, selectAllText) {
+            FabMenuItem(Symbols.SelectAll, selectAllText) {
                 onIntent(TocIntent.SelectAll)
             },
-            FabMenuItem(Icons.Default.SwapVert, invertText) {
+            FabMenuItem(Symbols.SwapVert, invertText) {
                 onIntent(TocIntent.InvertSelection)
             },
-            FabMenuItem(Icons.Default.BookmarkAdd, bookmarkText) {
+            FabMenuItem(Symbols.BookmarkAdd, bookmarkText) {
                 onIntent(TocIntent.AddBookmarksForSelected)
             },
-            FabMenuItem(Icons.Default.Download, downloadSelectedText) {
+            FabMenuItem(Symbols.Download, downloadSelectedText) {
                 onIntent(TocIntent.DownloadSelected)
             },
-            FabMenuItem(Icons.Default.Clear, cancelText) {
+            FabMenuItem(Symbols.Clear, cancelText) {
                 onIntent(TocIntent.ClearSelection)
             },
         )
@@ -806,26 +787,26 @@ private fun ReaderBookTocPage(
             )
             CompactToolIconBox(
                 selected = action.useReplace,
-                icon = Icons.Default.FindReplace,
+                icon = Symbols.FindReplace,
                 contentDescription = stringResource(R.string.use_replace_rule),
                 onClick = { onIntent(TocIntent.ToggleUseReplace) },
             )
             CompactToolIconBox(
                 selected = action.showWordCount,
-                icon = Icons.Default.Numbers,
+                icon = Symbols.Numbers,
                 contentDescription = stringResource(R.string.show_word_count),
                 onClick = { onIntent(TocIntent.ToggleShowWordCount) },
             )
             CompactToolIconBox(
                 selected = state.isReverse,
-                icon = Icons.Default.SwapVert,
+                icon = Symbols.SwapVert,
                 contentDescription = stringResource(R.string.reverse_toc),
                 onClick = { onIntent(TocIntent.ReverseToc) },
             )
             Box {
                 CompactToolIconBox(
                     selected = menuExpanded,
-                    icon = Icons.Default.MoreVert,
+                    icon = Symbols.MoreVert,
                     contentDescription = stringResource(R.string.more_menu),
                     onClick = { menuExpanded = !menuExpanded },
                 )
@@ -933,8 +914,7 @@ private fun ReaderSheetVolumeItem(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.Default.ExpandMore,
+            SymbolIcon(symbol = Symbols.ExpandMore,
                 contentDescription = null,
                 modifier = Modifier
                     .size(18.dp)
@@ -992,8 +972,7 @@ private fun ReaderSheetChapterItem(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (item.isVip && !item.isPay) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
+                        SymbolIcon(symbol = Symbols.Lock,
                             contentDescription = stringResource(R.string.a11y_vip_locked),
                             tint = LegadoTheme.colorScheme.error,
                             modifier = Modifier
@@ -1060,22 +1039,21 @@ private fun ReaderSheetChapterStatus(
                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
             )
         }
-        item.isDur -> ReaderSheetStatusIcon(Icons.Default.LocationOn)
+        item.isDur -> ReaderSheetStatusIcon(Symbols.LocationOn)
         item.downloadState == DownloadState.DOWNLOADING -> AppContainedLoadingIndicator(
             modifier = Modifier
                 .padding(horizontal = 8.dp)
                 .size(16.dp),
         )
         item.downloadState == DownloadState.SUCCESS -> ReaderSheetStatusIcon(
-            imageVector = Icons.Default.CheckCircle,
+            symbol = Symbols.CheckCircle,
         )
         item.downloadState == DownloadState.ERROR -> IconButton(
             onClick = onDownloadClick,
             enabled = enabled,
             modifier = Modifier.size(32.dp),
         ) {
-            Icon(
-                imageVector = Icons.Default.Refresh,
+            SymbolIcon(symbol = Symbols.Refresh,
                 contentDescription = stringResource(R.string.a11y_retry_chapter, item.title),
                 tint = LegadoTheme.colorScheme.error,
                 modifier = Modifier.size(16.dp),
@@ -1086,8 +1064,7 @@ private fun ReaderSheetChapterStatus(
             enabled = enabled,
             modifier = Modifier.size(32.dp),
         ) {
-            Icon(
-                imageVector = Icons.Outlined.DownloadForOffline,
+            SymbolIcon(symbol = Symbols.DownloadForOffline,
                 contentDescription = stringResource(R.string.download_chapter, item.title),
                 tint = LegadoTheme.colorScheme.outline,
                 modifier = Modifier.size(16.dp),
@@ -1098,10 +1075,10 @@ private fun ReaderSheetChapterStatus(
 
 @Composable
 private fun ReaderSheetStatusIcon(
-    imageVector: ImageVector,
+    symbol: MaterialSymbol,
 ) {
-    Icon(
-        imageVector = imageVector,
+    SymbolIcon(
+        symbol = symbol,
         contentDescription = null,
         tint = LegadoTheme.colorScheme.secondary,
         modifier = Modifier
@@ -1185,7 +1162,7 @@ private fun ReaderBookBookmarksPage(
             Box {
                 CompactToolIconBox(
                     selected = menuExpanded,
-                    icon = Icons.Default.MoreVert,
+                    icon = Symbols.MoreVert,
                     contentDescription = stringResource(R.string.more_menu),
                     onClick = { menuExpanded = !menuExpanded },
                 )
@@ -1311,8 +1288,7 @@ private fun ReaderSheetBookmarkItem(
                     modifier = Modifier.weight(1f),
                 )
                 if (item.isDur) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
+                    SymbolIcon(symbol = Symbols.LocationOn,
                         contentDescription = null,
                         tint = contentColor,
                         modifier = Modifier.size(16.dp),
@@ -1448,8 +1424,7 @@ private fun ReaderSheetMarkingItem(
                     )
                 }
                 if (item.isDur) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
+                    SymbolIcon(symbol = Symbols.LocationOn,
                         contentDescription = null,
                         tint = contentColor,
                         modifier = Modifier.size(12.dp),

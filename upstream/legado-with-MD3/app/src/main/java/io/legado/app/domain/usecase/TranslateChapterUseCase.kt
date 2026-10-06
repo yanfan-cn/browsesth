@@ -80,10 +80,13 @@ class TranslateChapterUseCase(
 
             val contentHash = translationCacheGateway.computeContentHash(originalContent)
 
-            val chunks = ContentChunker.chunk(
-                originalContent,
-                settings.maxCharsPerChunk.coerceAtLeast(1000)
-            )
+            val chunkLimit = when (provider) {
+                // Baidu free web API is short-text friendly.
+                TranslationConstants.PROVIDER_BAIDU ->
+                    settings.maxCharsPerChunk.coerceIn(500, 1800)
+                else -> settings.maxCharsPerChunk.coerceAtLeast(1000)
+            }
+            val chunks = ContentChunker.chunk(originalContent, chunkLimit)
             if (chunks.isEmpty()) {
                 return@withContext Result.failure(Exception("Failed to chunk content"))
             }
@@ -274,6 +277,8 @@ class TranslateChapterUseCase(
                 val result = when (provider) {
                     TranslationConstants.PROVIDER_GOOGLE ->
                         translateWithGoogle(chunk.content, targetLanguage).map { ChunkTranslation(it) }
+                    TranslationConstants.PROVIDER_BAIDU ->
+                        translateWithBaidu(chunk.content, targetLanguage).map { ChunkTranslation(it) }
                     TranslationConstants.PROVIDER_APP_AI -> {
                         val allDictionaries = dictionaryGateway.getBookDictionaries(book).pairs
                         translateWithAiGateway(
@@ -337,6 +342,54 @@ class TranslateChapterUseCase(
         } else {
             Result.failure(Exception("HTTP ${response.code()}: ${response.message()}"))
         }
+    }
+
+    /** SPEC-048: Baidu free web translate (mainland-friendly). */
+    private suspend fun translateWithBaidu(text: String, targetLanguage: String): Result<String> {
+        val to = baiduLangCode(targetLanguage)
+        val encoded = URLEncoder.encode(text, Charsets.UTF_8.name())
+        val url = "https://fanyi.baidu.com/transapi?from=auto&to=$to&query=$encoded"
+        val response = okHttpClient.newCallStrResponse {
+            url(url)
+            addHeader("User-Agent", "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36")
+            addHeader("Referer", "https://fanyi.baidu.com/")
+        }
+        val body = response.body.orEmpty()
+        if (!response.isSuccessful()) {
+            return Result.failure(Exception("百度翻译 HTTP ${response.code()}"))
+        }
+        return runCatching {
+            val root = com.google.gson.JsonParser.parseString(body).asJsonObject
+            val data = root.getAsJsonArray("data")
+            val out = buildString {
+                if (data != null) {
+                    for (el in data) {
+                        el.asJsonObject.get("dst")?.asString?.let { append(it) }
+                    }
+                }
+            }
+            if (out.isBlank()) {
+                root.get("result")?.asString?.takeIf { it.isNotBlank() }?.let { return@runCatching it }
+                error("Empty Baidu translation")
+            }
+            out
+        }.fold(
+            onSuccess = { Result.success(it) },
+            onFailure = { Result.failure(Exception("百度翻译失败: ${it.message}", it)) },
+        )
+    }
+
+    private fun baiduLangCode(lang: String): String = when (lang.lowercase()) {
+        "zh", "zh-cn", "zh-hans" -> "zh"
+        "en" -> "en"
+        "ja" -> "jp"
+        "ko" -> "kor"
+        "fr" -> "fra"
+        "de" -> "de"
+        "es" -> "spa"
+        "ru" -> "ru"
+        "ar" -> "ara"
+        else -> "zh"
     }
 
     private suspend fun translateWithAiGateway(

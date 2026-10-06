@@ -1,9 +1,7 @@
 package io.legado.app.ui.config.backupConfig
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Lan
-import androidx.compose.material.icons.filled.PhoneAndroid
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
@@ -26,17 +24,17 @@ fun BackupOptionSheet(
         title = stringResource(R.string.backup),
     ) {
         OptionCard(
-            icon = Icons.Default.PhoneAndroid,
+            icon = Symbols.PhoneAndroid,
             text = stringResource(R.string.backup_to_local),
             onClick = onBackupToLocal,
         )
         OptionCard(
-            icon = Icons.Default.Cloud,
+            icon = Symbols.Cloud,
             text = stringResource(R.string.backup_to_network),
             onClick = onBackupToNetwork,
         )
         OptionCard(
-            icon = Icons.Default.Lan,
+            icon = Symbols.Lan,
             text = stringResource(R.string.backup_to_local_and_network),
             onClick = onBackupToLocalAndNetwork,
         )
@@ -57,12 +55,12 @@ fun RestoreOptionSheet(
         title = stringResource(R.string.restore),
     ) {
         OptionCard(
-            icon = Icons.Default.PhoneAndroid,
+            icon = Symbols.PhoneAndroid,
             text = stringResource(R.string.restore_from_local),
             onClick = onRestoreFromLocal,
         )
         OptionCard(
-            icon = Icons.Default.Cloud,
+            icon = Symbols.Cloud,
             text = stringResource(R.string.restore_from_network),
             onClick = onRestoreFromNetwork,
         )

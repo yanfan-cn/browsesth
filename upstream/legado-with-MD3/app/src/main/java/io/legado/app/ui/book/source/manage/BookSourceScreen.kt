@@ -443,7 +443,7 @@ fun BookSourceScreen(
         topBarActions = {
             TopBarActionButton(
                 onClick = { showGroupFilterSheet = true },
-                imageVector = AppIcons.Filter,
+                symbol = AppIcons.Filter,
                 contentDescription = stringResource(R.string.menu_action_group),
             )
         },

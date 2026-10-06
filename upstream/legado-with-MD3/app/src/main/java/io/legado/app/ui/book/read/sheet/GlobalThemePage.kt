@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -19,16 +21,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.SpaceBar
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.PlainTooltip
@@ -130,8 +122,7 @@ fun GlobalThemePage(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.TextFields,
+                    SymbolIcon(symbol = Symbols.TextFields,
                         contentDescription = stringResource(R.string.compose_type),
                         tint = LegadoTheme.colorScheme.onSurfaceVariant,
                     )
@@ -170,14 +161,14 @@ fun GlobalThemePage(
                         onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.EyeProtection))
                     },
                     selected = eyeProtectionEnabled,
-                    icon = Icons.Default.Visibility,
+                    icon = Symbols.Visibility,
                     contentColor = LegadoTheme.colorScheme.onSurfaceVariant,
                     containerColor = LegadoTheme.colorScheme.surfaceContainerHigh,
                     contentDescription = stringResource(R.string.eye_protection),
                 )
                 SmallTonalButton(
                     onClick = onToggleDayNight,
-                    icon = if (isNightTheme) Icons.Default.DarkMode else Icons.Default.LightMode,
+                    icon = if (isNightTheme) Symbols.DarkMode else Symbols.LightMode,
                     contentColor = LegadoTheme.colorScheme.onSurfaceVariant,
                     containerColor = LegadoTheme.colorScheme.surfaceContainerHigh,
                     selectedContainerColor = LegadoTheme.colorScheme.surfaceContainerHigh,
@@ -239,8 +230,7 @@ fun GlobalThemePage(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                Icons.Default.GridView,
+                            SymbolIcon(Symbols.GridView,
                                 contentDescription = stringResource(R.string.share_layout),
                                 modifier = Modifier.size(20.dp),
                             )
@@ -301,8 +291,7 @@ fun GlobalThemePage(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    Icons.Default.Add,
+                                SymbolIcon(Symbols.Add,
                                     contentDescription = null,
                                     modifier = Modifier.size(20.dp),
                                 )
@@ -385,8 +374,7 @@ fun GlobalThemePage(
                     cornerRadius = 12.dp,
                 ) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                        Icon(
-                            imageVector = Icons.Default.Speed,
+                        SymbolIcon(symbol = Symbols.Speed,
                             contentDescription = stringResource(R.string.page_anim_speed),
                             tint = LegadoTheme.colorScheme.onSurfaceVariant,
                         )
@@ -419,8 +407,7 @@ fun GlobalThemePage(
                 cornerRadius = 12.dp,
             ) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                    Icon(
-                        imageVector = Icons.Default.SpaceBar,
+                    SymbolIcon(symbol = Symbols.SpaceBar,
                         contentDescription = stringResource(R.string.padding),
                         tint = LegadoTheme.colorScheme.onSurfaceVariant,
                     )
@@ -509,8 +496,7 @@ fun StyleCard(
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
+                    SymbolIcon(symbol = Symbols.Check,
                         contentDescription = null,
                         modifier = Modifier.size(10.dp),
                         tint = LegadoTheme.colorScheme.primary,

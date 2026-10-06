@@ -1,5 +1,8 @@
 package io.legado.app.ui.book.read
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -23,18 +26,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Colorize
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.FormatColorFill
-import androidx.compose.material.icons.outlined.FormatColorText
-import androidx.compose.material.icons.outlined.FormatUnderlined
-import androidx.compose.material.icons.outlined.Highlight
-import androidx.compose.material.icons.outlined.MoreHoriz
-import androidx.compose.material.icons.outlined.StrikethroughS
-import androidx.compose.material.icons.outlined.Style
-import androidx.compose.material.icons.outlined.Waves
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,7 +39,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
@@ -277,7 +267,7 @@ fun MarkingSelectionMenu(
                                 SmallOutlinedButton(
                                     modifier = Modifier
                                         .align(Alignment.End),
-                                    icon = Icons.Outlined.Delete,
+                                    icon = Symbols.Delete,
                                     text = stringResource(R.string.bookmark_mark_delete_note),
                                     contentDescription = null,
                                     onClick = onDelete
@@ -327,7 +317,7 @@ private fun MarkingColorRow(
             RoundIconButton(
                 selected = useRules,
                 enabled = true,
-                icon = Icons.Outlined.Style,
+                icon = Symbols.Style,
                 contentDescription = stringResource(R.string.bookmark_mark_reuse_rule),
                 onClick = onToggleRules,
             )
@@ -346,8 +336,7 @@ private fun MarkingColorRow(
                 contentAlignment = Alignment.Center,
             ) {
                 if (color == selectedColor && !useRules) {
-                    Icon(
-                        imageVector = Icons.Outlined.Check,
+                    SymbolIcon(symbol = Symbols.Check,
                         contentDescription = null,
                         tint = if (Color(color).luminance() > 0.5f) Color.Black else Color.White,
                         modifier = Modifier.size(16.dp),
@@ -359,7 +348,7 @@ private fun MarkingColorRow(
             RoundIconButton(
                 selected = false,
                 enabled = enabled,
-                icon = Icons.Outlined.Colorize,
+                icon = Symbols.Colorize,
                 contentDescription = stringResource(R.string.bookmark_mark_custom_color),
                 onClick = onCustomColor,
             )
@@ -371,7 +360,7 @@ private fun MarkingColorRow(
 private fun RoundIconButton(
     selected: Boolean,
     enabled: Boolean,
-    icon: ImageVector,
+    icon: MaterialSymbol,
     contentDescription: String,
     onClick: () -> Unit,
 ) {
@@ -386,8 +375,8 @@ private fun RoundIconButton(
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            imageVector = icon,
+        SymbolIcon(
+            symbol = icon,
             contentDescription = contentDescription,
             modifier = Modifier.size(15.dp),
         )
@@ -422,48 +411,41 @@ private fun MarkingEffectTile(
 private fun MarkingEffectIcon(effect: MarkingEffect) {
     val foreground = LegadoTheme.colorScheme.onSurface
     when (effect) {
-        MarkingEffect.SOLID -> Icon(
-            imageVector = Icons.Outlined.FormatUnderlined,
+        MarkingEffect.SOLID -> SymbolIcon(symbol = Symbols.FormatUnderlined,
             contentDescription = null,
             modifier = Modifier.size(23.dp),
         )
 
-        MarkingEffect.BG -> Icon(
-            imageVector = Icons.Outlined.FormatColorFill,
+        MarkingEffect.BG -> SymbolIcon(symbol = Symbols.FormatColorFill,
             contentDescription = null,
             tint = foreground,
             modifier = Modifier.size(23.dp),
         )
 
-        MarkingEffect.TEXT -> Icon(
-            imageVector = Icons.Outlined.FormatColorText,
+        MarkingEffect.TEXT -> SymbolIcon(symbol = Symbols.FormatColorText,
             contentDescription = null,
             tint = foreground,
             modifier = Modifier.size(23.dp),
         )
 
-        MarkingEffect.WAVE -> Icon(
-            imageVector = Icons.Outlined.Waves,
+        MarkingEffect.WAVE -> SymbolIcon(symbol = Symbols.Waves,
             contentDescription = null,
             tint = foreground,
             modifier = Modifier.size(23.dp),
         )
 
-        MarkingEffect.DASHED -> Icon(
-            imageVector = Icons.Outlined.MoreHoriz,
+        MarkingEffect.DASHED -> SymbolIcon(symbol = Symbols.MoreHoriz,
             contentDescription = null,
             tint = foreground,
             modifier = Modifier.size(23.dp),
         )
 
-        MarkingEffect.STRIKE -> Icon(
-            imageVector = Icons.Outlined.StrikethroughS,
+        MarkingEffect.STRIKE -> SymbolIcon(symbol = Symbols.StrikethroughS,
             contentDescription = null,
             modifier = Modifier.size(23.dp),
         )
 
-        MarkingEffect.HIGHLIGHT -> Icon(
-            imageVector = Icons.Outlined.Highlight,
+        MarkingEffect.HIGHLIGHT -> SymbolIcon(symbol = Symbols.Highlight,
             contentDescription = null,
             modifier = Modifier.size(23.dp),
         )

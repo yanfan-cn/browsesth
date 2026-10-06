@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.Density
 import com.materialkolor.PaletteStyle
 import io.legado.app.domain.model.settings.AppUiConfiguration
 import io.legado.app.domain.model.settings.customColors
-import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -46,7 +45,7 @@ private fun AppThemePreview(
         isDark = darkTheme,
         seedColor = Color.Unspecified,
         paletteStyle = PaletteStyle.TonalSpot,
-        themeMode = if (darkTheme) ColorSchemeMode.Dark else ColorSchemeMode.Light,
+        themeMode = if (darkTheme) AppColorSchemeMode.Dark else AppColorSchemeMode.Light,
         useDynamicColor = false,
         composeEngine = "material"
     )
@@ -154,7 +153,7 @@ private fun AppThemeActual(
     ) {
         val paletteStyle = ThemeResolver.resolvePaletteStyle(paletteStyleValue)
         val colorSchemeMode =
-            if (effectiveDarkTheme) ColorSchemeMode.Dark else ColorSchemeMode.Light
+            if (effectiveDarkTheme) AppColorSchemeMode.Dark else AppColorSchemeMode.Light
         LegadoThemeMode(
             colorScheme = colorScheme,
             isDark = effectiveDarkTheme,
@@ -171,20 +170,11 @@ private fun AppThemeActual(
         LocalLegadoThemeColors provides themeColors,
         LocalDensity provides appDensity,
     ) {
-        if (ThemeResolver.isMiuixEngine(themeColors.composeEngine)) {
-            MiuixThemeWrapper(
+        MaterialThemeWrapper(
                 themeColors = themeColors,
                 customFontFamily = customFontFamily,
                 applyBackground = applyBackground,
                 content = content
             )
-        } else {
-            MaterialThemeWrapper(
-                themeColors = themeColors,
-                customFontFamily = customFontFamily,
-                applyBackground = applyBackground,
-                content = content
-            )
-        }
     }
 }

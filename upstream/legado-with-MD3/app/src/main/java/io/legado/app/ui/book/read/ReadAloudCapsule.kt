@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.os.Build
 import android.util.DisplayMetrics
 import android.view.WindowManager
@@ -25,10 +27,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -420,8 +418,7 @@ private fun CapsuleContent(
                         .clickable(enabled = expansion >= 1f, onClick = onTogglePause),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                    SymbolIcon(symbol = if (isPaused) Symbols.PlayArrow else Symbols.Pause,
                         contentDescription = stringResource(
                             if (isPaused) R.string.resume_read_aloud else R.string.pause_read_aloud
                         ),
@@ -441,8 +438,7 @@ private fun CapsuleContent(
                         color = mutedColor,
                         trackColor = mutedColor.copy(alpha = 0.25f),
                     )
-                    Icon(
-                        imageVector = Icons.Default.Close,
+                    SymbolIcon(symbol = Symbols.Close,
                         contentDescription = stringResource(R.string.stop_read_aloud),
                         modifier = Modifier
                             .size(24.dp)

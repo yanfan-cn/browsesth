@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.knowledge
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,10 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
@@ -96,13 +94,13 @@ fun BookCharacterDetailScreen(
                     if (state.characterId != null) {
                         TopBarActionButton(
                             onClick = { showDeleteDialog = true },
-                            imageVector = Icons.Default.Delete,
+                            symbol = Symbols.Delete,
                             contentDescription = stringResource(R.string.delete),
                         )
                     }
                     TopBarActionButton(
                         onClick = { onIntent(CharacterDetailIntent.Save) },
-                        imageVector = Icons.Default.Save,
+                        symbol = Symbols.Save,
                         contentDescription = stringResource(R.string.save),
                     )
                 },
@@ -464,7 +462,7 @@ private fun CharacterHeader(
                     )
                 } else {
                     AppIcon(
-                        imageVector = Icons.Default.Person,
+                        symbol = Symbols.Person,
                         contentDescription = null,
                         modifier = Modifier.size(36.dp),
                         tint = LegadoTheme.colorScheme.onSurfaceVariant,

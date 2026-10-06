@@ -1,5 +1,7 @@
 package io.legado.app.ui.rss.favorites
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -8,12 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.automirrored.outlined.Label
-import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Group
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
@@ -139,7 +135,7 @@ fun RssFavoritesScreen(
                 text = stringResource(R.string.all),
                 leadingIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Group, null, modifier = Modifier.size(18.dp))
+                        SymbolIcon(Symbols.Group, null, modifier = Modifier.size(18.dp))
                     }
                 },
                 onClick = {
@@ -152,8 +148,7 @@ fun RssFavoritesScreen(
                     text = group,
                     leadingIcon = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.AutoMirrored.Outlined.Label,
+                            SymbolIcon(Symbols.Label,
                                 null,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -170,7 +165,7 @@ fun RssFavoritesScreen(
                 text = stringResource(R.string.delete_select_group),
                 leadingIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.DeleteSweep, null, modifier = Modifier.size(18.dp))
+                        SymbolIcon(Symbols.DeleteSweep, null, modifier = Modifier.size(18.dp))
                     }
                 },
                 onClick = {
@@ -182,7 +177,7 @@ fun RssFavoritesScreen(
                 text = stringResource(R.string.all),
                 leadingIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.DeleteForever, null, modifier = Modifier.size(18.dp))
+                        SymbolIcon(Symbols.DeleteForever, null, modifier = Modifier.size(18.dp))
                     }
                 },
                 onClick = {
@@ -246,7 +241,7 @@ fun RssFavoritesScreen(
                             }
                             SmallPlainButton(
                                 onClick = openAction,
-                                icon = Icons.AutoMirrored.Filled.OpenInNew,
+                                icon = Symbols.OpenInNew,
                                 contentDescription = stringResource(R.string.open)
                             )
                         },

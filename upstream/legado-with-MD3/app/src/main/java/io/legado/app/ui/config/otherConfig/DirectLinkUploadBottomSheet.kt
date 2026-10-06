@@ -1,5 +1,7 @@
 package io.legado.app.ui.config.otherConfig
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -9,12 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Checklist
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.ContentPaste
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -63,7 +59,7 @@ fun DirectLinkUploadBottomSheet(
                 onClick = {
                     onIntent(OtherConfigIntent.TestDirectLinkRule)
                 },
-                icon = Icons.Default.Checklist,
+                icon = Symbols.Checklist,
                 contentDescription = stringResource(R.string.test)
             )
         },
@@ -71,7 +67,7 @@ fun DirectLinkUploadBottomSheet(
             Box {
                 MediumTonalButton(
                     onClick = { showMenu = true },
-                icon = Icons.Default.MoreVert,
+                icon = Symbols.MoreVert,
                 contentDescription = stringResource(R.string.more_menu)
                 )
                 RoundDropdownMenu(
@@ -80,7 +76,7 @@ fun DirectLinkUploadBottomSheet(
                 ) {
                     RoundDropdownMenuItem(
                         text = stringResource(R.string.import_default_rule),
-                        leadingIcon = { Icon(Icons.Default.Download, null) },
+                        leadingIcon = { SymbolIcon(Symbols.Download, null) },
                         onClick = {
                             showMenu = false
                             context.selector(state.directRulePresets) { _, rule, _ ->
@@ -97,7 +93,7 @@ fun DirectLinkUploadBottomSheet(
                     )
                     RoundDropdownMenuItem(
                         text = stringResource(R.string.copy_rule),
-                        leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+                        leadingIcon = { SymbolIcon(Symbols.ContentCopy, null) },
                         onClick = {
                             showMenu = false
                             val rule = DirectLinkRuleUi(
@@ -111,7 +107,7 @@ fun DirectLinkUploadBottomSheet(
                     )
                     RoundDropdownMenuItem(
                         text = stringResource(R.string.paste_rule),
-                        leadingIcon = { Icon(Icons.Default.ContentPaste, null) },
+                        leadingIcon = { SymbolIcon(Symbols.ContentPaste, null) },
                         onClick = {
                             showMenu = false
                             runCatching {

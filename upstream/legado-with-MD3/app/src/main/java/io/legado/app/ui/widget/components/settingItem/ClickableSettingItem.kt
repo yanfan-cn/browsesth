@@ -1,17 +1,15 @@
 package io.legado.app.ui.widget.components.settingItem
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.ThemeResolver
 import io.legado.app.ui.widget.components.SplicedColumnDivider
-import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
-import top.yukonga.miuix.kmp.preference.ArrowPreference
 
 @Composable
 fun ClickableSettingItem(
@@ -19,7 +17,7 @@ fun ClickableSettingItem(
     modifier: Modifier = Modifier,
     description: String? = null,
     option: String? = null,
-    imageVector: ImageVector? = null,
+    symbol: MaterialSymbol? = null,
     onLongClick: (() -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
     onClick: () -> Unit
@@ -27,23 +25,14 @@ fun ClickableSettingItem(
     val composeEngine = LegadoTheme.composeEngine
     SplicedColumnDivider()
 
-    if (ThemeResolver.isMiuixEngine(composeEngine)) {
-        ArrowPreference(
-            title = title,
-            summary = description,
-            insideMargin = BasicComponentDefaults.InsideMargin,
-            onClick = onClick
-        )
-    } else {
-        SettingItem(
+    SettingItem(
             modifier = modifier,
             title = title,
             description = description,
             option = option,
-            imageVector = imageVector,
+            symbol = symbol,
             trailingContent = trailingContent ?: {
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
+                SymbolIcon(symbol = Symbols.ChevronRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -51,5 +40,4 @@ fun ClickableSettingItem(
             onClick = onClick,
             onLongClick = onLongClick
         )
-    }
 }

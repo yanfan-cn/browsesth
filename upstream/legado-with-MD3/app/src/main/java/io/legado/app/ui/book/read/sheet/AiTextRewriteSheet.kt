@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read.sheet
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,11 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Autorenew
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -70,9 +67,9 @@ fun AiTextRewriteSheet(
             MediumTonalButton(
                 onClick = { onIntent(ReadBookIntent.GenerateAiTextRewrite) },
                 icon = if (hasRewriteForCurrentText)
-                    Icons.Default.AutoAwesome
+                    Symbols.AutoAwesome
                 else
-                    Icons.Default.Autorenew,
+                    Symbols.Autorenew,
                 contentDescription = stringResource(R.string.ai_generate),
                 enabled = state.presets.isNotEmpty() &&
                         !state.isLoading &&
@@ -82,7 +79,7 @@ fun AiTextRewriteSheet(
         endAction = {
             MediumTonalButton(
                 onClick = { onIntent(ReadBookIntent.ConfirmAiTextRewrite) },
-                icon = Icons.Default.Save,
+                icon = Symbols.Save,
                 contentDescription = stringResource(R.string.save),
                 enabled = !state.isLoading &&
                         !state.isApplying &&
@@ -143,7 +140,7 @@ fun AiTextRewriteSheet(
                             )
                             SmallOutlinedButton(
                                 onClick = { onIntent(ReadBookIntent.OpenAiRewritePresetConfig) },
-                                icon = Icons.Default.Settings,
+                                icon = Symbols.Settings,
                                 text = stringResource(R.string.ai_rewrite_manage_presets),
                             )
                         }

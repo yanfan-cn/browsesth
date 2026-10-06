@@ -29,8 +29,6 @@ import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.ThemeResolver
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.basic.InputField as MiuixInputField
-import top.yukonga.miuix.kmp.basic.SearchBar as MiuixSearchBar
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -47,52 +45,7 @@ fun AppSearchBar(
     trailingIcon: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val isMiuix = ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)
-    if (isMiuix) {
-        var internalExpanded by remember { mutableStateOf(expanded) }
-        var internalQuery by remember { mutableStateOf(query) }
-
-        LaunchedEffect(expanded) {
-            internalExpanded = expanded
-        }
-
-        LaunchedEffect(query) {
-            if (query != internalQuery) {
-                internalQuery = query
-            }
-        }
-
-        MiuixSearchBar(
-            modifier = modifier,
-            inputField = {
-                MiuixInputField(
-                    query = internalQuery,
-                    onQueryChange = { newQuery ->
-                        if (newQuery.isNotEmpty() || internalExpanded) {
-                            internalQuery = newQuery
-                            onQueryChange(newQuery)
-                        }
-                    },
-                    onSearch = {
-                        onSearch(it)
-                        onExpandedChange(false)
-                    },
-                    expanded = internalExpanded,
-                    onExpandedChange = { newExpanded ->
-                        internalExpanded = newExpanded
-                        onExpandedChange(newExpanded)
-                    },
-                    label = label,
-                    leadingIcon = leadingIcon,
-                    trailingIcon = trailingIcon,
-                )
-            },
-            expanded = internalExpanded,
-            onExpandedChange = onExpandedChange,
-            content = content,
-        )
-        return
-    }
+    
 
     val initialSearchBarValue = remember {
         if (expanded) SearchBarValue.Expanded else SearchBarValue.Collapsed

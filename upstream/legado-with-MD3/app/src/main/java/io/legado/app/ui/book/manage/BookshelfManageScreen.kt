@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.manage
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,21 +32,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Bookmarks
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SelectAll
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.VerticalDivider
@@ -370,7 +357,7 @@ private fun BookshelfManageScreen(
     }
     val fabItems = listOf(
         FabMenuItem(
-            Icons.Default.SelectAll,
+            Symbols.SelectAll,
             stringResource(R.string.select_all)
         ) {
             viewModel.dispatch(
@@ -380,7 +367,7 @@ private fun BookshelfManageScreen(
             )
         },
         FabMenuItem(
-            Icons.Default.Refresh,
+            Symbols.Refresh,
             stringResource(R.string.revert_selection)
         ) {
             viewModel.dispatch(
@@ -390,7 +377,7 @@ private fun BookshelfManageScreen(
             )
         },
         FabMenuItem(
-            Icons.Default.Download,
+            Symbols.Download,
             "缓存选中"
         ) {
             if (selectedBookUrls.isNotEmpty()) {
@@ -398,7 +385,7 @@ private fun BookshelfManageScreen(
             }
         },
         FabMenuItem(
-            Icons.Default.Refresh,
+            Symbols.Refresh,
             "批量换源"
         ) {
             if (selectedBookUrls.isNotEmpty()) {
@@ -406,7 +393,7 @@ private fun BookshelfManageScreen(
             }
         },
         FabMenuItem(
-            Icons.Default.Bookmarks,
+            Symbols.Bookmarks,
             stringResource(R.string.move_to_group)
         ) {
             if (selectedBookUrls.isNotEmpty()) {
@@ -416,20 +403,20 @@ private fun BookshelfManageScreen(
             }
         },
         FabMenuItem(
-            Icons.Default.Upload,
+            Symbols.Upload,
             "导出选中"
         ) {
             exportSelected()
         },
         FabMenuItem(
-            Icons.Default.Delete,
+            Symbols.Delete,
             stringResource(R.string.clear_cache)
         ) {
             viewModel.dispatch(BookshelfManageScreenIntent.ClearCachesForBooks(selectedBookUrls))
             clearSelection()
         },
         FabMenuItem(
-            Icons.Default.Delete,
+            Symbols.Delete,
             stringResource(R.string.delete)
         ) {
             if (selectedBookUrls.isNotEmpty()) {
@@ -471,7 +458,7 @@ private fun BookshelfManageScreen(
             if (state.groupList.isNotEmpty()) {
                 TopBarActionButton(
                     onClick = { showGroupMenu = true },
-                    imageVector = AppIcons.Filter,
+                    symbol = AppIcons.Filter,
                     contentDescription = stringResource(R.string.a11y_group_filter)
                 )
                 RoundDropdownMenu(
@@ -548,12 +535,11 @@ private fun BookshelfManageScreen(
                     stringResource(R.string.cache_download_failed, it)
                 }
                 val isSelected = selectedBookUrls.contains(book.bookUrl)
-                val isMiuix = ThemeResolver.isMiuixEngine(composeEngine)
                 val animatedContainerColor by animateColorAsState(
                     targetValue = if (isSelected)
                         LegadoTheme.colorScheme.secondaryContainer
                     else
-                        if (isMiuix) LegadoTheme.colorScheme.surfaceContainer else LegadoTheme.colorScheme.surfaceContainerLow,
+                        LegadoTheme.colorScheme.surfaceContainerLow,
                     animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
                     label = "CardColor"
                 )
@@ -663,7 +649,7 @@ private fun BookshelfManageScreen(
                                             }
                                         },
                                         modifier = Modifier.weight(1f),
-                                        icon = if (isDownloading) Icons.Default.Stop else Icons.Default.Download,
+                                        icon = if (isDownloading) Symbols.Stop else Symbols.Download,
                                         text = if (isDownloading) "停止" else "下载",
                                         contentColor = LegadoTheme.colorScheme.onSurfaceVariant.copy(
                                             alpha = 0.8f
@@ -678,7 +664,7 @@ private fun BookshelfManageScreen(
                                     SmallTonalButton(
                                         onClick = { showExportSheetFor(listOf(book)) },
                                         modifier = Modifier.weight(1f),
-                                        icon = Icons.Default.Upload,
+                                        icon = Symbols.Upload,
                                         text = "导出",
                                         contentColor = LegadoTheme.colorScheme.onSurfaceVariant.copy(
                                             alpha = 0.8f
@@ -697,7 +683,7 @@ private fun BookshelfManageScreen(
                                             showGroupSelectSheet = true
                                         },
                                         modifier = Modifier.weight(1f),
-                                        icon = Icons.Default.Bookmarks,
+                                        icon = Symbols.Bookmarks,
                                         text = "分组",
                                         contentColor = LegadoTheme.colorScheme.onSurfaceVariant.copy(
                                             alpha = 0.8f
@@ -744,7 +730,7 @@ private fun BookshelfManageScreen(
                                     SmallTonalButton(
                                         onClick = { moreMenuBookUrl = book.bookUrl },
                                         modifier = Modifier.weight(1f),
-                                        icon = Icons.Default.MoreVert,
+                                        icon = Symbols.MoreVert,
                                         text = "更多",
                                         contentColor = LegadoTheme.colorScheme.onSurfaceVariant.copy(
                                             alpha = 0.8f
@@ -1021,7 +1007,7 @@ private fun BookshelfManageScreen(
         startAction = {
             MediumTonalButton(
                 onClick = { showExportSettings = !showExportSettings },
-                icon = if (showExportSettings) Icons.Default.Upload else Icons.Default.Settings,
+                icon = if (showExportSettings) Symbols.Upload else Symbols.Settings,
                 contentDescription = if (showExportSettings) stringResource(R.string.export) else "导出设置",
             )
         },
@@ -1181,7 +1167,7 @@ private fun BookshelfManageScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 12.dp),
-                        icon = Icons.Default.Upload,
+                        icon = Symbols.Upload,
                         text = stringResource(R.string.export),
                     )
                 }
@@ -1415,7 +1401,7 @@ private fun BookSourcePickerSheet(
                 onClick = {
                     onConfirm(selectedSources.mapNotNull { it.getBookSource() })
                 },
-                icon = Icons.Default.PlayArrow,
+                icon = Symbols.PlayArrow,
                 contentDescription = stringResource(android.R.string.ok)
             )
         }
@@ -1534,14 +1520,14 @@ private fun BatchChangePreviewSheet(
         startAction = {
             MediumTonalButton(
                 onClick = onAddAllToShelf,
-                icon = Icons.Default.Add,
+                icon = Symbols.Add,
                 contentDescription = stringResource(R.string.add)
             )
         },
         endAction = {
             MediumTonalButton(
                 onClick = onMigrateAll,
-                icon = Icons.Default.PlayArrow,
+                icon = Symbols.PlayArrow,
                 contentDescription = stringResource(R.string.confirm)
             )
         }
@@ -1630,28 +1616,28 @@ private fun BatchChangePreviewRow(
             ) {
                 SmallTonalButton(
                     onClick = { onManualSearch(item.oldBook) },
-                    icon = Icons.Default.Search,
+                    icon = Symbols.Search,
                     contentDescription = stringResource(R.string.search)
                 )
                 SmallTonalButton(
                     onClick = { onSkip(item.oldBook.bookUrl) },
-                    icon = Icons.Default.Clear,
+                    icon = Symbols.Clear,
                     text = "不迁移"
                 )
                 SmallTonalButton(
                     onClick = { onMigrate(item.oldBook.bookUrl) },
-                    icon = Icons.Default.PlayArrow,
+                    icon = Symbols.PlayArrow,
                     text = "迁移"
                 )
                 SmallTonalButton(
                     onClick = { onAddToShelf(item.oldBook.bookUrl) },
-                    icon = Icons.Default.Add,
+                    icon = Symbols.Add,
                     text = "新增"
                 )
                 if (item.candidates.size > 1) {
                     SmallTonalButton(
                         onClick = { onShowOtherSources(item) },
-                        icon = Icons.Default.Info,
+                        icon = Symbols.Info,
                         text = "查看其他源信息"
                     )
                 }
@@ -1741,7 +1727,7 @@ private fun OtherSourceOptionsSheet(
                     trailingAction = {
                         SmallTonalButton(
                             onClick = { onOpenBook(candidate.book) },
-                            icon = Icons.Default.Info,
+                            icon = Symbols.Info,
                             contentDescription = stringResource(R.string.details),
                         )
                     },

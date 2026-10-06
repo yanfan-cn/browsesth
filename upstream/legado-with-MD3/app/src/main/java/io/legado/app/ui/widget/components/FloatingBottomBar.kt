@@ -4,12 +4,16 @@
 // Licensed under GPL-3.0
 package io.legado.app.ui.widget.components
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,9 +25,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
@@ -86,6 +87,9 @@ import kotlin.math.sign
 
 private val LocalFloatingBottomBarTabInteractive = staticCompositionLocalOf { true }
 
+/** SPEC-038: when false, items show press highlight instead of a sticky selection pill. */
+private val LocalFloatingBottomBarPressOnly = staticCompositionLocalOf { false }
+
 val LocalFloatingBottomBarTabScale = staticCompositionLocalOf { { 1f } }
 
 @Composable
@@ -97,13 +101,29 @@ fun RowScope.FloatingBottomBarItem(
 ) {
     val scale = LocalFloatingBottomBarTabScale.current
     val interactive = enabled && LocalFloatingBottomBarTabInteractive.current
+    val pressOnly = LocalFloatingBottomBarPressOnly.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val isInLightTheme = !LegadoTheme.isDark
+    val pressTint = if (isInLightTheme) {
+        Color.Black.copy(alpha = 0.1f)
+    } else {
+        Color.White.copy(alpha = 0.1f)
+    }
     Column(
         modifier
             .clip(ContinuousCapsule)
+            .then(
+                if (pressOnly && pressed) {
+                    Modifier.background(pressTint, ContinuousCapsule)
+                } else {
+                    Modifier
+                }
+            )
             // 背景采样副本与隐藏的导航项不能保留触摸节点，alpha=0 不会取消命中。
             .then(
                 if (interactive) Modifier.clickable(
-                    interactionSource = null,
+                    interactionSource = if (pressOnly) interactionSource else null,
                     indication = null,
                     role = Role.Tab,
                     onClick = onClick,
@@ -113,8 +133,9 @@ fun RowScope.FloatingBottomBarItem(
             .weight(1f)
             .graphicsLayer {
                 val currentScale = scale()
-                scaleX = currentScale
-                scaleY = currentScale
+                val pressScale = if (pressOnly && pressed) 0.92f else 1f
+                scaleX = currentScale * pressScale
+                scaleY = currentScale * pressScale
             },
         verticalArrangement = Arrangement.spacedBy(1.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -136,6 +157,8 @@ fun FloatingBottomBar(
     expandedWidth: Dp? = null,
     onRestoreNavigation: () -> Unit = {},
     enableDragSwitch: Boolean = true,
+    /** When false (browser chrome): no sticky selected tab; press feedback only. */
+    persistentSelection: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
     val navigationAlpha = (1f - compactProgress * 3f).coerceIn(0f, 1f)
@@ -271,6 +294,9 @@ fun FloatingBottomBar(
             null
         }
 
+    CompositionLocalProvider(
+        LocalFloatingBottomBarPressOnly provides !persistentSelection,
+    ) {
     Box(
         modifier = modifier.width(IntrinsicSize.Min),
         contentAlignment = Alignment.CenterStart
@@ -415,7 +441,8 @@ fun FloatingBottomBar(
             )
         }
 
-        if (tabWidthPx > 0f) {
+        // SPEC-038: browser chrome uses press-only items; skip sticky selection pill.
+        if (tabWidthPx > 0f && persistentSelection) {
             Box(
                 Modifier
                     .matchParentSize()
@@ -510,11 +537,11 @@ fun FloatingBottomBar(
                     .size(64.dp)
                     .graphicsLayer { alpha = menuAlpha },
             ) {
-                Icon(
-                    Icons.Default.Menu, stringResource(R.string.home_capsule_restore_navigation),
+                SymbolIcon(Symbols.Menu, stringResource(R.string.home_capsule_restore_navigation),
                     tint = LegadoTheme.colorScheme.onSurface
                 )
             }
         }
+    }
     }
 }

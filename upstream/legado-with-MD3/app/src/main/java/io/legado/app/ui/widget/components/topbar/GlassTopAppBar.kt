@@ -19,11 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.LocalHazeState
-import io.legado.app.ui.theme.ThemeResolver
 import io.legado.app.ui.theme.responsiveHazeEffect
-import top.yukonga.miuix.kmp.basic.TopAppBar as MiuixTopAppBar
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -34,14 +31,7 @@ fun GlassTopAppBar(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val hazeState = LocalHazeState.current
-    val composeEngine = LegadoTheme.composeEngine
-    val isMiuix = ThemeResolver.isMiuixEngine(composeEngine)
-
-    val containerColor = if (!isMiuix) {
-        GlassTopAppBarDefaults.containerColor()
-    } else {
-        GlassTopAppBarDefaults.getMiuixAppBarColor()
-    }
+    val containerColor = GlassTopAppBarDefaults.containerColor()
 
     val finalModifier = if (hazeState != null) {
         modifier
@@ -52,45 +42,25 @@ fun GlassTopAppBar(
     }
 
     Column(modifier = finalModifier) {
-        if (isMiuix) {
-            // Reserve constant status-bar space (ignoring visibility) like
-            // Material3's TopAppBar, so content doesn't reflow when the status
-            // bar is re-shown (e.g. returning from a reader that hid it).
-            MiuixTopAppBar(
-                modifier = Modifier.windowInsetsPadding(WindowInsets.statusBarsIgnoringVisibility),
-                title = title,
-                navigationIcon = navigationIcon,
-                actions = {
-                    TopBarActionsRow(
-                        modifier = Modifier.padding(end = miuixTopBarActionsEndPadding())
-                    ) { actions() }
-                },
-                color = Color.Transparent,
-                defaultWindowInsetsPadding = false,
-                navigationIconPadding = miuixTopBarSlotPadding(),
-                actionIconPadding = miuixTopBarSlotPadding(),
-            )
-        } else {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = title,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                },
-                navigationIcon = navigationIcon,
-                actions = {
-                    Box(modifier = Modifier.padding(end = 12.dp)) {
-                        TopBarActionsRow { actions() }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent
+        TopAppBar(
+            title = {
+                Text(
+                    text = title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleLarge
                 )
+            },
+            navigationIcon = navigationIcon,
+            actions = {
+                Box(modifier = Modifier.padding(end = 12.dp)) {
+                    TopBarActionsRow { actions() }
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                scrolledContainerColor = Color.Transparent
             )
-        }
+        )
     }
 }

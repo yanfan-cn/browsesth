@@ -1,5 +1,7 @@
 package io.legado.app.ui.config.themeConfig
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,9 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -158,7 +157,7 @@ private fun BackgroundImageTile(
                     contentAlignment = Alignment.Center
                 ) {
                     AppIcon(
-                        imageVector = Icons.Default.Add,
+                        symbol = Symbols.Add,
                         contentDescription = stringResource(R.string.add),
                         modifier = Modifier.size(48.dp),
                         tint = LegadoTheme.colorScheme.primary
@@ -185,7 +184,7 @@ private fun BackgroundImageTile(
                         .align(Alignment.TopEnd)
                         .padding(8.dp)
                         .size(32.dp),
-                    icon = Icons.Default.Close,
+                    icon = Symbols.Close,
                     contentDescription = stringResource(R.string.close)
                 )
             }

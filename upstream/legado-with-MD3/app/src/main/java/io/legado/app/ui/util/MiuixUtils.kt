@@ -2,10 +2,8 @@ package io.legado.app.ui.util
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -13,25 +11,10 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import top.yukonga.miuix.kmp.basic.ScrollBehavior
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurColors
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
-import top.yukonga.miuix.kmp.shader.isRenderEffectSupported
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.overScrollVertical
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 @Stable
 data class AppState(
@@ -42,13 +25,6 @@ data class AppState(
 
 val LocalAppState = compositionLocalOf { AppState() }
 val LocalIsWideScreen = staticCompositionLocalOf { false }
-
-interface MiuixNavigator {
-    fun pop()
-    fun push(route: Any)
-}
-
-val LocalNavigator = staticCompositionLocalOf<MiuixNavigator> { error("No navigator found!") }
 
 @Composable
 fun shouldShowSplitPane(): Boolean {
@@ -61,16 +37,6 @@ fun shouldShowSplitPane(): Boolean {
         widthDp >= 840.dp || (widthDp >= 600.dp && ratio < 1.2f)
     }
 }
-
-fun Modifier.pageScrollModifiers(
-    enableScrollEndHaptic: Boolean,
-    showTopAppBar: Boolean,
-    topAppBarScrollBehavior: ScrollBehavior,
-): Modifier = this
-    .then(if (enableScrollEndHaptic) Modifier.scrollEndHaptic() else Modifier)
-    .overScrollVertical()
-    .then(if (showTopAppBar) Modifier.nestedScroll(topAppBarScrollBehavior.nestedScrollConnection) else Modifier)
-    .fillMaxHeight()
 
 @Composable
 fun pageContentPadding(
@@ -99,76 +65,47 @@ fun pageContentPadding(
 }
 
 @Composable
-fun AdaptiveTopAppBar(
-    title: String,
-    showTopAppBar: Boolean,
-    isWideScreen: Boolean,
-    scrollBehavior: ScrollBehavior,
-    subtitle: String = "",
-    color: Color = MiuixTheme.colorScheme.surface,
-    navigationIcon: @Composable () -> Unit = {},
-    actions: @Composable RowScope.() -> Unit = {},
-    bottomContent: @Composable () -> Unit = {},
-) {
-    if (showTopAppBar) {
-        if (isWideScreen) {
-            SmallTopAppBar(
-                title = title,
-                subtitle = subtitle,
-                color = color,
-                scrollBehavior = scrollBehavior,
-                defaultWindowInsetsPadding = false,
-                navigationIcon = navigationIcon,
-                actions = actions,
-                bottomContent = bottomContent,
-            )
-        } else {
-            TopAppBar(
-                title = title,
-                subtitle = subtitle,
-                color = color,
-                scrollBehavior = scrollBehavior,
-                navigationIcon = navigationIcon,
-                actions = actions,
-                bottomContent = bottomContent,
-            )
-        }
-    }
+fun rememberBlurBackdrop(): Any? = null
+
+fun isRuntimeShaderSupported(): Boolean =
+    android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU
+
+enum class BlurBlendMode {
+    PlusDarker,
+    PlusLighter,
+    ColorDodge,
+    Overlay,
+    SrcOver,
+    ColorBurn,
+    SoftLight,
+    HardLight,
+    Luminosity,
+    LinearLight,
+    Lab,
 }
 
-@Composable
-fun rememberBlurBackdrop(): LayerBackdrop? {
-    val appState = LocalAppState.current
-    if (!appState.enableBlur || !isRenderEffectSupported()) return null
-    val surfaceColor = MiuixTheme.colorScheme.surface
-    return rememberLayerBackdrop {
-        drawRect(surfaceColor)
-        drawContent()
-    }
+data class BlendColorEntry(
+    val color: androidx.compose.ui.graphics.Color,
+    val blendMode: BlurBlendMode,
+)
+
+object BlurDefaults {
+    fun blurColors(blendColors: List<BlendColorEntry>): List<BlendColorEntry> = blendColors
 }
+
+fun Modifier.textureBlur(
+    backdrop: Any?,
+    shape: androidx.compose.ui.graphics.Shape,
+    blurRadius: Float,
+    colors: List<BlendColorEntry>,
+    contentBlendMode: androidx.compose.ui.graphics.BlendMode,
+): Modifier = this
 
 @Composable
 fun BlurredBar(
-    backdrop: LayerBackdrop?,
+    backdrop: Any?,
     blurEnabled: Boolean,
     content: @Composable () -> Unit,
 ) {
-    Box(
-        modifier = if (blurEnabled && backdrop != null) {
-            Modifier.textureBlur(
-                backdrop = backdrop,
-                shape = RectangleShape,
-                blurRadius = 25f,
-                colors = BlurColors(
-                    blendColors = listOf(
-                        BlendColorEntry(color = MiuixTheme.colorScheme.surface.copy(0.8f)),
-                    ),
-                ),
-            )
-        } else {
-            Modifier
-        },
-    ) {
-        content()
-    }
+    Box { content() }
 }

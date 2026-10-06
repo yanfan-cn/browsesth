@@ -1,5 +1,8 @@
 package io.legado.app.ui.widget.components
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,12 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,7 +26,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,7 +52,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 data class ConfigListEntry(
     val id: String,
     val enabled: Boolean,
-    val icon: ImageVector? = null,
+    val icon: MaterialSymbol? = null,
     val label: String,
     val subtitle: String? = null,
 )
@@ -165,8 +161,7 @@ fun ConfigListEntryRow(
                     )
                 } else {
                     entry.icon?.let { icon ->
-                        Icon(
-                            imageVector = icon,
+                        SymbolIcon(symbol = icon,
                             contentDescription = entry.label,
                             tint = LegadoTheme.colorScheme.onSurface.copy(alpha = alpha),
                             modifier = Modifier.size(24.dp),
@@ -209,13 +204,13 @@ fun ConfigListEntryRow(
                 if (hasCustomIcon) {
                     SmallPlainButton(
                         onClick = onClearIcon,
-                        icon = Icons.Default.Close,
+                        icon = Symbols.Close,
                         contentDescription = stringResource(R.string.delete)
                     )
                 } else {
                     SmallTonalButton(
                         onClick = onSelectIcon,
-                        icon = Icons.Default.Add,
+                        icon = Symbols.Add,
                         contentDescription = stringResource(R.string.add),
                     )
                 }
@@ -225,9 +220,9 @@ fun ConfigListEntryRow(
                 SmallOutlinedButton(
                     onClick = toggle,
                     icon = if (entry.enabled) {
-                        Icons.Default.Visibility
+                        Symbols.Visibility
                     } else {
-                        Icons.Default.VisibilityOff
+                        Symbols.VisibilityOff
                     },
                     contentDescription = stringResource(
                         if (entry.enabled) R.string.disable_selection else R.string.enable_selection
@@ -240,8 +235,7 @@ fun ConfigListEntryRow(
             modifier = dragHandleModifier.size(32.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                Icons.Default.Menu,
+            SymbolIcon(Symbols.Menu,
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),
                 tint = LegadoTheme.colorScheme.onSurfaceVariant

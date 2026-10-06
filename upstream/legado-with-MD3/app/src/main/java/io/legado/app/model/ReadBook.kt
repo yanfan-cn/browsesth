@@ -1570,10 +1570,11 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
         if (book.origin == WebArticleBookFactory.ORIGIN ||
             book.bookUrl.startsWith("browsesth-novel://")
         ) {
-            val text = WebChapterHttpFetcher.fetchNovelChapterText(chapter.url)
+            val text = WebChapterHttpFetcher.fetchNovelChapterHtml(chapter.url)
             if (text.isNotBlank()) {
-                BookHelp.saveText(book, chapter, text)
-                return text
+                val mixed = WebArticleBookFactory.normalizeMixedHtml(text, chapter.url)
+                BookHelp.saveText(book, chapter, mixed)
+                return mixed
             }
             return "加载正文失败\n无内容"
         }

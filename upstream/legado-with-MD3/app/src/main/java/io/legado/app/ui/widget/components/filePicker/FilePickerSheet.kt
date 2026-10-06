@@ -1,11 +1,8 @@
 package io.legado.app.ui.widget.components.filePicker
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.webkit.MimeTypeMap
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.EditNote
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
@@ -37,7 +34,7 @@ fun FilePickerSheet(
     ) {
         onSelectSysDir?.let {
             OptionCard(
-                icon = Icons.Default.FolderOpen,
+                icon = Symbols.FolderOpen,
                 text = stringResource(R.string.sys_folder_picker),
                 onClick = it
             )
@@ -45,7 +42,7 @@ fun FilePickerSheet(
 
         onSelectSysFile?.let {
             OptionCard(
-                icon = Icons.AutoMirrored.Filled.InsertDriveFile,
+                icon = Symbols.InsertDriveFile,
                 text = stringResource(R.string.sys_file_picker),
                 onClick = { it(typesOfExtensions(allowExtensions)) }
             )
@@ -53,7 +50,7 @@ fun FilePickerSheet(
 
         onSelectSysFiles?.let {
             OptionCard(
-                icon = Icons.AutoMirrored.Filled.InsertDriveFile,
+                icon = Symbols.InsertDriveFile,
                 text = stringResource(R.string.multi_select_items),
                 onClick = { it(typesOfExtensions(allowExtensions)) }
             )
@@ -61,7 +58,7 @@ fun FilePickerSheet(
 
         onManualInput?.let {
             OptionCard(
-                icon = Icons.Default.EditNote,
+                icon = Symbols.EditNote,
                 text = stringResource(R.string.manual_input),
                 onClick = it
             )
@@ -69,7 +66,7 @@ fun FilePickerSheet(
 
         onUpload?.let {
             OptionCard(
-                icon = Icons.Default.CloudUpload,
+                icon = Symbols.CloudUpload,
                 text = stringResource(R.string.upload_url),
                 onClick = it
             )

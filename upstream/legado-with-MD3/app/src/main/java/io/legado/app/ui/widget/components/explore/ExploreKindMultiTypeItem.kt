@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.explore
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.appcompat.app.AppCompatActivity
@@ -9,10 +11,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -359,7 +357,7 @@ private fun rememberTrailingIcon(type: String, isSelected: Boolean): @Composable
                 {
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                         AppIcon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            symbol = Symbols.KeyboardArrowRight,
                             contentDescription = null,
                             modifier = Modifier.height(14.dp),
                             tint = if (isSelected) LegadoTheme.colorScheme.onPrimaryContainer.copy(
@@ -373,7 +371,7 @@ private fun rememberTrailingIcon(type: String, isSelected: Boolean): @Composable
             ExploreKind.Type.toggle -> {
                 {
                     AppIcon(
-                        imageVector = Icons.Default.Refresh,
+                        symbol = Symbols.Refresh,
                         contentDescription = null,
                         modifier = Modifier.height(14.dp),
                         tint = if (isSelected) LegadoTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else LegadoTheme.colorScheme.outlineVariant
@@ -384,7 +382,7 @@ private fun rememberTrailingIcon(type: String, isSelected: Boolean): @Composable
             ExploreKind.Type.select -> {
                 {
                     AppIcon(
-                        imageVector = Icons.Default.UnfoldMore,
+                        symbol = Symbols.UnfoldMore,
                         contentDescription = null,
                         modifier = Modifier.height(14.dp),
                         tint = if (isSelected) LegadoTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else LegadoTheme.colorScheme.outlineVariant

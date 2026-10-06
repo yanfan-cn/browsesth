@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.read
+import io.legado.app.ui.widget.components.icon.SymbolIcon
 
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -28,7 +30,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
@@ -385,8 +386,7 @@ private fun ToolButtonContent(
         modifier = Modifier.fillMaxSize(),
     ) {
         if (button.customIconPath.isNullOrBlank()) {
-            Icon(
-                imageVector = button.icon,
+            SymbolIcon(symbol = button.icon,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = tint,
@@ -420,7 +420,7 @@ private fun ToolButtonContent(
 
 internal data class ToolButtonDef(
     val id: String,
-    val icon: ImageVector,
+    val icon: MaterialSymbol,
     val description: String,
     val customIconPath: String?,
     val isActive: Boolean = false,

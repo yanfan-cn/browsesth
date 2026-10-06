@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.image.cover
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -10,8 +12,6 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Update
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,7 +80,7 @@ fun BookshelfCover(
         if (!badgeText.isNullOrEmpty()) {
             TextCard(
                 text = badgeText,
-                icon = if (showBadgeDot) Icons.Default.Update else null,
+                icon = if (showBadgeDot) Symbols.Update else null,
                 iconSize = 12.dp,
                 modifier = Modifier
                     .align(Alignment.TopEnd)

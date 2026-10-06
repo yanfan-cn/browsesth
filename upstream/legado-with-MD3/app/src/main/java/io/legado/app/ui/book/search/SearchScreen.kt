@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.search
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -19,14 +21,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -162,11 +156,7 @@ fun SearchScreen(
     var keepResultsPinnedToTop by rememberSaveable { mutableStateOf(true) }
     val showSuggestionPanel = state.showSuggestions
     val latestQuery by rememberUpdatedState(state.query)
-    val scrollBehavior = if (ThemeResolver.isMiuixEngine(LegadoTheme.composeEngine)) {
-        GlassTopAppBarDefaults.defaultScrollBehavior()
-    } else {
-        M3GlassScrollBehavior(TopAppBarDefaults.enterAlwaysScrollBehavior())
-    }
+    val scrollBehavior = M3GlassScrollBehavior(TopAppBarDefaults.enterAlwaysScrollBehavior())
     val shouldLoadMore by remember {
         derivedStateOf {
             val totalCount = listState.layoutInfo.totalItemsCount
@@ -318,7 +308,7 @@ fun SearchScreen(
                     navigationIcon = {
                         TopBarNavigationButton(
                             onClick = onBack,
-                            imageVector = AppIcons.Back
+                            symbol = AppIcons.Back
                         )
                     },
                     actions = {
@@ -400,7 +390,7 @@ fun SearchScreen(
                             onIntent(SearchIntent.LoadMore)
                         }
                     },
-                    icon = if (state.isSearching) Icons.Default.Stop else Icons.Default.PlayArrow,
+                    icon = if (state.isSearching) Symbols.Stop else Symbols.PlayArrow,
                     tooltipText = if (state.isSearching) stringResource(R.string.stop) else stringResource(R.string.start)
                 )
             }
@@ -698,7 +688,7 @@ fun SearchScreen(
                     stringResource(R.string.search_layout_list)
                 ),
                 entryValues = arrayOf("1", "0"),
-                imageVector = if (isSourceGroupedMode) Icons.Default.GridView else Icons.AutoMirrored.Outlined.FormatListBulleted,
+                symbol = if (isSourceGroupedMode) Symbols.GridView else Symbols.FormatListBulleted,
                 onValueChange = { newValue ->
                     if (newValue.toInt() != searchLayoutMode) {
                         onIntent(SearchIntent.SetLayoutMode(newValue.toInt()))
@@ -709,7 +699,7 @@ fun SearchScreen(
             CompactClickableSettingItem(
                 title = stringResource(R.string.content_quality_detection),
                 description = stringResource(R.string.content_quality_detection_summary),
-                imageVector = Icons.Default.Book,
+                symbol = Symbols.Book,
                 onClick = { onIntent(SearchIntent.OpenContentQuality) },
             )
 
@@ -719,7 +709,7 @@ fun SearchScreen(
                     .padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                AppIcon(Icons.Default.Layers, contentDescription = null)
+                AppIcon(Symbols.Layers, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 AppText(
                     text = stringResource(R.string.search_type),
@@ -976,7 +966,7 @@ private fun SearchSuggestionPanel(
         if (visibleHints.isNotEmpty()) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    AppIcon(Icons.Default.Book, contentDescription = null)
+                    AppIcon(Symbols.Book, contentDescription = null)
                     Spacer(modifier = Modifier.width(6.dp))
                     AppText(
                         text = stringResource(R.string.bookshelf),
@@ -1017,7 +1007,7 @@ private fun SearchSuggestionPanel(
                     SmallPlainButton(
                         onClick = onClearHistory,
                         text = stringResource(R.string.clear_all),
-                        icon = Icons.Default.Close
+                        icon = Symbols.Close
                     )
                 }
             }
@@ -1048,7 +1038,7 @@ private fun SearchSuggestionPanel(
                     trailingAction = {
                         SmallPlainButton(
                             onClick = { onDeleteHistory(history) },
-                            icon = Icons.Default.Close,
+                            icon = Symbols.Close,
                             contentDescription = stringResource(R.string.delete)
                         )
                     }

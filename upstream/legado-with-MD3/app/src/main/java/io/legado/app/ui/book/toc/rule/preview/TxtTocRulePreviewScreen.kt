@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.toc.rule.preview
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.expandVertically
@@ -25,9 +27,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -119,14 +118,14 @@ fun TxtTocRulePreviewScreen(
                 startAction = {
                     TopBarActionButton(
                         onClick = { onIntent(TxtTocRulePreviewIntent.EditRule(item.rule)) },
-                        imageVector = AppIcons.Edit,
+                        symbol = AppIcons.Edit,
                         contentDescription = stringResource(R.string.edit),
                     )
                 },
                 endAction = {
                     TopBarActionButton(
                         onClick = { onIntent(TxtTocRulePreviewIntent.ApplyRule) },
-                        imageVector = AppIcons.Check,
+                        symbol = AppIcons.Check,
                         contentDescription = stringResource(R.string.ok),
                     )
                 },
@@ -191,16 +190,16 @@ fun TxtTocRulePreviewScreen(
                     // Search button
                     TopBarActionButton(
                         onClick = { onIntent(TxtTocRulePreviewIntent.ToggleSearch) },
-                        imageVector = AppIcons.Search,
+                        symbol = AppIcons.Search,
                         contentDescription = stringResource(R.string.search),
                     )
                     // Layout toggle button
                     TopBarActionButton(
                         onClick = { onIntent(TxtTocRulePreviewIntent.ToggleLayout) },
-                        imageVector = if (state.isGridLayout) {
-                            Icons.AutoMirrored.Outlined.FormatListBulleted
+                        symbol = if (state.isGridLayout) {
+                            Symbols.FormatListBulleted
                         } else {
-                            Icons.Default.GridView
+                            Symbols.GridView
                         },
                         contentDescription = stringResource(
                             if (state.isGridLayout) R.string.layout_mode_list else R.string.layout_mode_grid
@@ -209,7 +208,7 @@ fun TxtTocRulePreviewScreen(
                     // Manage page button
                     TopBarActionButton(
                         onClick = { onIntent(TxtTocRulePreviewIntent.OpenManagePage) },
-                        imageVector = AppIcons.Settings,
+                        symbol = AppIcons.Settings,
                         contentDescription = stringResource(R.string.manage),
                     )
                 },

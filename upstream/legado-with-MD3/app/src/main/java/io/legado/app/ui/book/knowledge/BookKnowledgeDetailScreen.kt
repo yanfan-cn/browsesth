@@ -1,5 +1,7 @@
 package io.legado.app.ui.book.knowledge
 
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,9 +12,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
@@ -89,13 +88,13 @@ fun BookKnowledgeDetailScreen(
                     if (state.entryId != null) {
                         TopBarActionButton(
                             onClick = { showDeleteDialog = true },
-                            imageVector = Icons.Default.Delete,
+                            symbol = Symbols.Delete,
                             contentDescription = stringResource(R.string.delete),
                         )
                     }
                     TopBarActionButton(
                         onClick = { onIntent(KnowledgeDetailIntent.Save) },
-                        imageVector = Icons.Default.Save,
+                        symbol = Symbols.Save,
                         contentDescription = stringResource(R.string.save),
                     )
                 },
