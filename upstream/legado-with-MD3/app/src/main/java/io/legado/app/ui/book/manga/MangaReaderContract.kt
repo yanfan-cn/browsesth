@@ -271,6 +271,9 @@ sealed interface MangaReaderIntent {
         val companionBeforePage: Boolean = false,
     ) : MangaReaderIntent
 
+    /** SPEC-057: open fullscreen gallery at [pageKey]. */
+    data class OpenImageGallery(val pageKey: String) : MangaReaderIntent
+
     data class ExecutePageAction(val action: MangaPageAction) : MangaReaderIntent
     data class MessageShown(val id: Long) : MangaReaderIntent
 }
@@ -284,6 +287,12 @@ sealed interface MangaReaderSheet {
         val pageKey: String,
         val companionPageKey: String? = null,
         val companionBeforePage: Boolean = false,
+    ) : MangaReaderSheet
+
+    /** SPEC-057: fullscreen image gallery. */
+    data class ImageGallery(
+        val urls: List<String>,
+        val index: Int,
     ) : MangaReaderSheet
 }
 

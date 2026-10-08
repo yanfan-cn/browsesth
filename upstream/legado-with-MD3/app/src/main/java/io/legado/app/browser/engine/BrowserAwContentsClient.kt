@@ -49,6 +49,14 @@ class BrowserAwContentsClient(
     private val onConsoleBlockPick: ((String) -> Unit)? = null,
     private val onScrollDirection: ((String) -> Unit)? = null,
     private val userAgentProvider: () -> String = { BrowserUa.MOBILE },
+    /** SPEC-058: page-triggered downloads. */
+    private val onDownloadRequested: ((
+        url: String,
+        userAgent: String,
+        contentDisposition: String,
+        mimeType: String,
+        contentLength: Long,
+    ) -> Unit)? = null,
 ) : AwContentsClient() {
 
     val interceptHits = AtomicInteger(0)
@@ -172,7 +180,10 @@ class BrowserAwContentsClient(
         contentDisposition: String,
         mimeType: String,
         contentLength: Long,
-    ) {}
+    ) {
+        onDownloadRequested?.invoke(url, userAgent, contentDisposition, mimeType, contentLength)
+            ?: onStatus("开始下载…")
+    }
 
     override fun showFileChooser(
         uploadFilePathsCallback: Callback<Array<String>>,

@@ -144,6 +144,7 @@ object MainNavigator {
             is MainRouteCache,
             MainRouteBookCacheManage,
             MainRouteBrowserBookmarks,
+            MainRouteBrowserDownloads,
             MainRouteBrowserHistory,
             MainRouteBrowserTabs,
             is MainRouteReadBook,
@@ -152,6 +153,7 @@ object MainNavigator {
                     currentRoute == MainRouteHome ||
                     currentRoute is MainRouteBookInfo ||
                     currentRoute == MainRouteBrowserBookmarks ||
+                    currentRoute == MainRouteBrowserDownloads ||
                     currentRoute == MainRouteBrowserHistory ||
                     currentRoute == MainRouteBrowserTabs
                 ) {
@@ -590,6 +592,8 @@ object MainNavigator {
                 } ?: MainRouteHome
 
             MainRouteConst.ROUTE_ABOUT -> MainRouteAbout
+
+            MainRouteConst.ROUTE_BROWSER_DOWNLOADS -> MainRouteBrowserDownloads
 
             else -> MainRouteHome
         }

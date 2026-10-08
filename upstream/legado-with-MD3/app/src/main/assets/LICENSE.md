@@ -1,3 +1,10 @@
+# 巡页 · 开源许可说明
+
+巡页（Browsesth）基于开源项目 **Legado with MD3** 等二次开发与发行，整体遵循下方 **GNU GPL-3.0** 许可条款（及上游项目要求）。
+
+发行物中另包含 **Chromium** 等第三方组件，各组件按其自身许可证（如 BSD-3-Clause 等）提供；完整第三方声明见应用发行附带的 NOTICE / 上游许可文件。使用、修改或再分发本软件时，请同时遵守 GPL-3.0 与相关第三方许可义务。
+
+---
 GNU GENERAL PUBLIC LICENSE
 Version 3, 29 June 2007
 

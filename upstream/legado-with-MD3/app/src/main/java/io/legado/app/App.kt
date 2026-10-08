@@ -43,6 +43,7 @@ import io.legado.app.domain.gateway.OtherSettingsGateway
 import io.legado.app.domain.gateway.ReadSettingsGateway
 import io.legado.app.domain.gateway.ReadStyleGateway
 import io.legado.app.domain.gateway.ThemeSettingsGateway
+import io.legado.app.browser.engine.BrowserDownloadPaths
 import io.legado.app.browser.engine.BrowserDrawMode
 import io.legado.app.browser.engine.BrowsesthBromiumBootstrap
 import io.legado.app.help.AppFreezeMonitor
@@ -111,13 +112,43 @@ class App : Application(), SingletonImageLoader.Factory {
         // 首行初始化设置快照层：同步预加载 DataStore（触发 SP 迁移），
         // 之后所有 getPref* 门面读取均为纯内存查找，须先于一切主题/配置读取
         AppConfigStore.init(this)
-        // Browsesth SPEC-007: one-shot — floating bottom bar + liquid glass as product defaults.
+        // Browsesth SPEC-007 / SPEC-056: floating bar default; chrome surface by API.
         run {
             val ntp = getSharedPreferences("browsesth_ntp_prefs", MODE_PRIVATE)
             if (!ntp.getBoolean("shell_floating_default_v1", false)) {
                 AppConfigStore.putBoolean(PreferKey.useFloatingBottomBar, true)
                 AppConfigStore.putBoolean(PreferKey.useFloatingBottomBarLiquidGlass, true)
                 ntp.edit().putBoolean("shell_floating_default_v1", true).apply()
+            }
+            if (!ntp.getBoolean("chrome_surface_style_v1", false)) {
+                val style = io.legado.app.ui.theme.ChromeSurfaceStylePolicy.defaultStyle().storageValue
+                AppConfigStore.putString(PreferKey.chromeSurfaceStyle, style)
+                AppConfigStore.putString(
+                    PreferKey.topBarButtonStyle,
+                    io.legado.app.ui.theme.ChromeSurfaceStylePolicy
+                        .effectiveTopBarButtonStyle(style),
+                )
+                ntp.edit().putBoolean("chrome_surface_style_v1", true).apply()
+            }
+            // SPEC-061: drop translucent; resync defaults for installs that still store it.
+            if (!ntp.getBoolean("chrome_surface_style_v2", false)) {
+                val stored = AppConfigStore.getString(PreferKey.chromeSurfaceStyle)
+                val resolved =
+                    io.legado.app.ui.theme.ChromeSurfaceStylePolicy.resolve(stored).storageValue
+                if (stored != resolved) {
+                    AppConfigStore.putString(PreferKey.chromeSurfaceStyle, resolved)
+                }
+                AppConfigStore.putString(
+                    PreferKey.topBarButtonStyle,
+                    io.legado.app.ui.theme.ChromeSurfaceStylePolicy
+                        .effectiveTopBarButtonStyle(resolved),
+                )
+                ntp.edit().putBoolean("chrome_surface_style_v2", true).apply()
+            }
+            // SPEC-063: hide RSS tab by default (user can re-enable in main nav settings).
+            if (!ntp.getBoolean("hide_rss_default_v1", false)) {
+                AppConfigStore.putBoolean(PreferKey.showRss, false)
+                ntp.edit().putBoolean("hide_rss_default_v1", true).apply()
             }
         }
         // Browsesth: cold-start Aloha before any UI that might touch WebView.
@@ -128,6 +159,8 @@ class App : Application(), SingletonImageLoader.Factory {
         } catch (t: Throwable) {
             Log.e("BrowsesthKernel", "Aloha init FAILED", t)
         }
+        // SPEC-064: ensure Download/XunYeBrowser exists on cold start.
+        runCatching { BrowserDownloadPaths.ensureRoot(this) }
         // 一次性迁移：把旧版语言偏好写入 AppCompat per-app locales，之后交由
         // autoStoreLocales 持久化。不能每次启动都执行——API 33+ 上会覆盖用户在
         // 系统设置里选择的应用语言，API <33 上此时 AppCompat 存储尚未加载、

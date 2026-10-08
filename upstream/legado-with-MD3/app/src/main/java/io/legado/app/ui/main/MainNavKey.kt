@@ -63,6 +63,9 @@ data object MainRouteSettingsBrowser : MainRoute
 data object MainRouteBrowserBookmarks : MainRoute
 
 @Serializable
+data object MainRouteBrowserDownloads : MainRoute
+
+@Serializable
 data object MainRouteBrowserHistory : MainRoute
 
 @Serializable
@@ -315,4 +318,6 @@ object MainRouteConst {
     const val ROUTE_READ_RECORD_OVERVIEW = "read_record_overview"
     const val ROUTE_ABOUT = "about"
     const val ROUTE_TTS_CACHE = "tts_cache"
+    /** SPEC-064 */
+    const val ROUTE_BROWSER_DOWNLOADS = "browser/downloads"
 }

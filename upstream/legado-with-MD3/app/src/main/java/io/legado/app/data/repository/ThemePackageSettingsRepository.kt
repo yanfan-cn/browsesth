@@ -73,7 +73,7 @@ class ThemePackageSettingsRepository : ThemePackageSettingsGateway {
         bookshelfCardColorDark = int(PreferKey.bookshelfCardColorDark, 0),
         showHome = boolean(PreferKey.showHome, true),
         showDiscovery = boolean(PreferKey.showDiscovery, true),
-        showRss = boolean(PreferKey.showRss, true),
+        showRss = boolean(PreferKey.showRss, false),
         showStatusBar = boolean(PreferKey.showStatusBar, true),
         swipeAnimation = boolean(PreferKey.swipeAnimation, true),
         showBottomView = boolean(PreferKey.showBottomView, true),

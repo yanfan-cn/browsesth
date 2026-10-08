@@ -25,6 +25,7 @@ import io.legado.app.feature.reader.platform.ReaderPerfTrace
 import io.legado.app.help.book.BookContent
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.model.ImageProvider
+import io.legado.app.ui.browser.TabletBrowserLayout
 import io.legado.app.utils.dpToPx
 import kotlinx.coroutines.CancellationException
 import splitties.init.appCtx
@@ -142,7 +143,12 @@ object LegacyReaderChapterPaginator {
         }
         val singleImage = imageLayoutMode == ReaderImageLayoutMode.SINGLE_PAGE
         val layoutSource = source.withTitleVisibility(
-            ReadBookConfig.titleMode != 2 || chapter.isVolume || content.textList.isEmpty(),
+            TabletBrowserLayout.showBodyTitle(
+                isTablet = paginationStyle.isTablet,
+                titleMode = ReadBookConfig.titleMode,
+                isVolume = chapter.isVolume,
+                textEmpty = content.textList.isEmpty(),
+            ),
             paginationStyle.titleSegmentation,
         )
         val styleRanges = LegacyReaderStyleRangeMapper.map(

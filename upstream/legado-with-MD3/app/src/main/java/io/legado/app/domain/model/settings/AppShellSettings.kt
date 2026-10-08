@@ -6,7 +6,7 @@ data class AppShellSettings(
     val composeEngine: String = "material",
     val showHome: Boolean = true,
     val showDiscovery: Boolean = true,
-    val showRss: Boolean = true,
+    val showRss: Boolean = false,
     val showStatusBar: Boolean = true,
     val swipeAnimation: Boolean = true,
     val predictiveBackEnabled: Boolean = true,

@@ -280,6 +280,7 @@ private fun ThemeSettings.expectedGatewayPrefMap(): Map<String, Any?> = mapOf(
     PreferKey.bottomBarLensRadius to bottomBarLensRadius,
     PreferKey.useFlexibleTopAppBar to useFlexibleTopAppBar,
     PreferKey.topBarButtonStyle to topBarButtonStyle,
+    PreferKey.chromeSurfaceStyle to chromeSurfaceStyle,
     PreferKey.mergeTopBarActions to mergeTopBarActions,
     PreferKey.bookInfoFollowCoverColor to bookInfoFollowCoverColor,
     PreferKey.bookInfoNetworkCoverBackground to bookInfoNetworkCoverBackground,

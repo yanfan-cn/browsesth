@@ -126,7 +126,7 @@ fun RemoteBookRouteScreen(
     AppAlertDialog(
         data = dialogState as? RemoteBookDialog.ReImport,
         onDismissRequest = { dialogState = null },
-        title = "是否重新加入书架？",
+        title = "是否重新加入阅读列表？",
         content = {
             AppText("将会覆盖书籍")
         },
@@ -311,7 +311,7 @@ fun RemoteBookScreen(
             onSelectAll = { onIntent(RemoteBookIntent.SelectAll) },
             onSelectInvert = { onIntent(RemoteBookIntent.SelectInvert) },
             primaryAction = ActionItem(
-                text = "添加至书架",
+                text = "添加至阅读列表",
                 icon = Symbols.CloudDownload,
                 onClick = {
                     val selectedBooks = state.items

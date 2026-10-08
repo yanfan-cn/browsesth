@@ -36,11 +36,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -72,6 +70,7 @@ import io.legado.app.browser.engine.BrowserNtpPrefs
 import io.legado.app.browser.engine.BrowserSearchEngine
 import io.legado.app.browser.engine.BrowserShieldPrefs
 import io.legado.app.browser.engine.BrowserTabManager
+import io.legado.app.browser.engine.BrowserToolboxPrefs
 import io.legado.app.browser.engine.BrowserUa
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.utils.sendToClip
@@ -84,6 +83,7 @@ fun TabletBrowserShell(
     address: String,
     onAddressChange: (String) -> Unit,
     onAddressFocusChange: (Boolean) -> Unit = {},
+    addressFocused: Boolean = false,
     onSubmitAddress: () -> Unit,
     onBack: () -> Unit,
     onForward: () -> Unit,
@@ -95,6 +95,7 @@ fun TabletBrowserShell(
     onSidePanelChange: (TabletSidePanel) -> Unit,
     onOpenUrl: (String) -> Unit,
     onOpenBrowserSettings: () -> Unit = {},
+    onOpenDownloads: () -> Unit = {},
     sessionActions: BrowserSessionActions? = null,
     content: @Composable () -> Unit,
 ) {
@@ -105,10 +106,22 @@ fun TabletBrowserShell(
     val store = remember { BrowseStore(context) }
     var uaMode by remember { mutableStateOf(chromePrefs.uaModeOrDefault(true)) }
     var adBlockEnabled by remember { mutableStateOf(shield.adBlockEnabled) }
-    var autoHide by remember { mutableStateOf(chromePrefs.autoHideTopBar) }
+    val addressSuggestions = remember(address, addressFocused) {
+        if (!addressFocused || address.isBlank()) {
+            emptyList()
+        } else {
+            io.legado.app.browser.engine.BrowserOmniboxSuggest.match(
+                address,
+                store.bookmarks(),
+                store.history(),
+            )
+        }
+    }
 
+    // SPEC-055: full-screen tabs reuses phone UI; hide tablet browser chrome.
+    val showBrowserChrome = chromeVisible && sidePanel != TabletSidePanel.Tabs
     Column(modifier = ComposeModifier.fillMaxSize().background(scheme.surface)) {
-        if (chromeVisible) {
+        if (showBrowserChrome) {
             TabletTabStrip(
                 onNewTab = { BrowserTabManager.openNewTab(url = null, select = true) },
                 onSelectTab = { id ->
@@ -167,6 +180,18 @@ fun TabletBrowserShell(
         }
         Box(modifier = ComposeModifier.weight(1f).fillMaxWidth()) {
             content()
+            if (addressSuggestions.isNotEmpty()) {
+                BrowserOmniboxSuggestPanel(
+                    items = addressSuggestions,
+                    onSelect = { item ->
+                        onSidePanelChange(TabletSidePanel.None)
+                        onOpenUrl(item.url)
+                    },
+                    modifier = ComposeModifier
+                        .align(Alignment.TopCenter)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
             // SPEC-025: dim + right drawer with enter/exit animation.
             androidx.compose.animation.AnimatedVisibility(
                 visible = sidePanel != TabletSidePanel.None,
@@ -214,98 +239,141 @@ fun TabletBrowserShell(
                             },
                             onClose = { onSidePanelChange(TabletSidePanel.None) },
                         )
-                        TabletSidePanel.Toolbox -> TabletToolboxPanel(
-                            uaMode = uaMode,
-                            onUaChange = {
-                                uaMode = it
-                                chromePrefs.uaMode = it
-                                context.toastOnUi("已切换为${it.label} UA，请刷新页面")
-                            },
-                            adBlockEnabled = adBlockEnabled,
-                            onAdBlockChange = { enabled ->
-                                adBlockEnabled = enabled
-                                shield.adBlockEnabled = enabled
-                                context.toastOnUi(
-                                    if (enabled) "已开启广告拦截" else "已关闭广告拦截（新请求生效）",
+                        TabletSidePanel.Toolbox -> {
+                            // SPEC-070: same grid toolbox as phone.
+                            val toolboxPrefs = remember { BrowserToolboxPrefs(context) }
+                            var toolboxOrder by remember {
+                                mutableStateOf(toolboxPrefs.orderedIds())
+                            }
+                            var toolboxEditing by remember { mutableStateOf(false) }
+                            Column(ComposeModifier.fillMaxSize().padding(8.dp)) {
+                                Row(
+                                    ComposeModifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        if (toolboxEditing) "调整顺序" else "工具箱",
+                                        ComposeModifier.weight(1f),
+                                        fontSize = 18.sp,
+                                        color = scheme.onSurface,
+                                    )
+                                    if (toolboxEditing) {
+                                        TextButton(
+                                            onClick = {
+                                                toolboxPrefs.saveOrder(toolboxOrder)
+                                                toolboxEditing = false
+                                            },
+                                        ) { Text("完成") }
+                                    }
+                                    IconButton(onClick = { onSidePanelChange(TabletSidePanel.None) }) {
+                                        SymbolIcon(Symbols.Close, contentDescription = "关闭")
+                                    }
+                                }
+                                BrowserToolboxBody(
+                                    order = toolboxOrder,
+                                    onOrderChange = { toolboxOrder = it },
+                                    editing = toolboxEditing,
+                                    onEditingChange = { toolboxEditing = it },
+                                    actions = BrowserToolboxActions(
+                                        onOpenBookmarks = {
+                                            onSidePanelChange(TabletSidePanel.Bookmarks)
+                                        },
+                                        onOpenHistory = {
+                                            onSidePanelChange(TabletSidePanel.History)
+                                        },
+                                        onOpenDownloads = {
+                                            onSidePanelChange(TabletSidePanel.None)
+                                            onOpenDownloads()
+                                        },
+                                        onOpenSettings = {
+                                            onSidePanelChange(TabletSidePanel.None)
+                                            onOpenBrowserSettings()
+                                        },
+                                        onNewIncognitoTab = {
+                                            onSidePanelChange(TabletSidePanel.None)
+                                            BrowserTabManager.openNewTab(
+                                                url = null,
+                                                incognito = true,
+                                                select = true,
+                                            )
+                                        },
+                                        onAddBookmark = {
+                                            val actions = sessionActions
+                                            if (actions != null) {
+                                                actions.addBookmark()
+                                            } else {
+                                                context.toastOnUi("请先打开网页")
+                                            }
+                                        },
+                                        onSavePage = {
+                                            sessionActions?.saveCurrentPage()
+                                                ?: context.toastOnUi("请先打开网页")
+                                            onSidePanelChange(TabletSidePanel.None)
+                                        },
+                                        onShare = {
+                                            sessionActions?.shareCurrentPage()
+                                                ?: context.toastOnUi("请先打开网页")
+                                            onSidePanelChange(TabletSidePanel.None)
+                                        },
+                                        onCopyLink = {
+                                            sessionActions?.copyCurrentUrl()
+                                                ?: context.toastOnUi("当前没有可复制的链接")
+                                        },
+                                        onPickBlock = {
+                                            sessionActions?.startPickMode()
+                                                ?: context.toastOnUi("请先打开网页")
+                                            onSidePanelChange(TabletSidePanel.None)
+                                        },
+                                        adBlockEnabled = adBlockEnabled,
+                                        onToggleAdBlock = {
+                                            adBlockEnabled = !adBlockEnabled
+                                            shield.adBlockEnabled = adBlockEnabled
+                                            context.toastOnUi(
+                                                if (adBlockEnabled) "已开启广告拦截"
+                                                else "已关闭广告拦截（新请求生效）",
+                                            )
+                                        },
+                                        uaMode = uaMode,
+                                        onToggleUa = {
+                                            uaMode = when (uaMode) {
+                                                BrowserUa.Mode.Mobile -> BrowserUa.Mode.Desktop
+                                                BrowserUa.Mode.Desktop -> BrowserUa.Mode.Mobile
+                                            }
+                                            chromePrefs.uaMode = uaMode
+                                            context.toastOnUi("已切换为${uaMode.label} UA，请刷新页面")
+                                        },
+                                    ),
+                                    onDismiss = { onSidePanelChange(TabletSidePanel.None) },
+                                    modifier = ComposeModifier.fillMaxSize(),
                                 )
-                            },
-                            autoHide = autoHide,
-                            onAutoHideChange = {
-                                autoHide = it
-                                chromePrefs.autoHideTopBar = it
-                            },
-                            onOpenHistory = {
-                                onSidePanelChange(TabletSidePanel.History)
-                            },
-                            onOpenBookmarks = {
-                                onSidePanelChange(TabletSidePanel.Bookmarks)
-                            },
-                            onAddBookmark = {
-                                val actions = sessionActions
-                                if (actions != null) {
-                                    actions.addBookmark()
-                                } else {
-                                    val url = BrowserTabManager.activeTab()?.url
-                                    if (url.isNullOrBlank() || !url.startsWith("http")) {
-                                        context.toastOnUi("当前没有可收藏的链接")
-                                    } else {
-                                        store.addBookmark(url, "")
-                                        context.toastOnUi("已加书签")
-                                    }
-                                }
-                            },
-                            onCopyLink = {
-                                val actions = sessionActions
-                                if (actions != null) {
-                                    actions.copyCurrentUrl()
-                                } else {
-                                    val url = BrowserTabManager.activeTab()?.url.orEmpty()
-                                    if (url.isBlank()) {
-                                        context.toastOnUi("当前没有可复制的链接")
-                                    } else {
-                                        context.sendToClip(url)
-                                    }
-                                }
-                            },
-                            onStartPickMode = {
-                                val actions = sessionActions
-                                if (actions != null) {
-                                    actions.startPickMode()
-                                    onSidePanelChange(TabletSidePanel.None)
-                                } else {
-                                    context.toastOnUi("请先打开网页")
-                                }
-                            },
-                            onOpenSettings = {
-                                onSidePanelChange(TabletSidePanel.None)
-                                onOpenBrowserSettings()
-                            },
-                            onClose = { onSidePanelChange(TabletSidePanel.None) },
-                        )
+                            }
+                        }
                         TabletSidePanel.Tabs, TabletSidePanel.None -> Unit
                     }
                 }
             }
+            // SPEC-071: paired 240ms fade+scale (match phone tabs route).
             androidx.compose.animation.AnimatedVisibility(
                 visible = sidePanel == TabletSidePanel.Tabs,
                 modifier = ComposeModifier.fillMaxSize(),
-                enter = scaleIn(
-                    animationSpec = tween(420, easing = FastOutSlowInEasing),
-                    initialScale = 0.88f,
-                ) + fadeIn(tween(420, easing = FastOutSlowInEasing)),
-                exit = scaleOut(
-                    animationSpec = tween(420, easing = FastOutSlowInEasing),
-                    targetScale = 0.88f,
-                ) + fadeOut(tween(420, easing = FastOutSlowInEasing)),
+                enter = fadeIn(tween(240, easing = FastOutSlowInEasing)) + scaleIn(
+                    animationSpec = tween(240, easing = FastOutSlowInEasing),
+                    initialScale = 0.94f,
+                ),
+                exit = fadeOut(tween(240, easing = FastOutSlowInEasing)) + scaleOut(
+                    animationSpec = tween(240, easing = FastOutSlowInEasing),
+                    targetScale = 0.94f,
+                ),
             ) {
                 Box(
                     modifier = ComposeModifier
                         .fillMaxSize()
-                        .background(scheme.surfaceContainerHigh)
+                        .background(scheme.surface)
                         .clickable(enabled = false) {},
                 ) {
-                    TabletTabsPanel(
-                        onClose = { onSidePanelChange(TabletSidePanel.None) },
+                    BrowserTabsScreen(
+                        onBack = { onSidePanelChange(TabletSidePanel.None) },
+                        onOpenActiveTab = { onSidePanelChange(TabletSidePanel.None) },
                     )
                 }
             }
@@ -405,7 +473,8 @@ private fun TabletFunctionBar(
             modifier = ComposeModifier
                 .weight(1f)
                 .height(BrowserUiTokens.InputHeightLarge)
-                .clip(RoundedCornerShape(BrowserUiTokens.ButtonCorner))
+                // SPEC-060: 24dp corner radius for tablet omnibox
+                .clip(RoundedCornerShape(24.dp))
                 .background(scheme.surfaceContainerHighest)
                 .padding(horizontal = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -436,6 +505,8 @@ private fun TabletFunctionBar(
                     },
                     textColor = scheme.onSurface,
                     mutedColor = scheme.onSurfaceVariant,
+                    // SPEC-060: below the top bar; readableOverlay already reduces transparency
+                    verticalOffset = BrowserUiTokens.InputHeightLarge + 8.dp,
                 )
             }
             Spacer(modifier = ComposeModifier.width(8.dp))
@@ -462,7 +533,7 @@ private fun TabletFunctionBar(
         ChromeIcon(Symbols.Bookmark, "收藏", onOpenBookmarks)
         ChromeIcon(Symbols.History, "历史", onOpenHistory)
         // SPEC-025: bookshelf between history and reader.
-        ChromeIcon(Symbols.LibraryBooks, "书架", onOpenBookshelf)
+        ChromeIcon(Symbols.LibraryBooks, "阅读列表", onOpenBookshelf)
         ChromeIcon(
             Symbols.AutoStories,
             "阅读模式",
@@ -542,157 +613,3 @@ private fun TabletEntryPanel(
     }
 }
 
-@Composable
-private fun TabletTabsPanel(onClose: () -> Unit) {
-    val tabs by BrowserTabManager.tabs.collectAsStateWithLifecycle()
-    Column(modifier = ComposeModifier.fillMaxSize()) {
-        Row(
-            modifier = ComposeModifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(text = "标签页", modifier = ComposeModifier.weight(1f), fontSize = 18.sp)
-            TextButton(onClick = {
-                BrowserTabManager.openNewTab(url = null, select = true)
-                onClose()
-            }) { Text("新建") }
-            IconButton(onClick = onClose) {
-                SymbolIcon(Symbols.Close, contentDescription = "关闭")
-            }
-        }
-        HorizontalDivider()
-        LazyColumn {
-            items(tabs, key = { it.id }) { tab ->
-                Row(
-                    modifier = ComposeModifier
-                        .fillMaxWidth()
-                        .clickable {
-                            BrowserTabManager.switchTo(tab.id)
-                            onClose()
-                        }
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = tab.title.takeIf { it.isNotBlank() } ?: tab.url ?: "新标签页",
-                        modifier = ComposeModifier.weight(1f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    IconButton(onClick = { BrowserTabManager.close(tab.id) }) {
-                        SymbolIcon(Symbols.Close, contentDescription = "关闭标签")
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TabletToolboxPanel(
-    uaMode: BrowserUa.Mode,
-    onUaChange: (BrowserUa.Mode) -> Unit,
-    adBlockEnabled: Boolean,
-    onAdBlockChange: (Boolean) -> Unit,
-    autoHide: Boolean,
-    onAutoHideChange: (Boolean) -> Unit,
-    onAddBookmark: () -> Unit,
-    onOpenHistory: () -> Unit,
-    onOpenBookmarks: () -> Unit,
-    onCopyLink: () -> Unit,
-    onStartPickMode: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onClose: () -> Unit,
-) {
-    val scheme = LegadoTheme.colorScheme
-    Column(
-        modifier = ComposeModifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 8.dp, vertical = 12.dp),
-    ) {
-        Row(
-            modifier = ComposeModifier.fillMaxWidth().padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "工具箱",
-                modifier = ComposeModifier.weight(1f),
-                fontSize = 18.sp,
-                color = scheme.onSurface,
-            )
-            IconButton(onClick = onClose) {
-                SymbolIcon(Symbols.Close, contentDescription = "关闭")
-            }
-        }
-        HorizontalDivider(modifier = ComposeModifier.padding(vertical = 8.dp))
-        ToolboxSideRow(Symbols.Bookmark, "添加书签", onAddBookmark)
-        ToolboxSideRow(Symbols.History, "查看历史", onOpenHistory)
-        ToolboxSideRow(Symbols.Bookmark, "书签列表", onOpenBookmarks)
-        ToolboxSideRow(Symbols.ContentCopy, "复制链接", onCopyLink)
-        ToolboxSideRow(Symbols.Block, "点选屏蔽", onStartPickMode)
-        Row(
-            modifier = ComposeModifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SymbolIcon(Symbols.Block, contentDescription = null, tint = scheme.primary)
-            Spacer(modifier = ComposeModifier.width(16.dp))
-            Text("广告拦截", modifier = ComposeModifier.weight(1f), color = scheme.onSurface)
-            Switch(checked = adBlockEnabled, onCheckedChange = onAdBlockChange)
-        }
-        HorizontalDivider()
-        ToolboxSideRow(
-            icon = if (uaMode == BrowserUa.Mode.Desktop) {
-                Symbols.Computer
-            } else {
-                Symbols.PhoneAndroid
-            },
-            label = "UA：${uaMode.label}（点击切换）",
-            onClick = {
-                onUaChange(
-                    when (uaMode) {
-                        BrowserUa.Mode.Mobile -> BrowserUa.Mode.Desktop
-                        BrowserUa.Mode.Desktop -> BrowserUa.Mode.Mobile
-                    },
-                )
-            },
-        )
-        Row(
-            modifier = ComposeModifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "滚动时自动隐藏顶栏",
-                modifier = ComposeModifier.weight(1f),
-                color = scheme.onSurface,
-            )
-            Switch(checked = autoHide, onCheckedChange = onAutoHideChange)
-        }
-        HorizontalDivider()
-        ToolboxSideRow(Symbols.Settings, "设置", onOpenSettings)
-        Spacer(modifier = ComposeModifier.height(24.dp))
-    }
-}
-
-@Composable
-private fun ToolboxSideRow(
-    icon: MaterialSymbol,
-    label: String,
-    onClick: () -> Unit,
-) {
-    val scheme = LegadoTheme.colorScheme
-    Row(
-        modifier = ComposeModifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SymbolIcon(icon, contentDescription = null, tint = scheme.primary)
-        Spacer(modifier = ComposeModifier.width(16.dp))
-        Text(label, color = scheme.onSurface, fontSize = 16.sp)
-    }
-}

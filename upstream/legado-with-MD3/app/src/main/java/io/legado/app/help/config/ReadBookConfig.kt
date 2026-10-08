@@ -548,7 +548,7 @@ object ReadBookConfig {
         private val textAccentColor: String = "#834E00",//白天强调文字颜色
         private val textAccentColorNight: String = "#FE4D55",//夜间强调文字颜色
         private val textAccentColorEInk: String = "#000000",
-        private val pageAnim: Int = 0,//翻页动画
+        private val pageAnim: Int = 1,//翻页动画 SPEC-062: 默认滑动
         private val pageAnimEInk: Int = 4,
         // 翻页动画速度挡位 0:极速(240ms) 1:快速(300ms) 2:适中(360ms,默认) 3:优雅(540ms)。
         // 只改翻页动画的折算基准时长，不参与排版。
@@ -570,7 +570,7 @@ object ReadBookConfig {
         private val shadowColor: String = "#3E3D3B",
         private val shadowColorN: String = "#3E3D3B",
         val letterSpacing: Float = 0.1f,//字间距
-        val lineSpacingExtra: Int = 12,//行间距
+        val lineSpacingExtra: Int = 13,//行间距 SPEC-062: 显示 0.3
         val paragraphSpacing: Int = 2,//段距
         val titleMode: Int = 0,//标题位置 0:居左 1:居中 2:隐藏
         val titleSize: Int = 20,

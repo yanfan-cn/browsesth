@@ -121,6 +121,22 @@ object BrowserTabManager {
         _activeId.value = ""
     }
 
+    /** SPEC-055: close only tabs in the given mode (常规 / 无痕 list). */
+    fun closeAllOfMode(incognito: Boolean) {
+        val list = _tabs.value
+        val closedIds = list.filter { it.incognito == incognito }.map { it.id }.toSet()
+        if (closedIds.isEmpty()) return
+        closedIds.forEach { BrowserTabThumbnailStore.remove(it) }
+        val next = list.filter { it.incognito != incognito }
+        val activeWasClosed = _activeId.value in closedIds
+        _tabs.value = next
+        if (activeWasClosed) {
+            BrowserSessionHolder.captureActiveThumbnail()
+            BrowserSessionHolder.destroy()
+            _activeId.value = next.firstOrNull()?.id.orEmpty()
+        }
+    }
+
     fun updateActiveMeta(url: String, title: String) {
         val id = _activeId.value
         _tabs.update { list ->

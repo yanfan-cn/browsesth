@@ -61,7 +61,11 @@ fun AppScaffold(
     val themeSettings = configuration.theme
     val hasImageBg = themeSettings.hasBackgroundImage(isDark)
     val hazeState = remember { HazeState() }
-    val liquidGlassEnabled = configuration.theme.topBarButtonStyle == "liquid"
+    // SPEC-061: liquid top-bar chrome follows global surface style.
+    val liquidGlassEnabled =
+        io.legado.app.ui.theme.ChromeSurfaceStylePolicy.isLiquidGlassActive(
+            configuration.theme.chromeSurfaceStyle,
+        )
     val contentDrawsBehindBars =
         alwaysDrawBehindBars || themeSettings.enableBlur || themeSettings.enableProgressiveBlur
 

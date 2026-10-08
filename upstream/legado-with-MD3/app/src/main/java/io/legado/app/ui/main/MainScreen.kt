@@ -5,6 +5,7 @@ import io.legado.app.ui.widget.components.icon.Symbols
 import android.content.Intent
 import android.os.Build
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -135,6 +136,7 @@ fun MainScreen(
     onOpenSettings: () -> Unit,
     onNavigateToBrowserSettings: () -> Unit,
     onNavigateToBrowserBookmarks: () -> Unit,
+    onNavigateToBrowserDownloads: () -> Unit = {},
     onNavigateToBrowserHistory: () -> Unit,
     onNavigateToBrowserTabs: () -> Unit = {},
     onNavigateToBrowserReader: (bookUrl: String) -> Unit,
@@ -225,6 +227,20 @@ fun MainScreen(
     val pagerState = rememberPagerState(initialPage = initialPage) { destinations.size }
     val currentDestination = destinations.getOrNull(pagerState.currentPage)
     val onBrowserHome = currentDestination == MainDestination.Home
+    // SPEC-060: from 阅读列表, system back returns to browser Home instead of exiting.
+    val bookshelfPageIndex = remember(destinations) {
+        destinations.indexOfFirst { it == MainDestination.Bookshelf }
+    }
+    val homePageIndex = remember(destinations) {
+        destinations.indexOfFirst { it == MainDestination.Home }.coerceAtLeast(0)
+    }
+    BackHandler(
+        enabled = currentDestination == MainDestination.Bookshelf && bookshelfPageIndex >= 0,
+    ) {
+        coroutineScope.launch {
+            pagerState.animateScrollToPage(homePageIndex)
+        }
+    }
     // SPEC-008: hide main app bottom bar while a browser session is open on Home.
     var browserSessionActive by rememberSaveable { mutableStateOf(false) }
     val hideMainBottomBarForBrowserSession = onBrowserHome && browserSessionActive
@@ -267,9 +283,11 @@ fun MainScreen(
             onMainRoute = true, showBottomView = mainUiState.showBottomView,
             useFloatingBottomBar = mainUiState.useFloatingBottomBar, useRail = useRail,
         )
+    // SPEC-056: liquid glass follows global chromeSurfaceStyle (API 13+ when selected).
     val useLiquidGlass = useFloatingBottomBar &&
-            mainUiState.useFloatingBottomBarLiquidGlass &&
-            Build.VERSION.SDK_INT >= 35 // Android 15+: liquid glass (SPEC-007)
+            io.legado.app.ui.theme.ChromeSurfaceStylePolicy.isLiquidGlassActive(
+                io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle,
+            )
     val alwaysShowLabel = labelVisibilityMode == "labeled"
     val showLabel = !isUnlabeled
 
@@ -497,6 +515,7 @@ fun MainScreen(
                                 onSessionActiveChange = { browserSessionActive = it },
                                 onOpenBrowserSettings = onNavigateToBrowserSettings,
                                 onOpenBookmarks = onNavigateToBrowserBookmarks,
+                                onOpenDownloads = onNavigateToBrowserDownloads,
                                 onOpenHistory = onNavigateToBrowserHistory,
                                 onOpenTabs = onNavigateToBrowserTabs,
                                 onOpenReader = onNavigateToBrowserReader,

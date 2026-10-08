@@ -21,7 +21,10 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.Shadow
 import com.kyant.capsule.ContinuousCapsule
 import io.legado.app.ui.animation.InteractiveHighlight
+import io.legado.app.ui.theme.ChromeSurfaceStyle
+import io.legado.app.ui.theme.ChromeSurfaceStylePolicy
 import io.legado.app.ui.theme.LegadoTheme
+import io.legado.app.ui.theme.LocalAppUiConfiguration
 import io.legado.app.ui.theme.LocalTopBarBackdrop
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -30,11 +33,8 @@ import kotlin.math.sin
 import kotlin.math.tanh
 
 /**
- * SPEC-024/026: phone floating chrome — translucent by default;
- * Android 15+ (API 35) uses liquid glass. Never samples AwContents
- * (uses scaffold backdrop or a solid local layer only).
- * Light theme uses a thinner fill + edge shadow so glass remains visible
- * on pale surfaces (dark theme already read as glass with the thicker fill).
+ * SPEC-024/026/056: phone floating chrome — style from global chromeSurfaceStyle.
+ * Never samples AwContents (uses scaffold backdrop or a solid local layer only).
  */
 internal object BrowserChromeGlassStyle {
     fun barSurfaceAlpha(isDark: Boolean): Float = if (isDark) 0.42f else 0.16f
@@ -45,39 +45,65 @@ internal object BrowserChromeGlassStyle {
 }
 
 @Composable
+internal fun currentChromeSurfaceStyle(): ChromeSurfaceStyle =
+    ChromeSurfaceStylePolicy.resolve(LocalAppUiConfiguration.current.theme.chromeSurfaceStyle)
+
+/**
+ * SPEC-071: alpha for solid tints drawn on NTP liquid-glass controls.
+ * Liquid glass → light 0.35 / dark 0.28; filled → opaque 1.
+ */
+@Composable
+fun ntpGlassOverlayAlpha(forceDark: Boolean? = null): Float {
+    val style = currentChromeSurfaceStyle()
+    if (style != ChromeSurfaceStyle.LiquidGlass) return 1f
+    val dark = forceDark ?: LegadoTheme.isDark
+    return if (dark) BrowserUiTokens.NtpGlassOverlayDark else BrowserUiTokens.NtpGlassOverlayLight
+}
+
+@Composable
 fun Modifier.browserFloatingChromeGlass(
     shape: Shape = ContinuousCapsule,
     tint: Color = LegadoTheme.colorScheme.surfaceContainer,
 ): Modifier {
     val isDark = LegadoTheme.isDark
+    val style = currentChromeSurfaceStyle()
     val scaffoldBackdrop = LocalTopBarBackdrop.current
     val localBackdrop = rememberLayerBackdrop {
         drawRect(tint.copy(alpha = 1f))
     }
-    return if (Build.VERSION.SDK_INT >= 35) {
-        drawBackdrop(
-            backdrop = scaffoldBackdrop ?: localBackdrop,
-            shape = { shape },
-            effects = {
-                vibrancy()
-                blur(14.dp.toPx())
-                lens(20.dp.toPx(), 20.dp.toPx())
-            },
-            highlight = { Highlight.Default },
-            shadow = {
-                Shadow.Default.copy(
-                    color = Color.Black.copy(alpha = BrowserChromeGlassStyle.shadowAlpha(isDark)),
+    return when (style) {
+        ChromeSurfaceStyle.LiquidGlass -> {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                drawBackdrop(
+                    backdrop = scaffoldBackdrop ?: localBackdrop,
+                    shape = { shape },
+                    effects = {
+                        vibrancy()
+                        blur(14.dp.toPx())
+                        lens(20.dp.toPx(), 20.dp.toPx())
+                    },
+                    highlight = { Highlight.Default },
+                    shadow = {
+                        Shadow.Default.copy(
+                            color = Color.Black.copy(alpha = BrowserChromeGlassStyle.shadowAlpha(isDark)),
+                        )
+                    },
+                    onDrawSurface = {
+                        drawRect(tint.copy(alpha = BrowserChromeGlassStyle.barSurfaceAlpha(isDark)))
+                    },
                 )
-            },
-            onDrawSurface = {
-                drawRect(tint.copy(alpha = BrowserChromeGlassStyle.barSurfaceAlpha(isDark)))
-            },
-        )
-    } else {
-        clip(shape).background(
+            } else {
+                clip(shape).background(
+                    tint.copy(alpha = BrowserChromeGlassStyle.barFallbackAlpha(isDark)),
+                    shape,
+                )
+            }
+        }
+        ChromeSurfaceStyle.Translucent -> clip(shape).background(
             tint.copy(alpha = BrowserChromeGlassStyle.barFallbackAlpha(isDark)),
             shape,
         )
+        ChromeSurfaceStyle.Filled -> clip(shape).background(tint.copy(alpha = 1f), shape)
     }
 }
 
@@ -86,40 +112,51 @@ fun Modifier.browserReaderFabGlass(
     accent: Color,
 ): Modifier {
     val isDark = LegadoTheme.isDark
+    val style = currentChromeSurfaceStyle()
     val scaffoldBackdrop = LocalTopBarBackdrop.current
     val localBackdrop = rememberLayerBackdrop {
         drawRect(accent.copy(alpha = 1f))
     }
-    return if (Build.VERSION.SDK_INT >= 35) {
-        drawBackdrop(
-            backdrop = scaffoldBackdrop ?: localBackdrop,
-            shape = { CircleShape },
-            effects = {
-                vibrancy()
-                blur(14.dp.toPx())
-                lens(20.dp.toPx(), 20.dp.toPx())
-            },
-            highlight = { Highlight.Default },
-            shadow = {
-                Shadow.Default.copy(
-                    color = Color.Black.copy(alpha = BrowserChromeGlassStyle.shadowAlpha(isDark)),
+    return when (style) {
+        ChromeSurfaceStyle.LiquidGlass -> {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                drawBackdrop(
+                    backdrop = scaffoldBackdrop ?: localBackdrop,
+                    shape = { CircleShape },
+                    effects = {
+                        vibrancy()
+                        blur(14.dp.toPx())
+                        lens(20.dp.toPx(), 20.dp.toPx())
+                    },
+                    highlight = { Highlight.Default },
+                    shadow = {
+                        Shadow.Default.copy(
+                            color = Color.Black.copy(alpha = BrowserChromeGlassStyle.shadowAlpha(isDark)),
+                        )
+                    },
+                    onDrawSurface = {
+                        drawRect(accent.copy(alpha = BrowserChromeGlassStyle.fabSurfaceAlpha(isDark)))
+                    },
                 )
-            },
-            onDrawSurface = {
-                drawRect(accent.copy(alpha = BrowserChromeGlassStyle.fabSurfaceAlpha(isDark)))
-            },
-        )
-    } else {
-        clip(CircleShape).background(
+            } else {
+                clip(CircleShape).background(
+                    accent.copy(alpha = BrowserChromeGlassStyle.fabFallbackAlpha(isDark)),
+                    CircleShape,
+                )
+            }
+        }
+        ChromeSurfaceStyle.Translucent -> clip(CircleShape).background(
             accent.copy(alpha = BrowserChromeGlassStyle.fabFallbackAlpha(isDark)),
             CircleShape,
         )
+        ChromeSurfaceStyle.Filled -> clip(CircleShape).background(accent.copy(alpha = 1f), CircleShape)
     }
 }
 
 /**
- * SPEC-031: Legado top-bar liquid glass (press/drag lens). Never samples AwContents.
+ * SPEC-031/056: Legado top-bar liquid glass (press/drag lens). Never samples AwContents.
  * [interactive]=false for the omnibox so text gestures stay on the field.
+ * Respects global [ChromeSurfaceStyle].
  */
 @Composable
 fun Modifier.browserControlLiquidGlass(
@@ -130,6 +167,7 @@ fun Modifier.browserControlLiquidGlass(
 ): Modifier {
     val isDark = LegadoTheme.isDark
     val surface = LegadoTheme.colorScheme.surface
+    val style = currentChromeSurfaceStyle()
     val scaffoldBackdrop = LocalTopBarBackdrop.current
     val localBackdrop = rememberLayerBackdrop {
         drawRect(surface)
@@ -142,16 +180,19 @@ fun Modifier.browserControlLiquidGlass(
         isDark -> 0.50f
         else -> 0.42f
     }
-    val fallbackAlpha = if (readableOverlay) {
-        surfaceAlpha
-    } else {
-        BrowserChromeGlassStyle.barFallbackAlpha(isDark)
+    val fallbackAlpha = when (style) {
+        ChromeSurfaceStyle.Filled -> 1f
+        ChromeSurfaceStyle.Translucent, ChromeSurfaceStyle.LiquidGlass -> {
+            if (readableOverlay) surfaceAlpha else BrowserChromeGlassStyle.barFallbackAlpha(isDark)
+        }
     }
     val fallback = clip(shape).background(
         surface.copy(alpha = fallbackAlpha),
         shape,
     )
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return fallback
+    val liquidActive = style == ChromeSurfaceStyle.LiquidGlass &&
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    if (!liquidActive) return fallback
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) { InteractiveHighlight(animationScope) }
     val glass = drawBackdrop(

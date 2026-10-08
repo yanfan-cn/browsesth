@@ -78,4 +78,7 @@ internal fun Modifier.topBarLiquidGlass(shape: Shape): Modifier {
 
 @Composable
 internal fun topBarLiquidGlassEnabled(): Boolean =
-    LocalTopBarBackdrop.current != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    LocalTopBarBackdrop.current != null &&
+        io.legado.app.ui.theme.ChromeSurfaceStylePolicy.isLiquidGlassActive(
+            io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle,
+        )

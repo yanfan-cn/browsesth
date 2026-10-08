@@ -645,22 +645,7 @@ private fun MenuSettingsContent(
         entryValues = paletteValues,
         onValueChange = { onIntent(MangaReaderIntent.UpdateMenuPaletteStyle(it)) },
     )
-    TinySwitchSettingItem(
-        title = stringResource(R.string.manga_reader_menu_top_bar_liquid_glass),
-        description = stringResource(R.string.manga_reader_menu_top_bar_liquid_glass_summary),
-        checked = settings.menuTopBarLiquidGlass,
-        onCheckedChange = {
-            updateBoolean(onIntent, MangaReaderSettingKey.MENU_TOP_BAR_LIQUID_GLASS, it)
-        },
-    )
-    TinySwitchSettingItem(
-        title = stringResource(R.string.manga_reader_menu_bottom_bar_liquid_glass),
-        description = stringResource(R.string.manga_reader_menu_bottom_bar_liquid_glass_summary),
-        checked = settings.menuBottomBarLiquidGlass,
-        onCheckedChange = {
-            updateBoolean(onIntent, MangaReaderSettingKey.MENU_BOTTOM_BAR_LIQUID_GLASS, it)
-        },
-    )
+    // SPEC-056: manga liquid glass follows global chrome surface style; toggles hidden.
     TinySwitchSettingItem(
         title = stringResource(R.string.manga_reader_menu_bottom_bar_floating),
         checked = settings.menuBottomBarFloating,

@@ -309,7 +309,7 @@ object ThemeImportExport {
             customTagColorsJson = root.nullableString("K"),
             showHome = root.boolean("L", true),
             showDiscovery = root.boolean("M", true),
-            showRss = root.boolean("N", true),
+            showRss = root.boolean("N", false),
             showStatusBar = root.boolean("O", true),
             swipeAnimation = root.boolean("P", true),
             showBottomView = root.boolean("Q", true),

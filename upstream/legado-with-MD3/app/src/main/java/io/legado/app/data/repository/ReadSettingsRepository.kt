@@ -436,7 +436,7 @@ class ReadSettingsRepository(
             readMenuBottomBarBlurMode = compatDsValue(Keys.ReadMenuBottomBarBlurMode, ReadMenuBlurMode.None),
             readMenuTopBarLiquidGlassButtons = compatDsValue(Keys.ReadMenuTopBarLiquidGlassButtons, false),
             readMenuTopBarMergeButtons = compatDsValue(Keys.ReadMenuTopBarMergeButtons, false),
-            readMenuTopBarTitleCapsule = compatDsValue(Keys.ReadMenuTopBarTitleCapsule, false),
+            readMenuTopBarTitleCapsule = compatDsValue(Keys.ReadMenuTopBarTitleCapsule, true),
             readMenuBottomBarLiquidGlassButtons = compatDsValue(Keys.ReadMenuBottomBarLiquidGlassButtons, false),
             readMenuFloatingIconLiquidGlass = compatDsValue(
                 Keys.ReadMenuFloatingIconLiquidGlass,
@@ -462,7 +462,7 @@ class ReadSettingsRepository(
             showTitleBarIcons = compatDsValue(Keys.ShowTitleBarIcons, false),
             chineseConverterType = compatDsValue(Keys.ChineseConverterType, 0),
             showMenuIcon = compatDsValue(Keys.ShowMenuIcon, false),
-            titleBarCompact = compatDsValue(Keys.TitleBarCompact, false),
+            titleBarCompact = compatDsValue(Keys.TitleBarCompact, true),
             moreActionsConfig = compatDsValue(Keys.MoreActionsConfig, ""),
         )
     }

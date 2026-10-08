@@ -32,6 +32,7 @@ class AwContentsHostView @JvmOverloads constructor(
 ) : FrameLayout(context, attrs) {
 
     private var awContents: AwContents? = null
+    private var awSettings: AwSettings? = null
     private val internalAccessDelegate = InternalAccessAdapter()
 
     init {
@@ -108,6 +109,17 @@ class AwContentsHostView @JvmOverloads constructor(
         }
         // SPEC-043: Chromium Force Dark / algorithmic darkening (Edge-like).
         applyWebContentDarkMode(settings, BrowserChromePrefs(context).webContentDarkMode)
+        // SPEC-066: allow local file / content loads for saved pages.
+        runCatching {
+            settings.javaClass
+                .getMethod("setAllowFileAccess", Boolean::class.javaPrimitiveType)
+                .invoke(settings, true)
+        }.onFailure { Log.w(TAG, "setAllowFileAccess: ${it.message}") }
+        runCatching {
+            settings.javaClass
+                .getMethod("setAllowContentAccess", Boolean::class.javaPrimitiveType)
+                .invoke(settings, true)
+        }.onFailure { Log.w(TAG, "setAllowContentAccess: ${it.message}") }
 
         val drawFnAccess = BrowserDrawMode.createDrawFnAccess(this)
         val contents = AwContents(
@@ -120,6 +132,7 @@ class AwContentsHostView @JvmOverloads constructor(
             settings,
         )
         awContents = contents
+        awSettings = settings
         val mode = if (BrowserDrawMode.preferHardware()) "hardware DrawFn" else "software"
         Log.i(TAG, "AwContents attached (incognito=$incognito, $mode)")
         if (isAttachedToWindow) {
@@ -129,6 +142,12 @@ class AwContentsHostView @JvmOverloads constructor(
     }
 
     fun contentsOrNull(): AwContents? = awContents
+
+    /** SPEC-066: turn off Force Dark before loading offline HTML snapshots. */
+    fun applyForceDarkOff() {
+        val settings = awSettings ?: return
+        applyWebContentDarkMode(settings, BrowserChromePrefs.WEB_DARK_OFF)
+    }
 
     fun loadUrl(url: String) {
         awContents?.loadUrl(url) ?: Log.w(TAG, "loadUrl before attach: $url")
@@ -146,6 +165,16 @@ class AwContentsHostView @JvmOverloads constructor(
 
     fun evaluateJavaScript(script: String, callback: Callback<String>?) {
         awContents?.evaluateJavaScript(script, callback)
+    }
+
+    /** SPEC-064: save current page as MHTML (.mht), Chrome/Edge offline style. */
+    fun saveWebArchive(
+        basename: String,
+        autoname: Boolean,
+        callback: Callback<String>?,
+    ) {
+        awContents?.saveWebArchive(basename, autoname, callback)
+            ?: callback?.onResult(null)
     }
 
     fun canGoBack(): Boolean = awContents?.canGoBack() == true
@@ -178,6 +207,7 @@ class AwContentsHostView @JvmOverloads constructor(
     fun destroyContents() {
         awContents?.destroy()
         awContents = null
+        awSettings = null
     }
 
     override fun onAttachedToWindow() {

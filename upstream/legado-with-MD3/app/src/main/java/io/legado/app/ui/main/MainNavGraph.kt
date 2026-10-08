@@ -14,6 +14,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -24,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -38,6 +41,7 @@ import androidx.navigation3.runtime.metadata
 import androidx.navigation3.ui.LocalNavAnimatedContentScope
 import androidx.navigation3.ui.NavDisplay
 import io.legado.app.R
+import io.legado.app.browser.engine.BrowserFormFactor
 import io.legado.app.constant.BookType
 import io.legado.app.core.ui.player.PlayerMorphAppearance
 import io.legado.app.core.ui.player.PlayerMorphHost
@@ -120,6 +124,8 @@ import io.legado.app.ui.book.source.manage.BookSourceRouteScreen
 import io.legado.app.ui.browser.WebViewModel
 import io.legado.app.ui.browser.WebViewRouteScreen
 import io.legado.app.ui.config.ConfigNavScreen
+import io.legado.app.ui.config.TabletSettingsPane
+import io.legado.app.ui.config.TabletSettingsScreen
 import io.legado.app.ui.config.ai.AiConfigRouteScreen
 import io.legado.app.ui.config.ai.AiModelEditRouteScreen
 import io.legado.app.ui.config.ai.AiProviderEditRouteScreen
@@ -223,19 +229,37 @@ private fun browserSlideEntryMetadata(predictiveBackEnabled: Boolean) =
     webViewEntryMetadata(predictiveBackEnabled)
 
 /**
- * SPEC-053: short fade/slide — avoid 420ms scale jank. Underneath WebView stays put.
+ * SPEC-053/055/071: paired fade + light scale for tabs enter/exit (follow-finger, less stiff).
  */
 private fun browserTabsScaleMetadata(predictiveBackEnabled: Boolean) = metadata {
-    val spec = tween<Float>(durationMillis = 180, easing = FastOutSlowInEasing)
+    val spec = tween<Float>(durationMillis = 240, easing = FastOutSlowInEasing)
     put(NavDisplay.TransitionKey) {
-        fadeIn(animationSpec = spec) togetherWith ExitTransition.None
+        (fadeIn(animationSpec = spec) + scaleIn(
+            animationSpec = spec,
+            initialScale = 0.94f,
+        )) togetherWith (fadeOut(animationSpec = spec) + scaleOut(
+            animationSpec = spec,
+            targetScale = 1.02f,
+        ))
     }
     put(NavDisplay.PopTransitionKey) {
-        EnterTransition.None togetherWith fadeOut(animationSpec = spec)
+        (fadeIn(animationSpec = spec) + scaleIn(
+            animationSpec = spec,
+            initialScale = 1.02f,
+        )) togetherWith (fadeOut(animationSpec = spec) + scaleOut(
+            animationSpec = spec,
+            targetScale = 0.94f,
+        ))
     }
     if (predictiveBackEnabled) {
         put(NavDisplay.PredictivePopTransitionKey) { _ ->
-            EnterTransition.None togetherWith fadeOut(animationSpec = spec)
+            (fadeIn(animationSpec = spec) + scaleIn(
+                animationSpec = spec,
+                initialScale = 1.02f,
+            )) togetherWith (fadeOut(animationSpec = spec) + scaleOut(
+                animationSpec = spec,
+                targetScale = 0.94f,
+            ))
         }
     }
 }
@@ -435,6 +459,7 @@ fun MainActivity.mainEntryProvider(
     entry<MainRouteHome> {
         val mainViewModel = koinViewModel<MainViewModel>()
         val mainUiState by mainViewModel.uiState.collectAsStateWithLifecycle()
+        val isTablet = BrowserFormFactor.isTablet(LocalConfiguration.current)
         MainScreen(
             mainUiState = mainUiState,
             onIntent = mainViewModel::onIntent,
@@ -447,10 +472,16 @@ fun MainActivity.mainEntryProvider(
                 onNavigateToRoute(MainRouteSettings)
             },
             onNavigateToBrowserSettings = {
-                onNavigateToRoute(MainRouteSettingsBrowser)
+                // SPEC-060: tablet opens dual-pane settings (default Browser).
+                onNavigateToRoute(
+                    if (isTablet) MainRouteSettings else MainRouteSettingsBrowser,
+                )
             },
             onNavigateToBrowserBookmarks = {
                 onNavigateToRoute(MainRouteBrowserBookmarks)
+            },
+            onNavigateToBrowserDownloads = {
+                onNavigateToRoute(MainRouteBrowserDownloads)
             },
             onNavigateToBrowserHistory = {
                 onNavigateToRoute(MainRouteBrowserHistory)
@@ -606,20 +637,46 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteSettings> {
-        ConfigNavScreen(
-            onBackClick = { onNavigateBack() },
-            onNavigateToBrowser = { backStack.add(MainRouteSettingsBrowser) },
-            onNavigateToOther = { backStack.add(MainRouteSettingsOther) },
-            onNavigateToRead = { backStack.add(MainRouteSettingsRead) },
-            onNavigateToCover = { backStack.add(MainRouteSettingsCover) },
-            onNavigateToTheme = { backStack.add(MainRouteSettingsTheme) },
-            onNavigateToBackup = { backStack.add(MainRouteSettingsBackup) },
-            onNavigateToAi = { backStack.add(MainRouteSettingsAi) },
-            onNavigateToDownloadCache = { backStack.add(MainRouteSettingsDownloadCache) },
-            onNavigateToTranslation = { backStack.add(MainRouteSettingsTranslation) },
-            onNavigateToLab = { backStack.add(MainRouteSettingsLabConfig) },
-            onNavigateToPrivate = { backStack.add(MainRouteSettingsPrivate) }
-        )
+        val isTablet = BrowserFormFactor.isTablet(LocalConfiguration.current)
+        if (isTablet) {
+            TabletSettingsScreen(
+                onBackClick = { onNavigateBack() },
+                initialPane = TabletSettingsPane.Browser,
+                onNavigateToCoverAlbums = { backStack.add(MainRouteSettingsCoverAlbums) },
+                onNavigateToCustomTheme = { backStack.add(MainRouteSettingsCustomTheme) },
+                onNavigateToThemeManage = { backStack.add(MainRouteSettingsThemeManage) },
+                onNavigateToAiProviderEdit = { providerId ->
+                    backStack.add(MainRouteSettingsAiProviderEdit(providerId = providerId))
+                },
+                onNavigateToAiModelEdit = { providerId, modelProfileId ->
+                    backStack.add(
+                        MainRouteSettingsAiModelEdit(
+                            providerId = providerId,
+                            modelProfileId = modelProfileId,
+                        ),
+                    )
+                },
+                onNavigateToTranslation = { backStack.add(MainRouteSettingsTranslation) },
+                onNavigateToAiSummary = { backStack.add(MainRouteSettingsAiSummary) },
+                onNavigateToAiPrompt = { backStack.add(MainRouteSettingsAiPrompt) },
+                onNavigateToAiFromTranslation = { backStack.add(MainRouteSettingsAi) },
+            )
+        } else {
+            ConfigNavScreen(
+                onBackClick = { onNavigateBack() },
+                onNavigateToBrowser = { backStack.add(MainRouteSettingsBrowser) },
+                onNavigateToOther = { backStack.add(MainRouteSettingsOther) },
+                onNavigateToRead = { backStack.add(MainRouteSettingsRead) },
+                onNavigateToCover = { backStack.add(MainRouteSettingsCover) },
+                onNavigateToTheme = { backStack.add(MainRouteSettingsTheme) },
+                onNavigateToBackup = { backStack.add(MainRouteSettingsBackup) },
+                onNavigateToAi = { backStack.add(MainRouteSettingsAi) },
+                onNavigateToDownloadCache = { backStack.add(MainRouteSettingsDownloadCache) },
+                onNavigateToTranslation = { backStack.add(MainRouteSettingsTranslation) },
+                onNavigateToLab = { backStack.add(MainRouteSettingsLabConfig) },
+                onNavigateToPrivate = { backStack.add(MainRouteSettingsPrivate) },
+            )
+        }
     }
 
     entry<MainRouteSettingsBrowser>(
@@ -637,6 +694,22 @@ fun MainActivity.mainEntryProvider(
             onBack = { onNavigateBack() },
             onOpenUrl = { url ->
                 io.legado.app.browser.engine.BrowserOpenBridge.offer(url)
+                onNavigateBack()
+            },
+        )
+    }
+
+    entry<MainRouteBrowserDownloads>(
+        metadata = browserSlideEntryMetadata(configuration.appShell.predictiveBackEnabled),
+    ) {
+        io.legado.app.ui.browser.BrowserDownloadsScreen(
+            onBack = { onNavigateBack() },
+            onOpenPageArchive = { path, baseUrl, title ->
+                io.legado.app.browser.engine.BrowserOpenBridge.offerLocalHtml(
+                    path = path,
+                    baseUrl = baseUrl,
+                    title = title,
+                )
                 onNavigateBack()
             },
         )

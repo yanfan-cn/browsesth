@@ -89,8 +89,10 @@ internal fun FloatingIconRow(
                 state.menuConfig.titleBarCustomIcons[iconDef.id]
             }
             val isCustom = !customPath.isNullOrBlank()
-            val glassEnabled = !isCustom && state.menuConfig.readMenuFloatingIconLiquidGlass &&
-                    readerMenuLiquidGlassAvailable(backdrop)
+            val glassEnabled = !isCustom && readerMenuLiquidGlassAvailable(
+                backdrop,
+                io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle,
+            )
             ReadMenuGlassButtonSurface(
                 onClick = iconDef.onClick,
                 colors = colors,

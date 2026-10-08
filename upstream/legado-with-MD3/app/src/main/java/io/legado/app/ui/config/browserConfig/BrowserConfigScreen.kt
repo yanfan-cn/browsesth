@@ -19,13 +19,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.legado.app.browser.engine.BrowserChromePrefs
 import io.legado.app.browser.engine.BrowserFormFactor
-import io.legado.app.browser.engine.BrowserNtpPrefs
 import io.legado.app.browser.engine.BrowserReaderPrefs
 import io.legado.app.browser.engine.BrowserShieldPrefs
 import io.legado.app.browser.engine.BrowserUa
 import io.legado.app.ui.browser.BrowserTheme
-import io.legado.app.ui.browser.browserThemeToSelector
-import io.legado.app.ui.browser.selectorToBrowserTheme
+import io.legado.app.ui.browser.selectorToWebDark
+import io.legado.app.ui.browser.webDarkToSelector
 import io.legado.app.ui.config.themeConfig.ThemeModeSelector
 import io.legado.app.ui.theme.adaptiveContentPadding
 import io.legado.app.ui.widget.components.AppScaffold
@@ -53,13 +52,11 @@ private fun BrowserConfigBody(
 ) {
     val context = LocalContext.current
     val prefs = remember { BrowserShieldPrefs(context) }
-    val ntpPrefs = remember { BrowserNtpPrefs(context) }
     val chromePrefs = remember { BrowserChromePrefs(context) }
     val isTablet = remember { BrowserFormFactor.isTablet(context) }
     var adBlock by remember { mutableStateOf(prefs.adBlockEnabled) }
     var blockPopups by remember { mutableStateOf(prefs.blockPopups) }
     var blockExternal by remember { mutableStateOf(prefs.blockExternalApps) }
-    var ntpTheme by remember { mutableStateOf(ntpPrefs.ntpThemeMode) }
     var dailyWallpaper by remember { mutableStateOf(chromePrefs.dailyWallpaperEnabled) }
     var autoHideTop by remember { mutableStateOf(chromePrefs.autoHideTopBar) }
     var webDarkMode by remember { mutableStateOf(chromePrefs.webContentDarkMode) }
@@ -89,13 +86,13 @@ private fun BrowserConfigBody(
             ),
         ) {
             item {
-                SplicedColumnGroup(title = "外观") {
-                    // SPEC-022: same control as app 外观 → 跟随系统 / 浅色 / 深色
+                // SPEC-059: 网页背景三档 = Force Dark；壳色跟 App 外观
+                SplicedColumnGroup(title = "网页背景") {
                     ThemeModeSelector(
-                        selectedMode = browserThemeToSelector(ntpTheme),
+                        selectedMode = webDarkToSelector(webDarkMode),
                         onModeSelected = { value ->
-                            ntpTheme = selectorToBrowserTheme(value)
-                            ntpPrefs.ntpThemeMode = ntpTheme
+                            webDarkMode = selectorToWebDark(value)
+                            chromePrefs.webContentDarkMode = webDarkMode
                         },
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -106,18 +103,6 @@ private fun BrowserConfigBody(
                         onCheckedChange = {
                             dailyWallpaper = it
                             chromePrefs.dailyWallpaperEnabled = it
-                        },
-                    )
-                    ClickableSettingItem(
-                        title = "网页深色",
-                        description = "当前：${webDarkModeLabel(webDarkMode)}（点击切换：自动 / 开 / 关；新标签页生效）",
-                        onClick = {
-                            webDarkMode = when (webDarkMode) {
-                                BrowserChromePrefs.WEB_DARK_AUTO -> BrowserChromePrefs.WEB_DARK_ON
-                                BrowserChromePrefs.WEB_DARK_ON -> BrowserChromePrefs.WEB_DARK_OFF
-                                else -> BrowserChromePrefs.WEB_DARK_AUTO
-                            }
-                            chromePrefs.webContentDarkMode = webDarkMode
                         },
                     )
                 }
@@ -260,8 +245,3 @@ private fun BrowserConfigBody(
     }
 }
 
-private fun webDarkModeLabel(mode: String): String = when (mode) {
-    BrowserChromePrefs.WEB_DARK_OFF -> "关"
-    BrowserChromePrefs.WEB_DARK_ON -> "开"
-    else -> "自动"
-}

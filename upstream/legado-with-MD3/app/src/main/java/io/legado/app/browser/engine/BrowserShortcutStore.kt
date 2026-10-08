@@ -5,6 +5,21 @@ import android.net.Uri
 import org.json.JSONArray
 import org.json.JSONObject
 
+/** SPEC-049/071: site favicon URL candidates (local → DDG → Google s2). */
+fun siteFaviconCandidates(pageUrl: String): List<String> {
+    val host = try {
+        Uri.parse(pageUrl).host?.removePrefix("www.").orEmpty()
+    } catch (_: Throwable) {
+        ""
+    }
+    if (host.isBlank()) return emptyList()
+    return listOf(
+        "https://$host/favicon.ico",
+        "https://icons.duckduckgo.com/ip3/$host.ico",
+        "https://www.google.com/s2/favicons?sz=128&domain=$host",
+    )
+}
+
 data class BrowserShortcut(
     val id: String,
     val title: String,
@@ -16,16 +31,8 @@ data class BrowserShortcut(
         ""
     }
 
-    /** SPEC-049: try site icon, then public resolvers (mainland-friendly first). */
-    fun faviconCandidates(): List<String> {
-        val host = host()
-        if (host.isBlank()) return emptyList()
-        return listOf(
-            "https://$host/favicon.ico",
-            "https://icons.duckduckgo.com/ip3/$host.ico",
-            "https://www.google.com/s2/favicons?sz=128&domain=$host",
-        )
-    }
+    /** SPEC-049/071: try site icon, then public resolvers. */
+    fun faviconCandidates(): List<String> = siteFaviconCandidates(url)
 
     fun faviconUrl(): String = faviconCandidates().firstOrNull().orEmpty()
 }

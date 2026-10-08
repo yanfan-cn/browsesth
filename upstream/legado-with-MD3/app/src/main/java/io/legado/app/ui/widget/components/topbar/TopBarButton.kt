@@ -73,8 +73,13 @@ enum class TopBarButtonStyle(val storageValue: String) {
 internal val LocalTopBarMergeState = staticCompositionLocalOf { false }
 
 @Composable
-private fun currentTopBarButtonStyle(): TopBarButtonStyle =
-    TopBarButtonStyle.fromStorage(LocalAppUiConfiguration.current.theme.topBarButtonStyle)
+private fun currentTopBarButtonStyle(): TopBarButtonStyle {
+    // SPEC-061: derive from global chrome surface (filled→tonal, liquid→liquid).
+    val chrome = LocalAppUiConfiguration.current.theme.chromeSurfaceStyle
+    val effective = io.legado.app.ui.theme.ChromeSurfaceStylePolicy
+        .effectiveTopBarButtonStyle(chrome)
+    return TopBarButtonStyle.fromStorage(effective)
+}
 
 private val TopBarButtonStyle.seriesStyle: SeriesIconButtonStyle
     get() = when (this) {

@@ -38,6 +38,7 @@ import io.legado.app.utils.LogUtils
 import io.legado.app.utils.disableAutoFill
 import io.legado.app.utils.isNightMode
 import io.legado.app.utils.observeEvent
+import io.legado.app.utils.setLightStatusBar
 import io.legado.app.utils.setStatusBarColorAuto
 import io.legado.app.utils.themeColor
 import io.legado.app.utils.toggleSystemBar
@@ -138,10 +139,14 @@ abstract class BaseComposeActivity(
     open fun setupSystemBar() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
+        val isDark = appUiConfigurationGateway.currentConfiguration.isDarkTheme
         setStatusBarColorAuto(
             themeColor(com.google.android.material.R.attr.colorSurface),
             true
         )
+        // SPEC-060: icon contrast follows effective app theme (fixes inverted light/dark icons).
+        // LIGHT_STATUS_BARS = dark glyphs for light backgrounds.
+        setLightStatusBar(!isDark)
 
         toggleSystemBar(appUiConfigurationGateway.currentConfiguration.appShell.showStatusBar)
     }
@@ -204,7 +209,8 @@ abstract class BaseComposeActivity(
                         // 配置，供仍读取平台字体缩放的组件（三方弹窗内部、legacy View）使用。
                         AppContextWrapper.applyFont(this@BaseComposeActivity)
                     }
-                    if (diff.windowChanged) {
+                    if (diff.windowChanged || diff.themeChanged) {
+                        // SPEC-060: themeMode changes must refresh status-bar icon appearance.
                         setupSystemBar()
                         if (imageBg) upBackgroundImage()
                     }

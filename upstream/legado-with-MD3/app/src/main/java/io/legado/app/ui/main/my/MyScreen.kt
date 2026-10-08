@@ -1,6 +1,5 @@
 package io.legado.app.ui.main.my
 
-import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
 import android.Manifest
 import android.annotation.SuppressLint
@@ -37,10 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.R
 import io.legado.app.ui.book.bookmark.AllBookmarkActivity
-import io.legado.app.ui.book.toc.rule.TxtTocRuleActivity
-import io.legado.app.ui.dict.rule.DictRuleActivity
 import io.legado.app.ui.file.FileManageActivity
-import io.legado.app.ui.replace.ReplaceRuleActivity
 import io.legado.app.ui.theme.adaptiveContentPadding
 import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.SplicedColumnGroup
@@ -128,6 +124,7 @@ fun MyScreen(
                     )
                 )
         ) {
+            // SPEC-059: hide rules; merge Web service with former「其它」; no「其它」title; no exit
             SplicedColumnGroup(
                 title = ""
             ) {
@@ -138,58 +135,6 @@ fun MyScreen(
                     },
                     onNavigate = onNavigate
                 )
-            }
-
-            SplicedColumnGroup(
-                title = stringResource(R.string.rule_segment),
-            ) {
-                ClickableSettingItem(
-                    title = stringResource(R.string.book_source_manage),
-                    description = stringResource(R.string.book_source_manage_desc),
-                    symbol = Symbols.Source,
-                    onClick = {
-                        onNavigate(
-                            PrefClickEvent.OpenBookSourceManage
-                        )
-                    }
-                )
-                ClickableSettingItem(
-                    title = stringResource(R.string.replace_purify),
-                    symbol = Symbols.FindReplace,
-                    onClick = {
-                        onNavigate(
-                            PrefClickEvent.StartActivity(ReplaceRuleActivity::class.java)
-                        )
-                    }
-                )
-                ClickableSettingItem(
-                    title = stringResource(R.string.txt_toc_rule),
-                    symbol = Symbols.Rule,
-                    onClick = {
-                        onNavigate(
-                            PrefClickEvent.StartActivity(TxtTocRuleActivity::class.java)
-                        )
-                    }
-                )
-                ClickableSettingItem(
-                    title = stringResource(R.string.dict_rule),
-                    symbol = Symbols.LibraryBooks,
-                    onClick = {
-                        onNavigate(
-                            PrefClickEvent.StartActivity(DictRuleActivity::class.java)
-                        )
-                    }
-                )
-                ClickableSettingItem(
-                    title = stringResource(R.string.highlight_tag_config),
-                    symbol = Symbols.Sell,
-                    onClick = { onNavigate(PrefClickEvent.OpenHighlightTagRule) }
-                )
-            }
-
-            SplicedColumnGroup(
-                title = stringResource(R.string.other)
-            ) {
                 ClickableSettingItem(
                     title = stringResource(R.string.ai_chat),
                     symbol = Symbols.AutoAwesome,
@@ -235,13 +180,6 @@ fun MyScreen(
                     symbol = Symbols.Info,
                     onClick = {
                         onNavigate(PrefClickEvent.OpenAbout)
-                    }
-                )
-                ClickableSettingItem(
-                    title = stringResource(R.string.exit),
-                    symbol = Symbols.ExitToApp,
-                    onClick = {
-                        onNavigate(PrefClickEvent.ExitApp)
                     }
                 )
             }

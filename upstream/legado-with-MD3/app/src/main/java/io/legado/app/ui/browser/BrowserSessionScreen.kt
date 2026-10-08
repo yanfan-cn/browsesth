@@ -67,6 +67,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -77,10 +78,14 @@ import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.browser.engine.BrowserAdRules
 import io.legado.app.browser.engine.BrowserAwContentsClient
 import io.legado.app.browser.engine.BrowserChromePrefs
+import io.legado.app.browser.engine.BrowserDownloadHelper
+import io.legado.app.browser.engine.BrowserDownloadRepository
 import io.legado.app.browser.engine.BrowserFormFactor
 import io.legado.app.browser.engine.BrowserLoadProgress
 import io.legado.app.browser.engine.BrowserNtpPrefs
 import io.legado.app.browser.engine.BrowserOmniboxLabel
+import io.legado.app.browser.engine.BrowserOmniboxSuggest
+import io.legado.app.browser.engine.BrowserOpenBridge
 import io.legado.app.browser.engine.BrowserReaderPrefs
 import io.legado.app.browser.engine.BrowserSessionHolder
 import io.legado.app.browser.engine.BrowserShieldJs
@@ -91,6 +96,8 @@ import io.legado.app.browser.engine.BrowserUa
 import io.legado.app.browser.engine.BrowserUrlPolicy
 import io.legado.app.browser.engine.evalJs
 import io.legado.app.browser.engine.resolveBrowserNavigationInput
+import org.apache.commons.text.StringEscapeUtils
+import java.io.File
 import io.legado.app.browser.manga.cimoc.CimocAdapterRegistry
 import io.legado.app.browser.manga.cimoc.CimocMangaBridge
 import io.legado.app.browser.manga.cimoc.json.CimocJsonMangaBridge
@@ -118,6 +125,7 @@ import io.legado.app.ui.widget.components.FloatingBottomBarItem
 import io.legado.app.ui.widget.components.modalBottomSheet.AppModalBottomSheet
 import io.legado.app.ui.widget.components.progressIndicator.AppLinearProgressIndicator
 import io.legado.app.utils.sendToClip
+import io.legado.app.utils.share
 import io.legado.app.ui.widget.components.progressIndicator.AppCircularProgressIndicator
 import io.legado.app.utils.toastOnUi
 import kotlinx.coroutines.CancellationException
@@ -148,6 +156,10 @@ data class BrowserSessionActions(
     val addBookmark: () -> Unit = {},
     val copyCurrentUrl: () -> Unit = {},
     val startPickMode: () -> Unit = {},
+    /** SPEC-058/064 */
+    val shareCurrentPage: () -> Unit = {},
+    val saveCurrentPage: () -> Unit = {},
+    val openDownloads: () -> Unit = {},
 )
 
 /**
@@ -165,6 +177,7 @@ fun BrowserSessionScreen(
     incognito: Boolean = false,
     onOpenBrowserSettings: (() -> Unit)? = null,
     onOpenBookmarks: (() -> Unit)? = null,
+    onOpenDownloads: (() -> Unit)? = null,
     onOpenHistory: (() -> Unit)? = null,
     onOpenTabs: (() -> Unit)? = null,
     onOpenReader: ((bookUrl: String) -> Unit)? = null,
@@ -251,6 +264,9 @@ fun BrowserSessionScreen(
     var translatePromptUrl by remember { mutableStateOf<String?>(null) }
     var dismissedTranslateUrls by remember { mutableStateOf(setOf<String>()) }
     var langDetectJob by remember { mutableStateOf<Job?>(null) }
+    /** SPEC-066: transient download banner above bottom chrome (~5s). */
+    var downloadBanner by remember { mutableStateOf<String?>(null) }
+    var downloadBannerToken by remember { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val scheme = LegadoTheme.colorScheme
@@ -334,7 +350,12 @@ fun BrowserSessionScreen(
         val extracted = WebArticleBookFactory.parseExtractResult(partRaw)
         val toc = discoverToc(host)
         val rawText = extracted?.text.orEmpty()
-        val cleaned = WebArticleChromeFilter.filter(rawText)
+        // SPEC-057: HTML-aware chrome filter (mixed layout keeps <img>).
+        val cleaned = if (rawText.contains('<')) {
+            WebArticleChromeFilter.filterHtml(rawText)
+        } else {
+            WebArticleChromeFilter.filter(rawText)
+        }
         if (cleaned.length < 40) {
             context.toastOnUi("未能提取正文，请换一个页面再试")
             return
@@ -554,6 +575,112 @@ fun BrowserSessionScreen(
         hostRef?.evaluateJavaScript(BrowserShieldJs.hideSelectorsScript(rules), null)
     }
 
+    fun shareCurrentPage() {
+        val url = clientRef?.lastUrl.orEmpty().ifBlank { address }.trim()
+        if (url.isEmpty() || !url.startsWith("http")) {
+            context.toastOnUi("当前没有可转发的链接")
+            return
+        }
+        val title = clientRef?.lastTitle.orEmpty().ifBlank { url }
+        context.share("$title\n$url", title = "转发网页")
+    }
+
+    fun showDownloadBanner(fileName: String) {
+        downloadBanner = fileName.ifBlank { "正在下载…" }
+        downloadBannerToken += 1
+        if (!tabletEmbedded) phoneChromeVisible = true
+    }
+
+    fun saveCurrentPage() {
+        val host = hostRef
+        if (host == null) {
+            context.toastOnUi("页面未就绪")
+            return
+        }
+        val url = clientRef?.lastUrl.orEmpty().ifBlank { address }.trim()
+        val title = clientRef?.lastTitle.orEmpty().ifBlank { url }
+        scope.launch {
+            val raw = host.evalJs("(function(){try{return document.documentElement.outerHTML;}catch(e){return '';}})()")
+            val html = raw
+                ?.let { StringEscapeUtils.unescapeJson(it).trim().trim('"') }
+                .orEmpty()
+            val result = BrowserDownloadRepository.get(context).saveCurrentPage(
+                html = html,
+                pageUrl = url,
+                pageTitle = title,
+            )
+            context.toastOnUi(
+                result.fold(
+                    onSuccess = { "已保存网页 ${it.fileName}" },
+                    onFailure = { it.message ?: "保存失败" },
+                ),
+            )
+        }
+    }
+
+    fun enqueueTriggeredDownload(
+        url: String,
+        userAgent: String,
+        contentDisposition: String,
+        mimeType: String,
+    ) {
+        val result = BrowserDownloadHelper.enqueue(
+            context = context,
+            url = url,
+            userAgent = userAgent.ifBlank { BrowserUa.resolve(context) },
+            contentDisposition = contentDisposition,
+            mimeType = mimeType,
+            incognito = incognito,
+        )
+        if (result.ok) {
+            showDownloadBanner(result.fileName.ifBlank { "文件" })
+        } else {
+            showSnack(result.message)
+        }
+    }
+
+    LaunchedEffect(downloadBannerToken, downloadBanner) {
+        if (downloadBanner == null) return@LaunchedEffect
+        delay(5_000)
+        downloadBanner = null
+    }
+
+    LaunchedEffect(hostRef) {
+        val host = hostRef ?: return@LaunchedEffect
+        BrowserOpenBridge.armedLocalHtml.collect { armed ->
+            if (armed == null) return@collect
+            BrowserOpenBridge.consumeArmedLocalHtml()
+            val file = File(armed.path)
+            val html = runCatching { file.readText(Charsets.UTF_8) }.getOrNull()
+            if (html.isNullOrBlank()) {
+                context.toastOnUi("无法打开已保存网页")
+                return@collect
+            }
+            // SPEC-066: Force Dark can blank offline snapshots — turn off for this load.
+            host.applyForceDarkOff()
+            host.loadDataWithBaseURL(
+                armed.baseUrl,
+                html,
+                "text/html",
+                "UTF-8",
+                armed.baseUrl,
+            )
+            applyOmniboxLabel(armed.title.ifBlank { "已保存网页" })
+            address = armed.title.ifBlank { "已保存网页" }
+        }
+    }
+
+    fun openSuggestItem(item: BrowserOmniboxSuggest.Item) {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+        addressFocused = false
+        applyOmniboxLabel(item.title.ifBlank { item.url })
+        address = item.title.ifBlank { item.url }
+        hostRef?.loadUrl(item.url)
+        BrowserSessionHolder.markLoaded()
+        onPageMeta?.invoke(item.url, item.title)
+    }
+
     fun navigateToAddress() {
         // SPEC-022: same search/host rules as NTP — never blind https:// (avoids xn-- junk).
         val raw = address.trim()
@@ -566,6 +693,14 @@ fun BrowserSessionScreen(
         hostRef?.loadUrl(url)
         BrowserSessionHolder.markLoaded()
         onPageMeta?.invoke(url, raw)
+    }
+
+    val addressSuggestions = remember(address, addressFocused) {
+        if (!addressFocused || address.isBlank()) {
+            emptyList()
+        } else {
+            BrowserOmniboxSuggest.match(address, store.bookmarks(), store.history())
+        }
     }
 
     fun loadExternalUrl(raw: String) {
@@ -677,6 +812,12 @@ fun BrowserSessionScreen(
                     pickMode = true
                     hostRef?.evaluateJavaScript(BrowserShieldJs.startPickModeScript(), null)
                     context.toastOnUi("点选模式：点击要屏蔽的元素")
+                },
+                shareCurrentPage = { shareCurrentPage() },
+                saveCurrentPage = { saveCurrentPage() },
+                openDownloads = {
+                    val open = onOpenDownloads
+                    if (open != null) open() else showSnack("下载页不可用")
                 },
             ),
         )
@@ -832,6 +973,9 @@ fun BrowserSessionScreen(
                             onScrollDirection?.invoke(dir)
                         },
                         userAgentProvider = { BrowserUa.resolve(context) },
+                        onDownloadRequested = { url, ua, disposition, mime, _ ->
+                            enqueueTriggeredDownload(url, ua, disposition, mime)
+                        },
                         onUrlChanged = { url -> syncOmniboxLabelFromTab(url) },
                         onPageFinishedExtra = { url, title ->
                             mainFrameLoading = false
@@ -895,6 +1039,15 @@ fun BrowserSessionScreen(
                     progress = (progress / 100f).coerceIn(0f, 1f),
                 )
             }
+            if (!tabletEmbedded && addressSuggestions.isNotEmpty()) {
+                BrowserOmniboxSuggestPanel(
+                    items = addressSuggestions,
+                    onSelect = { openSuggestItem(it) },
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                )
+            }
 
             // Floating chrome — phone only (SPEC-011 2A); tablet uses top chrome (SPEC-018).
             // SPEC-022 B: auto-hide on scroll down.
@@ -917,6 +1070,18 @@ fun BrowserSessionScreen(
                             TranslatePromptBar(
                                 onTranslate = { acceptTranslatePrompt() },
                                 onDismiss = { dismissTranslatePrompt() },
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                        val bannerText = downloadBanner
+                        if (bannerText != null) {
+                            DownloadBannerBar(
+                                fileName = bannerText,
+                                onOpenDownloads = {
+                                    downloadBanner = null
+                                    val open = onOpenDownloads
+                                    if (open != null) open() else showSnack("下载页不可用")
+                                },
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                         }
@@ -1020,19 +1185,37 @@ fun BrowserSessionScreen(
                     }
                     }
                 }
-            } else if (showTranslatePrompt) {
-                // SPEC-045 tablet: prompt near bottom of content (shell has top chrome only).
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(horizontal = BrowserUiTokens.PagePaddingH)
-                        .padding(bottom = 16.dp),
-                ) {
-                    TranslatePromptBar(
-                        onTranslate = { acceptTranslatePrompt() },
-                        onDismiss = { dismissTranslatePrompt() },
-                    )
+            } else {
+                // SPEC-045/066 tablet: prompts near bottom of content (shell has top chrome only).
+                val tabletBanner = downloadBanner
+                if (showTranslatePrompt || tabletBanner != null) {
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(horizontal = BrowserUiTokens.PagePaddingH)
+                            .padding(bottom = 16.dp),
+                    ) {
+                        if (showTranslatePrompt) {
+                            TranslatePromptBar(
+                                onTranslate = { acceptTranslatePrompt() },
+                                onDismiss = { dismissTranslatePrompt() },
+                            )
+                            if (tabletBanner != null) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
+                        if (tabletBanner != null) {
+                            DownloadBannerBar(
+                                fileName = tabletBanner,
+                                onOpenDownloads = {
+                                    downloadBanner = null
+                                    val open = onOpenDownloads
+                                    if (open != null) open() else showSnack("下载页不可用")
+                                },
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1068,94 +1251,60 @@ fun BrowserSessionScreen(
         }
     }
 
-    AppModalBottomSheet(
+    // SPEC-070: Edge-style toolbox grid (half screen).
+    BrowserToolboxSheet(
         show = showToolbox,
-        title = "工具箱",
-        onDismissRequest = { showToolbox = false },
-    ) {
-        ToolboxRow(
-            icon = Symbols.Bookmark,
-            label = "添加书签",
-            onClick = {
-                val url = clientRef?.lastUrl?.takeIf { it.startsWith("http") } ?: address
-                store.addBookmark(url, clientRef?.lastTitle.orEmpty())
-                showToolbox = false
-                context.toastOnUi("已加书签")
-            },
-        )
-        ToolboxRow(
-            icon = Symbols.History,
-            label = "查看历史",
-            onClick = {
-                showToolbox = false
-                val open = onOpenHistory
-                if (open != null) open() else showSnack("历史页不可用")
-            },
-        )
-        ToolboxRow(
-            icon = Symbols.Bookmark,
-            label = "书签列表",
-            onClick = {
-                showToolbox = false
+        onDismiss = { showToolbox = false },
+        actions = BrowserToolboxActions(
+            onOpenBookmarks = {
                 val open = onOpenBookmarks
                 if (open != null) open() else showSnack("书签页不可用")
             },
-        )
-        ToolboxRow(
-            icon = Symbols.ContentCopy,
-            label = "复制链接",
-            onClick = {
-                showToolbox = false
+            onOpenHistory = {
+                val open = onOpenHistory
+                if (open != null) open() else showSnack("历史页不可用")
+            },
+            onOpenDownloads = {
+                val open = onOpenDownloads
+                if (open != null) open() else showSnack("下载页不可用")
+            },
+            onOpenSettings = {
+                val open = onOpenBrowserSettings
+                if (open != null) open() else showSnack("请从主页进入浏览器设置")
+            },
+            onNewIncognitoTab = {
+                BrowserTabManager.openNewTab(url = null, incognito = true, select = true)
+            },
+            onAddBookmark = {
+                val url = clientRef?.lastUrl?.takeIf { it.startsWith("http") } ?: address
+                store.addBookmark(url, clientRef?.lastTitle.orEmpty())
+                context.toastOnUi("已加书签")
+            },
+            onSavePage = { saveCurrentPage() },
+            onShare = { shareCurrentPage() },
+            onCopyLink = {
                 val currentUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
                 context.sendToClip(currentUrl)
             },
-        )
-        ToolboxRow(
-            icon = Symbols.Block,
-            label = "点选屏蔽",
-            onClick = {
-                showToolbox = false
+            onPickBlock = {
                 pickMode = true
                 hostRef?.evaluateJavaScript(BrowserShieldJs.startPickModeScript(), null)
                 context.toastOnUi("点选模式：点击要屏蔽的元素")
             },
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SymbolIcon(Symbols.Block,
-                contentDescription = null,
-                tint = scheme.primary,
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(
-                "广告拦截",
-                modifier = Modifier.weight(1f),
-                color = scheme.onSurface,
-                fontSize = 16.sp,
-            )
-            Switch(
-                checked = adBlockEnabled,
-                onCheckedChange = { enabled ->
-                    adBlockEnabled = enabled
-                    shield.adBlockEnabled = enabled
-                    if (enabled) {
-                        applyCustomHide(clientRef?.lastUrl ?: address)
-                        showSnack("已开启广告拦截")
-                    } else {
-                        showSnack("已关闭广告拦截（新请求生效）")
-                    }
-                },
-            )
-        }
-        HorizontalDivider()
-        ToolboxRow(
-            icon = if (uaMode == BrowserUa.Mode.Desktop) Symbols.Computer else Symbols.PhoneAndroid,
-            label = "UA：${uaMode.label}（点击切换）",
-            onClick = {
+            adBlockEnabled = adBlockEnabled,
+            onToggleAdBlock = {
+                val enabled = !adBlockEnabled
+                adBlockEnabled = enabled
+                shield.adBlockEnabled = enabled
+                if (enabled) {
+                    applyCustomHide(clientRef?.lastUrl ?: address)
+                    showSnack("已开启广告拦截")
+                } else {
+                    showSnack("已关闭广告拦截（新请求生效）")
+                }
+            },
+            uaMode = uaMode,
+            onToggleUa = {
                 uaMode = when (uaMode) {
                     BrowserUa.Mode.Mobile -> BrowserUa.Mode.Desktop
                     BrowserUa.Mode.Desktop -> BrowserUa.Mode.Mobile
@@ -1163,22 +1312,8 @@ fun BrowserSessionScreen(
                 chromePrefs.uaMode = uaMode
                 showSnack("已切换为${uaMode.label} UA，请刷新页面")
             },
-        )
-        ToolboxRow(
-            icon = Symbols.Settings,
-            label = "设置",
-            onClick = {
-                showToolbox = false
-                val open = onOpenBrowserSettings
-                if (open != null) {
-                    open()
-                } else {
-                    showSnack("请从主页进入浏览器设置")
-                }
-            },
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-    }
+        ),
+    )
 
     if (showModePicker) {
         val analyze = pendingAnalyze
@@ -1282,6 +1417,49 @@ private fun TranslatePromptBar(
     }
 }
 
+/** SPEC-066: bottom-chrome download notice (~5s), right action opens downloads. */
+@Composable
+private fun DownloadBannerBar(
+    fileName: String,
+    onOpenDownloads: () -> Unit,
+) {
+    val scheme = LegadoTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(scheme.surfaceContainerHigh)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SymbolIcon(
+            Symbols.Download,
+            contentDescription = null,
+            tint = scheme.primary,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "已开始下载",
+                color = scheme.onSurface,
+                fontSize = 14.sp,
+                maxLines = 1,
+            )
+            Text(
+                fileName,
+                color = scheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        TextButton(onClick = onOpenDownloads) {
+            Text("查看")
+        }
+    }
+}
+
 @Composable
 private fun BrowserChromeIconButton(
     symbol: MaterialSymbol,
@@ -1299,22 +1477,3 @@ private fun BrowserChromeIconButton(
     }
 }
 
-@Composable
-private fun ToolboxRow(
-    icon: MaterialSymbol,
-    label: String,
-    onClick: () -> Unit,
-) {
-    val scheme = LegadoTheme.colorScheme
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SymbolIcon(icon, contentDescription = null, tint = scheme.primary)
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(label, color = scheme.onSurface, fontSize = 16.sp)
-    }
-}

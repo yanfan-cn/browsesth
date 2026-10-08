@@ -1,11 +1,8 @@
 package io.legado.app.ui.browser
 
-import io.legado.app.ui.widget.components.icon.SymbolIcon
-import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -32,20 +28,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.AppScaffold
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import io.legado.app.ui.widget.components.topbar.GlassSmallTopAppBar
 import io.legado.app.ui.widget.components.topbar.TopBarActionButton
 import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
 import io.legado.app.utils.toastOnUi
-import java.net.URI
 
 @Composable
 fun BrowserBookmarksScreen(
@@ -65,11 +60,20 @@ private fun BrowserBookmarksBody(
     val context = LocalContext.current
     val store = remember { BrowseStore(context) }
     var items by remember { mutableStateOf(store.bookmarks()) }
+    var query by remember { mutableStateOf("") }
     var showAdd by remember { mutableStateOf(false) }
     val scheme = LegadoTheme.colorScheme
 
     fun reload() {
         items = store.bookmarks()
+    }
+
+    val filtered = remember(items, query) {
+        val q = query.trim()
+        if (q.isEmpty()) items
+        else items.filter {
+            it.title.contains(q, true) || it.url.contains(q, true)
+        }
     }
 
     AppScaffold(
@@ -87,49 +91,65 @@ private fun BrowserBookmarksBody(
             )
         },
     ) { padding ->
-        if (items.isEmpty()) {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(BrowserUiTokens.SpaceXl),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                SymbolIcon(Symbols.Star,
-                    contentDescription = null,
-                    modifier = Modifier.size(BrowserUiTokens.ReaderFabSize - BrowserUiTokens.SpaceSm),
-                    tint = scheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.size(BrowserUiTokens.SpaceMd))
-                Text("还没有书签", color = scheme.onSurfaceVariant, fontSize = 16.sp)
-                Text(
-                    "浏览时可从工具箱添加",
-                    color = scheme.onSurfaceVariant,
-                    fontSize = 14.sp,
-                )
-            }
-        } else {
-            LazyColumn(
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(
-                    horizontal = BrowserUiTokens.PagePaddingH,
-                    vertical = BrowserUiTokens.SpaceSm,
-                ),
-                verticalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceSm),
-            ) {
-                items(items, key = { it.url }) { entry ->
-                    BookmarkCard(
-                        entry = entry,
-                        onOpen = { onOpenUrl(entry.url) },
-                        onDelete = {
-                            store.removeBookmark(entry.url)
-                            reload()
-                            context.toastOnUi("已删除")
-                        },
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            // SPEC-071: history-style search capsule.
+            BrowserListSearchField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = "搜索书签",
+            )
+            if (filtered.isEmpty()) {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(BrowserUiTokens.SpaceXl),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    SymbolIcon(
+                        Symbols.Star,
+                        contentDescription = null,
+                        modifier = Modifier.size(BrowserUiTokens.ReaderFabSize - BrowserUiTokens.SpaceSm),
+                        tint = scheme.onSurfaceVariant,
                     )
+                    Spacer(modifier = Modifier.size(BrowserUiTokens.SpaceMd))
+                    Text(
+                        if (items.isEmpty()) "还没有书签" else "无匹配书签",
+                        color = scheme.onSurfaceVariant,
+                        fontSize = 16.sp,
+                    )
+                    if (items.isEmpty()) {
+                        Text(
+                            "浏览时可从工具箱添加",
+                            color = scheme.onSurfaceVariant,
+                            fontSize = 14.sp,
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        horizontal = BrowserUiTokens.PagePaddingH,
+                        vertical = BrowserUiTokens.SpaceSm,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceSm),
+                ) {
+                    items(filtered, key = { it.url }) { entry ->
+                        BookmarkCard(
+                            entry = entry,
+                            onOpen = { onOpenUrl(entry.url) },
+                            onDelete = {
+                                store.removeBookmark(entry.url)
+                                reload()
+                                context.toastOnUi("已删除")
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -188,9 +208,6 @@ private fun BookmarkCard(
     onDelete: () -> Unit,
 ) {
     val scheme = LegadoTheme.colorScheme
-    val host = remember(entry.url) {
-        runCatching { URI(entry.url).host }.getOrNull().orEmpty()
-    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -200,24 +217,14 @@ private fun BookmarkCard(
             .padding(horizontal = BrowserUiTokens.SpaceLg, vertical = BrowserUiTokens.SpaceMd),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(BrowserUiTokens.ButtonCorner))
-                .background(scheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            AsyncImage(
-                model = if (host.isNotEmpty()) {
-                    "https://icons.duckduckgo.com/ip3/$host.ico"
-                } else {
-                    null
-                },
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                contentScale = ContentScale.Fit,
-            )
-        }
+        // SPEC-071: NTP-style favicon candidates + letter fallback.
+        SiteFaviconIcon(
+            pageUrl = entry.url,
+            title = entry.title.ifBlank { entry.url },
+            size = 40.dp,
+            bubbleColor = scheme.surfaceVariant,
+            letterColor = scheme.primary,
+        )
         Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceMd))
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -236,7 +243,8 @@ private fun BookmarkCard(
             )
         }
         IconButton(onClick = onDelete) {
-            SymbolIcon(Symbols.Delete,
+            SymbolIcon(
+                Symbols.Delete,
                 contentDescription = "删除",
                 tint = scheme.onSurfaceVariant,
             )

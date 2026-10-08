@@ -9,7 +9,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -56,17 +55,20 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -88,15 +90,19 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import io.legado.app.R
 import io.legado.app.browser.engine.BingWallpaperClient
+import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.browser.engine.BrowserChromePrefs
 import io.legado.app.browser.engine.BrowserNtpPrefs
+import io.legado.app.browser.engine.BrowserOmniboxSuggest
 import io.legado.app.browser.engine.BrowserSearchEngine
 import io.legado.app.browser.engine.BrowserShortcut
 import io.legado.app.browser.engine.BrowserShortcutStore
 import io.legado.app.browser.engine.BrowserTabManager
 import io.legado.app.browser.engine.resolveBrowserNavigationInput
 import io.legado.app.data.entities.Book
+import io.legado.app.domain.gateway.AppShellSettingsGateway
 import io.legado.app.ui.book.info.ChangeCoverSheet
+import io.legado.app.ui.config.themeConfig.ThemeModeSelector
 import io.legado.app.ui.qrcode.QrCodeResult
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
@@ -106,8 +112,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.utils.toastOnUi
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 import java.util.UUID
 
 private data class NtpColors(
@@ -122,38 +130,28 @@ private data class NtpColors(
     val divider: Color,
 )
 
+/** SPEC-067: non-incognito NTP follows App ColorScheme (same as「我的」). */
 @Composable
 private fun rememberNtpColors(forceDark: Boolean?): NtpColors {
+    val scheme = LegadoTheme.colorScheme
     val dark = when (forceDark) {
         true -> true
         false -> false
         null -> LegadoTheme.isDark || isSystemInDarkTheme()
     }
-    return if (dark) {
-        NtpColors(
-            pageBg = BrowserUiTokens.PageBgDark,
-            fieldBg = BrowserUiTokens.FieldBgDark,
-            cardBg = BrowserUiTokens.CardBgDark,
-            primaryText = BrowserUiTokens.TextPrimaryDark,
-            secondaryText = BrowserUiTokens.TextSecondaryDark,
-            ntpWordmark = Color(0xFFF6F1EA),
-            cta = BrowserUiTokens.PrimaryOnDark,
-            ctaText = BrowserUiTokens.PageBgDark,
-            divider = Color.White.copy(alpha = 0.08f),
-        )
-    } else {
-        NtpColors(
-            pageBg = BrowserUiTokens.PageBgLight,
-            fieldBg = BrowserUiTokens.FieldBgLight,
-            cardBg = BrowserUiTokens.CardBgLight,
-            primaryText = BrowserUiTokens.TextPrimaryLight,
-            secondaryText = BrowserUiTokens.TextSecondaryLight,
-            ntpWordmark = Color(0xFF1C1B19),
-            cta = BrowserUiTokens.Primary,
-            ctaText = Color.White,
-            divider = Color.Black.copy(alpha = 0.06f),
-        )
-    }
+    // Prefer App scheme for both light/dark so NTP matches settings pages.
+    // Incognito still overrides with BrowserUiTokens at call sites.
+    return NtpColors(
+        pageBg = scheme.background,
+        fieldBg = scheme.surfaceContainerLow,
+        cardBg = scheme.surfaceContainerLow,
+        primaryText = scheme.onBackground,
+        secondaryText = scheme.onSurfaceVariant,
+        ntpWordmark = scheme.onBackground,
+        cta = scheme.primary,
+        ctaText = scheme.onPrimary,
+        divider = scheme.outlineVariant.copy(alpha = if (dark) 0.40f else 0.60f),
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
@@ -177,8 +175,10 @@ fun BrowserNtpScreen(
     val ntpPrefs = remember { BrowserNtpPrefs(context) }
     val chromePrefs = remember { BrowserChromePrefs(context) }
     val shortcutStore = remember { BrowserShortcutStore(context) }
+    val browseStore = remember { BrowseStore(context) }
     var engine by remember { mutableStateOf(ntpPrefs.searchEngine()) }
     var query by remember { mutableStateOf("") }
+    var queryFocused by remember { mutableStateOf(false) }
     var shortcuts by remember { mutableStateOf(shortcutStore.list()) }
     var engineMenu by remember { mutableStateOf(false) }
     var customizeMenu by remember { mutableStateOf(false) }
@@ -190,12 +190,8 @@ fun BrowserNtpScreen(
     var showBookshelf by remember { mutableStateOf(ntpPrefs.showBookshelfCard) }
     var showShortcuts by remember { mutableStateOf(ntpPrefs.showShortcutGrid) }
 
-    val forceDark = when (ntpPrefs.ntpThemeMode) {
-        "light" -> false
-        "dark" -> true
-        else -> null
-    }
-    val colors = rememberNtpColors(forceDark)
+    // SPEC-059/067: NTP follows App ColorScheme (background + surfaceContainerLow).
+    val colors = rememberNtpColors(forceDark = null)
     val books by viewModel.recentBooks.collectAsState()
     val tabCount by BrowserTabManager.tabs.collectAsStateWithLifecycle()
     val hasQuery = query.isNotBlank()
@@ -233,7 +229,24 @@ fun BrowserNtpScreen(
         if (url.isEmpty()) return
         keyboardController?.hide()
         focusManager.clearFocus(force = true)
+        queryFocused = false
         onOpenUrl(url, incognito, raw)
+    }
+
+    fun openSuggest(item: BrowserOmniboxSuggest.Item) {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+        queryFocused = false
+        query = item.title.ifBlank { item.url }
+        onOpenUrl(item.url, incognito, item.title.ifBlank { item.url })
+    }
+
+    val querySuggestions = remember(query, queryFocused) {
+        if (!queryFocused || query.isBlank()) {
+            emptyList()
+        } else {
+            BrowserOmniboxSuggest.match(query, browseStore.bookmarks(), browseStore.history())
+        }
     }
 
     val pageBg by animateColorAsState(
@@ -241,11 +254,8 @@ fun BrowserNtpScreen(
         animationSpec = tween(400),
         label = "ntpPageBg",
     )
-    val ntpDark = incognito || when (forceDark) {
-        true -> true
-        false -> false
-        null -> LegadoTheme.isDark || isSystemInDarkTheme()
-    }
+    // SPEC-059: follow app theme (rememberNtpColors already uses LegadoTheme when forceDark=null)
+    val ntpDark = incognito || LegadoTheme.isDark || isSystemInDarkTheme()
     val wallpaperVisible = wallpaperUrl.isNotBlank() && !incognito && dailyWallpaper
     val shortcutLightText = ntpDark || wallpaperVisible
     val shortcutLabelColor = if (shortcutLightText) Color.White else Color(0xFF1C1B19)
@@ -301,11 +311,19 @@ fun BrowserNtpScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceMd),
         ) {
+            // SPEC-069/071: top chrome uses search-field tone; liquid glass → low alpha.
+            val glassFill = ntpGlassOverlayAlpha(forceDark = if (incognito) true else null)
+            val chromeBtnBg = (if (incognito) {
+                BrowserUiTokens.IncognitoFieldBg
+            } else {
+                colors.fieldBg
+            }).copy(alpha = glassFill)
             Box {
                 NtpGlassIcon(
                     icon = Symbols.Tune,
                     desc = "主页自定义",
                     tint = chromeTint,
+                    containerColor = chromeBtnBg,
                     onClick = { customizeMenu = true },
                 )
                 if (customizeMenu) {
@@ -336,18 +354,21 @@ fun BrowserNtpScreen(
                     icon = Symbols.History,
                     desc = "历史记录",
                     tint = chromeTint,
+                    containerColor = chromeBtnBg,
                     onClick = onOpenHistory,
                 )
                 NtpGlassIcon(
                     icon = Symbols.Bookmark,
                     desc = "收藏",
                     tint = chromeTint,
+                    containerColor = chromeBtnBg,
                     onClick = onOpenBookmarks,
                 )
                 BrowserTabCountButton(
                     count = tabCount.size,
                     tint = chromeTint,
                     useGlass = true,
+                    containerColor = chromeBtnBg,
                     onOpenTabs = onOpenTabs,
                     onNewTab = { BrowserTabManager.openNewTab(url = null, select = true) },
                     onCloseAll = { BrowserTabManager.closeAll() },
@@ -359,10 +380,16 @@ fun BrowserNtpScreen(
             modifier = Modifier
                 .then(
                     if (tabletLayout) {
+                        // SPEC-060: portrait 75% / landscape 55%; content +70dp (menu stays in outer chrome)
+                        val portrait = LocalConfiguration.current.orientation ==
+                            android.content.res.Configuration.ORIENTATION_PORTRAIT
                         Modifier
-                            .fillMaxWidth(0.55f)
+                            .fillMaxWidth(if (portrait) 0.75f else 0.55f)
                             .align(Alignment.TopCenter)
-                            .padding(top = 40.dp, bottom = 40.dp)
+                            .padding(
+                                top = 40.dp + BrowserUiTokens.NtpPhoneContentExtraTop,
+                                bottom = 40.dp,
+                            )
                     } else {
                         Modifier
                             .fillMaxSize()
@@ -389,7 +416,8 @@ fun BrowserNtpScreen(
                     ),
                     modifier = Modifier.height(44.dp),
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                // SPEC-060: Logo ↔ search spacing 24dp on tablet; phone keeps 16dp
+                Spacer(modifier = Modifier.height(if (tabletLayout) 24.dp else 16.dp))
             }
 
             // SPEC-049: dual-row capsule, no divider, liquid glass
@@ -397,12 +425,18 @@ fun BrowserNtpScreen(
             val textColor = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText
             val secondary = if (incognito) BrowserUiTokens.TextSecondaryDark else colors.secondaryText
             val capsuleShape = RoundedCornerShape(28.dp)
+            // SPEC-071: liquid glass 0.35/0.28; filled = 1; incognito keeps dark overlay.
+            val capsuleFill = if (incognito) {
+                BrowserUiTokens.NtpGlassOverlayDark
+            } else {
+                ntpGlassOverlayAlpha()
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(capsuleShape)
                     .browserControlLiquidGlass(capsuleShape, interactive = false, showShadow = false)
-                    .background(fieldBg.copy(alpha = 0.28f)),
+                    .background(fieldBg.copy(alpha = capsuleFill)),
             ) {
                 Row(
                     modifier = Modifier
@@ -416,15 +450,17 @@ fun BrowserNtpScreen(
                             modifier = Modifier
                                 .size(28.dp)
                                 .clip(CircleShape)
-                                .background(Color.White)
                                 .clickable { engineMenu = true },
                             contentAlignment = Alignment.Center,
                         ) {
+                            // SPEC-069: circular engine logo, crop to fill.
                             Image(
                                 painter = painterResource(engine.logoRes),
                                 contentDescription = engine.displayName,
-                                modifier = Modifier.size(22.dp),
-                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop,
                             )
                         }
                         SearchEnginePickerPopup(
@@ -444,7 +480,9 @@ fun BrowserNtpScreen(
                     BasicTextField(
                         value = query,
                         onValueChange = { query = it },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .onFocusChanged { queryFocused = it.isFocused },
                         singleLine = true,
                         textStyle = TextStyle(color = textColor, fontSize = 16.sp),
                         cursorBrush = SolidColor(colors.cta),
@@ -537,6 +575,15 @@ fun BrowserNtpScreen(
                 }
             }
 
+            if (querySuggestions.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                BrowserOmniboxSuggestPanel(
+                    items = querySuggestions,
+                    onSelect = { openSuggest(it) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             if (showShortcuts) {
                 Spacer(modifier = Modifier.height(28.dp))
                 BoxWithConstraints(
@@ -579,7 +626,6 @@ fun BrowserNtpScreen(
                             labelColor = shortcutLabelColor,
                             lightText = shortcutLightText,
                             darkBubble = ntpDark,
-                            ringColor = shortcutLabelColor.copy(alpha = 0.45f),
                             cellWidth = iconSize,
                             onClick = { addingShortcut = true },
                         )
@@ -589,6 +635,16 @@ fun BrowserNtpScreen(
 
             if (showBookshelf) {
                 Spacer(modifier = Modifier.height(BrowserUiTokens.SpaceXl))
+                val shelfFill = if (incognito) {
+                    BrowserUiTokens.NtpGlassOverlayDark
+                } else {
+                    ntpGlassOverlayAlpha()
+                }
+                val shelfBg = (if (incognito) {
+                    BrowserUiTokens.IncognitoFieldBg
+                } else {
+                    colors.fieldBg
+                }).copy(alpha = shelfFill)
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -598,13 +654,14 @@ fun BrowserNtpScreen(
                             interactive = false,
                         ),
                     shape = RoundedCornerShape(BrowserUiTokens.CardCorner),
-                    color = Color.Transparent,
+                    // SPEC-069/071: same tone as search field; liquid glass keeps translucency.
+                    color = shelfBg,
                     shadowElevation = 0.dp,
                     tonalElevation = 0.dp,
                 ) {
                     Column(modifier = Modifier.padding(BrowserUiTokens.SpaceLg)) {
                         Text(
-                            "书架",
+                            "阅读列表",
                             color = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Medium,
@@ -615,7 +672,7 @@ fun BrowserNtpScreen(
                         )
                         if (books.isEmpty()) {
                             Text(
-                                "书架暂无内容，可在「书架」页添加",
+                                "阅读列表暂无内容，可在「阅读列表」页添加",
                                 color = colors.secondaryText,
                                 fontSize = 12.sp,
                                 modifier = Modifier
@@ -780,6 +837,7 @@ private fun NtpGlassIcon(
     tint: Color,
     filled: Boolean = false,
     enabled: Boolean = true,
+    containerColor: Color = Color.Transparent,
     onClick: () -> Unit,
 ) {
     Box(
@@ -787,6 +845,13 @@ private fun NtpGlassIcon(
             .size(BrowserUiTokens.ControlMedium)
             .browserControlLiquidGlass(CircleShape, interactive = false, showShadow = false)
             .clip(CircleShape)
+            .then(
+                if (containerColor != Color.Transparent) {
+                    Modifier.background(containerColor)
+                } else {
+                    Modifier
+                },
+            )
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -812,6 +877,11 @@ private fun NtpCustomizePanel(
     onShowShortcuts: (Boolean) -> Unit,
 ) {
     val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+    val appShellGateway: AppShellSettingsGateway = koinInject()
+    val appShell by appShellGateway.settings.collectAsStateWithLifecycle(
+        initialValue = appShellGateway.currentSettings,
+    )
     Popup(
         alignment = Alignment.TopStart,
         offset = IntOffset(
@@ -830,7 +900,7 @@ private fun NtpCustomizePanel(
         val shape = RoundedCornerShape(BrowserUiTokens.CardCorner)
         Column(
             modifier = Modifier
-                .width(240.dp)
+                .width(300.dp)
                 .clip(shape)
                 .browserControlLiquidGlass(
                     shape,
@@ -839,9 +909,22 @@ private fun NtpCustomizePanel(
                 )
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
+            Text("外观", color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Spacer(modifier = Modifier.height(8.dp))
+            // SPEC-060: follow / light / dark → AppShell themeMode
+            ThemeModeSelector(
+                selectedMode = appShell.themeMode,
+                onModeSelected = { mode ->
+                    scope.launch {
+                        appShellGateway.update { it.copy(themeMode = mode) }
+                    }
+                },
+                iconsOnly = true,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
             Text("主页", color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             NtpCustomizeRow("每日壁纸", dailyWallpaper, textColor, onDailyWallpaper)
-            NtpCustomizeRow("书架卡", showBookshelf, textColor, onShowBookshelf)
+            NtpCustomizeRow("阅读列表卡", showBookshelf, textColor, onShowBookshelf)
             NtpCustomizeRow("快捷书签", showShortcuts, textColor, onShowShortcuts)
         }
     }
@@ -944,7 +1027,6 @@ private fun AddShortcutChip(
     labelColor: Color,
     lightText: Boolean,
     darkBubble: Boolean,
-    ringColor: Color,
     cellWidth: androidx.compose.ui.unit.Dp,
     onClick: () -> Unit,
 ) {
@@ -954,15 +1036,21 @@ private fun AddShortcutChip(
             .width(cellWidth)
             .clickable(onClick = onClick),
     ) {
+        val bubbleFill = ntpGlassOverlayAlpha(forceDark = if (darkBubble) true else null)
         Box(
             modifier = Modifier
                 .size(BrowserUiTokens.NtpShortcutIconSize)
                 .clip(CircleShape)
                 .browserControlLiquidGlass(CircleShape, interactive = false, showShadow = false)
                 .background(
-                    if (darkBubble) Color(0xFF2A2A2A).copy(alpha = 0.92f) else Color.Transparent,
-                )
-                .border(1.dp, ringColor, CircleShape),
+                    if (darkBubble) {
+                        Color(0xFF2A2A2A).copy(alpha = bubbleFill)
+                    } else {
+                        // SPEC-067/071: option-row tone; translucent under liquid glass.
+                        LegadoTheme.colorScheme.surfaceContainerLow.copy(alpha = bubbleFill)
+                    },
+                ),
+            // SPEC-069: no ring border on add shortcut.
             contentAlignment = Alignment.Center,
         ) {
             SymbolIcon(Symbols.Add, contentDescription = "添加", tint = labelColor)
@@ -988,6 +1076,7 @@ private fun FaviconBubble(title: String, urls: List<String>, darkBubble: Boolean
     val letter = title.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "#"
     var index by remember(title, urls.size) { mutableIntStateOf(0) }
     val url = urls.getOrNull(index).orEmpty()
+    val bubbleFill = ntpGlassOverlayAlpha(forceDark = if (darkBubble) true else null)
     Box(
         modifier = Modifier
             .size(BrowserUiTokens.NtpShortcutIconSize)
@@ -995,32 +1084,36 @@ private fun FaviconBubble(title: String, urls: List<String>, darkBubble: Boolean
             .browserControlLiquidGlass(CircleShape, interactive = false, showShadow = false)
             .background(
                 if (darkBubble) {
-                    Color(0xFF2A2A2A).copy(alpha = 0.92f)
+                    Color(0xFF2A2A2A).copy(alpha = bubbleFill)
                 } else {
-                    Color.White.copy(alpha = 0.88f)
+                    // SPEC-067/071: option-row tone; translucent under liquid glass.
+                    LegadoTheme.colorScheme.surfaceContainerLow.copy(alpha = bubbleFill)
                 },
             ),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             letter,
-            color = if (darkBubble) Color(0xFFF6F1EA) else BrowserUiTokens.Primary,
+            color = if (darkBubble) {
+                Color(0xFFF6F1EA)
+            } else {
+                LegadoTheme.colorScheme.primary
+            },
             fontWeight = FontWeight.Medium,
             fontSize = 20.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
         if (url.isNotBlank()) {
+            // SPEC-069: crop favicon to fill the circle (no inner padding).
             SubcomposeAsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(url)
                     .crossfade(true)
                     .build(),
                 contentDescription = title,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(10.dp),
-                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
                 loading = { },
                 error = {
                     LaunchedEffect(url) {

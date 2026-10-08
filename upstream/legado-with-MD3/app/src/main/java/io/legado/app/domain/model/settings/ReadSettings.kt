@@ -94,7 +94,7 @@ data class ReadSettings(
     val readMenuBottomBarBlurMode: Int = ReadMenuBlurMode.None,
     val readMenuTopBarLiquidGlassButtons: Boolean = false,
     val readMenuTopBarMergeButtons: Boolean = false,
-    val readMenuTopBarTitleCapsule: Boolean = false,
+    val readMenuTopBarTitleCapsule: Boolean = true,
     val readMenuBottomBarLiquidGlassButtons: Boolean = false,
     val readMenuFloatingIconLiquidGlass: Boolean = false,
     val readMenuTopBarBlurStyle: Int = ReadMenuBlurStyle.Solid,
@@ -114,6 +114,6 @@ data class ReadSettings(
     val showTitleBarIcons: Boolean = false,
     val chineseConverterType: Int = 0,
     val showMenuIcon: Boolean = false,
-    val titleBarCompact: Boolean = false,
+    val titleBarCompact: Boolean = true,
     val moreActionsConfig: String = "",
 )

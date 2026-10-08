@@ -76,6 +76,7 @@ import io.legado.app.receiver.TimeBatteryReceiver
 import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.association.OpenUrlConfirmActivity
 import io.legado.app.ui.book.read.page.entities.PageDirection
+import io.legado.app.ui.browser.TabletBrowserLayout
 import io.legado.app.ui.login.SourceLoginJsExtensions
 import io.legado.app.ui.widget.PopupAction
 import io.legado.app.utils.ColorUtils
@@ -85,6 +86,7 @@ import io.legado.app.utils.LogUtils
 import io.legado.app.utils.buildMainHandler
 import io.legado.app.utils.fromJsonObject
 import io.legado.app.utils.isAbsUrl
+import io.legado.app.utils.isPad
 import io.legado.app.utils.longToastOnUi
 import io.legado.app.utils.printOnDebug
 import io.legado.app.utils.sendToClip
@@ -654,20 +656,47 @@ class ReadBookController(
         val debounce = now - composeImageClickAt < 300L
         composeImageClickAt = now
         composeImageDoubleClick = if (debounce) !composeImageDoubleClick else false
+        // SPEC-057: double-tap (or legacy clickImgWay=1) opens fullscreen gallery.
+        if (composeImageDoubleClick || readSettingsGateway.currentSettings.clickImgWay == "1") {
+            openImageGallery(image.source)
+            return true
+        }
         return when (readSettingsGateway.currentSettings.clickImgWay) {
-            "1" -> { viewModel.onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.Photo(image.source))); true }
             "2" -> if (!debounce && ReadBook.book?.isOnLineTxt == true) {
                 image.action?.takeIf(String::isNotBlank)?.let { clickImg(it, image.source); true }
                     ?: oldClickImg(image.source)
             } else false
             "3" -> false
-            "4" -> if (composeImageDoubleClick) {
-                image.action?.takeIf(String::isNotBlank)?.let { clickImg(it, image.source); true } ?: false
-            } else true
+            "4" -> false
             else -> if (!debounce) {
                 image.action?.takeIf(String::isNotBlank)?.let { clickImg(it, image.source); true } ?: false
             } else false
         }
+    }
+
+    private fun openImageGallery(currentSrc: String) {
+        val urls = collectChapterImageSources()
+            .ifEmpty { listOf(currentSrc) }
+        val index = urls.indexOf(currentSrc).coerceAtLeast(0)
+        viewModel.onIntent(
+            ReadBookIntent.ShowSheet(
+                ReadBookSheet.Photo(
+                    src = currentSrc,
+                    gallery = urls,
+                    index = index,
+                ),
+            ),
+        )
+    }
+
+    private fun collectChapterImageSources(): List<String> {
+        return directReaderPages
+            .asSequence()
+            .flatMap { page -> page.elements.asSequence().filterIsInstance<ReaderElement.Image>() }
+            .map { it.source }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .toList()
     }
 
     fun onComposeReaderViewportChanged(
@@ -1104,7 +1133,12 @@ class ReadBookController(
         // Full-text search uses the exact document “display title + newline + body” when the
         // title is enabled. Resolve in that document, then map to title/body Canvas coordinates.
         val searchTitle = input.displayTitle.takeIf {
-            ReadBookConfig.titleMode != 2 || input.chapter.isVolume || input.content.textList.isEmpty()
+            TabletBrowserLayout.showBodyTitle(
+                isTablet = activity.isPad,
+                titleMode = ReadBookConfig.titleMode,
+                isVolume = input.chapter.isVolume,
+                textEmpty = input.content.textList.isEmpty(),
+            )
         }
         val match = ReaderSearchMatcher.find(
             content = input.source.semanticContent,
@@ -1763,14 +1797,22 @@ class ReadBookController(
         popupAction.setItems(
             listOf(
                 SelectItem(activity.getString(R.string.show), "show"),
+                SelectItem(activity.getString(R.string.share), "share"),
                 SelectItem(activity.getString(R.string.refresh), "refresh"),
-                SelectItem("保存到相册", "save"),
+                SelectItem(activity.getString(R.string.save_image), "save"),
                 SelectItem(activity.getString(R.string.menu), "menu"),
             )
         )
         popupAction.onActionClick = {
             when (it) {
-                "show" -> viewModel.onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.Photo(src)))
+                "show" -> openImageGallery(src)
+                "share" -> {
+                    if (src.startsWith("http")) {
+                        activity.share(src)
+                    } else {
+                        openImageGallery(src)
+                    }
+                }
                 "refresh" -> viewModel.refreshImage(src)
                 "save" -> viewModel.saveImage(src)
                 "menu" -> toggleMenu()

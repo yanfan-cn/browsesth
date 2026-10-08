@@ -43,6 +43,8 @@ data class ThemeSettings(
     val bottomBarLensRadius: Float = 24f,
     val useFlexibleTopAppBar: Boolean = true,
     val topBarButtonStyle: String = "tonal",
+    /** SPEC-056: translucent / filled / liquid; blank = API default. */
+    val chromeSurfaceStyle: String = "",
     val mergeTopBarActions: Boolean = false,
     val bookInfoFollowCoverColor: Boolean = true,
     val bookInfoNetworkCoverBackground: String = "on",

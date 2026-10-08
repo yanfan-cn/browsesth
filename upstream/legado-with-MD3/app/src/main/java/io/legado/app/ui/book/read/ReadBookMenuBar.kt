@@ -186,6 +186,7 @@ fun ReadBookMenuBar(
             hazeState = hazeState,
             menuConfig = state.menuConfig,
             isFloating = false,
+            chromeSurfaceStyle = io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle,
         )
         val brightnessVisualState = ReaderMenuVisualState(
             effect = if (useBrightnessHaze) ReaderMenuEffect.Haze else ReaderMenuEffect.None,
@@ -256,6 +257,7 @@ fun ReadBookMenuBar(
                         buttonGlassEnabled = readMenuBottomBarButtonLiquidGlassEnabled(
                             backdrop = backdrop,
                             menuConfig = state.menuConfig,
+                            chromeSurfaceStyle = io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle,
                         ),
                         glassThumbEnabled = false,
                         onBrightnessPreview = onBrightnessPreview,
@@ -399,19 +401,27 @@ private fun ReadBookMenuSurface(
     val bottomBarBorderWidth = state.menuConfig.readMenuBorderWidth
     val bottomBarBorderColor = readMenuBorderColor(state.menuConfig)
     val extendSurfaceToNavigationBar = !isFloating && !dialogLikeRoute
-    val useLiquidGlass = readMenuBottomBarLiquidGlassEnabled(
+    val chromeSurfaceStyle =
+        io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle
+    // SPEC-061: filled chrome → opaque solid bottom bar (not transparent).
+    val forceFilledChrome =
+        io.legado.app.ui.theme.ChromeSurfaceStylePolicy.isFilledActive(chromeSurfaceStyle)
+    val useLiquidGlass = !forceFilledChrome && readMenuBottomBarLiquidGlassEnabled(
         backdrop = backdrop,
         menuConfig = state.menuConfig,
         isFloating = isFloating,
+        chromeSurfaceStyle = chromeSurfaceStyle,
     )
-    val useHaze = readMenuBottomBarHazeEnabled(
+    val useHaze = !forceFilledChrome && readMenuBottomBarHazeEnabled(
         hazeState = hazeState,
         menuConfig = state.menuConfig,
         isFloating = isFloating,
+        chromeSurfaceStyle = chromeSurfaceStyle,
     )
-    val useBottomBarButtonGlass = readMenuBottomBarButtonLiquidGlassEnabled(
+    val useBottomBarButtonGlass = !forceFilledChrome && readMenuBottomBarButtonLiquidGlassEnabled(
         backdrop = backdrop,
         menuConfig = state.menuConfig,
+        chromeSurfaceStyle = chromeSurfaceStyle,
     )
     val useLens = useLiquidGlass && isFloating && mainCorner > 0.dp
     val bottomBarVisualState = ReaderMenuVisualState(
@@ -420,24 +430,37 @@ private fun ReadBookMenuSurface(
             useHaze -> ReaderMenuEffect.Haze
             else -> ReaderMenuEffect.None
         },
-        tintStyle = state.menuConfig.readMenuBottomBarBlurStyle.toReaderMenuTintStyle(),
+        tintStyle = if (forceFilledChrome) {
+            ReaderMenuTintStyle.Fill
+        } else {
+            state.menuConfig.readMenuBottomBarBlurStyle.toReaderMenuTintStyle()
+        },
         styleEnabled = route == ReadBookMenuRoute.Main && !isFloating,
         tintAllowed = route == ReadBookMenuRoute.Main,
-        tintFill = false,
+        tintFill = forceFilledChrome,
     )
     val bottomBarMenuTintColor = readMenuTintColor(state.menuConfig)
         .takeIf { bottomBarVisualState.useTint }
     val isSliderDragging = LocalSliderDragState.current?.isDragging == true
-    val menuSurfaceAlpha = state.menuConfig.readMenuBlurAlpha.coerceIn(0, 100)
+    val menuSurfaceAlpha =
+        io.legado.app.ui.theme.ChromeSurfaceStylePolicy.effectiveReadMenuSurfaceAlpha(
+            chromeSurfaceStyle,
+            state.menuConfig.readMenuBlurAlpha,
+        )
     // 拖动时降低不透明度（≤30%），露出背后排版以便实时预览；透明度变化带过渡动画
     val dragMenuAlpha = menuSurfaceAlpha.coerceAtMost(30)
     val animatedSurfaceAlpha by animateFloatAsState(
-        targetValue = if (isSliderDragging) dragMenuAlpha.toFloat() else menuSurfaceAlpha.toFloat(),
+        targetValue = if (isSliderDragging && !forceFilledChrome) {
+            dragMenuAlpha.toFloat()
+        } else {
+            menuSurfaceAlpha.toFloat()
+        },
         animationSpec = tween(durationMillis = 200),
         label = "ReadMenuSurfaceAlpha",
     )
     val bottomBarFillAlpha by animateFloatAsState(
         targetValue = when {
+            forceFilledChrome -> 1f
             isSliderDragging -> dragMenuAlpha / 100f
             expanded -> (menuSurfaceAlpha / 100f).coerceAtLeast(0.85f)
             else -> menuSurfaceAlpha / 100f
@@ -859,17 +882,24 @@ private fun ReadBookMenuRoutePage(
 private fun readMenuBottomBarButtonLiquidGlassEnabled(
     backdrop: Backdrop?,
     menuConfig: ReadMenuConfig,
+    chromeSurfaceStyle: String,
 ): Boolean {
-    return menuConfig.readMenuBottomBarLiquidGlassButtons &&
-            readerMenuLiquidGlassAvailable(backdrop)
+    // SPEC-056: global chrome surface drives liquid glass; ignore per-menu toggle.
+    return readerMenuLiquidGlassAvailable(backdrop, chromeSurfaceStyle)
 }
 
 private fun readMenuBottomBarEffectiveBlurMode(
     menuConfig: ReadMenuConfig,
     isFloating: Boolean,
+    chromeSurfaceStyle: String,
 ): Int {
+    if (isFloating &&
+        io.legado.app.ui.theme.ChromeSurfaceStylePolicy.isLiquidGlassActive(chromeSurfaceStyle)
+    ) {
+        return ReadMenuBlurMode.LiquidGlass
+    }
     val mode = menuConfig.readMenuBottomBarBlurMode
-    return if (!isFloating && mode == ReadMenuBlurMode.LiquidGlass) {
+    return if (mode == ReadMenuBlurMode.LiquidGlass) {
         ReadMenuBlurMode.Haze
     } else {
         mode
@@ -880,22 +910,23 @@ private fun readMenuBottomBarLiquidGlassEnabled(
     backdrop: Backdrop?,
     menuConfig: ReadMenuConfig,
     isFloating: Boolean,
+    chromeSurfaceStyle: String,
 ): Boolean {
-    return isFloating &&
-            readMenuBottomBarEffectiveBlurMode(
-                menuConfig,
-                isFloating
-            ) == ReadMenuBlurMode.LiquidGlass &&
-            readerMenuLiquidGlassAvailable(backdrop)
+    return isFloating && readerMenuLiquidGlassAvailable(backdrop, chromeSurfaceStyle)
 }
 
 private fun readMenuBottomBarHazeEnabled(
     hazeState: HazeState?,
     menuConfig: ReadMenuConfig,
     isFloating: Boolean,
+    chromeSurfaceStyle: String,
 ): Boolean {
     return hazeState != null &&
-            readMenuBottomBarEffectiveBlurMode(menuConfig, isFloating) == ReadMenuBlurMode.Haze
+            readMenuBottomBarEffectiveBlurMode(
+                menuConfig,
+                isFloating,
+                chromeSurfaceStyle,
+            ) == ReadMenuBlurMode.Haze
 }
 
 @Composable

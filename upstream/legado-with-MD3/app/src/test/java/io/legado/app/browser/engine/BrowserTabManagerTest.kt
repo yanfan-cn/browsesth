@@ -40,4 +40,22 @@ class BrowserTabManagerTest {
         repeat(12) { BrowserTabManager.openNewTab(select = false) }
         assertEquals(12, BrowserTabManager.tabs.value.size)
     }
+
+    @Test
+    fun closeAllOfModeKeepsOtherMode() {
+        BrowserTabManager.openNewTab(incognito = false, select = true)
+        BrowserTabManager.openNewTab(incognito = false, select = false)
+        BrowserTabManager.openNewTab(incognito = true, select = false)
+        BrowserTabManager.closeAllOfMode(incognito = false)
+        val left = BrowserTabManager.tabs.value
+        assertEquals(1, left.size)
+        assertTrue(left.all { it.incognito })
+    }
+
+    @Test
+    fun openNewTabRespectsIncognitoFlag() {
+        val id = BrowserTabManager.openNewTab(incognito = true, select = true)
+        val tab = BrowserTabManager.tabs.value.first { it.id == id }
+        assertTrue(tab.incognito)
+    }
 }

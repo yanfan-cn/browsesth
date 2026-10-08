@@ -35,6 +35,12 @@ object WebArticleExtractJs {
             "return tag==='script'||tag==='style'||tag==='noscript'||tag==='svg'||tag==='button'" +
             "||tag==='nav'||tag==='footer'||tag==='header'||tag==='aside'||tag==='form'||tag==='iframe';" +
             "}" +
+            // SPEC-057: skip common chrome containers by class/id hints.
+            "function isChromeNode(el){" +
+            "if(!el||!el.getAttribute)return false;" +
+            "var s=((el.className||'')+' '+(el.id||'')+' '+(el.getAttribute('role')||'')).toLowerCase();" +
+            "return /\\b(nav|navbar|menu|breadcrumb|sidebar|aside|footer|header|toolbar|tabbar|comment|reply|advert|ads?|banner|popup|modal|recommend|related|paginator|page-nav|chapter-nav|read-nav|topnav|bottomnav)\\b/.test(s);" +
+            "}" +
             "function isBlock(tag){" +
             "return tag==='p'||tag==='div'||tag==='section'||tag==='article'||tag==='li'" +
             "||tag==='blockquote'||tag==='h1'||tag==='h2'||tag==='h3'||tag==='h4'||tag==='h5'||tag==='h6'" +
@@ -52,7 +58,7 @@ object WebArticleExtractJs {
             "if(nt===3){if(buf)buf.push(node.nodeValue||'');else pushText(node.nodeValue);return;}" +
             "if(nt!==1)return;" +
             "var tag=(node.tagName||'').toLowerCase();" +
-            "if(isSkip(tag))return;" +
+            "if(isSkip(tag)||isChromeNode(node))return;" +
             "if(tag==='img'){" +
             "if(buf&&buf.length){pushText(buf.join(''));buf.length=0;}" +
             "var im=imgTag(node);if(im)out.push(im);" +

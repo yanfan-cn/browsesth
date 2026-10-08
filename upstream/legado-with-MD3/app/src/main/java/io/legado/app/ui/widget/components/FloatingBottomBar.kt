@@ -189,16 +189,23 @@ fun FloatingBottomBar(
     } else {
         LegadoTheme.colorScheme.primary
     }
+    // SPEC-056: global chrome surface style overrides legacy isBlurEnabled when set.
+    val chromeStyle = io.legado.app.ui.theme.ChromeSurfaceStylePolicy.resolve(
+        themeSettings.chromeSurfaceStyle,
+    )
+    val liquidActive = isBlurEnabled &&
+        chromeStyle == io.legado.app.ui.theme.ChromeSurfaceStyle.LiquidGlass &&
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    val surfaceAlpha = when (chromeStyle) {
+        io.legado.app.ui.theme.ChromeSurfaceStyle.LiquidGlass ->
+            if (liquidActive) themeSettings.bottomBarBlurAlpha / 100f else 0.42f
+        io.legado.app.ui.theme.ChromeSurfaceStyle.Translucent -> 0.42f
+        io.legado.app.ui.theme.ChromeSurfaceStyle.Filled -> 1f
+    }
     val containerColor = if (hasCustomColors && customColors.secondary != 0) {
-        Color(customColors.secondary).copy(
-            alpha = if (isBlurEnabled) themeSettings.bottomBarBlurAlpha / 100f else 1f
-        )
-    } else if (isBlurEnabled) {
-        LegadoTheme.colorScheme.surfaceContainer.copy(
-            alpha = themeSettings.bottomBarBlurAlpha / 100f
-        )
+        Color(customColors.secondary).copy(alpha = surfaceAlpha)
     } else {
-        LegadoTheme.colorScheme.surfaceContainer
+        LegadoTheme.colorScheme.surfaceContainer.copy(alpha = surfaceAlpha)
     }
 
     val tabsBackdrop = rememberLayerBackdrop()
@@ -290,7 +297,7 @@ fun FloatingBottomBar(
     }
 
     val interactiveHighlight =
-        if (isBlurEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if (liquidActive) {
             remember(animationScope, tabWidthPx) {
                 InteractiveHighlight(
                     animationScope = animationScope,
@@ -330,7 +337,7 @@ fun FloatingBottomBar(
                     backdrop = backdrop,
                     shape = { ContinuousCapsule },
                     effects = {
-                        if (isBlurEnabled) {
+                        if (liquidActive) {
                             vibrancy()
                             blur(themeSettings.bottomBarBlurRadius.toFloat().dp.toPx())
                             lens(
@@ -340,7 +347,7 @@ fun FloatingBottomBar(
                         }
                     },
                     highlight = {
-                        Highlight.Default.copy(alpha = if (isBlurEnabled) 1f else 0f)
+                        Highlight.Default.copy(alpha = if (liquidActive) 1f else 0f)
                     },
                     shadow = {
                         Shadow.Default.copy(
@@ -348,7 +355,7 @@ fun FloatingBottomBar(
                         )
                     },
                     layerBlock = {
-                        if (isBlurEnabled) {
+                        if (liquidActive) {
                             val progress = dampedDragAnimation.pressProgress
                             val scale = lerp(1f, 1f + 16f.dp.toPx() / size.width, progress)
                             scaleX = scale
@@ -358,7 +365,7 @@ fun FloatingBottomBar(
                     onDrawSurface = { drawRect(containerColor) }
                 )
                 .then(
-                    if (isBlurEnabled && interactiveHighlight != null) {
+                    if (liquidActive && interactiveHighlight != null) {
                         interactiveHighlight.modifier
                     } else {
                         Modifier
@@ -392,7 +399,7 @@ fun FloatingBottomBar(
 
         CompositionLocalProvider(
             LocalFloatingBottomBarTabScale provides {
-                if (isBlurEnabled) {
+                if (liquidActive) {
                     lerp(1f, 1.2f, dampedDragAnimation.pressProgress)
                 } else {
                     1f
@@ -418,7 +425,7 @@ fun FloatingBottomBar(
                         backdrop = backdrop,
                         shape = { ContinuousCapsule },
                         effects = {
-                            if (isBlurEnabled) {
+                            if (liquidActive) {
                                 val progress = dampedDragAnimation.pressProgress
                                 vibrancy()
                                 blur(themeSettings.bottomBarBlurRadius.toFloat().dp.toPx())
@@ -430,7 +437,7 @@ fun FloatingBottomBar(
                         },
                         highlight = {
                             Highlight.Default.copy(
-                                alpha = if (isBlurEnabled) {
+                                alpha = if (liquidActive) {
                                     dampedDragAnimation.pressProgress
                                 } else {
                                     0f
@@ -440,7 +447,7 @@ fun FloatingBottomBar(
                         onDrawSurface = { drawRect(containerColor) }
                     )
                     .then(
-                        if (isBlurEnabled && interactiveHighlight != null) {
+                        if (liquidActive && interactiveHighlight != null) {
                             interactiveHighlight.modifier
                         } else {
                             Modifier
@@ -481,7 +488,7 @@ fun FloatingBottomBar(
                             }
                         }
                         .then(
-                            if (compactProgress <= 0f && isBlurEnabled && interactiveHighlight != null) {
+                            if (compactProgress <= 0f && liquidActive && interactiveHighlight != null) {
                                 interactiveHighlight.gestureModifier
                             } else {
                                 Modifier
@@ -492,14 +499,14 @@ fun FloatingBottomBar(
                             backdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop),
                             shape = { ContinuousCapsule },
                             effects = {
-                                if (isBlurEnabled) {
+                                if (liquidActive) {
                                     val progress = dampedDragAnimation.pressProgress
                                     lens(10f.dp.toPx() * progress, 14f.dp.toPx() * progress, true)
                                 }
                             },
                             highlight = {
                                 Highlight.Default.copy(
-                                    alpha = if (isBlurEnabled) {
+                                    alpha = if (liquidActive) {
                                         dampedDragAnimation.pressProgress
                                     } else {
                                         0f
@@ -507,16 +514,16 @@ fun FloatingBottomBar(
                                 )
                             },
                             shadow = {
-                                Shadow(alpha = if (isBlurEnabled) dampedDragAnimation.pressProgress else 0f)
+                                Shadow(alpha = if (liquidActive) dampedDragAnimation.pressProgress else 0f)
                             },
                             innerShadow = {
                                 InnerShadow(
                                     radius = 8f.dp * dampedDragAnimation.pressProgress,
-                                    alpha = if (isBlurEnabled) dampedDragAnimation.pressProgress else 0f
+                                    alpha = if (liquidActive) dampedDragAnimation.pressProgress else 0f
                                 )
                             },
                             layerBlock = {
-                                if (isBlurEnabled) {
+                                if (liquidActive) {
                                     scaleX = dampedDragAnimation.scaleX
                                     scaleY = dampedDragAnimation.scaleY
                                     val velocity = dampedDragAnimation.velocity / 10f
@@ -526,7 +533,7 @@ fun FloatingBottomBar(
                             },
                             onDrawSurface = {
                                 val progress =
-                                    if (isBlurEnabled) dampedDragAnimation.pressProgress else 0f
+                                    if (liquidActive) dampedDragAnimation.pressProgress else 0f
                                 drawRect(
                                     color = if (isInLightTheme) {
                                         Color.Black.copy(0.1f)

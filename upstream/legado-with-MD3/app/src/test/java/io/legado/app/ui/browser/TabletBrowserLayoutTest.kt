@@ -64,7 +64,7 @@ class TabletBrowserLayoutTest {
     }
 
     @Test
-    fun tabletDefaultHeaderHiddenPhoneUnchanged() {
+    fun tabletHeaderAlwaysHiddenPhoneUnchanged() {
         assertFalse(
             TabletBrowserLayout.headerVisible(
                 headerMode = 0,
@@ -72,7 +72,7 @@ class TabletBrowserLayoutTest {
                 isTablet = true,
             ),
         )
-        assertTrue(
+        assertFalse(
             TabletBrowserLayout.headerVisible(
                 headerMode = 1,
                 hideStatusBar = false,
@@ -93,5 +93,27 @@ class TabletBrowserLayoutTest {
                 isTablet = false,
             ),
         )
+    }
+
+    @Test
+    fun tabletHidesBodyTitleAndTopPadding() {
+        assertFalse(
+            TabletBrowserLayout.showBodyTitle(
+                isTablet = true,
+                titleMode = 0,
+                isVolume = false,
+                textEmpty = false,
+            ),
+        )
+        assertTrue(
+            TabletBrowserLayout.showBodyTitle(
+                isTablet = false,
+                titleMode = 0,
+                isVolume = false,
+                textEmpty = false,
+            ),
+        )
+        assertEquals(0, TabletBrowserLayout.bodyPaddingTopDp(isTablet = true, configuredDp = 24))
+        assertEquals(24, TabletBrowserLayout.bodyPaddingTopDp(isTablet = false, configuredDp = 24))
     }
 }

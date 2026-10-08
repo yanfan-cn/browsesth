@@ -83,18 +83,36 @@ internal fun MenuTitleBar(
     val topBarBorderWidth = state.menuConfig.readMenuBorderWidth
     val topBarBorderColor = readMenuBorderColor(state.menuConfig)
     val isSliderDragging = LocalSliderDragState.current?.isDragging == true
-    val topBarSurfaceAlpha = state.menuConfig.readMenuBlurAlpha.coerceIn(0, 100)
+    val chromeSurfaceStyle =
+        io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle
+    // SPEC-061: filled chrome → opaque solid top bar (not transparent).
+    val forceFilledChrome =
+        io.legado.app.ui.theme.ChromeSurfaceStylePolicy.isFilledActive(chromeSurfaceStyle)
+    val topBarSurfaceAlpha =
+        io.legado.app.ui.theme.ChromeSurfaceStylePolicy.effectiveReadMenuSurfaceAlpha(
+            chromeSurfaceStyle,
+            state.menuConfig.readMenuBlurAlpha,
+        )
     val dragTopBarAlpha = topBarSurfaceAlpha.coerceAtMost(30)
     val animatedTopBarAlpha by animateFloatAsState(
-        targetValue = if (isSliderDragging) dragTopBarAlpha.toFloat() else topBarSurfaceAlpha.toFloat(),
+        targetValue = if (isSliderDragging && !forceFilledChrome) {
+            dragTopBarAlpha.toFloat()
+        } else {
+            topBarSurfaceAlpha.toFloat()
+        },
         animationSpec = tween(durationMillis = 200),
         label = "ReadMenuTopBarAlpha",
     )
     val topBarAlpha = animatedTopBarAlpha / 100f
-    val useTopBarBlur = readMenuTopBarHazeEnabled(hazeState, state.menuConfig)
+    val useTopBarBlur =
+        !forceFilledChrome && readMenuTopBarHazeEnabled(hazeState, state.menuConfig)
     val topBarVisualState = ReaderMenuVisualState(
         effect = if (useTopBarBlur) ReaderMenuEffect.Haze else ReaderMenuEffect.None,
-        tintStyle = state.menuConfig.readMenuTopBarBlurStyle.toReaderMenuTintStyle(),
+        tintStyle = if (forceFilledChrome) {
+            ReaderMenuTintStyle.Fill
+        } else {
+            state.menuConfig.readMenuTopBarBlurStyle.toReaderMenuTintStyle()
+        },
         styleEnabled = true,
         tintAllowed = true,
         tintFill = true,
@@ -222,7 +240,8 @@ internal fun MenuTitleBar(
                     backdrop = backdrop,
                     glassEnabled = readMenuTopBarButtonLiquidGlassEnabled(
                         backdrop,
-                        state.menuConfig
+                        state.menuConfig,
+                        io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle,
                     ),
                 )
             } else {
@@ -421,7 +440,11 @@ private fun MenuTitleGlassButton(
         colors = colors,
         backdrop = backdrop,
         menuConfig = state.menuConfig,
-        glassEnabled = readMenuTopBarButtonLiquidGlassEnabled(backdrop, state.menuConfig),
+        glassEnabled = readMenuTopBarButtonLiquidGlassEnabled(
+            backdrop,
+            state.menuConfig,
+            io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle,
+        ),
         iconStyle = state.menuConfig.titleBarIconStyle,
         modifier = modifier,
         onLongClick = onLongClick,
@@ -564,8 +587,10 @@ private fun RowScope.TitleCapsuleGlassLayout(
     titleTextColor: Color,
 ) {
     val pillShape = RoundedCornerShape(50)
-    val glassEnabled = readerMenuLiquidGlassAvailable(backdrop)
-            && state.menuConfig.readMenuTopBarLiquidGlassButtons
+    val glassEnabled = readerMenuLiquidGlassAvailable(
+        backdrop,
+        io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle,
+    )
     val iconStyle = state.menuConfig.titleBarIconStyle
     val border = when {
         state.menuConfig.readMenuBorderWidth > 0 -> BorderStroke(
@@ -1028,9 +1053,10 @@ private fun CharsetActionButton(
 private fun readMenuTopBarButtonLiquidGlassEnabled(
     backdrop: Backdrop?,
     menuConfig: ReadMenuConfig,
+    chromeSurfaceStyle: String,
 ): Boolean {
-    return menuConfig.readMenuTopBarLiquidGlassButtons &&
-            readerMenuLiquidGlassAvailable(backdrop)
+    // SPEC-056: global chrome surface drives liquid glass.
+    return readerMenuLiquidGlassAvailable(backdrop, chromeSurfaceStyle)
 }
 
 private fun readMenuTopBarHazeEnabled(

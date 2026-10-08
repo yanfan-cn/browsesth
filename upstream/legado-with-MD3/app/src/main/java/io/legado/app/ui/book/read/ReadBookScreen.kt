@@ -34,7 +34,6 @@ import io.legado.app.ui.book.read.sheet.MarkingSheet
 import io.legado.app.ui.book.read.sheet.MoreConfigSheet
 import io.legado.app.ui.book.read.sheet.PageAnimConfigSheet
 import io.legado.app.ui.book.read.sheet.PageKeyConfigSheet
-import io.legado.app.ui.book.read.sheet.PhotoSheet
 import io.legado.app.ui.book.read.sheet.ReadAloudConfigContent
 import io.legado.app.ui.book.read.sheet.ReadAloudNumberConfigSheet
 import io.legado.app.ui.book.read.sheet.ReaderMoreActionsSheet
@@ -521,9 +520,14 @@ fun ReadBookScreen(
         onDismissRequest = dismissSheet,
     )
     val photoSheet = state.activeSheet as? ReadBookSheet.Photo
-    PhotoSheet(
-        show = photoSheet != null,
-        src = photoSheet?.src ?: "",
+    val galleryImages = remember(photoSheet) {
+        val sheet = photoSheet ?: return@remember emptyList()
+        sheet.gallery.ifEmpty { listOf(sheet.src) }.filter { it.isNotBlank() }
+    }
+    io.legado.app.ui.book.read.sheet.ReaderImageGalleryDialog(
+        show = photoSheet != null && galleryImages.isNotEmpty(),
+        images = galleryImages,
+        initialIndex = photoSheet?.index ?: 0,
         sourceOrigin = photoSheet?.sourceOrigin,
         onDismissRequest = dismissSheet,
     )

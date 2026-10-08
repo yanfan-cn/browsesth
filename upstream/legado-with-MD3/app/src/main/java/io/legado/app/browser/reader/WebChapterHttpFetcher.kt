@@ -198,7 +198,7 @@ object WebChapterHttpFetcher {
             .replace(Regex("\\n{3,}"), "\n\n")
             .trim()
         if (t.length > 200_000) t = t.take(200_000)
-        return t
+        return WebArticleChromeFilter.filter(t)
     }
 
     /**
@@ -252,7 +252,7 @@ object WebChapterHttpFetcher {
         flushText(t.substring(last))
         var out = blocks.joinToString("\n").trim()
         if (out.length > 200_000) out = out.take(200_000)
-        return out
+        return WebArticleChromeFilter.filterHtml(out)
     }
 
     private fun looksLikeChromeImage(url: String): Boolean {

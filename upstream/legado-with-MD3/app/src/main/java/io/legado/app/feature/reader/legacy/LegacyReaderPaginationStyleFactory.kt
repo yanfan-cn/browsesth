@@ -7,12 +7,14 @@ import io.legado.app.feature.reader.core.model.ReaderEmphasisUnderline
 import io.legado.app.feature.reader.platform.ReaderAndroidPaintFactory
 import io.legado.app.feature.reader.platform.ReaderAndroidPaginationStyle
 import io.legado.app.feature.reader.core.source.ReaderTitleSegmentation
+import io.legado.app.browser.reader.WebArticleBookFactory
 import io.legado.app.feature.reader.core.layout.ReaderColumnMode
 import io.legado.app.feature.reader.core.layout.ReaderPageUnderline
 import io.legado.app.domain.gateway.ReadSettingsGateway
 import io.legado.app.domain.gateway.ThemeSettingsGateway
 import io.legado.app.help.book.isImage
 import io.legado.app.model.ReadBook
+import io.legado.app.ui.browser.TabletBrowserLayout
 import io.legado.app.utils.isPad
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -57,10 +59,25 @@ object LegacyReaderPaginationStyleFactory : KoinComponent {
         val letterSpacing = ReadBookConfig.letterSpacing
         val bodyPaint = ReaderAndroidPaintFactory.createTextPaint(bodyStyle).apply { this.letterSpacing = letterSpacing }
         val titlePaint = ReaderAndroidPaintFactory.createTextPaint(titleStyle).apply { this.letterSpacing = letterSpacing }
+        val book = ReadBook.book
+        val isBrowserEphemeral = book != null && (
+            book.origin == WebArticleBookFactory.ORIGIN ||
+                book.bookUrl.startsWith("browsesth-novel://")
+            )
+        val preferredColumn = ReaderColumnMode.fromPreference(settings.doubleHorizontalPage)
+        // SPEC-060: ephemeral mixed/novel at least landscape dual-page capable.
+        val columnMode = if (isBrowserEphemeral && preferredColumn == ReaderColumnMode.SINGLE) {
+            ReaderColumnMode.LANDSCAPE
+        } else {
+            preferredColumn
+        }
+        val isTablet = appCtx.isPad
+        // Dual-page column modes need page-turn layout (not continuous scroll).
+        val isScroll = ReadBook.pageAnim() == 3 && columnMode == ReaderColumnMode.SINGLE
         return ReaderAndroidPaginationStyle(
-            columnMode = ReaderColumnMode.fromPreference(settings.doubleHorizontalPage),
-            isTablet = appCtx.isPad,
-            isScroll = ReadBook.pageAnim() == 3,
+            columnMode = columnMode,
+            isTablet = isTablet,
+            isScroll = isScroll,
             textBottomJustify = settings.textBottomJustify,
             pageUnderline = ReadBookConfig.underline
                 .takeIf { it && ReadBook.book?.isImage != true }
@@ -87,7 +104,9 @@ object LegacyReaderPaginationStyleFactory : KoinComponent {
             bodyPaint = bodyPaint,
             titlePaint = titlePaint,
             paddingLeftPx = ReadBookConfig.paddingLeft.dpToPx(),
-            paddingTopPx = ReadBookConfig.paddingTop.dpToPx(),
+            paddingTopPx = TabletBrowserLayout
+                .bodyPaddingTopDp(isTablet, ReadBookConfig.paddingTop)
+                .dpToPx(),
             paddingRightPx = ReadBookConfig.paddingRight.dpToPx(),
             paddingBottomPx = ReadBookConfig.paddingBottom.dpToPx(),
             bodyTextHeightPx = bodyPaint.textHeight,

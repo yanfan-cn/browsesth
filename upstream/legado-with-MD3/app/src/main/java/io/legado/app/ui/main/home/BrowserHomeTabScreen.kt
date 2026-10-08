@@ -48,6 +48,7 @@ fun BrowserHomeTabScreen(
     onSessionActiveChange: (Boolean) -> Unit = {},
     onOpenBrowserSettings: () -> Unit = {},
     onOpenBookmarks: () -> Unit = {},
+    onOpenDownloads: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     onOpenTabs: () -> Unit = {},
     onOpenReader: (bookUrl: String) -> Unit = {},
@@ -60,6 +61,7 @@ fun BrowserHomeTabScreen(
             onSessionActiveChange = onSessionActiveChange,
             onOpenBrowserSettings = onOpenBrowserSettings,
             onOpenBookmarks = onOpenBookmarks,
+            onOpenDownloads = onOpenDownloads,
             onOpenHistory = onOpenHistory,
             onOpenTabs = onOpenTabs,
             onOpenReader = onOpenReader,
@@ -75,6 +77,7 @@ private fun BrowserHomeTabBody(
     onSessionActiveChange: (Boolean) -> Unit,
     onOpenBrowserSettings: () -> Unit,
     onOpenBookmarks: () -> Unit,
+    onOpenDownloads: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenTabs: () -> Unit,
     onOpenReader: (bookUrl: String) -> Unit,
@@ -93,6 +96,16 @@ private fun BrowserHomeTabBody(
         val url = pendingOpen ?: return@LaunchedEffect
         BrowserTabManager.openUrlInActive(url)
         BrowserOpenBridge.consume()
+    }
+    val pendingLocalHtml by BrowserOpenBridge.pendingLocalHtml.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingLocalHtml) {
+        val open = pendingLocalHtml ?: return@LaunchedEffect
+        BrowserOpenBridge.consumeLocalHtml()
+        BrowserOpenBridge.armLocalHtml(open)
+        BrowserTabManager.openUrlInActive(
+            open.baseUrl.takeIf { it.startsWith("http") } ?: "about:blank",
+            omniboxLabel = open.title.ifBlank { "已保存网页" },
+        )
     }
 
     val sessionActive = active?.url != null
@@ -153,6 +166,7 @@ private fun BrowserHomeTabBody(
             onOpenBook = onOpenBook,
             onOpenBrowserSettings = onOpenBrowserSettings,
             onOpenBookmarks = onOpenBookmarks,
+            onOpenDownloads = onOpenDownloads,
             onOpenHistory = onOpenHistory,
             onOpenTabs = onOpenTabs,
             onOpenReader = onOpenReader,
@@ -178,6 +192,7 @@ private fun BrowserHomeTabBody(
             addressFocused = focused
             if (focused) submittingAddress = false
         },
+        addressFocused = addressFocused,
         onSubmitAddress = {
             val raw = address.trim()
             if (raw.isNotEmpty()) {
@@ -200,6 +215,7 @@ private fun BrowserHomeTabBody(
         onSidePanelChange = { sidePanel = it },
         onOpenUrl = { BrowserTabManager.openUrlInActive(it) },
         onOpenBrowserSettings = onOpenBrowserSettings,
+        onOpenDownloads = onOpenDownloads,
         sessionActions = sessionActions,
     ) {
         Box(Modifier.fillMaxSize()) {
@@ -233,6 +249,7 @@ private fun BrowserHomeTabBody(
                     initialOmniboxLabel = tab.omniboxLabel,
                     onOpenBrowserSettings = onOpenBrowserSettings,
                     onOpenBookmarks = { sidePanel = TabletSidePanel.Bookmarks },
+                    onOpenDownloads = onOpenDownloads,
                     onOpenHistory = { sidePanel = TabletSidePanel.History },
                     onOpenTabs = { sidePanel = TabletSidePanel.Tabs },
                     onOpenReader = { openEmbeddedReader(TabletEmbeddedReaderKind.Novel, it) },
@@ -349,6 +366,7 @@ private fun PhoneBrowserHome(
     onOpenBook: (Book) -> Unit,
     onOpenBrowserSettings: () -> Unit,
     onOpenBookmarks: () -> Unit,
+    onOpenDownloads: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenTabs: () -> Unit,
     onOpenReader: (bookUrl: String) -> Unit,
@@ -384,6 +402,7 @@ private fun PhoneBrowserHome(
                 initialOmniboxLabel = omniboxLabel,
                 onOpenBrowserSettings = onOpenBrowserSettings,
                 onOpenBookmarks = onOpenBookmarks,
+                onOpenDownloads = onOpenDownloads,
                 onOpenHistory = onOpenHistory,
                 onOpenTabs = onOpenTabs,
                 onOpenReader = onOpenReader,

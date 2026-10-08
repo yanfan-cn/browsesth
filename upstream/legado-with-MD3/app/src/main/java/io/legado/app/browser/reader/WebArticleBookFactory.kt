@@ -40,10 +40,15 @@ object WebArticleBookFactory {
             // SPEC-041: prefer HTML (paragraphs + in-body images) over plain text.
             val html = o.html?.trim().orEmpty()
             val text = o.text?.trim().orEmpty()
-            val body = when {
+            val bodyRaw = when {
                 html.length >= 40 -> html
                 text.length >= 40 -> text
                 else -> ""
+            }
+            // SPEC-057: strip website chrome from mixed HTML / plain text.
+            val body = when {
+                bodyRaw.contains('<') -> WebArticleChromeFilter.filterHtml(bodyRaw)
+                else -> WebArticleChromeFilter.filter(bodyRaw)
             }
             val cover = o.cover?.trim()
                 ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
@@ -86,8 +91,8 @@ object WebArticleBookFactory {
         book.addType(BookType.text, BookType.notShelf)
         // SPEC-046: full-width in-body images for mixed article layout.
         book.setImageStyle(Book.imgStyleFull)
-        // SPEC-048: mixed web articles default to scroll page turn.
-        book.setPageAnim(PageAnim.scrollPageAnim)
+        // SPEC-062: mixed web articles default to slide page turn.
+        book.setPageAnim(PageAnim.slidePageAnim)
         book.save()
 
         val entities = chapters.mapIndexed { index, ch ->

@@ -93,7 +93,7 @@ data class ReadBookStyleConfig(
     val textFont: String = "",
     val titleFont: String = "",
     // Page anim
-    val pageAnim: Int = 0,
+    val pageAnim: Int = 1,
     val pageAnimEInk: Int = 4,
     // 翻页速度挡位 0:极速 1:快速 2:适中(默认) 3:优雅，取值与时长见 ReaderPageTurnSpeed
     val pageAnimSpeed: Int = 2,
@@ -118,7 +118,7 @@ data class ReadSheetConfigUiState(
     /** 标题字号 <8 时按「正文字号 + 偏移」解释，故正文字号也要进弹层快照。 */
     val textSize: Int = 20,
     val letterSpacing: Float = 0f,
-    val lineSpacing: Int = 0,
+    val lineSpacing: Int = 13,
     val paragraphSpacing: Int = 0,
     val paragraphIndentCount: Int = 2,
     val textItalic: Boolean = false,
@@ -394,7 +394,7 @@ data class ReadMenuConfig(
     val readMenuBottomBarBlurMode: Int = ReadMenuBlurMode.None,
     val readMenuTopBarLiquidGlassButtons: Boolean = false,
     val readMenuTopBarMergeButtons: Boolean = false,
-    val readMenuTopBarTitleCapsule: Boolean = false,
+    val readMenuTopBarTitleCapsule: Boolean = true,
     val readMenuBottomBarLiquidGlassButtons: Boolean = false,
     val readMenuFloatingIconLiquidGlass: Boolean = false,
     val readMenuTopBarBlurStyle: Int = ReadMenuBlurStyle.Solid,
@@ -413,7 +413,7 @@ data class ReadMenuConfig(
     val readBrightness: Int = 100,
     val brightnessAuto: Boolean = true,
     val showMenuIcon: Boolean = false,
-    val titleBarCompact: Boolean = false,
+    val titleBarCompact: Boolean = true,
 )
 
 @Immutable
@@ -1058,6 +1058,9 @@ sealed interface ReadBookSheet {
     data class Photo(
         val src: String,
         val sourceOrigin: String? = null,
+        /** SPEC-057: fullscreen gallery sources; empty = single [src]. */
+        val gallery: List<String> = emptyList(),
+        val index: Int = 0,
     ) : ReadBookSheet
 }
 

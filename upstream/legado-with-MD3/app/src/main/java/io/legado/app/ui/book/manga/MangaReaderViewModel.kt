@@ -206,11 +206,7 @@ class MangaReaderViewModel(
                     }
                     _uiState.value.settingsCategory != null -> closeSettings()
                     _uiState.value.menuVisible -> setMenuVisible(false)
-                    readerSession.state.value.book != null &&
-                            readerSession.state.value.book?.inBookshelf == false &&
-                            _uiState.value.confirmAddToShelf -> {
-                        _uiState.update { it.copy(activeDialog = MangaReaderDialog.AddToShelf) }
-                    }
+                    // SPEC-057: never prompt add-to-shelf on exit.
                     readerSession.state.value.book != null &&
                             readerSession.state.value.book?.inBookshelf == false -> onIntent(
                         MangaReaderIntent.DiscardCurrentBookAndExit
@@ -321,6 +317,7 @@ class MangaReaderViewModel(
                     )
                 }
             }
+            is MangaReaderIntent.OpenImageGallery -> openImageGallery(intent.pageKey)
 
             is MangaReaderIntent.ExecutePageAction -> executePageAction(intent.action)
             is MangaReaderIntent.MessageShown -> _uiState.update { state ->
@@ -764,6 +761,20 @@ class MangaReaderViewModel(
     private fun showSheet(sheet: MangaReaderSheet) {
         setMenuVisible(false)
         _uiState.update { it.copy(activeSheet = sheet) }
+    }
+
+    /** SPEC-057: fullscreen gallery of current chapter page images. */
+    private fun openImageGallery(pageKey: String) {
+        val pages = _uiState.value.pages.filterIsInstance<MangaReaderItemUi.Page>()
+        val urls = pages.map { it.imageUrl }.filter { it.isNotBlank() }.distinct()
+        if (urls.isEmpty()) return
+        val index = pages.indexOfFirst { it.key == pageKey }
+            .takeIf { it >= 0 }
+            ?.let { keyIdx ->
+                val url = pages[keyIdx].imageUrl
+                urls.indexOf(url).coerceAtLeast(0)
+            } ?: 0
+        showSheet(MangaReaderSheet.ImageGallery(urls = urls, index = index))
     }
 
     private fun updateClickAction(index: Int, action: Int) {

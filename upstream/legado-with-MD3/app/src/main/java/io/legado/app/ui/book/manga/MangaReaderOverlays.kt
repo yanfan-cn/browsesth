@@ -204,7 +204,8 @@ private fun MangaMenuTopBar(
     onIntent: (MangaReaderIntent) -> Unit,
     backdrop: Backdrop?,
 ) {
-    val topBarGlass = state.settings.menuTopBarLiquidGlass && readerMenuLiquidGlassAvailable(backdrop)
+    val chromeSurfaceStyle = io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle
+    val topBarGlass = readerMenuLiquidGlassAvailable(backdrop, chromeSurfaceStyle)
     val compact = state.settings.menuTopBarCompact
     // 顶栏始终透明无表面背景，只显示胶囊与按钮（悬浮于漫画内容上）
     Column(
@@ -421,7 +422,8 @@ private fun MangaMenuBottomBar(
     hazeState: HazeState? = null,
 ) {
     // 悬浮底栏玻璃化表面；贴边底栏只玻璃化操作控件，和文章阅读菜单保持一致。
-    val glass = state.settings.menuBottomBarLiquidGlass && readerMenuLiquidGlassAvailable(backdrop)
+    val chromeSurfaceStyle = io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle
+    val glass = readerMenuLiquidGlassAvailable(backdrop, chromeSurfaceStyle)
     val floating = state.settings.menuBottomBarFloating
     val configOpen = state.settingsCategory != null
     // 文章阅读菜单在展开时禁用渐进样式，并以实心毛玻璃承载设置内容。

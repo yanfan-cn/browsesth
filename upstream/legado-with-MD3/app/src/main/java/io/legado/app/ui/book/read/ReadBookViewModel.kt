@@ -2074,11 +2074,8 @@ class ReadBookViewModel(
                 } else {
                     ReadBookConfig.readMenuTopBarMergeButtons
                 },
-                readMenuTopBarTitleCapsule = if (isBrowserEphemeralNovel) {
-                    true
-                } else {
-                    ReadBookConfig.readMenuTopBarTitleCapsule
-                },
+                // SPEC-062: title capsule always on.
+                readMenuTopBarTitleCapsule = true,
                 readMenuBottomBarLiquidGlassButtons = ReadBookConfig.readMenuBottomBarLiquidGlassButtons,
                 readMenuFloatingIconLiquidGlass = ReadBookConfig.readMenuFloatingIconLiquidGlass,
                 readMenuTopBarBlurStyle = ReadBookConfig.readMenuTopBarBlurStyle,
@@ -2099,7 +2096,8 @@ class ReadBookViewModel(
                 readBrightness = ReadBookConfig.readBrightness,
                 brightnessAuto = ReadBookConfig.brightnessAuto,
                 showMenuIcon = ReadBookConfig.showMenuIcon,
-                titleBarCompact = if (isBrowserEphemeralNovel) true else ReadBookConfig.titleBarCompact,
+                // SPEC-062: compact top buttons always on.
+                titleBarCompact = true,
             ),
         )
     }
@@ -2178,12 +2176,8 @@ class ReadBookViewModel(
 
     private fun closeReadBook(keepReadAloud: Boolean = false) {
         closeReadBookKeepReadAloud = keepReadAloud
-        val book = ReadBook.book
-        if (!ReadBook.inBookshelf && book != null && otherSettingsGateway.currentSettings.showAddToShelfAlert) {
-            _uiState.update {
-                it.copy(activeDialog = ReadBookDialog.ConfirmAddToBookshelf(book.name))
-            }
-        } else if (!ReadBook.inBookshelf) {
+        // SPEC-057: never prompt “放入书架”; exit directly.
+        if (!ReadBook.inBookshelf) {
             removeCurrentNotShelfBookAndFinish()
         } else {
             stopReadAloudForClose()

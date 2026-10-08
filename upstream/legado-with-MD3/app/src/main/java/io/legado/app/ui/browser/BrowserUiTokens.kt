@@ -33,11 +33,15 @@ object BrowserUiTokens {
     val SpaceLg = 16.dp
     val SpaceXl = 24.dp
 
-    /** SPEC-051: phone NTP content below chrome; tablet does not use this. */
+    /** SPEC-051/060: NTP content extra top inset (phone; tablet content column also uses this). */
     val NtpPhoneContentExtraTop = 70.dp
     val NtpOverlayBlur = 28.dp
-    val NtpOverlaySurfaceLight = 0.82f
-    val NtpOverlaySurfaceDark = 0.86f
+    /** SPEC-060: higher opacity for engine/customize overlays. */
+    val NtpOverlaySurfaceLight = 0.90f
+    val NtpOverlaySurfaceDark = 0.92f
+    /** SPEC-071: NTP glass control fill under liquid glass (filled mode uses 1f). */
+    val NtpGlassOverlayLight = 0.35f
+    val NtpGlassOverlayDark = 0.28f
     val NtpEngineMenuWidth = 140.dp
     val NtpEngineIconSize = 32.dp
     val NtpShortcutIconSize = 52.dp

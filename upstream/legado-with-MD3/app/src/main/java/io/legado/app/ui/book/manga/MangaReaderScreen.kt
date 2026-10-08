@@ -293,6 +293,16 @@ fun MangaReaderScreen(
     (state.activeSheet as? MangaReaderSheet.PageActions)?.let { sheet ->
         MangaReaderPageActionsSheet(sheet.companionPageKey != null, onIntent)
     }
+    (state.activeSheet as? MangaReaderSheet.ImageGallery)?.let { gallery ->
+        io.legado.app.ui.book.read.sheet.ReaderImageGalleryDialog(
+            show = true,
+            images = gallery.urls,
+            initialIndex = gallery.index,
+            sourceOrigin = state.pages.filterIsInstance<MangaReaderItemUi.Page>()
+                .firstOrNull()?.bookUrl,
+            onDismissRequest = { onIntent(MangaReaderIntent.DismissSheet) },
+        )
+    }
     if (state.activeSheet == MangaReaderSheet.ChangeSource) {
         val oldBook = remember(state.changeSourceBook) {
             state.changeSourceBook?.toBook()
@@ -781,7 +791,18 @@ private fun WebtoonMangaList(
                         pendingWebtoonTap = null
                         lastWebtoonTapAt = 0L
                         lastWebtoonTapPosition = Offset.Unspecified
-                        toggleWebtoonZoom()
+                        // SPEC-057: double-tap opens fullscreen gallery.
+                        val visibleItem =
+                            listState.layoutInfo.visibleItemsInfo.firstOrNull { info ->
+                                latest.y >= info.offset && latest.y < info.offset + info.size
+                            }
+                        val page = visibleItem?.let { state.pages.getOrNull(it.index) }
+                                as? MangaReaderItemUi.Page
+                        if (page != null) {
+                            onIntent(MangaReaderIntent.OpenImageGallery(page.key))
+                        } else {
+                            toggleWebtoonZoom()
+                        }
                     } else {
                         lastWebtoonTapAt = upAt
                         lastWebtoonTapPosition = latest
@@ -977,6 +998,12 @@ private fun HorizontalMangaPager(
                         pendingTap = null
                         lastTapAt = 0L
                         lastTapPosition = Offset.Unspecified
+                        // SPEC-057: double-tap opens fullscreen gallery.
+                        val itemIndex = spreads.getOrNull(pagerState.currentPage)
+                            ?.slots?.firstOrNull()?.itemIndex
+                        val pageItem = itemIndex?.let(state.pages::getOrNull)
+                                as? MangaReaderItemUi.Page
+                        pageItem?.let { onIntent(MangaReaderIntent.OpenImageGallery(it.key)) }
                     } else {
                         lastTapAt = upAt
                         lastTapPosition = latest
@@ -1095,7 +1122,17 @@ private fun MangaHorizontalSpread(
                         )
                     }
                 } else null,
-                onDoubleClick = doubleClickToZoom,
+                onDoubleClick = DoubleClickToZoomListener { zoomableState, tappedPosition ->
+                    // SPEC-057: double-tap opens gallery for the tapped page slot.
+                    val slot = if (tappedPosition.x < spreadSize.value.width / 2f) 0 else 1
+                    val page = slots.getOrNull(slot)?.itemIndex?.let(state.pages::getOrNull)
+                            as? MangaReaderItemUi.Page
+                    if (page != null) {
+                        onIntent(MangaReaderIntent.OpenImageGallery(page.key))
+                    } else if ((zoomableState.zoomFraction ?: 0f) > 0.05f) {
+                        zoomableState.resetZoom()
+                    }
+                },
             ),
     ) {
         slots.forEach { slot ->
@@ -1531,7 +1568,10 @@ private fun MangaPageImage(
                 },
                 contentScale = contentScale,
                 colorFilter = mangaColorFilter(settings),
-                onDoubleClick = doubleClickToZoom,
+                onDoubleClick = DoubleClickToZoomListener { _, _ ->
+                    // SPEC-057: double-tap opens fullscreen gallery (no zoom).
+                    onIntent(MangaReaderIntent.OpenImageGallery(page.key))
+                },
                 onClick = if (interactionsEnabled && !viewportHandlesClicks) { tap ->
                     clickAction(
                         settings = settings,

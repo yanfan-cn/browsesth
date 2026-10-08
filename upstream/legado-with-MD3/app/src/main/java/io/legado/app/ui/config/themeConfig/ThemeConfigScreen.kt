@@ -265,13 +265,7 @@ fun ThemeConfigScreen(
                             onClick = onNavigateToCustomTheme
                         )
                     }
-                    ClickableSettingItem(
-                        title = stringResource(R.string.change_icon),
-                        description = stringResource(R.string.change_icon_summary),
-                        onClick = {
-                            onIntent(ThemeConfigIntent.ShowSheet(ThemeConfigSheet.LauncherIcon))
-                        }
-                    )
+                    // SPEC-063: change-icon entry hidden.
                     SwitchSettingItem(
                         title = stringResource(R.string.predictive_back),
                         description = stringResource(R.string.predictive_back_summary),
@@ -344,6 +338,44 @@ fun ThemeConfigScreen(
                             )
                         }
                     )
+                    // SPEC-056: global chrome surface style (半透明 / 填充 / 液态玻璃).
+                    run {
+                        val available = remember {
+                            io.legado.app.ui.theme.ChromeSurfaceStylePolicy.availableStyles()
+                        }
+                        val resolved = io.legado.app.ui.theme.ChromeSurfaceStylePolicy.resolve(
+                            theme.chromeSurfaceStyle,
+                        )
+                        val labels = available.map { style ->
+                            when (style) {
+                                io.legado.app.ui.theme.ChromeSurfaceStyle.Translucent ->
+                                    stringResource(R.string.chrome_surface_style_translucent)
+                                io.legado.app.ui.theme.ChromeSurfaceStyle.Filled ->
+                                    stringResource(R.string.chrome_surface_style_filled)
+                                io.legado.app.ui.theme.ChromeSurfaceStyle.LiquidGlass ->
+                                    stringResource(R.string.chrome_surface_style_liquid)
+                            }
+                        }.toTypedArray()
+                        val values = available.map { it.storageValue }.toTypedArray()
+                        DropdownListSettingItem(
+                            title = stringResource(R.string.chrome_surface_style),
+                            description = stringResource(R.string.chrome_surface_style_summary),
+                            selectedValue = resolved.storageValue,
+                            displayEntries = labels,
+                            entryValues = values,
+                            onValueChange = { value ->
+                                // SPEC-061: surface style drives top-bar button style.
+                                updateTheme {
+                                    it.copy(
+                                        chromeSurfaceStyle = value,
+                                        topBarButtonStyle =
+                                            io.legado.app.ui.theme.ChromeSurfaceStylePolicy
+                                                .effectiveTopBarButtonStyle(value),
+                                    )
+                                }
+                            },
+                        )
+                    }
                     ClickableSettingItem(
                         title = stringResource(R.string.top_bottom_bar_settings),
                         description = stringResource(R.string.top_bottom_bar_settings_summary),
@@ -469,22 +501,7 @@ fun ThemeConfigScreen(
                     }
                 }
 
-                SplicedColumnGroup(title = stringResource(R.string.blur_effects)) {
-                    SwitchSettingItem(
-                        title = stringResource(R.string.is_blur_enable),
-                        checked = theme.enableBlur,
-                        onCheckedChange = { onIntent(ThemeConfigIntent.SetBlurEnabled(it)) }
-                    )
-                    AnimatedVisibility(visible = theme.enableBlur) {
-                        SwitchSettingItem(
-                            title = stringResource(R.string.is_blur_progressive_enable),
-                            checked = theme.enableProgressiveBlur,
-                            onCheckedChange = { value ->
-                                updateTheme { it.copy(enableProgressiveBlur = value) }
-                            }
-                        )
-                    }
-                }
+                // SPEC-063: blur-effects settings group hidden.
 
             }
 
@@ -964,7 +981,9 @@ private fun BaseCardBorderColorSettingItem(
 @Composable
 fun ThemeModeSelector(
     selectedMode: String,
-    onModeSelected: (String) -> Unit
+    onModeSelected: (String) -> Unit,
+    /** SPEC-069: NTP customize panel shows icons only. */
+    iconsOnly: Boolean = false,
 ) {
     val modes = listOf(
         Triple("0", stringResource(R.string.flow_sys), Symbols.BrightnessMedium),
@@ -979,7 +998,11 @@ fun ThemeModeSelector(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)
     ) {
-        val modifiers = listOf(Modifier.weight(1.2f), Modifier.weight(1f), Modifier.weight(1f))
+        val modifiers = if (iconsOnly) {
+            listOf(Modifier.weight(1f), Modifier.weight(1f), Modifier.weight(1f))
+        } else {
+            listOf(Modifier.weight(1.2f), Modifier.weight(1f), Modifier.weight(1f))
+        }
 
         modes.forEachIndexed { index, (value, label, icon) ->
             ToggleButton(
@@ -992,9 +1015,14 @@ fun ThemeModeSelector(
                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                 }
             ) {
-                SymbolIcon(symbol = icon, contentDescription = null)
-                Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
-                Text(text = label, overflow = TextOverflow.Ellipsis, maxLines = 1)
+                SymbolIcon(
+                    symbol = icon,
+                    contentDescription = if (iconsOnly) label else null,
+                )
+                if (!iconsOnly) {
+                    Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+                    Text(text = label, overflow = TextOverflow.Ellipsis, maxLines = 1)
+                }
             }
         }
     }

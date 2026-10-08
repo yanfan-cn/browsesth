@@ -62,7 +62,7 @@ data class ThemeExportData(
     val bookshelfCardColorDark: Int = 0,
     val showHome: Boolean = true,
     val showDiscovery: Boolean = true,
-    val showRss: Boolean = true,
+    val showRss: Boolean = false,
     val showStatusBar: Boolean = true,
     val swipeAnimation: Boolean = true,
     val showBottomView: Boolean = true,

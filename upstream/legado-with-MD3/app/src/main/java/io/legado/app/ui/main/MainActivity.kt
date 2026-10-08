@@ -465,6 +465,9 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                 resolved is MainRouteSourceLogin -> {
                     arrayOf(MainRouteHome, resolved)
                 }
+                resolved == MainRouteBrowserDownloads -> {
+                    arrayOf(MainRouteHome, resolved)
+                }
                 else -> {
                     arrayOf(resolved)
                 }

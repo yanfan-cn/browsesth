@@ -834,7 +834,7 @@ private fun BookshelfManageScreen(
             manualSearchPreviewBook = null
         },
         onAddAsNew = { _: Book, _: List<BookChapter> ->
-            context.toastOnUi("请先选择替换候选后再新增至书架")
+            context.toastOnUi("请先选择替换候选后再新增至阅读列表")
         },
     )
 

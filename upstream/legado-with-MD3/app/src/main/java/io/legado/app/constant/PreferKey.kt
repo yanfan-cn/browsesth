@@ -286,6 +286,8 @@ object PreferKey {
     const val showBottomView = "showBottomView"
     const val useFloatingBottomBar = "useFloatingBottomBar"
     const val useFloatingBottomBarLiquidGlass = "useFloatingBottomBarLiquidGlass"
+    /** SPEC-056: global chrome surface — translucent / filled / liquid. */
+    const val chromeSurfaceStyle = "chromeSurfaceStyle"
     const val mangaScrollMode = "mangaScrollMode"
     const val webtoonSidePaddingDp = "webtoonSidePaddingDp"
     const val mangaVolumeKeyPage = "mangaVolumeKeyPage"

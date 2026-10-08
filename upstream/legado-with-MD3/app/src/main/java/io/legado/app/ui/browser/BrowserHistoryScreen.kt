@@ -1,9 +1,6 @@
 package io.legado.app.ui.browser
 
-import io.legado.app.ui.widget.components.icon.SymbolIcon
-import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,18 +8,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -32,24 +23,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.AppScaffold
+import io.legado.app.ui.widget.components.icon.Symbols
 import io.legado.app.ui.widget.components.topbar.GlassSmallTopAppBar
 import io.legado.app.ui.widget.components.topbar.TopBarActionButton
 import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
 import io.legado.app.utils.toastOnUi
-import java.net.URI
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -115,40 +100,11 @@ private fun BrowserHistoryBody(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        horizontal = BrowserUiTokens.PagePaddingH,
-                        vertical = BrowserUiTokens.SpaceSm,
-                    )
-                    .height(BrowserUiTokens.InputHeightLarge)
-                    .clip(RoundedCornerShape(BrowserUiTokens.CardCorner))
-                    .background(scheme.surfaceContainer)
-                    .padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SymbolIcon(Symbols.Search,
-                    contentDescription = null,
-                    tint = scheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                BasicTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    textStyle = TextStyle(color = scheme.onSurface, fontSize = 16.sp),
-                    cursorBrush = SolidColor(BrowserUiTokens.Primary),
-                    decorationBox = { inner ->
-                        if (query.isEmpty()) {
-                            Text("搜索历史记录", color = scheme.onSurfaceVariant, fontSize = 14.sp)
-                        }
-                        inner()
-                    },
-                )
-            }
+            BrowserListSearchField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = "搜索历史记录",
+            )
             if (filtered.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -236,9 +192,6 @@ private fun HistoryRow(
     onDelete: () -> Unit,
 ) {
     val scheme = LegadoTheme.colorScheme
-    val host = remember(entry.url) {
-        runCatching { URI(entry.url).host }.getOrNull().orEmpty()
-    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -249,18 +202,13 @@ private fun HistoryRow(
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
-            model = if (host.isNotEmpty()) {
-                "https://icons.duckduckgo.com/ip3/$host.ico"
-            } else {
-                null
-            },
-            contentDescription = null,
-            modifier = Modifier
-                .size(BrowserUiTokens.ControlSmall)
-                .clip(CircleShape)
-                .background(scheme.surfaceVariant),
-            contentScale = ContentScale.Fit,
+        // SPEC-071: NTP-style favicon candidates + letter fallback.
+        SiteFaviconIcon(
+            pageUrl = entry.url,
+            title = entry.title.ifBlank { entry.url },
+            size = BrowserUiTokens.ControlSmall,
+            bubbleColor = scheme.surfaceVariant,
+            letterColor = scheme.primary,
         )
         Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceMd))
         Column(modifier = Modifier.weight(1f)) {

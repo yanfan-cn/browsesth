@@ -1,21 +1,18 @@
 package io.legado.app.ui.about
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,17 +21,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.legado.app.R
 import io.legado.app.constant.AppConst.appInfo
 import io.legado.app.ui.theme.LegadoTheme
-import io.legado.app.ui.theme.ThemeResolver
 import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.SettingItemWithDivider
 import io.legado.app.ui.widget.components.SplicedColumnGroup
@@ -100,23 +96,17 @@ private fun MaterialAboutScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
+            // SPEC-068: rounded app icon; no name under icon; no social/update icon row.
             Image(
                 painter = painterResource(R.drawable.ic_launcher_foreground),
                 contentDescription = null,
-                contentScale = ContentScale.Fit,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
+                    .padding(top = 8.dp)
                     .height(120.dp)
                     .width(120.dp)
                     .align(Alignment.CenterHorizontally)
-            )
-            AppText(
-                text = stringResource(R.string.app_name),
-                style = LegadoTheme.typography.bodyLarge,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentWidth(Alignment.CenterHorizontally)
+                    .clip(RoundedCornerShape(24.dp)),
             )
             TextCard(
                 text = versionName,
@@ -124,40 +114,17 @@ private fun MaterialAboutScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .wrapContentWidth(Alignment.CenterHorizontally)
-                    .padding(vertical = 4.dp)
+                    .padding(top = 12.dp, bottom = 4.dp),
             )
             AppText(
                 text = stringResource(R.string.about_description),
                 style = LegadoTheme.typography.bodyLarge,
-                fontSize = 12.sp,
+                fontSize = 16.sp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .wrapContentWidth(Alignment.CenterHorizontally)
-                    .padding(bottom = 4.dp)
+                    .padding(bottom = 12.dp),
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                FilledTonalIconButton(onClick = { onIntent(AboutIntent.OpenUrl("https://github.com/HapeLee/legado-with-MD3")) }) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_web_outline),
-                        contentDescription = stringResource(R.string.about_open_project_homepage)
-                    )
-                }
-                FilledTonalIconButton(onClick = { onIntent(AboutIntent.OpenUrl("https://github.com/HapeLee/legado-with-MD3")) }) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_github),
-                        contentDescription = stringResource(R.string.about_open_github)
-                    )
-                }
-                FilledTonalIconButton(onClick = { onIntent(AboutIntent.CheckUpdate) }) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_import),
-                        contentDescription = stringResource(R.string.check_update)
-                    )
-                }
-            }
 
             SplicedColumnGroup(
                 modifier = Modifier.padding(horizontal = 16.dp),

@@ -1,6 +1,5 @@
 package io.legado.app.ui.widget.components.reader
 
-import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -16,14 +15,20 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import io.legado.app.ui.animation.InteractiveHighlight
+import io.legado.app.ui.theme.ChromeSurfaceStylePolicy
+import io.legado.app.ui.theme.LocalAppUiConfiguration
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.tanh
 
-fun readerMenuLiquidGlassAvailable(backdrop: Backdrop?): Boolean {
-    return backdrop != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+/** SPEC-056: requires backdrop and global chrome surface = liquid glass. */
+fun readerMenuLiquidGlassAvailable(
+    backdrop: Backdrop?,
+    chromeSurfaceStyle: String,
+): Boolean {
+    return backdrop != null && ChromeSurfaceStylePolicy.isLiquidGlassActive(chromeSurfaceStyle)
 }
 
 @Composable
@@ -36,7 +41,8 @@ fun Modifier.readerMenuLiquidGlass(
     useLens: Boolean,
     interactive: Boolean = false,
 ): Modifier {
-    if (!readerMenuLiquidGlassAvailable(backdrop)) return this
+    val chromeSurfaceStyle = LocalAppUiConfiguration.current.theme.chromeSurfaceStyle
+    if (!readerMenuLiquidGlassAvailable(backdrop, chromeSurfaceStyle)) return this
 
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = if (interactive) {
@@ -68,18 +74,18 @@ fun Modifier.readerMenuLiquidGlass(
                     val initialDerivative = 0.05f
                     val dragOffset = interactiveHighlight.dragOffset
                     translationX = maxOffset *
-                            tanh(initialDerivative * dragOffset.x / maxOffset) * progress
+                        tanh(initialDerivative * dragOffset.x / maxOffset) * progress
                     translationY = maxOffset *
-                            tanh(initialDerivative * dragOffset.y / maxOffset) * progress
+                        tanh(initialDerivative * dragOffset.y / maxOffset) * progress
 
                     val maxDragScale = 4.dp.toPx() / height
                     val offsetAngle = atan2(dragOffset.y, dragOffset.x)
                     scaleX = scale + maxDragScale *
-                            abs(cos(offsetAngle) * dragOffset.x / size.maxDimension) *
-                            (width / height).coerceAtMost(1f) * progress
+                        abs(cos(offsetAngle) * dragOffset.x / size.maxDimension) *
+                        (width / height).coerceAtMost(1f) * progress
                     scaleY = scale + maxDragScale *
-                            abs(sin(offsetAngle) * dragOffset.y / size.maxDimension) *
-                            (height / width).coerceAtMost(1f) * progress
+                        abs(sin(offsetAngle) * dragOffset.y / size.maxDimension) *
+                        (height / width).coerceAtMost(1f) * progress
                 }
             }
         } else {

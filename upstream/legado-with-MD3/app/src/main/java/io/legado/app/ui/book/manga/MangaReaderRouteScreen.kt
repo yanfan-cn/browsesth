@@ -209,9 +209,12 @@ fun MangaReaderRouteScreen(
     }
 
     val menuHazeState = remember { HazeState() }
+    val chromeLiquid = io.legado.app.ui.theme.ChromeSurfaceStylePolicy.isLiquidGlassActive(
+        io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle,
+    )
     val useMenuHaze = state.settings.menuBottomBarBlur ||
             (!state.settings.menuBottomBarFloating &&
-                    state.settings.menuBottomBarLiquidGlass &&
+                    chromeLiquid &&
                     state.settingsCategory != null)
     MangaReaderScreen(
         state = state,

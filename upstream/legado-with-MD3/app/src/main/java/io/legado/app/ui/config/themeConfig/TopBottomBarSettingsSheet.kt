@@ -10,14 +10,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.legado.app.R
 import io.legado.app.domain.model.settings.AppShellSettings
 import io.legado.app.domain.model.settings.ThemeSettings
 import io.legado.app.ui.widget.components.modalBottomSheet.AppModalBottomSheet
-import io.legado.app.ui.widget.components.settingItem.CompactDropdownSettingItem
 import io.legado.app.ui.widget.components.settingItem.CompactSwitchSettingItem
 import io.legado.app.ui.widget.components.settingItem.SliderSettingItem
 
@@ -55,22 +53,14 @@ fun TopBottomBarSettingsSheet(
                     },
                 )
             }
-            CompactDropdownSettingItem(
-                title = stringResource(R.string.top_bar_button_style),
-                selectedValue = theme.topBarButtonStyle,
-                displayEntries = stringArrayResource(R.array.top_bar_button_style),
-                entryValues = stringArrayResource(R.array.top_bar_button_style_value),
-                onValueChange = { value -> updateTheme { it.copy(topBarButtonStyle = value) } },
+            // SPEC-061: top-bar button style follows chrome surface; no manual toggle.
+            CompactSwitchSettingItem(
+                title = stringResource(R.string.merge_top_bar_actions),
+                checked = theme.mergeTopBarActions,
+                onCheckedChange = { checked ->
+                    updateTheme { current -> current.copy(mergeTopBarActions = checked) }
+                },
             )
-            AnimatedVisibility(visible = theme.topBarButtonStyle != "plain") {
-                CompactSwitchSettingItem(
-                    title = stringResource(R.string.merge_top_bar_actions),
-                    checked = theme.mergeTopBarActions,
-                    onCheckedChange = { checked ->
-                        updateTheme { current -> current.copy(mergeTopBarActions = checked) }
-                    },
-                )
-            }
             CompactSwitchSettingItem(
                 title = stringResource(R.string.show_bottom_nav),
                 description = stringResource(R.string.be_swiped),
@@ -83,27 +73,18 @@ fun TopBottomBarSettingsSheet(
                 checked = appShell.useFloatingBottomBar,
                 onCheckedChange = { onIntent(ThemeConfigIntent.SetUseFloatingBottomBar(it)) },
             )
+            // SPEC-056: liquid glass moved to global chrome surface style in appearance.
             AnimatedVisibility(visible = appShell.useFloatingBottomBar) {
-                Column {
-                    CompactSwitchSettingItem(
-                        title = stringResource(R.string.floating_bottom_bar_liquid_glass),
-                        description = stringResource(R.string.floating_bottom_bar_liquid_glass_summary),
-                        checked = appShell.useFloatingBottomBarLiquidGlass,
-                        onCheckedChange = {
-                            onIntent(ThemeConfigIntent.SetUseFloatingBottomBarLiquidGlass(it))
-                        },
-                    )
-                    SliderSettingItem(
-                        title = stringResource(R.string.theme_config_bottom_bar_lens_radius),
-                        description = stringResource(R.string.theme_config_bottom_bar_lens_radius_summary),
-                        value = theme.bottomBarLensRadius,
-                        defaultValue = 24f,
-                        valueRange = 0f..50f,
-                        onValueChange = { value ->
-                            updateTheme { current -> current.copy(bottomBarLensRadius = value) }
-                        },
-                    )
-                }
+                SliderSettingItem(
+                    title = stringResource(R.string.theme_config_bottom_bar_lens_radius),
+                    description = stringResource(R.string.theme_config_bottom_bar_lens_radius_summary),
+                    value = theme.bottomBarLensRadius,
+                    defaultValue = 24f,
+                    valueRange = 0f..50f,
+                    onValueChange = { value ->
+                        updateTheme { current -> current.copy(bottomBarLensRadius = value) }
+                    },
+                )
             }
             if (theme.enableBlur) {
                 SliderSettingItem(
