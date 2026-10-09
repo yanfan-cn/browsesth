@@ -1,10 +1,9 @@
 package io.legado.app.ui.config
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -26,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import io.legado.app.R
 import io.legado.app.ui.config.ai.AiConfigRouteScreen
 import io.legado.app.ui.config.backupConfig.BackupConfigRouteScreen
@@ -40,7 +39,12 @@ import io.legado.app.ui.config.readConfig.ReadConfigRouteScreen
 import io.legado.app.ui.config.themeConfig.ThemeConfigRouteScreen
 import io.legado.app.ui.config.translation.TranslationConfigRouteScreen
 import io.legado.app.ui.theme.LegadoTheme
+import io.legado.app.ui.widget.components.AppScaffold
+import io.legado.app.ui.widget.components.SplicedColumnDivider
 import io.legado.app.ui.widget.components.privacy.PrivateVerifyGate
+import io.legado.app.ui.widget.components.settingItem.SettingItem
+import io.legado.app.ui.widget.components.topbar.LocalSuppressTopBarNavigation
+import io.legado.app.ui.widget.components.topbar.TopBarButtonStyle
 import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
 
 /** SPEC-060: tablet settings left-rail categories; default Browser. */
@@ -77,96 +81,106 @@ fun TabletSettingsScreen(
         .firstOrNull { it.name == selected }
         ?: TabletSettingsPane.Browser
 
-    Row(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .width(280.dp)
-                .fillMaxHeight()
-                .statusBarsPadding(),
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
-            ) {
-                TopBarNavigationButton(onClick = onBackClick)
-                Text(
-                    text = stringResource(R.string.setting),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(start = 4.dp),
-                )
-            }
+    // SPEC-081: disable liquid-glass sampling — primary back caused RenderThread SIGSEGV.
+    AppScaffold(
+        topBar = {},
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        disableLiquidGlass = true,
+        disableContentSampling = true,
+    ) { _ ->
+        Row(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState()),
+                    .width(280.dp)
+                    .fillMaxHeight()
+                    .statusBarsPadding(),
             ) {
-                TabletSettingsPane.entries.forEach { pane ->
-                    val isSelected = pane == selectedPane
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 8.dp),
+                ) {
+                    // SPEC-081: force Tonal — no liquid-glass back on tablet settings L1.
+                    TopBarNavigationButton(
+                        onClick = onBackClick,
+                        style = TopBarButtonStyle.Tonal,
+                    )
                     Text(
-                        text = paneLabel(pane),
-                        color = if (isSelected) {
-                            LegadoTheme.colorScheme.primary
-                        } else {
-                            LegadoTheme.colorScheme.onSurface
-                        },
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        fontSize = 16.sp,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                if (isSelected) {
-                                    LegadoTheme.colorScheme.primary.copy(alpha = 0.12f)
-                                } else {
-                                    MaterialTheme.colorScheme.surface
-                                },
-                            )
-                            .clickable { selected = pane.name }
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        text = stringResource(R.string.setting),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        // SPEC-080: dark mode uses onSurface (light glyph on dark).
+                        color = LegadoTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(start = 4.dp),
                     )
                 }
-            }
-        }
-        VerticalDivider()
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight(),
-        ) {
-            when (selectedPane) {
-                TabletSettingsPane.Browser -> BrowserConfigScreen(onBackClick = onBackClick)
-                TabletSettingsPane.Theme -> ThemeConfigRouteScreen(
-                    onBackClick = onBackClick,
-                    onNavigateToCustomTheme = onNavigateToCustomTheme,
-                    onNavigateToThemeManage = onNavigateToThemeManage,
-                )
-                TabletSettingsPane.Other -> OtherConfigRouteScreen(onBackClick = onBackClick)
-                TabletSettingsPane.Read -> ReadConfigRouteScreen(onBackClick = onBackClick)
-                TabletSettingsPane.Cover -> CoverConfigRouteScreen(
-                    onBackClick = onBackClick,
-                    onNavigateToCoverAlbums = onNavigateToCoverAlbums,
-                )
-                TabletSettingsPane.DownloadCache ->
-                    DownloadCacheConfigRouteScreen(onBackClick = onBackClick)
-                TabletSettingsPane.Backup -> BackupConfigRouteScreen(onBackClick = onBackClick)
-                TabletSettingsPane.Ai -> AiConfigRouteScreen(
-                    onBackClick = onBackClick,
-                    onNavigateToProviderEdit = onNavigateToAiProviderEdit,
-                    onNavigateToModelEdit = onNavigateToAiModelEdit,
-                    onNavigateToTranslation = onNavigateToTranslation,
-                    onNavigateToAiSummary = onNavigateToAiSummary,
-                    onNavigateToAiPrompt = onNavigateToAiPrompt,
-                )
-                TabletSettingsPane.Translation -> TranslationConfigRouteScreen(
-                    onBackClick = onBackClick,
-                    onNavigateToAi = onNavigateToAiFromTranslation,
-                )
-                TabletSettingsPane.Private -> PrivateVerifyGate(onCancel = onBackClick) {
-                    PrivateConfigRouteScreen(onBackClick = onBackClick)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                ) {
+                    // SPEC-080: M3 ListItem-in-card style matching secondary settings.
+                    TabletSettingsPane.entries.forEach { pane ->
+                        val isSelected = pane == selectedPane
+                        SplicedColumnDivider()
+                        SettingItem(
+                            title = paneLabel(pane),
+                            modifier = Modifier.fillMaxWidth(),
+                            color = if (isSelected) {
+                                LegadoTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerLow
+                            },
+                            trailingContent = {},
+                            onClick = { selected = pane.name },
+                        )
+                    }
                 }
-                TabletSettingsPane.Lab -> LabConfigRouteScreen(onBackClick = onBackClick)
+            }
+            VerticalDivider()
+            // SPEC-080: hide secondary (right-pane) top-bar back; left rail switches categories.
+            CompositionLocalProvider(LocalSuppressTopBarNavigation provides true) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                ) {
+                    when (selectedPane) {
+                        TabletSettingsPane.Browser -> BrowserConfigScreen(onBackClick = onBackClick)
+                        TabletSettingsPane.Theme -> ThemeConfigRouteScreen(
+                            onBackClick = onBackClick,
+                            onNavigateToCustomTheme = onNavigateToCustomTheme,
+                            onNavigateToThemeManage = onNavigateToThemeManage,
+                        )
+                        TabletSettingsPane.Other -> OtherConfigRouteScreen(onBackClick = onBackClick)
+                        TabletSettingsPane.Read -> ReadConfigRouteScreen(onBackClick = onBackClick)
+                        TabletSettingsPane.Cover -> CoverConfigRouteScreen(
+                            onBackClick = onBackClick,
+                            onNavigateToCoverAlbums = onNavigateToCoverAlbums,
+                        )
+                        TabletSettingsPane.DownloadCache ->
+                            DownloadCacheConfigRouteScreen(onBackClick = onBackClick)
+                        TabletSettingsPane.Backup -> BackupConfigRouteScreen(onBackClick = onBackClick)
+                        TabletSettingsPane.Ai -> AiConfigRouteScreen(
+                            onBackClick = onBackClick,
+                            onNavigateToProviderEdit = onNavigateToAiProviderEdit,
+                            onNavigateToModelEdit = onNavigateToAiModelEdit,
+                            onNavigateToTranslation = onNavigateToTranslation,
+                            onNavigateToAiSummary = onNavigateToAiSummary,
+                            onNavigateToAiPrompt = onNavigateToAiPrompt,
+                        )
+                        TabletSettingsPane.Translation -> TranslationConfigRouteScreen(
+                            onBackClick = onBackClick,
+                            onNavigateToAi = onNavigateToAiFromTranslation,
+                        )
+                        TabletSettingsPane.Private -> PrivateVerifyGate(onCancel = onBackClick) {
+                            PrivateConfigRouteScreen(onBackClick = onBackClick)
+                        }
+                        TabletSettingsPane.Lab -> LabConfigRouteScreen(onBackClick = onBackClick)
+                    }
+                }
             }
         }
     }

@@ -6,6 +6,7 @@ import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -36,6 +37,7 @@ import io.legado.app.ui.browser.TabletBrowserShell
 import io.legado.app.ui.browser.TabletEmbeddedReaderHost
 import io.legado.app.ui.browser.TabletEmbeddedReaderKind
 import io.legado.app.ui.browser.TabletSidePanel
+import io.legado.app.ui.theme.LegadoTheme
 import kotlinx.coroutines.flow.first
 
 /**
@@ -50,6 +52,7 @@ fun BrowserHomeTabScreen(
     onOpenBookmarks: () -> Unit = {},
     onOpenDownloads: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
+    onOpenClearBrowsingData: () -> Unit = {},
     onOpenTabs: () -> Unit = {},
     onOpenReader: (bookUrl: String) -> Unit = {},
     onOpenMangaReader: (bookUrl: String) -> Unit = {},
@@ -63,6 +66,7 @@ fun BrowserHomeTabScreen(
             onOpenBookmarks = onOpenBookmarks,
             onOpenDownloads = onOpenDownloads,
             onOpenHistory = onOpenHistory,
+            onOpenClearBrowsingData = onOpenClearBrowsingData,
             onOpenTabs = onOpenTabs,
             onOpenReader = onOpenReader,
             onOpenMangaReader = onOpenMangaReader,
@@ -79,6 +83,7 @@ private fun BrowserHomeTabBody(
     onOpenBookmarks: () -> Unit,
     onOpenDownloads: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenClearBrowsingData: () -> Unit,
     onOpenTabs: () -> Unit,
     onOpenReader: (bookUrl: String) -> Unit,
     onOpenMangaReader: (bookUrl: String) -> Unit,
@@ -215,6 +220,7 @@ private fun BrowserHomeTabBody(
         onSidePanelChange = { sidePanel = it },
         onOpenUrl = { BrowserTabManager.openUrlInActive(it) },
         onOpenBrowserSettings = onOpenBrowserSettings,
+        onOpenClearBrowsingData = onOpenClearBrowsingData,
         onOpenDownloads = onOpenDownloads,
         sessionActions = sessionActions,
     ) {
@@ -297,10 +303,11 @@ private fun BrowserNtpSessionSwitch(
     session: @Composable () -> Unit,
 ) {
     // SPEC-033/039: never compose NTP and session (AwContents) together.
-    // Sequential Legado-style push/pop (slide only, no fade/scale on WebView).
+    // SPEC-083: surface underlay + snap NTP away on push (no empty black gap).
+    val scheme = LegadoTheme.colorScheme
     val spec = tween<IntOffset>(durationMillis = 480, easing = FastOutSlowInEasing)
-    val ntpState = remember {
-        MutableTransitionState(showNtp).apply { targetState = showNtp }
+    var ntpState by remember {
+        mutableStateOf(MutableTransitionState(showNtp).apply { targetState = showNtp })
     }
     val sessionState = remember {
         MutableTransitionState(!showNtp).apply { targetState = !showNtp }
@@ -317,16 +324,18 @@ private fun BrowserNtpSessionSwitch(
             return@LaunchedEffect
         }
         if (!showNtp) {
-            // Push: NTP exits left, then session enters from right.
+            // Push: snap NTP off (recreate state; currentState is internal), then session enters.
             sessionState.targetState = false
             if (sessionState.currentState) {
                 snapshotFlow { sessionState.isIdle && !sessionState.currentState }.first { it }
             }
-            ntpState.targetState = false
-            snapshotFlow { ntpState.isIdle && !ntpState.currentState }.first { it }
+            ntpState = MutableTransitionState(false)
             sessionState.targetState = true
         } else {
             // Pop: session exits right, then NTP enters from left.
+            if (!ntpState.currentState && !ntpState.targetState) {
+                ntpState = MutableTransitionState(false)
+            }
             ntpState.targetState = false
             if (ntpState.currentState) {
                 snapshotFlow { ntpState.isIdle && !ntpState.currentState }.first { it }
@@ -337,7 +346,11 @@ private fun BrowserNtpSessionSwitch(
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(scheme.surface),
+    ) {
         AnimatedVisibility(
             visibleState = sessionState,
             modifier = Modifier.fillMaxSize(),

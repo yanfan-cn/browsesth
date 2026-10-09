@@ -34,7 +34,6 @@ import io.legado.app.ui.widget.components.icon.Symbols
 import io.legado.app.ui.widget.components.topbar.GlassSmallTopAppBar
 import io.legado.app.ui.widget.components.topbar.TopBarActionButton
 import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
-import io.legado.app.utils.toastOnUi
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -45,9 +44,15 @@ import java.util.Locale
 fun BrowserHistoryScreen(
     onBack: () -> Unit,
     onOpenUrl: (String) -> Unit,
+    /** SPEC-082: open clear-browsing-data page (replaces instant clear dialog). */
+    onOpenClearData: () -> Unit = {},
 ) {
     BrowserTheme {
-        BrowserHistoryBody(onBack = onBack, onOpenUrl = onOpenUrl)
+        BrowserHistoryBody(
+            onBack = onBack,
+            onOpenUrl = onOpenUrl,
+            onOpenClearData = onOpenClearData,
+        )
     }
 }
 
@@ -56,12 +61,12 @@ fun BrowserHistoryScreen(
 private fun BrowserHistoryBody(
     onBack: () -> Unit,
     onOpenUrl: (String) -> Unit,
+    onOpenClearData: () -> Unit,
 ) {
     val context = LocalContext.current
     val store = remember { BrowseStore(context) }
     var items by remember { mutableStateOf(store.history()) }
     var query by remember { mutableStateOf("") }
-    var confirmClear by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<BrowseStore.Entry?>(null) }
     val scheme = LegadoTheme.colorScheme
     val dayFmt = remember { SimpleDateFormat("yyyy年M月d日 EEEE", Locale.CHINA) }
@@ -87,9 +92,9 @@ private fun BrowserHistoryBody(
                 navigationIcon = { TopBarNavigationButton(onClick = onBack) },
                 actions = {
                     TopBarActionButton(
-                        onClick = { confirmClear = true },
+                        onClick = onOpenClearData,
                         symbol = Symbols.DeleteSweep,
-                        contentDescription = "清空历史",
+                        contentDescription = "删除浏览数据",
                     )
                 },
             )
@@ -142,26 +147,6 @@ private fun BrowserHistoryBody(
         }
     }
 
-    if (confirmClear) {
-        AlertDialog(
-            onDismissRequest = { confirmClear = false },
-            title = { Text("清空浏览记录？") },
-            text = { Text("将删除全部历史记录，此操作无法撤销。") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        store.clearHistory()
-                        reload()
-                        confirmClear = false
-                        context.toastOnUi("已清空")
-                    },
-                ) { Text("清空") }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmClear = false }) { Text("取消") }
-            },
-        )
-    }
     pendingDelete?.let { entry ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },

@@ -27,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -39,6 +41,10 @@ import io.legado.app.ui.widget.components.icon.Symbols
 /** SPEC-055: circular tab-count badge on NTP / bottom bar. */
 private val TabCountShape = CircleShape
 
+/** SPEC-081: tablet strip badge — rounded rect 24dp, no border. */
+val TabletTabCountShape = RoundedCornerShape(24.dp)
+val TabletTabCountSize = BrowserUiTokens.ControlSmall
+
 @Composable
 fun BrowserTabCountBadge(
     count: Int,
@@ -47,6 +53,12 @@ fun BrowserTabCountBadge(
     modifier: Modifier = Modifier,
     /** SPEC-069: optional solid fill matching NTP search field. */
     containerColor: Color = Color.Transparent,
+    /** SPEC-081: override size (tablet strip uses smaller control). */
+    size: Dp = BrowserUiTokens.ControlMedium,
+    /** SPEC-081: override shape (tablet strip uses rounded rect). */
+    shape: Shape = TabCountShape,
+    /** SPEC-081: tablet strip has no outline. */
+    drawBorder: Boolean = true,
 ) {
     val digitCount = count.toString().length
     val textSize = when {
@@ -56,17 +68,20 @@ fun BrowserTabCountBadge(
     }
     Box(
         modifier = modifier
-            .size(BrowserUiTokens.ControlMedium)
-            .clip(TabCountShape)
+            .size(size)
+            .clip(shape)
             .then(
                 if (useGlass) {
                     Modifier.browserControlLiquidGlass(
-                        TabCountShape,
+                        shape,
                         interactive = false,
                         showShadow = false,
+                        enableLens = false,
                     )
+                } else if (drawBorder) {
+                    Modifier.border(1.dp, tint.copy(alpha = 0.45f), shape)
                 } else {
-                    Modifier.border(1.dp, tint.copy(alpha = 0.45f), TabCountShape)
+                    Modifier
                 },
             )
             .then(
@@ -192,6 +207,9 @@ fun BrowserTabCountButton(
     onCloseAll: () -> Unit,
     onAddBookmark: (() -> Unit)? = null,
     containerColor: Color = Color.Transparent,
+    size: Dp = BrowserUiTokens.ControlMedium,
+    shape: Shape = TabCountShape,
+    drawBorder: Boolean = true,
 ) {
     var menu by remember { mutableStateOf(false) }
     Box {
@@ -200,6 +218,9 @@ fun BrowserTabCountButton(
             tint = tint,
             useGlass = useGlass,
             containerColor = containerColor,
+            size = size,
+            shape = shape,
+            drawBorder = drawBorder,
             modifier = Modifier.combinedClickable(
                 onClick = onOpenTabs,
                 onLongClick = { menu = true },

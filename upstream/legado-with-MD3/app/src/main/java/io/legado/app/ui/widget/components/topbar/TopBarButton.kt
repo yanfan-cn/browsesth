@@ -72,6 +72,9 @@ enum class TopBarButtonStyle(val storageValue: String) {
 /** 合并模式的共享状态；null 表示未处于合并模式。 */
 internal val LocalTopBarMergeState = staticCompositionLocalOf { false }
 
+/** SPEC-080: when true, TopBarNavigationButton renders nothing (tablet settings dual-pane). */
+val LocalSuppressTopBarNavigation = staticCompositionLocalOf { false }
+
 @Composable
 private fun currentTopBarButtonStyle(): TopBarButtonStyle {
     // SPEC-061: derive from global chrome surface (filled→tonal, liquid→liquid).
@@ -278,13 +281,17 @@ fun TopBarNavigationButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     symbol: MaterialSymbol = AppIcons.Back,
-    contentDescription: String? = stringResource(id = R.string.back)
+    contentDescription: String? = stringResource(id = R.string.back),
+    /** SPEC-079: optional override (e.g. Tonal on tabs to avoid liquid-glass sampling). */
+    style: TopBarButtonStyle = currentTopBarButtonStyle(),
 ) {
+    if (LocalSuppressTopBarNavigation.current) return
     TopBarButton(
             onClick = onClick,
             symbol = symbol,
             contentDescription = contentDescription,
-            modifier = modifier.padding(horizontal = 12.dp)
+            modifier = modifier.padding(horizontal = 12.dp),
+            style = style,
         )
 }
 
@@ -293,13 +300,16 @@ fun TopBarActionButton(
     onClick: () -> Unit,
     symbol: MaterialSymbol,
     contentDescription: String?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** SPEC-079: optional override (e.g. Tonal on tabs to avoid liquid-glass sampling). */
+    style: TopBarButtonStyle = currentTopBarButtonStyle(),
 ) {
     TopBarButton(
             onClick = onClick,
             symbol = symbol,
             contentDescription = contentDescription,
-            modifier = modifier
+            modifier = modifier,
+            style = style,
         )
 }
 

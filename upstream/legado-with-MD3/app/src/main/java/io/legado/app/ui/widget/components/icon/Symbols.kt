@@ -93,6 +93,8 @@ object Symbols {
     val Folder = MaterialSymbol("folder", autoMirror = false)
     val FolderOpen = MaterialSymbol("folder_open", autoMirror = false)
     val FolderZip = MaterialSymbol("folder_zip", autoMirror = false)
+    /** SPEC-082: bookmark new folder action. */
+    val CreateNewFolder = MaterialSymbol("create_new_folder", autoMirror = false)
     val FormatAlignJustify = MaterialSymbol("format_align_justify", autoMirror = false)
     val FormatColorFill = MaterialSymbol("format_color_fill", autoMirror = false)
     val FormatColorText = MaterialSymbol("format_color_text", autoMirror = false)

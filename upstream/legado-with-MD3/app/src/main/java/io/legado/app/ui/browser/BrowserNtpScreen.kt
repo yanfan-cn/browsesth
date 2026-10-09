@@ -92,6 +92,7 @@ import io.legado.app.R
 import io.legado.app.browser.engine.BingWallpaperClient
 import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.browser.engine.BrowserChromePrefs
+import io.legado.app.browser.engine.BrowserNtpNews
 import io.legado.app.browser.engine.BrowserNtpPrefs
 import io.legado.app.browser.engine.BrowserOmniboxSuggest
 import io.legado.app.browser.engine.BrowserSearchEngine
@@ -189,6 +190,13 @@ fun BrowserNtpScreen(
     var dailyWallpaper by remember { mutableStateOf(chromePrefs.dailyWallpaperEnabled) }
     var showBookshelf by remember { mutableStateOf(ntpPrefs.showBookshelfCard) }
     var showShortcuts by remember { mutableStateOf(ntpPrefs.showShortcutGrid) }
+    // SPEC-084: news feed prefs (default all on).
+    var newsFeedEnabled by remember { mutableStateOf(ntpPrefs.newsFeedEnabled) }
+    var newsSourceThePaper by remember { mutableStateOf(ntpPrefs.newsSourceThePaper) }
+    var newsSourceBbcZh by remember { mutableStateOf(ntpPrefs.newsSourceBbcZh) }
+    var newsSourceSspai by remember { mutableStateOf(ntpPrefs.newsSourceSspai) }
+    var newsItems by remember { mutableStateOf<List<BrowserNtpNews.Item>>(emptyList()) }
+    var newsLoading by remember { mutableStateOf(false) }
 
     // SPEC-059/067: NTP follows App ColorScheme (background + surfaceContainerLow).
     val colors = rememberNtpColors(forceDark = null)
@@ -221,6 +229,38 @@ fun BrowserNtpScreen(
         } else {
             wallpaperUrl = ""
         }
+    }
+
+    // SPEC-084: load NTP news when enabled (skip incognito).
+    LaunchedEffect(
+        firstFrameDone,
+        incognito,
+        newsFeedEnabled,
+        newsSourceThePaper,
+        newsSourceBbcZh,
+        newsSourceSspai,
+    ) {
+        if (!firstFrameDone || incognito || !newsFeedEnabled) {
+            newsItems = emptyList()
+            newsLoading = false
+            return@LaunchedEffect
+        }
+        if (!newsSourceThePaper && !newsSourceBbcZh && !newsSourceSspai) {
+            newsItems = emptyList()
+            newsLoading = false
+            return@LaunchedEffect
+        }
+        newsLoading = true
+        newsItems = withContext(Dispatchers.IO) {
+            BrowserNtpNews.load(
+                BrowserNtpNews.SourceFlags(
+                    thePaper = newsSourceThePaper,
+                    bbcZh = newsSourceBbcZh,
+                    sspai = newsSourceSspai,
+                ),
+            )
+        }
+        newsLoading = false
     }
 
     fun submit() {
@@ -331,6 +371,10 @@ fun BrowserNtpScreen(
                         dailyWallpaper = dailyWallpaper,
                         showBookshelf = showBookshelf,
                         showShortcuts = showShortcuts,
+                        newsFeedEnabled = newsFeedEnabled,
+                        newsSourceThePaper = newsSourceThePaper,
+                        newsSourceBbcZh = newsSourceBbcZh,
+                        newsSourceSspai = newsSourceSspai,
                         textColor = chromeTint,
                         onDismiss = { customizeMenu = false },
                         onDailyWallpaper = {
@@ -344,6 +388,22 @@ fun BrowserNtpScreen(
                         onShowShortcuts = {
                             showShortcuts = it
                             ntpPrefs.showShortcutGrid = it
+                        },
+                        onNewsFeedEnabled = {
+                            newsFeedEnabled = it
+                            ntpPrefs.newsFeedEnabled = it
+                        },
+                        onNewsSourceThePaper = {
+                            newsSourceThePaper = it
+                            ntpPrefs.newsSourceThePaper = it
+                        },
+                        onNewsSourceBbcZh = {
+                            newsSourceBbcZh = it
+                            ntpPrefs.newsSourceBbcZh = it
+                        },
+                        onNewsSourceSspai = {
+                            newsSourceSspai = it
+                            ntpPrefs.newsSourceSspai = it
                         },
                     )
                 }
@@ -425,7 +485,7 @@ fun BrowserNtpScreen(
             val textColor = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText
             val secondary = if (incognito) BrowserUiTokens.TextSecondaryDark else colors.secondaryText
             val capsuleShape = RoundedCornerShape(28.dp)
-            // SPEC-071: liquid glass 0.35/0.28; filled = 1; incognito keeps dark overlay.
+            // SPEC-072: liquid glass 0.4/0.35; filled = 1; incognito keeps dark overlay.
             val capsuleFill = if (incognito) {
                 BrowserUiTokens.NtpGlassOverlayDark
             } else {
@@ -600,7 +660,8 @@ fun BrowserNtpScreen(
                 ) {
                     val iconSize = BrowserUiTokens.NtpShortcutIconSize
                     val rowGap = if (shortcutColumns > 1) {
-                        (maxWidth - iconSize * shortcutColumns) / (shortcutColumns - 1)
+                        ((maxWidth - iconSize * shortcutColumns) / (shortcutColumns - 1))
+                            .coerceAtLeast(0.dp)
                     } else {
                         0.dp
                     }
@@ -727,6 +788,93 @@ fun BrowserNtpScreen(
                     }
                 }
             }
+
+            // SPEC-084: optional news feed (hidden in incognito).
+            if (!incognito && newsFeedEnabled) {
+                Spacer(modifier = Modifier.height(BrowserUiTokens.SpaceXl))
+                val newsFill = ntpGlassOverlayAlpha()
+                val newsBg = colors.fieldBg.copy(alpha = newsFill)
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(BrowserUiTokens.CardCorner))
+                        .browserControlLiquidGlass(
+                            RoundedCornerShape(BrowserUiTokens.CardCorner),
+                            interactive = false,
+                        ),
+                    shape = RoundedCornerShape(BrowserUiTokens.CardCorner),
+                    color = newsBg,
+                    shadowElevation = 0.dp,
+                    tonalElevation = 0.dp,
+                ) {
+                    Column(modifier = Modifier.padding(BrowserUiTokens.SpaceLg)) {
+                        Text(
+                            "资讯",
+                            color = colors.primaryText,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = BrowserUiTokens.SpaceMd),
+                            textAlign = TextAlign.Start,
+                        )
+                        when {
+                            newsLoading && newsItems.isEmpty() -> {
+                                Text(
+                                    "正在加载…",
+                                    color = colors.secondaryText,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = BrowserUiTokens.SpaceLg),
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                            newsItems.isEmpty() -> {
+                                Text(
+                                    "暂无资讯，请检查网络或源开关",
+                                    color = colors.secondaryText,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = BrowserUiTokens.SpaceLg),
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                            else -> {
+                                newsItems.forEachIndexed { index, item ->
+                                    if (index > 0) {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                    }
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                onOpenUrl(item.url, false, item.title)
+                                            }
+                                            .padding(vertical = 10.dp, horizontal = 4.dp),
+                                    ) {
+                                        Text(
+                                            item.title,
+                                            color = colors.primaryText,
+                                            fontSize = 15.sp,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            item.source.label,
+                                            color = colors.secondaryText,
+                                            fontSize = 12.sp,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
     val editing = editShortcut
@@ -843,7 +991,12 @@ private fun NtpGlassIcon(
     Box(
         modifier = Modifier
             .size(BrowserUiTokens.ControlMedium)
-            .browserControlLiquidGlass(CircleShape, interactive = false, showShadow = false)
+            .browserControlLiquidGlass(
+                CircleShape,
+                interactive = false,
+                showShadow = false,
+                enableLens = false,
+            )
             .clip(CircleShape)
             .then(
                 if (containerColor != Color.Transparent) {
@@ -870,11 +1023,19 @@ private fun NtpCustomizePanel(
     dailyWallpaper: Boolean,
     showBookshelf: Boolean,
     showShortcuts: Boolean,
+    newsFeedEnabled: Boolean,
+    newsSourceThePaper: Boolean,
+    newsSourceBbcZh: Boolean,
+    newsSourceSspai: Boolean,
     textColor: Color,
     onDismiss: () -> Unit,
     onDailyWallpaper: (Boolean) -> Unit,
     onShowBookshelf: (Boolean) -> Unit,
     onShowShortcuts: (Boolean) -> Unit,
+    onNewsFeedEnabled: (Boolean) -> Unit,
+    onNewsSourceThePaper: (Boolean) -> Unit,
+    onNewsSourceBbcZh: (Boolean) -> Unit,
+    onNewsSourceSspai: (Boolean) -> Unit,
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -907,7 +1068,8 @@ private fun NtpCustomizePanel(
                     interactive = false,
                     readableOverlay = true,
                 )
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .verticalScroll(rememberScrollState()),
         ) {
             Text("外观", color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             Spacer(modifier = Modifier.height(8.dp))
@@ -926,6 +1088,13 @@ private fun NtpCustomizePanel(
             NtpCustomizeRow("每日壁纸", dailyWallpaper, textColor, onDailyWallpaper)
             NtpCustomizeRow("阅读列表卡", showBookshelf, textColor, onShowBookshelf)
             NtpCustomizeRow("快捷书签", showShortcuts, textColor, onShowShortcuts)
+            // SPEC-084: master news switch + per-source toggles.
+            NtpCustomizeRow("资讯信息流", newsFeedEnabled, textColor, onNewsFeedEnabled)
+            if (newsFeedEnabled) {
+                NtpCustomizeRow("澎湃", newsSourceThePaper, textColor, onNewsSourceThePaper)
+                NtpCustomizeRow("BBC中文", newsSourceBbcZh, textColor, onNewsSourceBbcZh)
+                NtpCustomizeRow("少数派", newsSourceSspai, textColor, onNewsSourceSspai)
+            }
         }
     }
 }
@@ -1041,7 +1210,12 @@ private fun AddShortcutChip(
             modifier = Modifier
                 .size(BrowserUiTokens.NtpShortcutIconSize)
                 .clip(CircleShape)
-                .browserControlLiquidGlass(CircleShape, interactive = false, showShadow = false)
+                .browserControlLiquidGlass(
+                    CircleShape,
+                    interactive = false,
+                    showShadow = false,
+                    enableLens = false,
+                )
                 .background(
                     if (darkBubble) {
                         Color(0xFF2A2A2A).copy(alpha = bubbleFill)
@@ -1081,7 +1255,12 @@ private fun FaviconBubble(title: String, urls: List<String>, darkBubble: Boolean
         modifier = Modifier
             .size(BrowserUiTokens.NtpShortcutIconSize)
             .clip(CircleShape)
-            .browserControlLiquidGlass(CircleShape, interactive = false, showShadow = false)
+            .browserControlLiquidGlass(
+                CircleShape,
+                interactive = false,
+                showShadow = false,
+                enableLens = false,
+            )
             .background(
                 if (darkBubble) {
                     Color(0xFF2A2A2A).copy(alpha = bubbleFill)

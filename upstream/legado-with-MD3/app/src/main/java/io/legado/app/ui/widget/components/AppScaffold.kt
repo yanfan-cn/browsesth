@@ -54,6 +54,11 @@ fun AppScaffold(
      * 因此 WebView 类页面必须把两个采样源一起关掉。
      */
     disableContentSampling: Boolean = false,
+    /**
+     * SPEC-079: 本页完全不用液态玻璃 backdrop（标签页等）。
+     * 为 true 时不提供 LocalTopBarBackdrop、不挂 layerBackdrop。
+     */
+    disableLiquidGlass: Boolean = false,
     content: @Composable (PaddingValues) -> Unit
 ) {
     val isDark = LegadoTheme.isDark
@@ -63,9 +68,10 @@ fun AppScaffold(
     val hazeState = remember { HazeState() }
     // SPEC-061: liquid top-bar chrome follows global surface style.
     val liquidGlassEnabled =
-        io.legado.app.ui.theme.ChromeSurfaceStylePolicy.isLiquidGlassActive(
-            configuration.theme.chromeSurfaceStyle,
-        )
+        !disableLiquidGlass &&
+            io.legado.app.ui.theme.ChromeSurfaceStylePolicy.isLiquidGlassActive(
+                configuration.theme.chromeSurfaceStyle,
+            )
     val contentDrawsBehindBars =
         alwaysDrawBehindBars || themeSettings.enableBlur || themeSettings.enableProgressiveBlur
 

@@ -5,6 +5,7 @@ import io.legado.app.domain.gateway.AppShellSettingsGateway
 import io.legado.app.domain.gateway.BackupSettingsGateway
 import io.legado.app.domain.gateway.OtherSettingsGateway
 import io.legado.app.domain.gateway.ThemeSettingsGateway
+import io.legado.app.domain.model.settings.effectivePredictiveBackEnabled
 import org.koin.core.context.GlobalContext
 
 data class TagColorPair(
@@ -34,7 +35,8 @@ object ThemeConfig {
     val bgImageDark get() = theme.backgroundImageDark
     val bgImageBlurring get() = theme.backgroundImageBlurring
     val bgImageNBlurring get() = theme.backgroundImageDarkBlurring
-    val isPredictiveBackEnabled get() = shell.predictiveBackEnabled
+    /** SPEC-086: gated to API 35+. */
+    val isPredictiveBackEnabled get() = shell.effectivePredictiveBackEnabled()
     val customMode get() = theme.customMode
     val fontScale get() = shell.fontScale
     val appFontPath get() = theme.appFontPath

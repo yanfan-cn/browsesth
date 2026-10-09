@@ -146,6 +146,7 @@ object MainNavigator {
             MainRouteBrowserBookmarks,
             MainRouteBrowserDownloads,
             MainRouteBrowserHistory,
+            MainRouteBrowserClearData,
             MainRouteBrowserTabs,
             is MainRouteReadBook,
             is MainRouteReadManga -> {
@@ -155,6 +156,7 @@ object MainNavigator {
                     currentRoute == MainRouteBrowserBookmarks ||
                     currentRoute == MainRouteBrowserDownloads ||
                     currentRoute == MainRouteBrowserHistory ||
+                    currentRoute == MainRouteBrowserClearData ||
                     currentRoute == MainRouteBrowserTabs
                 ) {
                     backStack.add(route)

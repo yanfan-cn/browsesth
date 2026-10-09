@@ -87,6 +87,7 @@ import io.legado.app.browser.engine.BrowserOmniboxLabel
 import io.legado.app.browser.engine.BrowserOmniboxSuggest
 import io.legado.app.browser.engine.BrowserOpenBridge
 import io.legado.app.browser.engine.BrowserReaderPrefs
+import io.legado.app.browser.engine.BrowserScrollMemory
 import io.legado.app.browser.engine.BrowserSessionHolder
 import io.legado.app.browser.engine.BrowserShieldJs
 import io.legado.app.browser.engine.BrowserShieldPrefs
@@ -227,9 +228,11 @@ fun BrowserSessionScreen(
     val floatingChromeReserve =
         floatingChromeTopGap + maxOf(phoneChromeBarHeight, BrowserUiTokens.ReaderFabSize) +
             floatingBottomPad + translatePromptExtra
-    val webBottomInset = if (!tabletEmbedded && phoneChromeVisible) {
+    // SPEC-075: fixed chrome — always reserve bottom height (do not overlay web; do not
+    // toggle inset with auto-hide, so viewport stays stable).
+    val webBottomInset = if (!tabletEmbedded) {
         floatingChromeReserve
-    } else if (tabletEmbedded && showTranslatePrompt) {
+    } else if (showTranslatePrompt) {
         72.dp
     } else {
         0.dp
@@ -389,6 +392,12 @@ fun BrowserSessionScreen(
     }
 
     fun maybeDetectTranslatePrompt(url: String) {
+        // SPEC-085: hide webpage translate prompt until in-page translate is ready.
+        if (!WebPageTranslate.WEB_PAGE_TRANSLATE_UI_ENABLED) {
+            showTranslatePrompt = false
+            translatePromptUrl = null
+            return
+        }
         if (incognito) return
         if (!url.startsWith("http")) return
         if (WebPageTranslate.isTranslateServiceUrl(url)) {
@@ -925,7 +934,7 @@ fun BrowserSessionScreen(
                 .padding(paddingValues),
         ) {
             AlohaBrowserCompose(
-                // SPEC-022 A: keep page content above floating chrome.
+                // SPEC-075: web above fixed chrome reserve (stable height).
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(bottom = webBottomInset),
@@ -985,23 +994,33 @@ fun BrowserSessionScreen(
                             if (!incognito) {
                                 store.addHistory(url, title)
                             }
-                            BrowserSiteCssFixes.scriptForUrl(url)?.let { js ->
-                                hostRef?.evaluateJavaScript(js, null)
-                            }
-                            // SPEC-022 B: scroll hook on phone + tablet for chrome auto-hide.
+                            val historyNav = clientRef?.historyNavigationThisLoad == true
+                            // SPEC-022 B: scroll hook on phone + tablet for chrome auto-hide + 073 memory.
                             hostRef?.evaluateJavaScript(
                                 BrowserAwContentsClient.SCROLL_HOOK_JS,
                                 null,
                             )
-                            if (shield.adBlockEnabled) {
-                                applyCustomHide(url)
+                            if (historyNav) {
+                                // SPEC-073: skip layout-affecting injects on back/forward; restore scroll.
+                                BrowserScrollMemory.recall(url)?.let { y ->
+                                    hostRef?.restoreScrollY(y)
+                                }
+                            } else {
+                                BrowserSiteCssFixes.scriptForUrl(url)?.let { js ->
+                                    hostRef?.evaluateJavaScript(js, null)
+                                }
+                                if (shield.adBlockEnabled) {
+                                    applyCustomHide(url)
+                                }
+                                maybeAutoOpenReader(url)
                             }
-                            maybeAutoOpenReader(url)
                             // SPEC-045: non-Simplified-Chinese → ask translate above chrome.
                             if (url != translatePromptUrl) {
                                 showTranslatePrompt = false
                             }
-                            maybeDetectTranslatePrompt(url)
+                            if (!historyNav) {
+                                maybeDetectTranslatePrompt(url)
+                            }
                         },
                     )
                 },
@@ -1099,9 +1118,15 @@ fun BrowserSessionScreen(
                                     1 -> hostRef?.goForward()
                                     2 -> showToolbox = true
                                     3 -> {
-                                        BrowserSessionHolder.captureActiveThumbnail()
+                                        // SPEC-074: open tabs first; snapshot after navigate to
+                                        // avoid DrawFn + nav transition stacking on RenderThread.
                                         val open = onOpenTabs
-                                        if (open != null) open() else showSnack("标签页即将支持")
+                                        if (open != null) {
+                                            open()
+                                            BrowserSessionHolder.captureActiveThumbnail()
+                                        } else {
+                                            showSnack("标签页即将支持")
+                                        }
                                     }
                                 }
                             }

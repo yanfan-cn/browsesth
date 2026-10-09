@@ -11,6 +11,7 @@ import io.legado.app.domain.gateway.OtherSettingsGateway
 import io.legado.app.domain.gateway.ReadAloudSettingsGateway
 import io.legado.app.domain.gateway.ReadSettingsGateway
 import io.legado.app.domain.gateway.ThemeSettingsGateway
+import io.legado.app.domain.model.settings.effectivePredictiveBackEnabled
 import io.legado.app.utils.isNightMode
 import io.legado.app.utils.sysConfiguration
 
@@ -121,5 +122,6 @@ object AppConfig {
     val firebaseEnable get() = other.firebaseEnable
     val pureBlack get() = theme.isPureBlack
     val systemMediaControlCompatibilityChange get() = aloud.systemMediaControlCompatibilityChange
-    val isPredictiveBackEnabled get() = shell.predictiveBackEnabled
+    /** SPEC-086: gated to API 35+. */
+    val isPredictiveBackEnabled get() = shell.effectivePredictiveBackEnabled()
 }

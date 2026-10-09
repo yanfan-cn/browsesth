@@ -1,5 +1,7 @@
 package io.legado.app.domain.model.settings
 
+import android.os.Build
+
 data class AppShellSettings(
     val themeMode: String = "0",
     val fontScale: Int = 10,
@@ -30,3 +32,11 @@ data class AppShellSettings(
     val navIconMySelected: String = "",
     val launcherIcon: String = "ic_launcher",
 )
+
+/**
+ * SPEC-086 / UI §6: predictive back only on Android 15+ (API 35).
+ * Below 35 the stored preference is ignored for navigation transitions.
+ */
+fun AppShellSettings.effectivePredictiveBackEnabled(
+    sdk: Int = Build.VERSION.SDK_INT,
+): Boolean = predictiveBackEnabled && sdk >= Build.VERSION_CODES.VANILLA_ICE_CREAM

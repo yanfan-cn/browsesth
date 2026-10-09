@@ -2,6 +2,7 @@ package io.legado.app.browser.engine
 
 import android.content.Context
 import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 
@@ -82,6 +83,38 @@ object BrowserSessionHolder {
         val h = host ?: return
         val bmp = h.capturePreview() ?: return
         BrowserTabThumbnailStore.put(id, bmp)
+    }
+
+    /**
+     * SPEC-075: before tabs enter transition, stop drawing AwContents so Honor/API35
+     * RenderThread does not walk WebView under scale/fade graphicsLayer.
+     */
+    fun pauseForTabsOverlay() {
+        val h = host ?: return
+        try {
+            h.onHostPause()
+        } catch (t: Throwable) {
+            Log.w(TAG, "pauseForTabsOverlay pause: ${t.message}")
+        }
+        try {
+            h.visibility = View.INVISIBLE
+        } catch (t: Throwable) {
+            Log.w(TAG, "pauseForTabsOverlay hide: ${t.message}")
+        }
+    }
+
+    fun resumeFromTabsOverlay() {
+        val h = host ?: return
+        try {
+            h.visibility = View.VISIBLE
+        } catch (t: Throwable) {
+            Log.w(TAG, "resumeFromTabsOverlay show: ${t.message}")
+        }
+        try {
+            h.onHostResume()
+        } catch (t: Throwable) {
+            Log.w(TAG, "resumeFromTabsOverlay resume: ${t.message}")
+        }
     }
 
     fun destroy() {

@@ -22,6 +22,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import io.legado.app.base.BaseComposeActivity
+import io.legado.app.domain.model.settings.effectivePredictiveBackEnabled
 import io.legado.app.ui.replace.edit.ReplaceEditRouteScreen
 import io.legado.app.ui.replace.edit.ReplaceEditViewModel
 import io.legado.app.ui.theme.LocalAppUiConfiguration
@@ -188,7 +189,7 @@ class ReplaceRuleActivity : BaseComposeActivity() {
                     }
                 }
             )
-            BackHandler(enabled = !configuration.appShell.predictiveBackEnabled) {
+            BackHandler(enabled = !configuration.appShell.effectivePredictiveBackEnabled()) {
                 leaveScreen {
                     if (backStack.size > 1) {
                         backStack.removeLastOrNull()

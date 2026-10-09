@@ -43,6 +43,7 @@ import io.legado.app.domain.gateway.OtherSettingsGateway
 import io.legado.app.domain.gateway.ReadSettingsGateway
 import io.legado.app.domain.gateway.ReadStyleGateway
 import io.legado.app.domain.gateway.ThemeSettingsGateway
+import io.legado.app.browser.engine.BrowserClearDataHelper
 import io.legado.app.browser.engine.BrowserDownloadPaths
 import io.legado.app.browser.engine.BrowserDrawMode
 import io.legado.app.browser.engine.BrowsesthBromiumBootstrap
@@ -161,6 +162,8 @@ class App : Application(), SingletonImageLoader.Factory {
         }
         // SPEC-064: ensure Download/XunYeBrowser exists on cold start.
         runCatching { BrowserDownloadPaths.ensureRoot(this) }
+        // SPEC-082: clear selected browsing data when app backgrounds (if enabled).
+        runCatching { BrowserClearDataHelper.installClearOnExit(this) }
         // 一次性迁移：把旧版语言偏好写入 AppCompat per-app locales，之后交由
         // autoStoreLocales 持久化。不能每次启动都执行——API 33+ 上会覆盖用户在
         // 系统设置里选择的应用语言，API <33 上此时 AppCompat 存储尚未加载、

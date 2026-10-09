@@ -50,7 +50,7 @@ internal fun currentChromeSurfaceStyle(): ChromeSurfaceStyle =
 
 /**
  * SPEC-071: alpha for solid tints drawn on NTP liquid-glass controls.
- * Liquid glass → light 0.35 / dark 0.28; filled → opaque 1.
+ * Liquid glass → light 0.4 / dark 0.35 (SPEC-072); filled → opaque 1.
  */
 @Composable
 fun ntpGlassOverlayAlpha(forceDark: Boolean? = null): Float {
@@ -164,6 +164,8 @@ fun Modifier.browserControlLiquidGlass(
     interactive: Boolean = true,
     showShadow: Boolean = true,
     readableOverlay: Boolean = false,
+    /** SPEC-075: lens on small circles squashes icons into ellipses — keep off for NTP bubbles. */
+    enableLens: Boolean = true,
 ): Modifier {
     val isDark = LegadoTheme.isDark
     val surface = LegadoTheme.colorScheme.surface
@@ -201,7 +203,9 @@ fun Modifier.browserControlLiquidGlass(
         effects = {
             vibrancy()
             blur(blurRadius.toPx())
-            lens(24.dp.toPx(), 24.dp.toPx())
+            if (enableLens) {
+                lens(24.dp.toPx(), 24.dp.toPx())
+            }
         },
         highlight = { Highlight.Default },
         shadow = {

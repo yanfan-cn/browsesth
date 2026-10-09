@@ -47,7 +47,7 @@ enum class BrowserSearchEngine(
 
     companion object {
         fun fromId(id: String?): BrowserSearchEngine =
-            entries.firstOrNull { it.id == id } ?: Google
+            entries.firstOrNull { it.id == id } ?: Baidu
     }
 }
 

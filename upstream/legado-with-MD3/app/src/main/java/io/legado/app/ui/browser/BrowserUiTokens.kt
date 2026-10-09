@@ -40,8 +40,9 @@ object BrowserUiTokens {
     val NtpOverlaySurfaceLight = 0.90f
     val NtpOverlaySurfaceDark = 0.92f
     /** SPEC-071: NTP glass control fill under liquid glass (filled mode uses 1f). */
-    val NtpGlassOverlayLight = 0.35f
-    val NtpGlassOverlayDark = 0.28f
+    /** SPEC-072: liquid-glass NTP tint (was 0.35 / 0.28 in SPEC-071). */
+    val NtpGlassOverlayLight = 0.4f
+    val NtpGlassOverlayDark = 0.35f
     val NtpEngineMenuWidth = 140.dp
     val NtpEngineIconSize = 32.dp
     val NtpShortcutIconSize = 52.dp

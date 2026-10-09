@@ -13,8 +13,9 @@ class BrowserNtpPrefs(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     var searchEngineId: String
-        get() = prefs.getString(KEY_ENGINE, BrowserSearchEngine.Google.id)
-            ?: BrowserSearchEngine.Google.id
+        // SPEC-072: default Baidu when unset.
+        get() = prefs.getString(KEY_ENGINE, BrowserSearchEngine.Baidu.id)
+            ?: BrowserSearchEngine.Baidu.id
         set(value) {
             prefs.edit().putString(KEY_ENGINE, value).apply()
         }
@@ -36,6 +37,26 @@ class BrowserNtpPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_SHOW_SHORTCUTS, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_SHORTCUTS, value).apply()
 
+    /** SPEC-084: NTP news feed master switch (default on). */
+    var newsFeedEnabled: Boolean
+        get() = prefs.getBoolean(KEY_NEWS_FEED, true)
+        set(value) = prefs.edit().putBoolean(KEY_NEWS_FEED, value).apply()
+
+    /** SPEC-084: The Paper source (default on). */
+    var newsSourceThePaper: Boolean
+        get() = prefs.getBoolean(KEY_NEWS_THE_PAPER, true)
+        set(value) = prefs.edit().putBoolean(KEY_NEWS_THE_PAPER, value).apply()
+
+    /** SPEC-084: BBC Chinese source (default on). */
+    var newsSourceBbcZh: Boolean
+        get() = prefs.getBoolean(KEY_NEWS_BBC_ZH, true)
+        set(value) = prefs.edit().putBoolean(KEY_NEWS_BBC_ZH, value).apply()
+
+    /** SPEC-084: SSPAI source (default on). */
+    var newsSourceSspai: Boolean
+        get() = prefs.getBoolean(KEY_NEWS_SSPAI, true)
+        set(value) = prefs.edit().putBoolean(KEY_NEWS_SSPAI, value).apply()
+
     fun searchEngine(): BrowserSearchEngine = BrowserSearchEngine.fromId(searchEngineId)
 
     companion object {
@@ -47,6 +68,10 @@ class BrowserNtpPrefs(context: Context) {
         const val KEY_THEME = "ntp_theme"
         private const val KEY_SHOW_BOOKSHELF = "show_bookshelf_card"
         private const val KEY_SHOW_SHORTCUTS = "show_shortcut_grid"
+        private const val KEY_NEWS_FEED = "news_feed_enabled"
+        private const val KEY_NEWS_THE_PAPER = "news_source_the_paper"
+        private const val KEY_NEWS_BBC_ZH = "news_source_bbc_zh"
+        private const val KEY_NEWS_SSPAI = "news_source_sspai"
         const val INCOGNITO_CONTEXT = "browsesth_incognito"
 
         fun browserContext(incognito: Boolean): AwBrowserContext {

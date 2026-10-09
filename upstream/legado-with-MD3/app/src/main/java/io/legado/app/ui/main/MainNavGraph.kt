@@ -14,8 +14,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -49,6 +47,7 @@ import io.legado.app.domain.model.BookSearchScope
 import io.legado.app.domain.model.PlaybackCapsuleSource
 import io.legado.app.domain.model.PlaybackCapsuleState
 import io.legado.app.domain.model.settings.AppUiConfiguration
+import io.legado.app.domain.model.settings.effectivePredictiveBackEnabled
 import io.legado.app.feature.reader.platform.ReaderPerfTrace
 import io.legado.app.model.AudioPlay
 import io.legado.app.model.Download
@@ -198,27 +197,32 @@ private fun webViewEntryMetadata(predictiveBackEnabled: Boolean) = metadata {
             targetOffset = { fullWidth -> fullWidth / 4 }
         )
     }
-    put(NavDisplay.PopTransitionKey) {
-        slideIntoContainer(
-            towards = AnimatedContentTransitionScope.SlideDirection.Start,
-            animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing),
-            initialOffset = { fullWidth -> -fullWidth / 4 }
-        ) togetherWith slideOutOfContainer(
-            towards = AnimatedContentTransitionScope.SlideDirection.Start,
-            animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing),
-            targetOffset = { fullWidth -> fullWidth }
-        )
-    }
+    // SPEC-086: exclusive — PredictivePop when on; right-slide Pop only when off.
     if (predictiveBackEnabled) {
+        put(NavDisplay.PopTransitionKey) {
+            EnterTransition.None togetherWith ExitTransition.None
+        }
         put(NavDisplay.PredictivePopTransitionKey) { _ ->
             slideIntoContainer(
-                towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                towards = AnimatedContentTransitionScope.SlideDirection.End,
                 animationSpec = tween(easing = FastOutSlowInEasing),
-                initialOffset = { fullWidth -> -fullWidth / 4 }
+                initialOffset = { fullWidth -> -fullWidth / 4 },
             ) togetherWith slideOutOfContainer(
-                towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                towards = AnimatedContentTransitionScope.SlideDirection.End,
                 animationSpec = tween(easing = FastOutSlowInEasing),
-                targetOffset = { fullWidth -> fullWidth }
+                targetOffset = { fullWidth -> fullWidth },
+            )
+        }
+    } else {
+        put(NavDisplay.PopTransitionKey) {
+            slideIntoContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.End,
+                animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing),
+                initialOffset = { fullWidth -> -fullWidth / 4 },
+            ) togetherWith slideOutOfContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.End,
+                animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing),
+                targetOffset = { fullWidth -> fullWidth },
             )
         }
     }
@@ -229,37 +233,19 @@ private fun browserSlideEntryMetadata(predictiveBackEnabled: Boolean) =
     webViewEntryMetadata(predictiveBackEnabled)
 
 /**
- * SPEC-053/055/071: paired fade + light scale for tabs enter/exit (follow-finger, less stiff).
+ * SPEC-079: tabs route Enter/Exit/Pop all None.
+ * Fade alone still put graphicsLayer over liquid-glass Home and crashed (11.1).
  */
 private fun browserTabsScaleMetadata(predictiveBackEnabled: Boolean) = metadata {
-    val spec = tween<Float>(durationMillis = 240, easing = FastOutSlowInEasing)
     put(NavDisplay.TransitionKey) {
-        (fadeIn(animationSpec = spec) + scaleIn(
-            animationSpec = spec,
-            initialScale = 0.94f,
-        )) togetherWith (fadeOut(animationSpec = spec) + scaleOut(
-            animationSpec = spec,
-            targetScale = 1.02f,
-        ))
+        EnterTransition.None togetherWith ExitTransition.None
     }
     put(NavDisplay.PopTransitionKey) {
-        (fadeIn(animationSpec = spec) + scaleIn(
-            animationSpec = spec,
-            initialScale = 1.02f,
-        )) togetherWith (fadeOut(animationSpec = spec) + scaleOut(
-            animationSpec = spec,
-            targetScale = 0.94f,
-        ))
+        EnterTransition.None togetherWith ExitTransition.None
     }
     if (predictiveBackEnabled) {
         put(NavDisplay.PredictivePopTransitionKey) { _ ->
-            (fadeIn(animationSpec = spec) + scaleIn(
-                animationSpec = spec,
-                initialScale = 1.02f,
-            )) togetherWith (fadeOut(animationSpec = spec) + scaleOut(
-                animationSpec = spec,
-                targetScale = 0.94f,
-            ))
+            EnterTransition.None togetherWith ExitTransition.None
         }
     }
 }
@@ -323,7 +309,7 @@ fun MainActivity.mainEntryProvider(
     capsuleAnchorPreview: io.legado.app.domain.model.PlaybackCapsuleState?,
 ) = entryProvider {
     entry<MainRouteWebView>(
-        metadata = webViewEntryMetadata(configuration.appShell.predictiveBackEnabled)
+        metadata = webViewEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled())
     ) { route ->
         val viewModel = koinViewModel<WebViewModel>(
             key = "WebView:${route.url}:${route.sourceOrigin}:${route.sourceVerificationEnable}",
@@ -486,7 +472,11 @@ fun MainActivity.mainEntryProvider(
             onNavigateToBrowserHistory = {
                 onNavigateToRoute(MainRouteBrowserHistory)
             },
+            onNavigateToBrowserClearData = {
+                onNavigateToRoute(MainRouteBrowserClearData)
+            },
             onNavigateToBrowserTabs = {
+                // SPEC-078: same as 9.1 — navigate directly (no pause/suppress).
                 onNavigateToRoute(MainRouteBrowserTabs)
             },
             onNavigateToBrowserReader = { bookUrl ->
@@ -680,7 +670,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteSettingsBrowser>(
-        metadata = browserSlideEntryMetadata(configuration.appShell.predictiveBackEnabled),
+        metadata = browserSlideEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
     ) {
         io.legado.app.ui.config.browserConfig.BrowserConfigScreen(
             onBackClick = { onNavigateBack() },
@@ -688,7 +678,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteBrowserBookmarks>(
-        metadata = browserSlideEntryMetadata(configuration.appShell.predictiveBackEnabled),
+        metadata = browserSlideEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
     ) {
         io.legado.app.ui.browser.BrowserBookmarksScreen(
             onBack = { onNavigateBack() },
@@ -700,7 +690,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteBrowserDownloads>(
-        metadata = browserSlideEntryMetadata(configuration.appShell.predictiveBackEnabled),
+        metadata = browserSlideEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
     ) {
         io.legado.app.ui.browser.BrowserDownloadsScreen(
             onBack = { onNavigateBack() },
@@ -716,7 +706,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteBrowserHistory>(
-        metadata = browserSlideEntryMetadata(configuration.appShell.predictiveBackEnabled),
+        metadata = browserSlideEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
     ) {
         io.legado.app.ui.browser.BrowserHistoryScreen(
             onBack = { onNavigateBack() },
@@ -724,11 +714,20 @@ fun MainActivity.mainEntryProvider(
                 io.legado.app.browser.engine.BrowserOpenBridge.offer(url)
                 onNavigateBack()
             },
+            onOpenClearData = { onNavigateToRoute(MainRouteBrowserClearData) },
+        )
+    }
+
+    entry<MainRouteBrowserClearData>(
+        metadata = browserSlideEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
+    ) {
+        io.legado.app.ui.browser.BrowserClearDataScreen(
+            onBack = { onNavigateBack() },
         )
     }
 
     entry<MainRouteBrowserTabs>(
-        metadata = browserTabsScaleMetadata(configuration.appShell.predictiveBackEnabled),
+        metadata = browserTabsScaleMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
     ) {
         io.legado.app.ui.browser.BrowserTabsScreen(
             onBack = { onNavigateBack() },
@@ -896,7 +895,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteReadBook>(
-        metadata = readerEntryMetadata(configuration.appShell.predictiveBackEnabled)
+        metadata = readerEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled())
     ) { route ->
         // 私密闸门：阅读记录 / 通知栏 / 深链等直开阅读器的路径全都在这里被拦一次，
         // 未授权时阅读器根本不会被组合（也就没有加载正文的机会）
@@ -1064,7 +1063,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteReadManga>(
-        metadata = readerEntryMetadata(configuration.appShell.predictiveBackEnabled)
+        metadata = readerEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled())
     ) { route ->
         val mangaViewModel = koinViewModel<MangaReaderViewModel>(
             key = "ReadManga:${route.bookUrl ?: "last-read"}",
@@ -1208,7 +1207,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteRssRead>(
-        metadata = webViewEntryMetadata(configuration.appShell.predictiveBackEnabled)
+        metadata = webViewEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled())
     ) { route ->
         RssReadRouteScreen(
             title = route.title,
@@ -1300,7 +1299,7 @@ fun MainActivity.mainEntryProvider(
                 fadeIn(animationSpec = tween(300)) togetherWith
                         fadeOut(animationSpec = tween(300))
             }
-            if (configuration.appShell.predictiveBackEnabled) {
+            if (configuration.appShell.effectivePredictiveBackEnabled()) {
                 put(NavDisplay.PredictivePopTransitionKey) { _ ->
                     fadeIn(animationSpec = tween(300)) togetherWith
                             fadeOut(animationSpec = tween(300))

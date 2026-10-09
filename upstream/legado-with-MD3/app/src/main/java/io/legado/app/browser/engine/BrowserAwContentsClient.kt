@@ -65,6 +65,9 @@ class BrowserAwContentsClient(
     @Volatile var lastTitle: String = ""
     @Volatile var lastUrl: String = ""
     @Volatile var lastError: String? = null
+    /** SPEC-073: true when this main-frame load is back/forward history navigation. */
+    @Volatile var historyNavigationThisLoad: Boolean = false
+        private set
 
     override fun hasWebViewClient(): Boolean = true
 
@@ -100,6 +103,7 @@ class BrowserAwContentsClient(
     }
 
     override fun onPageStarted(url: String) {
+        historyNavigationThisLoad = BrowserScrollMemory.consumeHistoryNavigation()
         lastUrl = url
         lastError = null
         onStatus("加载中: $url")
@@ -113,6 +117,7 @@ class BrowserAwContentsClient(
         onStatus("加载完成: $url")
         if (url.isNotBlank()) onUrlChanged?.invoke(url)
         onPageFinishedExtra?.invoke(url, lastTitle)
+        historyNavigationThisLoad = false
     }
 
     override fun onReceivedTitle(title: String) {
@@ -143,6 +148,13 @@ class BrowserAwContentsClient(
                 onConsoleBlockPick?.invoke(selector)
                 return true
             }
+        }
+        if (msg.startsWith(SCROLL_Y_PREFIX)) {
+            val y = msg.removePrefix(SCROLL_Y_PREFIX).trim().toIntOrNull()
+            if (y != null) {
+                BrowserScrollMemory.remember(lastUrl, y)
+            }
+            return true
         }
         if (msg.startsWith(SCROLL_PREFIX)) {
             onScrollDirection?.invoke(msg.removePrefix(SCROLL_PREFIX).trim())
@@ -326,11 +338,17 @@ class BrowserAwContentsClient(
         const val MIDPAGE_MARKER = "browsesth-midpage-skip"
         const val BLOCK_PICK_PREFIX = "BROWSESTH_BLOCK:"
         const val SCROLL_PREFIX = "BROWSESTH_SCROLL:"
+        /** SPEC-073: throttled scrollY for history restore. */
+        const val SCROLL_Y_PREFIX = "BROWSESTH_SCROLLY:"
         const val SCROLL_HOOK_JS =
             "(function(){if(window.__browsesthScrollHook)return;window.__browsesthScrollHook=1;" +
-                "var last=0;window.addEventListener('scroll',function(){var y=window.scrollY||0;" +
+                "var last=0;var t=null;" +
+                "window.addEventListener('scroll',function(){var y=window.scrollY||0;" +
                 "if(y-last>24){console.log('BROWSESTH_SCROLL:down');}else if(last-y>24){console.log('BROWSESTH_SCROLL:up');}" +
-                "last=y;},{passive:true});})();"
+                "last=y;" +
+                "if(t)return;t=setTimeout(function(){t=null;" +
+                "console.log('BROWSESTH_SCROLLY:'+(window.scrollY||0));},180);" +
+                "},{passive:true});})();"
 
         fun extractSkipTarget(url: String): String? {
             val marker = "to="

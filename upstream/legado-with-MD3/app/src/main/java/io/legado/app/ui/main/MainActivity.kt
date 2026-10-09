@@ -58,6 +58,7 @@ import io.legado.app.domain.gateway.OtherSettingsGateway
 import io.legado.app.domain.gateway.PlaybackCapsuleGateway
 import io.legado.app.domain.model.PlaybackCapsuleSource
 import io.legado.app.domain.model.PlaybackCapsuleState
+import io.legado.app.domain.model.settings.effectivePredictiveBackEnabled
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.config.LocalConfig
 import io.legado.app.help.coroutine.Coroutine
@@ -751,7 +752,7 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                         morph = readAloudMorph,
                         visible = readAloudPlayerVisible,
                         awaitCapsuleAnchor = pageShellShowCapsule,
-                        predictiveBackEnabled = configuration.appShell.predictiveBackEnabled,
+                        predictiveBackEnabled = configuration.appShell.effectivePredictiveBackEnabled(),
                         onDismiss = { readAloudPlayerVisible = false },
                         onSwitchToClassic = { bookUrl ->
                             // 栈顶是阅读界面：让它直接落在经典朗读控制页；
@@ -777,7 +778,7 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                                 morph = readAloudMorph,
                                 visible = audioPlayerVisible,
                                 awaitCapsuleAnchor = pageShellShowCapsule,
-                                predictiveBackEnabled = configuration.appShell.predictiveBackEnabled,
+                                predictiveBackEnabled = configuration.appShell.effectivePredictiveBackEnabled(),
                                 onDismiss = { audioPlayerVisible = false },
                             )
                         }
@@ -785,7 +786,8 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                 }
                 BackHandler(
                     enabled = shouldHandleActivityBack(
-                        configuration.appShell.predictiveBackEnabled, playerVisible || morphPresent,
+                        configuration.appShell.effectivePredictiveBackEnabled(),
+                        playerVisible || morphPresent,
                     )
                 ) {
                     MainNavigator.navigateBack(this@MainActivity, backStack)

@@ -12,6 +12,7 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowInsets
 import android.view.accessibility.AccessibilityNodeProvider
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
@@ -25,6 +26,7 @@ import org.chromium.base.Callback
  *
  * SPEC-011/020: prefer hardware DrawFn; failure → SOFTWARE for this process only
  * (no sticky prefs; SPEC-009 blank-page rollback path).
+ * SPEC-073: forward window insets; align touch/draw scroll path with Chromium host.
  */
 class AwContentsHostView @JvmOverloads constructor(
     context: Context,
@@ -137,6 +139,7 @@ class AwContentsHostView @JvmOverloads constructor(
         Log.i(TAG, "AwContents attached (incognito=$incognito, $mode)")
         if (isAttachedToWindow) {
             contents.viewMethods.onAttachedToWindow()
+            requestApplyInsets()
         }
         return contents
     }
@@ -179,9 +182,29 @@ class AwContentsHostView @JvmOverloads constructor(
 
     fun canGoBack(): Boolean = awContents?.canGoBack() == true
     fun canGoForward(): Boolean = awContents?.canGoForward() == true
-    fun goBack() { awContents?.goBack() }
-    fun goForward() { awContents?.goForward() }
+
+    /** SPEC-073: mark history nav so session can skip layout-affecting injects / restore scroll. */
+    fun goBack() {
+        BrowserScrollMemory.markHistoryNavigation()
+        awContents?.goBack()
+    }
+
+    fun goForward() {
+        BrowserScrollMemory.markHistoryNavigation()
+        awContents?.goForward()
+    }
+
     fun reload() { awContents?.reload() }
+
+    /** SPEC-073: restore document scroll after history navigation. */
+    fun restoreScrollY(scrollY: Int) {
+        if (scrollY <= 0) return
+        evaluateJavaScript(
+            "(function(){var y=$scrollY;var go=function(){window.scrollTo(0,y);};" +
+                "go();requestAnimationFrame(function(){go();setTimeout(go,50);setTimeout(go,200);});})();",
+            null,
+        )
+    }
 
     fun onHostResume() { awContents?.onResume() }
     fun onHostPause() { awContents?.onPause() }
@@ -213,6 +236,7 @@ class AwContentsHostView @JvmOverloads constructor(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         awContents?.viewMethods?.onAttachedToWindow()
+        requestApplyInsets()
     }
 
     override fun onDetachedFromWindow() {
@@ -277,6 +301,16 @@ class AwContentsHostView @JvmOverloads constructor(
         awContents?.viewMethods?.onWindowVisibilityChanged(visibility)
     }
 
+    override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {
+        // SPEC-073: Chromium host must receive system insets (visual viewport / sticky bars).
+        val aw = awContents
+        return if (aw != null) {
+            aw.onApplyWindowInsets(insets)
+        } else {
+            super.onApplyWindowInsets(insets)
+        }
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         // Keep vertical/horizontal scrolls inside AwContents; do not let HorizontalPager steal them.
         when (event.actionMasked) {
@@ -285,18 +319,19 @@ class AwContentsHostView @JvmOverloads constructor(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
                 parent?.requestDisallowInterceptTouchEvent(false)
         }
-        val handled = awContents?.viewMethods?.onTouchEvent(event) == true
-        return handled || super.onTouchEvent(event)
+        // SPEC-073: match AwTestContainerView — super first, then AwContents.
+        super.onTouchEvent(event)
+        return awContents?.viewMethods?.onTouchEvent(event) == true
     }
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
-        val handled = awContents?.viewMethods?.onGenericMotionEvent(event) == true
-        return handled || super.onGenericMotionEvent(event)
+        super.onGenericMotionEvent(event)
+        return awContents?.viewMethods?.onGenericMotionEvent(event) == true
     }
 
     override fun onHoverEvent(event: MotionEvent): Boolean {
-        val handled = awContents?.viewMethods?.onHoverEvent(event) == true
-        return handled || super.onHoverEvent(event)
+        super.onHoverEvent(event)
+        return awContents?.viewMethods?.onHoverEvent(event) == true
     }
 
     override fun onDraw(canvas: Canvas) {

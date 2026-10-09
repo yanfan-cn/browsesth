@@ -44,12 +44,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.legado.app.browser.engine.BrowserFormFactor
 import io.legado.app.browser.engine.BrowserTab
 import io.legado.app.browser.engine.BrowserTabManager
 import io.legado.app.browser.engine.BrowserTabThumbnailStore
@@ -58,6 +60,7 @@ import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
 import io.legado.app.ui.widget.components.topbar.TopBarActionButton
+import io.legado.app.ui.widget.components.topbar.TopBarButtonStyle
 import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
 
 @Composable
@@ -86,8 +89,14 @@ private fun BrowserTabsBody(
     val visibleTabs = remember(tabs, showIncognito) {
         tabs.filter { it.incognito == showIncognito }
     }
+    // SPEC-080: tablet tabs grid is 4 columns.
+    val isTablet = BrowserFormFactor.isTablet(LocalConfiguration.current)
+    val columns = if (isTablet) 4 else 2
 
+    // SPEC-079: no liquid-glass backdrop / content sampling on tabs page.
     AppScaffold(
+        disableContentSampling = true,
+        disableLiquidGlass = true,
         topBar = {
             TabsModeTopBar(
                 showIncognito = showIncognito,
@@ -95,6 +104,11 @@ private fun BrowserTabsBody(
                 incognitoCount = incognitoCount,
                 onShowIncognitoChange = { showIncognito = it },
                 onBack = onBack,
+                showCloseAll = isTablet,
+                onCloseAll = {
+                    // SPEC-080: close every tab (normal + incognito).
+                    BrowserTabManager.closeAll()
+                },
                 onNewTab = {
                     BrowserTabManager.openNewTab(
                         url = null,
@@ -121,14 +135,9 @@ private fun BrowserTabsBody(
                 )
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+                    columns = GridCells.Fixed(columns),
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        start = BrowserUiTokens.PagePaddingH,
-                        end = BrowserUiTokens.PagePaddingH,
-                        top = BrowserUiTokens.PagePaddingH,
-                        bottom = 80.dp,
-                    ),
+                    contentPadding = PaddingValues(BrowserUiTokens.PagePaddingH),
                     horizontalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceMd),
                     verticalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceMd),
                 ) {
@@ -147,22 +156,11 @@ private fun BrowserTabsBody(
                     }
                 }
             }
-            // SPEC-071: close-all as bottom-centered icon (same chrome style as back/new).
-            if (visibleTabs.isNotEmpty()) {
-                TopBarActionButton(
-                    onClick = { BrowserTabManager.closeAllOfMode(showIncognito) },
-                    symbol = Symbols.ClearAll,
-                    contentDescription = "全部关闭",
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 16.dp),
-                )
-            }
         }
     }
 }
 
-/** SPEC-055/071: back + centered 50% mode capsule + add at 16dp from edge. */
+/** SPEC-055/071/080: back + centered 50% mode capsule; tablet adds CloseAll left of Add. */
 @Composable
 private fun TabsModeTopBar(
     showIncognito: Boolean,
@@ -171,6 +169,8 @@ private fun TabsModeTopBar(
     onShowIncognitoChange: (Boolean) -> Unit,
     onBack: () -> Unit,
     onNewTab: () -> Unit,
+    showCloseAll: Boolean = false,
+    onCloseAll: () -> Unit = {},
 ) {
     val scheme = LegadoTheme.colorScheme
     Column(
@@ -184,9 +184,11 @@ private fun TabsModeTopBar(
                 .fillMaxWidth()
                 .height(56.dp),
         ) {
+            // SPEC-079: force Tonal — no liquid-glass sampling on tabs chrome.
             TopBarNavigationButton(
                 onClick = onBack,
                 modifier = Modifier.align(Alignment.CenterStart),
+                style = TopBarButtonStyle.Tonal,
             )
             TabsModeSegmentedControl(
                 showIncognito = showIncognito,
@@ -197,15 +199,28 @@ private fun TabsModeTopBar(
                     .align(Alignment.Center)
                     .fillMaxWidth(0.5f),
             )
-            // SPEC-071: new-tab icon 16dp from screen edge.
-            TopBarActionButton(
-                onClick = onNewTab,
-                symbol = Symbols.Add,
-                contentDescription = "新建标签页",
+            Row(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .padding(end = BrowserUiTokens.PagePaddingH),
-            )
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // SPEC-080: tablet CloseAll immediately left of New.
+                if (showCloseAll) {
+                    TopBarActionButton(
+                        onClick = onCloseAll,
+                        symbol = Symbols.ClearAll,
+                        contentDescription = "全部关闭",
+                        style = TopBarButtonStyle.Tonal,
+                    )
+                }
+                TopBarActionButton(
+                    onClick = onNewTab,
+                    symbol = Symbols.Add,
+                    contentDescription = "新建标签页",
+                    style = TopBarButtonStyle.Tonal,
+                )
+            }
         }
     }
 }
@@ -325,6 +340,16 @@ private fun TabCard(
 ) {
     val scheme = LegadoTheme.colorScheme
     val preview = remember(tab.id, thumbRev) { BrowserTabThumbnailStore.get(tab.id) }
+    // SPEC-081: tablet thumb matches screen aspect; phone stays portrait 0.75.
+    val configuration = LocalConfiguration.current
+    val isTablet = BrowserFormFactor.isTablet(configuration)
+    val thumbAspect = if (isTablet) {
+        val w = configuration.screenWidthDp.coerceAtLeast(1)
+        val h = configuration.screenHeightDp.coerceAtLeast(1)
+        w.toFloat() / h.toFloat()
+    } else {
+        0.75f
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -366,7 +391,7 @@ private fun TabCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.75f)
+                .aspectRatio(thumbAspect)
                 .padding(horizontal = BrowserUiTokens.SpaceSm)
                 .padding(bottom = BrowserUiTokens.SpaceSm)
                 .clip(RoundedCornerShape(BrowserUiTokens.SpaceLg))

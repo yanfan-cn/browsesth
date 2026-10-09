@@ -68,6 +68,10 @@ data object MainRouteBrowserDownloads : MainRoute
 @Serializable
 data object MainRouteBrowserHistory : MainRoute
 
+/** SPEC-082: clear browsing data (from history). */
+@Serializable
+data object MainRouteBrowserClearData : MainRoute
+
 @Serializable
 data object MainRouteBrowserTabs : MainRoute
 

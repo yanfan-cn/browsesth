@@ -1,15 +1,16 @@
 package io.legado.app.browser.engine
 
 /**
- * Site-specific layout fixes injected after page load (SPEC-013 / SPEC-020).
+ * Site-specific layout fixes injected after page load (SPEC-013 / SPEC-020 / SPEC-073).
  * Apple.com sticky globalnav often looks vertically squashed under SOFTWARE /
  * imperfect viewport; enforce a healthier bar height as belt-and-suspenders.
+ * Not injected on history back/forward (SPEC-073) to avoid scroll reset.
  */
 object BrowserSiteCssFixes {
     fun scriptForUrl(url: String): String? {
         val lower = url.lowercase()
-        if (!lower.contains("apple.com")) return null
-        return APPLE_NAV_MIN_HEIGHT_JS
+        if (lower.contains("apple.com")) return APPLE_NAV_MIN_HEIGHT_JS
+        return null
     }
 
     // language=JavaScript

@@ -4,6 +4,7 @@ import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
@@ -266,16 +267,19 @@ fun ThemeConfigScreen(
                         )
                     }
                     // SPEC-063: change-icon entry hidden.
-                    SwitchSettingItem(
-                        title = stringResource(R.string.predictive_back),
-                        description = stringResource(R.string.predictive_back_summary),
-                        checked = appShell.predictiveBackEnabled,
-                        onCheckedChange = {
-                            onIntent(
-                                ThemeConfigIntent.SetPredictiveBackEnabled(it)
-                            )
-                        }
-                    )
+                    // SPEC-086 / UI §6: predictive back setting only on Android 15+ (API 35).
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                        SwitchSettingItem(
+                            title = stringResource(R.string.predictive_back),
+                            description = stringResource(R.string.predictive_back_summary),
+                            checked = appShell.predictiveBackEnabled,
+                            onCheckedChange = {
+                                onIntent(
+                                    ThemeConfigIntent.SetPredictiveBackEnabled(it)
+                                )
+                            }
+                        )
+                    }
                     SliderSettingItem(
                         title = stringResource(R.string.font_scale),
                         valueLabel = {
