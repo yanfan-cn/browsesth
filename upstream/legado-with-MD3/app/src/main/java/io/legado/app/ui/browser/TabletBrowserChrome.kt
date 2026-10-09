@@ -462,6 +462,7 @@ private fun TabletTabStrip(
             size = TabletTabCountSize,
             shape = TabletTabCountShape,
             drawBorder = false,
+            menuBelowTopBar = true,
         )
     }
 }

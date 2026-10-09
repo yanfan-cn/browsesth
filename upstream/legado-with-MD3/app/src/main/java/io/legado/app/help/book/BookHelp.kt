@@ -436,7 +436,14 @@ object BookHelp {
                 }
                 onDownload()
                 val context = currentCoroutineContext()
-                val analyzeUrl = AnalyzeUrl(src, source = bookSource, coroutineContext = context)
+                // SPEC-092: web mixed articles need Referer or CDNs often return 403 → error bitmap.
+                val webHeaders = browserWebImageHeaders(book, chapter)
+                val analyzeUrl = AnalyzeUrl(
+                    src,
+                    source = bookSource,
+                    coroutineContext = context,
+                    headerMapF = webHeaders,
+                )
                 if (onlineOnly && loadOnlyWifi && !appCtx.isWifiConnect &&
                     !analyzeUrl.urlNoQuery.startsWith("data:", true)
                 ) throw IOException("WiFi not available, loadOnlyWifi enabled")
@@ -483,6 +490,30 @@ object BookHelp {
             throw IOException("HTTP ${response.code}")
         }
         return ProgressResponseBody(src, ProgressManager.LISTENER, response.body).byteStream()
+    }
+
+    /**
+     * SPEC-092: browser ephemeral novel/manga books download body images without a BookSource;
+     * news CDNs commonly require Referer matching the article page.
+     */
+    private fun browserWebImageHeaders(
+        book: Book,
+        chapter: BookChapter?,
+    ): Map<String, String>? {
+        val isBrowserWeb = book.origin == io.legado.app.browser.reader.WebArticleBookFactory.ORIGIN ||
+            book.origin == io.legado.app.browser.reader.WebMangaBookFactory.ORIGIN
+        if (!isBrowserWeb) return null
+        val referer = chapter?.url?.takeIf { it.startsWith("http") }
+            ?: book.customIntro?.takeIf { it.startsWith("http") }
+            ?: book.tocUrl.takeIf { it.startsWith("http") }
+        val headers = linkedMapOf(
+            "User-Agent" to io.legado.app.browser.engine.BrowserUa.MOBILE,
+            "Accept" to "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        )
+        if (!referer.isNullOrBlank()) {
+            headers["Referer"] = referer
+        }
+        return headers
     }
 
     /** Android 图片适配器使用：先持有租约，再获取文件，避免发布与淘汰之间存在空窗。 */

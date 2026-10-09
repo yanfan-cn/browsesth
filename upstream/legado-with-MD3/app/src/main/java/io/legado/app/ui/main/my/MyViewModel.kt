@@ -26,7 +26,10 @@ sealed class PrefClickEvent {
     data class CopyUrl(val url: String) : PrefClickEvent()
     data class StartActivity(val destination: Class<*>, val configTag: String? = null) : PrefClickEvent()
     object OpenReadRecord : PrefClickEvent()
-    object OpenBookCacheManage : PrefClickEvent()
+    /** SPEC-089: open browser downloads (replaces book cache manage entry). */
+    object OpenBrowserDownloads : PrefClickEvent()
+    /** SPEC-090: open browser bookmarks list (replaces AllBookmarkActivity). */
+    object OpenBrowserBookmarks : PrefClickEvent()
     object OpenBookSourceManage : PrefClickEvent()
     object OpenHighlightTagRule : PrefClickEvent()
     object OpenAbout : PrefClickEvent()

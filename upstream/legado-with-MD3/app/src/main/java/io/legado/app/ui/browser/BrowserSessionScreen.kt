@@ -78,6 +78,7 @@ import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.browser.engine.BrowserAdRules
 import io.legado.app.browser.engine.BrowserAwContentsClient
 import io.legado.app.browser.engine.BrowserChromePrefs
+import io.legado.app.browser.engine.BrowserContextMenuJs
 import io.legado.app.browser.engine.BrowserDownloadHelper
 import io.legado.app.browser.engine.BrowserDownloadRepository
 import io.legado.app.browser.engine.BrowserFormFactor
@@ -97,6 +98,9 @@ import io.legado.app.browser.engine.BrowserUa
 import io.legado.app.browser.engine.BrowserUrlPolicy
 import io.legado.app.browser.engine.evalJs
 import io.legado.app.browser.engine.resolveBrowserNavigationInput
+import io.legado.app.ui.main.MainIntent
+import io.legado.app.utils.GSON
+import io.legado.app.utils.fromJsonObject
 import org.apache.commons.text.StringEscapeUtils
 import java.io.File
 import io.legado.app.browser.manga.cimoc.CimocAdapterRegistry
@@ -215,6 +219,8 @@ fun BrowserSessionScreen(
     var tabMenu by remember { mutableStateOf(false) }
     val openTabCount by BrowserTabManager.tabs.collectAsStateWithLifecycle()
     var pickMode by remember { mutableStateOf(false) }
+    /** SPEC-093: long-press link/image sheet. */
+    var linkContextHit by remember { mutableStateOf<BrowserLinkContextHit?>(null) }
     val ntpPrefs = remember { BrowserNtpPrefs(context) }
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -971,6 +977,21 @@ fun BrowserSessionScreen(
                             pendingSelector = selector
                             pickMode = false
                         },
+                        onContextMenuHit = { json ->
+                            val parsed = GSON.fromJsonObject<BrowserContextMenuPayload>(json)
+                                .getOrNull()
+                            if (parsed != null &&
+                                (parsed.href.startsWith("http") || parsed.img.startsWith("http"))
+                            ) {
+                                linkContextHit = BrowserLinkContextHit(
+                                    href = parsed.href,
+                                    linkText = parsed.text,
+                                    imageUrl = parsed.img,
+                                    pageTitle = parsed.title,
+                                    pageUrl = parsed.page,
+                                )
+                            }
+                        },
                         onScrollDirection = { dir ->
                             if (!tabletEmbedded) {
                                 phoneChromeVisible = if (chromePrefs.autoHideTopBar) {
@@ -1000,6 +1021,7 @@ fun BrowserSessionScreen(
                                 BrowserAwContentsClient.SCROLL_HOOK_JS,
                                 null,
                             )
+                            hostRef?.evaluateJavaScript(BrowserContextMenuJs.HOOK_JS, null)
                             if (historyNav) {
                                 // SPEC-073: skip layout-affecting injects on back/forward; restore scroll.
                                 BrowserScrollMemory.recall(url)?.let { y ->
@@ -1277,6 +1299,55 @@ fun BrowserSessionScreen(
     }
 
     // SPEC-070: Edge-style toolbox grid (half screen).
+    BrowserLinkContextMenu(
+        hit = linkContextHit,
+        onDismiss = { linkContextHit = null },
+        onOpenNewTab = { url ->
+            BrowserTabManager.openNewTab(url = url, incognito = false, select = true)
+            BrowserOpenBridge.offer(url)
+        },
+        onOpenIncognito = { url ->
+            BrowserTabManager.openNewTab(url = url, incognito = true, select = true)
+            BrowserOpenBridge.offer(url)
+        },
+        onOpenNewWindow = { url ->
+            runCatching {
+                val intent = MainIntent.createWebViewIntent(context, url = url)
+                intent.addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_DOCUMENT or Intent.FLAG_ACTIVITY_MULTIPLE_TASK,
+                )
+                context.startActivity(intent)
+            }.onFailure {
+                BrowserTabManager.openNewTab(url = url, select = true)
+                BrowserOpenBridge.offer(url)
+                context.toastOnUi("已在新标签页打开")
+            }
+        },
+        onCopyLink = { url ->
+            context.sendToClip(url)
+            context.toastOnUi("已复制链接")
+        },
+        onCopyLinkText = { text ->
+            context.sendToClip(text)
+            context.toastOnUi("已复制文本")
+        },
+        onDownloadLink = { url ->
+            enqueueTriggeredDownload(url, BrowserUa.resolve(context), "", "")
+        },
+        onShareLink = { url, title ->
+            context.share(
+                if (title.isNotBlank()) "$title\n$url" else url,
+                title = "分享链接",
+            )
+        },
+        onDownloadImage = { url ->
+            enqueueTriggeredDownload(url, BrowserUa.resolve(context), "", "image/*")
+        },
+        onShareImage = { url ->
+            context.share(url, title = "分享图片")
+        },
+    )
+
     BrowserToolboxSheet(
         show = showToolbox,
         onDismiss = { showToolbox = false },

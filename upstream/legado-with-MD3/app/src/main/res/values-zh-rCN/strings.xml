@@ -1766,6 +1766,7 @@
     <string name="onboarding_summary_backup">此处可设置云同步与恢复应用备份。</string>
     <string name="onboarding_summary_book_folder">请选择保存本地书籍的文件夹。</string>
     <string name="onboarding_summary_theme">在这里设置您喜爱的样式。</string>
+    <string name="onboarding_liquid_glass_summary">需要安卓 13 以上才能使用，对设备性能有一定要求，打开后可能影响流畅度。</string>
     <string name="onboarding_next_agree">阅读并同意</string>
     <string name="onboarding_next_step">下一步</string>
     <string name="onboarding_next_done">完成</string>

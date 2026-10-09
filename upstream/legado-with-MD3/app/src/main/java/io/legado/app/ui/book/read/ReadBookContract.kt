@@ -93,7 +93,7 @@ data class ReadBookStyleConfig(
     val textFont: String = "",
     val titleFont: String = "",
     // Page anim
-    val pageAnim: Int = 1,
+    val pageAnim: Int = 3, // SPEC-092: default scroll
     val pageAnimEInk: Int = 4,
     // 翻页速度挡位 0:极速 1:快速 2:适中(默认) 3:优雅，取值与时长见 ReaderPageTurnSpeed
     val pageAnimSpeed: Int = 2,

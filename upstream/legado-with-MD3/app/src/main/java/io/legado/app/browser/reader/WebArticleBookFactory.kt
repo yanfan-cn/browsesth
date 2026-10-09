@@ -91,8 +91,8 @@ object WebArticleBookFactory {
         book.addType(BookType.text, BookType.notShelf)
         // SPEC-046: full-width in-body images for mixed article layout.
         book.setImageStyle(Book.imgStyleFull)
-        // SPEC-062: mixed web articles default to slide page turn.
-        book.setPageAnim(PageAnim.slidePageAnim)
+        // SPEC-092: mixed web articles default to scroll (user can change global page anim).
+        book.setPageAnim(PageAnim.scrollPageAnim)
         book.save()
 
         val entities = chapters.mapIndexed { index, ch ->

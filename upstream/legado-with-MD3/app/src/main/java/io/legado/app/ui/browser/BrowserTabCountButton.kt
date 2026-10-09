@@ -26,9 +26,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -103,7 +105,7 @@ fun BrowserTabCountBadge(
     }
 }
 
-/** SPEC-071: Material Symbols + readable overlay; no shadow (UI design doc). */
+/** SPEC-071/087: Material Symbols + readable overlay; top-bar menus align like NTP customize. */
 @Composable
 fun BrowserTabCountMenu(
     expanded: Boolean,
@@ -111,12 +113,27 @@ fun BrowserTabCountMenu(
     onNewTab: () -> Unit,
     onCloseAll: () -> Unit,
     onAddBookmark: (() -> Unit)? = null,
+    /** SPEC-087: match NtpCustomizePanel — sit just below the top-bar control. */
+    belowTopBar: Boolean = false,
 ) {
     if (!expanded) return
     val scheme = LegadoTheme.colorScheme
     val shape = RoundedCornerShape(BrowserUiTokens.CardCorner)
+    val density = LocalDensity.current
+    val yOffset = if (belowTopBar) {
+        with(density) {
+            (
+                (BrowserUiTokens.TopBarHeight - BrowserUiTokens.ControlMedium) / 2 +
+                    BrowserUiTokens.ControlMedium +
+                    8.dp
+                ).roundToPx()
+        }
+    } else {
+        0
+    }
     Popup(
         alignment = Alignment.TopEnd,
+        offset = IntOffset(0, yOffset),
         onDismissRequest = onDismiss,
         properties = PopupProperties(focusable = true),
     ) {
@@ -210,6 +227,7 @@ fun BrowserTabCountButton(
     size: Dp = BrowserUiTokens.ControlMedium,
     shape: Shape = TabCountShape,
     drawBorder: Boolean = true,
+    menuBelowTopBar: Boolean = false,
 ) {
     var menu by remember { mutableStateOf(false) }
     Box {
@@ -232,6 +250,7 @@ fun BrowserTabCountButton(
             onNewTab = onNewTab,
             onCloseAll = onCloseAll,
             onAddBookmark = onAddBookmark,
+            belowTopBar = menuBelowTopBar,
         )
     }
 }

@@ -158,7 +158,7 @@ object WebChapterHttpFetcher {
     }
 
     private val IMG_SRC = Pattern.compile(
-        """(?i)<img[^>]+(?:src|data-src|data-original|data-lazy-src|data-url|data-srcset)\s*=\s*["']([^"']+)["']""",
+        """(?i)<img[^>]+(?:src|data-src|data-original|data-lazy-src|data-url|data-srcset|data-actualsrc|data-original-src)\s*=\s*["']([^"']+)["']""",
     )
     private val JSON_IMG = Pattern.compile(
         """(?i)https?://[^"'\\\s>]+\.(?:jpg|jpeg|png|webp|gif)""",
@@ -234,7 +234,7 @@ object WebChapterHttpFetcher {
             when {
                 tok.startsWith("<img", ignoreCase = true) -> {
                     val srcM = Regex(
-                        """(?i)(?:src|data-src|data-original|data-lazy-src)\s*=\s*["']([^"']+)["']""",
+                        """(?i)(?:data-src|data-original|data-lazy-src|data-url|data-actualsrc|data-original-src|src)\s*=\s*["']([^"']+)["']""",
                     ).find(tok)
                     val raw = srcM?.groupValues?.getOrNull(1)?.trim().orEmpty()
                     val first = raw.split(',').firstOrNull()?.trim()?.substringBefore(' ')?.trim().orEmpty()

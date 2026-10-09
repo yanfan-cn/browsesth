@@ -35,7 +35,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.R
-import io.legado.app.ui.book.bookmark.AllBookmarkActivity
 import io.legado.app.ui.file.FileManageActivity
 import io.legado.app.ui.theme.adaptiveContentPadding
 import io.legado.app.ui.widget.components.AppScaffold
@@ -151,7 +150,7 @@ fun MyScreen(
                     title = stringResource(R.string.bookmark),
                     symbol = Symbols.Bookmark,
                     onClick = {
-                        onNavigate(PrefClickEvent.StartActivity(AllBookmarkActivity::class.java))
+                        onNavigate(PrefClickEvent.OpenBrowserBookmarks)
                     }
                 )
                 ClickableSettingItem(
@@ -162,10 +161,10 @@ fun MyScreen(
                     }
                 )
                 ClickableSettingItem(
-                    title = stringResource(R.string.cache_management),
+                    title = stringResource(R.string.download_setting),
                     symbol = Symbols.Download,
                     onClick = {
-                        onNavigate(PrefClickEvent.OpenBookCacheManage)
+                        onNavigate(PrefClickEvent.OpenBrowserDownloads)
                     }
                 )
                 ClickableSettingItem(

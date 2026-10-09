@@ -122,6 +122,7 @@ class OnboardingViewModel(
                 _uiState.update { it.copy(themeMode = intent.value) }
                 _effects.tryEmit(OnboardingEffect.ApplyDayNight)
             }
+            is OnboardingIntent.SetLiquidGlass -> setLiquidGlass(intent.enabled)
             OnboardingIntent.DismissRestoreError ->
                 _uiState.update { it.copy(restoreErrorMessage = null) }
             OnboardingIntent.CancelBusy -> {
@@ -265,6 +266,26 @@ class OnboardingViewModel(
                 it.copy(
                     appTheme = value,
                     containerOpacity = if (value == "13") 0 else it.containerOpacity,
+                )
+            }
+        }
+    }
+
+    /** SPEC-091: persist liquid glass via chromeSurfaceStyle (API 33+). */
+    private fun setLiquidGlass(enabled: Boolean) {
+        val style = if (enabled) {
+            io.legado.app.ui.theme.ChromeSurfaceStyle.LiquidGlass
+        } else {
+            io.legado.app.ui.theme.ChromeSurfaceStyle.Filled
+        }
+        val storage = style.storageValue
+        viewModelScope.launch {
+            themeSettingsGateway.update {
+                it.copy(
+                    chromeSurfaceStyle = storage,
+                    topBarButtonStyle =
+                        io.legado.app.ui.theme.ChromeSurfaceStylePolicy
+                            .effectiveTopBarButtonStyle(storage),
                 )
             }
         }

@@ -1821,6 +1821,7 @@
     <string name="onboarding_summary_backup">Set up cloud sync and restore app backups here.</string>
     <string name="onboarding_summary_book_folder">Choose the folder for saving local books.</string>
     <string name="onboarding_summary_theme">Set up your favorite style here.</string>
+    <string name="onboarding_liquid_glass_summary">Requires Android 13 or higher. Needs decent device performance and may affect smoothness when enabled.</string>
     <string name="onboarding_next_agree">Agree &amp; Continue</string>
     <string name="onboarding_next_step">Next</string>
     <string name="onboarding_next_done">Done</string>

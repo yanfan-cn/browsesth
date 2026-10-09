@@ -11,7 +11,8 @@ data class AppShellSettings(
     val showRss: Boolean = false,
     val showStatusBar: Boolean = true,
     val swipeAnimation: Boolean = true,
-    val predictiveBackEnabled: Boolean = true,
+    /** SPEC-088: product forces off; preference ignored by [effectivePredictiveBackEnabled]. */
+    val predictiveBackEnabled: Boolean = false,
     val showBottomView: Boolean = true,
     val useFloatingBottomBar: Boolean = true,
     val useFloatingBottomBarLiquidGlass: Boolean = true,
@@ -34,9 +35,9 @@ data class AppShellSettings(
 )
 
 /**
- * SPEC-086 / UI §6: predictive back only on Android 15+ (API 35).
- * Below 35 the stored preference is ignored for navigation transitions.
+ * SPEC-088: predictive back removed — always false so only right-slide Pop is used.
  */
+@Suppress("UNUSED_PARAMETER")
 fun AppShellSettings.effectivePredictiveBackEnabled(
     sdk: Int = Build.VERSION.SDK_INT,
-): Boolean = predictiveBackEnabled && sdk >= Build.VERSION_CODES.VANILLA_ICE_CREAM
+): Boolean = false

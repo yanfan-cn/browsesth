@@ -5,13 +5,13 @@ import io.legado.app.domain.model.settings.ThemeSettings
 import kotlinx.collections.immutable.ImmutableList
 
 /**
- * 欢迎引导流程（隐私 → WebDav → 书籍文件夹 → 主题）的 Compose 契约。
+ * 欢迎引导流程（隐私 → 书籍文件夹 → 主题）的 Compose 契约。SPEC-091 隐藏备份页。
  * 页面文案见 strings.xml 的 onboarding_* 资源。
  */
 @Stable
 data class OnboardingUiState(
     val page: Int = 0,
-    val pageCount: Int = 4,
+    val pageCount: Int = 3,
     val privacyPolicy: String = "",
     val disclaimer: String = "",
     val webDavUrl: String = "",
@@ -46,6 +46,8 @@ sealed interface OnboardingIntent {
     data class SelectBookFolder(val uri: String) : OnboardingIntent
     data class SelectTheme(val value: String) : OnboardingIntent
     data class SetThemeMode(val value: String) : OnboardingIntent
+    /** SPEC-091: toggle chrome liquid glass on theme page. */
+    data class SetLiquidGlass(val enabled: Boolean) : OnboardingIntent
     data object DismissRestoreError : OnboardingIntent
     data object CancelBusy : OnboardingIntent
 }

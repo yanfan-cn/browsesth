@@ -74,6 +74,10 @@ class AwContentsHostView @JvmOverloads constructor(
         settings.setUseWideViewPort(true)
         settings.setLoadWithOverviewMode(false)
         settings.setMediaPlaybackRequiresUserGesture(true)
+        // SPEC-093: disable built-in Aw hyperlink menu; we show Compose sheet instead.
+        runCatching {
+            settings.setHyperlinkContextMenuItems(0)
+        }.onFailure { Log.w(TAG, "setHyperlinkContextMenuItems: ${it.message}") }
         // SPEC-018/029: phone/desktop UA + Client Hints aligned to 150.0.7871.46.
         val ua = BrowserUa.resolve(context)
         val uaMobile = BrowserChromePrefs(context).uaModeOrDefault(

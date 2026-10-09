@@ -611,7 +611,8 @@ fun MainScreen(
                                 onNavigateToChat = onNavigateToChat,
                                 onNavigate = { event ->
                                     when (event) {
-                                        PrefClickEvent.OpenBookCacheManage -> onNavigateToBookCacheManage()
+                                        PrefClickEvent.OpenBrowserDownloads -> onNavigateToBrowserDownloads()
+                                        PrefClickEvent.OpenBrowserBookmarks -> onNavigateToBrowserBookmarks()
                                         PrefClickEvent.OpenBookSourceManage -> onNavigateToBookSourceManage()
                                         PrefClickEvent.OpenReadRecord -> onNavigateToReadRecord()
                                         else -> onIntent(MainUiIntent.HandlePreferenceClick(event))

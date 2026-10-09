@@ -43,11 +43,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.browser.engine.BrowserOpenBridge
 import io.legado.app.browser.engine.BrowserShortcut
 import io.legado.app.browser.engine.BrowserShortcutStore
 import io.legado.app.browser.engine.BrowserTabManager
+import io.legado.app.data.entities.Book
+import io.legado.app.data.entities.Bookmark
+import io.legado.app.data.repository.BookRepository
+import io.legado.app.data.repository.BookmarkRepository
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.icon.SymbolIcon
@@ -58,15 +63,22 @@ import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
 import io.legado.app.utils.toastOnUi
 import java.util.UUID
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 
-/** SPEC-082: history-style rows + overflow menu + sort + folders + multi-select. */
+/** SPEC-082: history-style rows + overflow menu + sort + folders + multi-select.
+ * SPEC-090: also show Room reading bookmarks (local / browser reader). */
 @Composable
 fun BrowserBookmarksScreen(
     onBack: () -> Unit,
     onOpenUrl: (String) -> Unit,
+    onOpenBook: (Book) -> Unit = {},
 ) {
     BrowserTheme {
-        BrowserBookmarksBody(onBack = onBack, onOpenUrl = onOpenUrl)
+        BrowserBookmarksBody(
+            onBack = onBack,
+            onOpenUrl = onOpenUrl,
+            onOpenBook = onOpenBook,
+        )
     }
 }
 
@@ -75,13 +87,18 @@ fun BrowserBookmarksScreen(
 private fun BrowserBookmarksBody(
     onBack: () -> Unit,
     onOpenUrl: (String) -> Unit,
+    onOpenBook: (Book) -> Unit,
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     val store = remember { BrowseStore(context) }
     val shortcutStore = remember { BrowserShortcutStore(context) }
+    val bookmarkRepository: BookmarkRepository = koinInject()
+    val bookRepository: BookRepository = koinInject()
     val scheme = LegadoTheme.colorScheme
+    val readingBookmarks by remember { bookmarkRepository.flowAll() }
+        .collectAsStateWithLifecycle(emptyList())
 
     var items by remember { mutableStateOf(store.sortedBookmarks()) }
     var folders by remember { mutableStateOf(store.folders()) }
@@ -103,14 +120,21 @@ private fun BrowserBookmarksBody(
         sort = store.bookmarkSort()
     }
 
-    val inFolder = remember(items, currentFolderId) {
-        items.filter { it.folderId == currentFolderId }
+    val readingEntries = remember(readingBookmarks) {
+        readingBookmarks.map { it.toSyntheticEntry() }
     }
-    val filtered = remember(inFolder, query) {
+    val inFolder = remember(items, currentFolderId, readingEntries, sort) {
+        val web = items.filter { it.folderId == currentFolderId }
+        if (currentFolderId.isNotEmpty()) web
+        else sortMergedEntries(web + readingEntries, sort)
+    }
+    val filtered = remember(inFolder, query, readingBookmarks) {
         val q = query.trim()
         if (q.isEmpty()) inFolder
-        else inFolder.filter {
-            it.title.contains(q, true) || it.url.contains(q, true)
+        else inFolder.filter { entry ->
+            entry.title.contains(q, true) ||
+                entry.url.contains(q, true) ||
+                entry.readingSubtitle(readingBookmarks).contains(q, true)
         }
     }
     val folderRows = remember(folders, currentFolderId, query) {
@@ -118,7 +142,54 @@ private fun BrowserBookmarksBody(
         else folders.sortedBy { it.order }
     }
 
+    fun deleteSelected() {
+        if (selectedUrls.isEmpty()) {
+            context.toastOnUi("请先选择书签")
+            return
+        }
+        val web = selectedUrls.filterNot { it.isReadingBookmarkUrl() }
+        val readTimes = selectedUrls.mapNotNull { it.readingBookmarkTime() }
+        if (web.isNotEmpty()) store.removeBookmarks(web.toSet())
+        if (readTimes.isNotEmpty()) {
+            val toDelete = readTimes.mapNotNull { time ->
+                readingBookmarks.firstOrNull { it.time == time }
+            }
+            if (toDelete.isNotEmpty()) {
+                scope.launch { bookmarkRepository.deleteAll(toDelete) }
+            }
+        }
+        selecting = false
+        selectedUrls = emptySet()
+        reload()
+        context.toastOnUi("已删除")
+    }
+
+    fun openReadingBookmark(entry: BrowseStore.Entry) {
+        val time = entry.url.readingBookmarkTime() ?: return
+        scope.launch {
+            val bm = readingBookmarks.firstOrNull { it.time == time }
+            if (bm == null) {
+                context.toastOnUi("书签不存在")
+                return@launch
+            }
+            val book = bookRepository.getBook(bm.bookName, bm.bookAuthor)
+                ?: bm.bookUrl.takeIf { it.isNotBlank() }?.let { bookRepository.getBook(it) }
+            if (book == null) {
+                context.toastOnUi("未找到对应书籍")
+                return@launch
+            }
+            book.durChapterIndex = bm.chapterIndex
+            book.durChapterPos = bm.chapterPos
+            bookRepository.update(book)
+            onOpenBook(book)
+        }
+    }
+
     fun openEntry(entry: BrowseStore.Entry, newTab: Boolean, incognito: Boolean) {
+        if (entry.url.isReadingBookmarkUrl()) {
+            openReadingBookmark(entry)
+            return
+        }
         store.touchBookmarkOpened(entry.url)
         reload()
         when {
@@ -161,17 +232,7 @@ private fun BrowserBookmarksBody(
                 actions = {
                     if (selecting) {
                         TopBarActionButton(
-                            onClick = {
-                                if (selectedUrls.isEmpty()) {
-                                    context.toastOnUi("请先选择书签")
-                                    return@TopBarActionButton
-                                }
-                                store.removeBookmarks(selectedUrls)
-                                selecting = false
-                                selectedUrls = emptySet()
-                                reload()
-                                context.toastOnUi("已删除")
-                            },
+                            onClick = { deleteSelected() },
                             symbol = Symbols.Delete,
                             contentDescription = "删除所选",
                         )
@@ -246,7 +307,11 @@ private fun BrowserBookmarksBody(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        if (items.isEmpty() && folders.isEmpty()) "还没有书签" else "无匹配书签",
+                        if (items.isEmpty() && folders.isEmpty() && readingBookmarks.isEmpty()) {
+                            "还没有书签"
+                        } else {
+                            "无匹配书签"
+                        },
                         color = scheme.onSurfaceVariant,
                     )
                 }
@@ -264,8 +329,15 @@ private fun BrowserBookmarksBody(
                         HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.4f))
                     }
                     items(filtered, key = { it.url }) { entry ->
+                        val reading = entry.url.isReadingBookmarkUrl()
                         BookmarkRow(
                             entry = entry,
+                            subtitle = if (reading) {
+                                entry.readingSubtitle(readingBookmarks)
+                            } else {
+                                entry.url
+                            },
+                            useBookIcon = reading,
                             selecting = selecting,
                             selected = entry.url in selectedUrls,
                             onOpen = {
@@ -296,7 +368,9 @@ private fun BrowserBookmarksBody(
     }
 
     menuFor?.let { entry ->
+        val reading = entry.url.isReadingBookmarkUrl()
         BookmarkOverflowMenu(
+            readingOnly = reading,
             onDismiss = { menuFor = null },
             onSelect = {
                 menuFor = null
@@ -322,8 +396,16 @@ private fun BrowserBookmarksBody(
             },
             onDelete = {
                 menuFor = null
-                store.removeBookmark(entry.url)
-                reload()
+                if (reading) {
+                    val time = entry.url.readingBookmarkTime()
+                    val bm = readingBookmarks.firstOrNull { it.time == time }
+                    if (bm != null) {
+                        scope.launch { bookmarkRepository.delete(bm) }
+                    }
+                } else {
+                    store.removeBookmark(entry.url)
+                    reload()
+                }
                 context.toastOnUi("已删除")
             },
             onAddHome = {
@@ -492,6 +574,8 @@ private fun FolderRow(
 @Composable
 private fun BookmarkRow(
     entry: BrowseStore.Entry,
+    subtitle: String,
+    useBookIcon: Boolean,
     selecting: Boolean,
     selected: Boolean,
     onOpen: () -> Unit,
@@ -518,13 +602,29 @@ private fun BookmarkRow(
             Checkbox(checked = selected, onCheckedChange = { onToggleSelect() })
             Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceSm))
         }
-        SiteFaviconIcon(
-            pageUrl = entry.url,
-            title = entry.title.ifBlank { entry.url },
-            size = BrowserUiTokens.ControlSmall,
-            bubbleColor = scheme.surfaceVariant,
-            letterColor = scheme.primary,
-        )
+        if (useBookIcon) {
+            Box(
+                modifier = Modifier
+                    .size(BrowserUiTokens.ControlSmall)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(scheme.surfaceVariant),
+                contentAlignment = Alignment.Center,
+            ) {
+                SymbolIcon(
+                    Symbols.Bookmark,
+                    contentDescription = null,
+                    tint = scheme.primary,
+                )
+            }
+        } else {
+            SiteFaviconIcon(
+                pageUrl = entry.url,
+                title = entry.title.ifBlank { entry.url },
+                size = BrowserUiTokens.ControlSmall,
+                bubbleColor = scheme.surfaceVariant,
+                letterColor = scheme.primary,
+            )
+        }
         Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceMd))
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -535,7 +635,7 @@ private fun BookmarkRow(
                 color = scheme.onSurface,
             )
             Text(
-                entry.url,
+                subtitle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontSize = 12.sp,
@@ -557,6 +657,7 @@ private fun BookmarkRow(
 
 @Composable
 private fun BookmarkOverflowMenu(
+    readingOnly: Boolean,
     onDismiss: () -> Unit,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
@@ -582,15 +683,67 @@ private fun BookmarkOverflowMenu(
                 .padding(vertical = BrowserUiTokens.SpaceSm),
         ) {
             MenuLine("选择", onSelect)
-            MenuLine("编辑", onEdit)
-            MenuLine("复制链接", onCopy)
-            MenuLine("移动到…", onMove)
+            if (!readingOnly) {
+                MenuLine("编辑", onEdit)
+                MenuLine("复制链接", onCopy)
+                MenuLine("移动到…", onMove)
+            }
             MenuLine("删除", onDelete)
-            MenuLine("添加至主页", onAddHome)
-            MenuLine("在新标签页中打开", onOpenNewTab)
-            MenuLine("在无痕标签页中打开", onOpenIncognito)
+            if (!readingOnly) {
+                MenuLine("添加至主页", onAddHome)
+                MenuLine("在新标签页中打开", onOpenNewTab)
+                MenuLine("在无痕标签页中打开", onOpenIncognito)
+            }
         }
     }
+}
+
+private const val READ_BM_PREFIX = "browsesth-read://"
+
+private fun String.isReadingBookmarkUrl(): Boolean = startsWith(READ_BM_PREFIX)
+
+private fun String.readingBookmarkTime(): Long? =
+    removePrefix(READ_BM_PREFIX).toLongOrNull()
+
+private fun Bookmark.toSyntheticEntry(): BrowseStore.Entry {
+    val title = buildString {
+        append(bookName.ifBlank { "未命名" })
+        if (chapterName.isNotBlank()) {
+            append(" · ")
+            append(chapterName)
+        }
+    }
+    return BrowseStore.Entry(
+        url = "$READ_BM_PREFIX$time",
+        title = title,
+        at = time,
+        lastOpened = 0L,
+        folderId = "",
+        order = Int.MAX_VALUE / 2,
+    )
+}
+
+private fun BrowseStore.Entry.readingSubtitle(bookmarks: List<Bookmark>): String {
+    val time = url.readingBookmarkTime() ?: return ""
+    val bm = bookmarks.firstOrNull { it.time == time } ?: return "阅读书签"
+    val snippet = bm.content.ifBlank { bm.bookText }.trim()
+        .replace('\n', ' ')
+        .take(80)
+    return snippet.ifBlank { "阅读书签" }
+}
+
+private fun sortMergedEntries(
+    list: List<BrowseStore.Entry>,
+    sort: BrowseStore.BookmarkSort,
+): List<BrowseStore.Entry> = when (sort) {
+    BrowseStore.BookmarkSort.Manual ->
+        list.sortedWith(compareBy({ it.order }, { -it.at }))
+    BrowseStore.BookmarkSort.Newest -> list.sortedByDescending { it.at }
+    BrowseStore.BookmarkSort.Oldest -> list.sortedBy { it.at }
+    BrowseStore.BookmarkSort.LastOpened ->
+        list.sortedByDescending { if (it.lastOpened > 0L) it.lastOpened else it.at }
+    BrowseStore.BookmarkSort.TitleAz -> list.sortedBy { it.title.lowercase() }
+    BrowseStore.BookmarkSort.TitleZa -> list.sortedByDescending { it.title.lowercase() }
 }
 
 @Composable

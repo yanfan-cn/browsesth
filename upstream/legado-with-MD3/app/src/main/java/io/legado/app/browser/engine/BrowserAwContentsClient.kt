@@ -47,6 +47,8 @@ class BrowserAwContentsClient(
     private val onExternalBlocked: ((String) -> Unit)? = null,
     private val onPopupBlocked: (() -> Unit)? = null,
     private val onConsoleBlockPick: ((String) -> Unit)? = null,
+    /** SPEC-093: long-press link/image context payload (JSON after prefix). */
+    private val onContextMenuHit: ((String) -> Unit)? = null,
     private val onScrollDirection: ((String) -> Unit)? = null,
     private val userAgentProvider: () -> String = { BrowserUa.MOBILE },
     /** SPEC-058: page-triggered downloads. */
@@ -146,6 +148,13 @@ class BrowserAwContentsClient(
             val selector = msg.removePrefix(BLOCK_PICK_PREFIX).trim()
             if (selector.isNotEmpty()) {
                 onConsoleBlockPick?.invoke(selector)
+                return true
+            }
+        }
+        if (msg.startsWith(BrowserContextMenuJs.PREFIX)) {
+            val json = msg.removePrefix(BrowserContextMenuJs.PREFIX).trim()
+            if (json.isNotEmpty()) {
+                onContextMenuHit?.invoke(json)
                 return true
             }
         }

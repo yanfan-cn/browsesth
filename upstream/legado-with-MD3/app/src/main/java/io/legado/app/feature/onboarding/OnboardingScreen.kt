@@ -1,7 +1,7 @@
 package io.legado.app.feature.onboarding
 
-import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -38,13 +39,14 @@ import androidx.compose.ui.unit.dp
 import io.legado.app.R
 import io.legado.app.ui.config.themeConfig.ThemeColorSelector
 import io.legado.app.ui.config.themeConfig.ThemeModeSelector
+import io.legado.app.ui.theme.ChromeSurfaceStylePolicy
 import io.legado.app.ui.theme.LegadoTheme
-import io.legado.app.ui.widget.components.AppTextField
 import io.legado.app.ui.widget.components.alert.AppAlertDialog
 import io.legado.app.ui.widget.components.button.series.MediumTonalButton
 import io.legado.app.ui.widget.components.card.GlassCard
 import io.legado.app.ui.widget.components.progressIndicator.AppCircularProgressIndicator
 import io.legado.app.ui.widget.components.progressIndicator.AppLinearProgressIndicator
+import io.legado.app.ui.widget.components.settingItem.SwitchSettingItem
 import io.legado.app.ui.widget.components.text.AppText
 import io.legado.app.ui.widget.components.text.MarkdownBlock
 
@@ -112,10 +114,10 @@ fun OnboardingScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    // SPEC-091: welcome → book folder → theme (backup page hidden).
                     when (page) {
                         0 -> PrivacyPage(state)
-                        1 -> WebDavPage(state, onIntent)
-                        2 -> BookFolderPage(state, onIntent)
+                        1 -> BookFolderPage(state, onIntent)
                         else -> ThemePage(state, onIntent)
                     }
                 }
@@ -234,61 +236,6 @@ private fun PrivacyPage(state: OnboardingUiState) {
 }
 
 @Composable
-private fun WebDavPage(state: OnboardingUiState, onIntent: (OnboardingIntent) -> Unit) {
-    Column(
-        modifier = Modifier
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        AppTextField(
-            value = state.webDavUrl,
-            onValueChange = { onIntent(OnboardingIntent.UpdateWebDavUrl(it)) },
-            label = stringResource(R.string.web_dav_url),
-            modifier = Modifier.fillMaxWidth()
-        )
-        AppTextField(
-            value = state.webDavAccount,
-            onValueChange = { onIntent(OnboardingIntent.UpdateWebDavAccount(it)) },
-            label = stringResource(R.string.web_dav_account),
-            modifier = Modifier.fillMaxWidth()
-        )
-        AppTextField(
-            value = state.webDavPassword,
-            onValueChange = { onIntent(OnboardingIntent.UpdateWebDavPassword(it)) },
-            label = stringResource(R.string.web_dav_pw),
-            modifier = Modifier.fillMaxWidth()
-        )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(top = 4.dp)
-        ) {
-            MediumTonalButton(
-                onClick = { onIntent(OnboardingIntent.FetchBackups) },
-                text = stringResource(R.string.restore),
-                modifier = Modifier.weight(1f)
-            )
-            MediumTonalButton(
-                onClick = { onIntent(OnboardingIntent.SaveAndTestWebDav) },
-                text = stringResource(R.string.action_save),
-                modifier = Modifier.weight(1f)
-            )
-        }
-        AppText(
-            text = stringResource(R.string.set_local_password_summary),
-            style = LegadoTheme.typography.labelSmall,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-        AppTextField(
-            value = state.appAccessPassword,
-            onValueChange = { onIntent(OnboardingIntent.UpdateAppAccessPassword(it)) },
-            label = stringResource(R.string.set_local_password),
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-}
-
-@Composable
 private fun BookFolderPage(state: OnboardingUiState, onIntent: (OnboardingIntent) -> Unit) {
     Column(
         modifier = Modifier
@@ -301,11 +248,6 @@ private fun BookFolderPage(state: OnboardingUiState, onIntent: (OnboardingIntent
             color = LegadoTheme.colorScheme.onSurfaceVariant
         )
         AppText(
-            text = stringResource(R.string.select_book_folder),
-            style = LegadoTheme.typography.titleMedium,
-            modifier = Modifier.padding(top = 12.dp)
-        )
-        AppText(
             text = state.bookFolderUri
                 ?: stringResource(R.string.welcome_book_folder_not_selected),
             style = LegadoTheme.typography.bodySmall,
@@ -314,11 +256,19 @@ private fun BookFolderPage(state: OnboardingUiState, onIntent: (OnboardingIntent
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 8.dp)
         )
-        MediumTonalButton(
-            onClick = { onIntent(OnboardingIntent.SelectFolder) },
-            text = stringResource(R.string.select_folder),
-            modifier = Modifier.padding(top = 12.dp)
-        )
+        // SPEC-091: ~1.5× MediumTonalButton visual size (extra box so scale does not clip).
+        Box(
+            modifier = Modifier
+                .padding(top = 28.dp, bottom = 12.dp)
+                .height(60.dp),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            MediumTonalButton(
+                onClick = { onIntent(OnboardingIntent.SelectFolder) },
+                text = stringResource(R.string.select_folder),
+                modifier = Modifier.scale(1.5f),
+            )
+        }
     }
 }
 
@@ -355,6 +305,20 @@ private fun ThemePage(state: OnboardingUiState, onIntent: (OnboardingIntent) -> 
                 onThemeSelected = { onIntent(OnboardingIntent.SelectTheme(it)) }
             )
         }
+        // SPEC-091: liquid glass toggle (API 33+); default on API 35+ via policy.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val liquidOn = ChromeSurfaceStylePolicy.isLiquidGlassActive(
+                state.theme.chromeSurfaceStyle,
+            )
+            Column(modifier = Modifier.padding(top = 16.dp)) {
+                SwitchSettingItem(
+                    title = stringResource(R.string.chrome_surface_style_liquid),
+                    description = stringResource(R.string.onboarding_liquid_glass_summary),
+                    checked = liquidOn,
+                    onCheckedChange = { onIntent(OnboardingIntent.SetLiquidGlass(it)) },
+                )
+            }
+        }
     }
 }
 
@@ -362,8 +326,7 @@ private fun ThemePage(state: OnboardingUiState, onIntent: (OnboardingIntent) -> 
 private fun pageTitle(page: Int): String = stringResource(
     when (page) {
         0 -> R.string.onboarding_title_welcome
-        1 -> R.string.onboarding_title_backup
-        2 -> R.string.onboarding_title_book_folder
+        1 -> R.string.onboarding_title_book_folder
         else -> R.string.onboarding_title_theme
     }
 )
@@ -372,8 +335,7 @@ private fun pageTitle(page: Int): String = stringResource(
 private fun pageSummary(page: Int): String = stringResource(
     when (page) {
         0 -> R.string.onboarding_summary_welcome
-        1 -> R.string.onboarding_summary_backup
-        2 -> R.string.onboarding_summary_book_folder
+        1 -> R.string.onboarding_summary_book_folder
         else -> R.string.onboarding_summary_theme
     }
 )

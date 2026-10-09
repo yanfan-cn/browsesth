@@ -49,6 +49,10 @@ import io.legado.app.domain.model.PlaybackCapsuleState
 import io.legado.app.domain.model.settings.AppUiConfiguration
 import io.legado.app.domain.model.settings.effectivePredictiveBackEnabled
 import io.legado.app.feature.reader.platform.ReaderPerfTrace
+import io.legado.app.help.book.isAudio
+import io.legado.app.help.book.isImage
+import io.legado.app.help.book.isLocal
+import io.legado.app.help.book.isNotShelf
 import io.legado.app.model.AudioPlay
 import io.legado.app.model.Download
 import io.legado.app.model.ReadAloudSessionStore
@@ -185,85 +189,79 @@ import org.koin.core.parameter.parametersOf
  * 不稳定，部分设备会表现为网页闪烁。`slideIntoContainer` / `slideOutOfContainer` 只改 layout
  * offset、不产生图层，所以这里保留默认的位移与时长，去掉 fade 与 scale。
  */
-private fun webViewEntryMetadata(predictiveBackEnabled: Boolean) = metadata {
-    put(NavDisplay.TransitionKey) {
-        slideIntoContainer(
-            towards = AnimatedContentTransitionScope.SlideDirection.Start,
-            animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing),
-            initialOffset = { fullWidth -> fullWidth }
-        ) togetherWith slideOutOfContainer(
-            towards = AnimatedContentTransitionScope.SlideDirection.Start,
-            animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing),
-            targetOffset = { fullWidth -> fullWidth / 4 }
-        )
-    }
-    // SPEC-086: exclusive — PredictivePop when on; right-slide Pop only when off.
-    if (predictiveBackEnabled) {
-        put(NavDisplay.PopTransitionKey) {
-            EnterTransition.None togetherWith ExitTransition.None
-        }
-        put(NavDisplay.PredictivePopTransitionKey) { _ ->
+/**
+ * Restore pre-SPEC-083 Pop that actually animated on device (d52fbac / 10.x):
+ * SlideDirection.Start + targetOffset=fullWidth → current page exits to the right.
+ * SPEC-083 End-direction Pop was a no-op / invisible on Nav3 + OnBackInvoked.
+ */
+private const val BrowserSlideMs = 480
+
+private fun AnimatedContentTransitionScope<*>.browserRightSlidePop() =
+    slideIntoContainer(
+        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+        animationSpec = tween(durationMillis = BrowserSlideMs, easing = FastOutSlowInEasing),
+        initialOffset = { fullWidth -> -fullWidth / 4 },
+    ) togetherWith slideOutOfContainer(
+        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+        animationSpec = tween(durationMillis = BrowserSlideMs, easing = FastOutSlowInEasing),
+        targetOffset = { fullWidth -> fullWidth },
+    )
+
+private fun webViewEntryMetadata(@Suppress("UNUSED_PARAMETER") predictiveBackEnabled: Boolean) =
+    metadata {
+        put(NavDisplay.TransitionKey) {
             slideIntoContainer(
-                towards = AnimatedContentTransitionScope.SlideDirection.End,
-                animationSpec = tween(easing = FastOutSlowInEasing),
-                initialOffset = { fullWidth -> -fullWidth / 4 },
+                towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                animationSpec = tween(durationMillis = BrowserSlideMs, easing = FastOutSlowInEasing),
+                initialOffset = { fullWidth -> fullWidth }
             ) togetherWith slideOutOfContainer(
-                towards = AnimatedContentTransitionScope.SlideDirection.End,
-                animationSpec = tween(easing = FastOutSlowInEasing),
-                targetOffset = { fullWidth -> fullWidth },
+                towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                animationSpec = tween(durationMillis = BrowserSlideMs, easing = FastOutSlowInEasing),
+                targetOffset = { fullWidth -> fullWidth / 4 }
             )
         }
-    } else {
-        put(NavDisplay.PopTransitionKey) {
-            slideIntoContainer(
-                towards = AnimatedContentTransitionScope.SlideDirection.End,
-                animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing),
-                initialOffset = { fullWidth -> -fullWidth / 4 },
-            ) togetherWith slideOutOfContainer(
-                towards = AnimatedContentTransitionScope.SlideDirection.End,
-                animationSpec = tween(durationMillis = 480, easing = FastOutSlowInEasing),
-                targetOffset = { fullWidth -> fullWidth },
-            )
-        }
+        put(NavDisplay.PopTransitionKey) { browserRightSlidePop() }
+        put(NavDisplay.PredictivePopTransitionKey) { _ -> browserRightSlidePop() }
     }
-}
 
 /** SPEC-028: bookmarks / history / browser settings — horizontal push, no fade. */
 private fun browserSlideEntryMetadata(predictiveBackEnabled: Boolean) =
     webViewEntryMetadata(predictiveBackEnabled)
 
 /**
- * SPEC-079: tabs route Enter/Exit/Pop all None.
- * Fade alone still put graphicsLayer over liquid-glass Home and crashed (11.1).
+ * SPEC-087: tabs use slide-only (no fade/scale graphicsLayer over liquid-glass Home).
+ * SPEC-079 None was a crash workaround; slide does not create offscreen layers.
  */
-private fun browserTabsScaleMetadata(predictiveBackEnabled: Boolean) = metadata {
-    put(NavDisplay.TransitionKey) {
-        EnterTransition.None togetherWith ExitTransition.None
+private fun browserTabsScaleMetadata(@Suppress("UNUSED_PARAMETER") predictiveBackEnabled: Boolean) =
+    metadata {
+        put(NavDisplay.TransitionKey) {
+            slideIntoContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                animationSpec = tween(durationMillis = BrowserSlideMs, easing = FastOutSlowInEasing),
+                initialOffset = { fullWidth -> fullWidth },
+            ) togetherWith slideOutOfContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                animationSpec = tween(durationMillis = BrowserSlideMs, easing = FastOutSlowInEasing),
+                targetOffset = { fullWidth -> fullWidth / 4 },
+            )
+        }
+        put(NavDisplay.PopTransitionKey) { browserRightSlidePop() }
+        put(NavDisplay.PredictivePopTransitionKey) { _ -> browserRightSlidePop() }
     }
-    put(NavDisplay.PopTransitionKey) {
-        EnterTransition.None togetherWith ExitTransition.None
-    }
-    if (predictiveBackEnabled) {
+
+/** Full-screen book destinations share the same scene fade as the text reader. */
+private fun readerEntryMetadata(@Suppress("UNUSED_PARAMETER") predictiveBackEnabled: Boolean) =
+    metadata {
+        put(NavDisplay.TransitionKey) {
+            fadeIn(animationSpec = tween(600)) togetherWith fadeOut(animationSpec = tween(600))
+        }
+        put(NavDisplay.PopTransitionKey) {
+            fadeIn(animationSpec = tween(600)) togetherWith fadeOut(animationSpec = tween(600))
+        }
         put(NavDisplay.PredictivePopTransitionKey) { _ ->
             EnterTransition.None togetherWith ExitTransition.None
         }
     }
-}
-
-/** Full-screen book destinations share the same scene fade as the text reader. */
-private fun readerEntryMetadata(predictiveBackEnabled: Boolean) = metadata {
-    put(NavDisplay.TransitionKey) {
-        fadeIn(animationSpec = tween(600)) togetherWith fadeOut(animationSpec = tween(600))
-    }
-    put(NavDisplay.PopTransitionKey) {
-        fadeIn(animationSpec = tween(600)) togetherWith fadeOut(animationSpec = tween(600))
-    }
-    if (predictiveBackEnabled) {
-        put(NavDisplay.PredictivePopTransitionKey) { _ ->
-            fadeIn(animationSpec = tween(600)) togetherWith fadeOut(animationSpec = tween(600))
-        }
-    }
-}
 
 /**
  * 以底部弹层呈现的目的地（听书播放页、有声书播放页）。
@@ -685,6 +683,28 @@ fun MainActivity.mainEntryProvider(
             onOpenUrl = { url ->
                 io.legado.app.browser.engine.BrowserOpenBridge.offer(url)
                 onNavigateBack()
+            },
+            onOpenBook = { book ->
+                // SPEC-090: reading bookmarks open the matching reader.
+                when {
+                    book.isAudio -> onNavigateToRoute(
+                        MainRouteAudioPlay(
+                            bookUrl = book.bookUrl,
+                        ),
+                    )
+                    !book.isLocal && book.isImage && showMangaUi -> onNavigateToRoute(
+                        MainRouteReadManga(
+                            bookUrl = book.bookUrl,
+                            inBookshelf = !book.isNotShelf,
+                        ),
+                    )
+                    else -> onNavigateToRoute(
+                        MainRouteReadBook(
+                            bookUrl = book.bookUrl,
+                            inBookshelf = !book.isNotShelf,
+                        ),
+                    )
+                }
             },
         )
     }

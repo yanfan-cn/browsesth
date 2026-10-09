@@ -42,17 +42,27 @@ class BrowserNtpPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_NEWS_FEED, true)
         set(value) = prefs.edit().putBoolean(KEY_NEWS_FEED, value).apply()
 
-    /** SPEC-084: The Paper source (default on). */
-    var newsSourceThePaper: Boolean
-        get() = prefs.getBoolean(KEY_NEWS_THE_PAPER, true)
-        set(value) = prefs.edit().putBoolean(KEY_NEWS_THE_PAPER, value).apply()
+    /** SPEC-088: Sina (default on). */
+    var newsSourceSina: Boolean
+        get() = prefs.getBoolean(KEY_NEWS_SINA, true)
+        set(value) = prefs.edit().putBoolean(KEY_NEWS_SINA, value).apply()
 
-    /** SPEC-084: BBC Chinese source (default on). */
+    /** SPEC-088: NetEase (default on). */
+    var newsSourceNetEase: Boolean
+        get() = prefs.getBoolean(KEY_NEWS_NETEASE, true)
+        set(value) = prefs.edit().putBoolean(KEY_NEWS_NETEASE, value).apply()
+
+    /** SPEC-088: Tencent (default on). */
+    var newsSourceTencent: Boolean
+        get() = prefs.getBoolean(KEY_NEWS_TENCENT, true)
+        set(value) = prefs.edit().putBoolean(KEY_NEWS_TENCENT, value).apply()
+
+    /** SPEC-084/088: BBC Chinese source (default on). */
     var newsSourceBbcZh: Boolean
         get() = prefs.getBoolean(KEY_NEWS_BBC_ZH, true)
         set(value) = prefs.edit().putBoolean(KEY_NEWS_BBC_ZH, value).apply()
 
-    /** SPEC-084: SSPAI source (default on). */
+    /** SPEC-084/088: SSPAI source (default on). */
     var newsSourceSspai: Boolean
         get() = prefs.getBoolean(KEY_NEWS_SSPAI, true)
         set(value) = prefs.edit().putBoolean(KEY_NEWS_SSPAI, value).apply()
@@ -69,7 +79,9 @@ class BrowserNtpPrefs(context: Context) {
         private const val KEY_SHOW_BOOKSHELF = "show_bookshelf_card"
         private const val KEY_SHOW_SHORTCUTS = "show_shortcut_grid"
         private const val KEY_NEWS_FEED = "news_feed_enabled"
-        private const val KEY_NEWS_THE_PAPER = "news_source_the_paper"
+        private const val KEY_NEWS_SINA = "news_source_sina"
+        private const val KEY_NEWS_NETEASE = "news_source_netease"
+        private const val KEY_NEWS_TENCENT = "news_source_tencent"
         private const val KEY_NEWS_BBC_ZH = "news_source_bbc_zh"
         private const val KEY_NEWS_SSPAI = "news_source_sspai"
         const val INCOGNITO_CONTEXT = "browsesth_incognito"

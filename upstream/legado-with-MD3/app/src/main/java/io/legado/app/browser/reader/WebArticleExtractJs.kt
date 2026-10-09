@@ -13,22 +13,32 @@ object WebArticleExtractJs {
             "function abs(u){try{return new URL(u,document.baseURI).href;}catch(e){return u||'';}}" +
             "function meta(sel){var el=document.querySelector(sel);if(!el)return '';return el.getAttribute('content')||'';}" +
             "function textOf(el){if(!el)return '';return (el.innerText||el.textContent||'').replace(/\\s+\\n/g,'\\n').trim();}" +
-            "function isBadImg(el,src){" +
+            "function isBadImg(el,src,fromLazy){" +
             "if(!src||src.indexOf('data:')===0)return true;" +
-            "var w=el.naturalWidth||el.width||0,h=el.naturalHeight||el.height||0;" +
-            "if(w&&h&&(w<80||h<80||w*h<12000))return true;" +
+            "var low=src.toLowerCase();" +
+            "if(/avatar|icon|logo|ads?|banner|pixel|1x1|spacer|blank\\.gif/.test(low))return true;" +
             "var cls=((el.className||'')+' '+(el.id||'')).toLowerCase();" +
             "if(/avatar|icon|logo|emoji|sprite|ads?|banner|pixel|track/.test(cls))return true;" +
-            "if(/avatar|icon|logo|ads?|banner|pixel|1x1/.test(src.toLowerCase()))return true;" +
+            // Skip size check when URL came from lazy attr (placeholder dims are misleading).
+            "if(!fromLazy){" +
+            "var w=el.naturalWidth||el.width||0,h=el.naturalHeight||el.height||0;" +
+            "if(w>0&&h>0&&(w<80||h<80||w*h<12000))return true;" +
+            "}" +
             "return false;" +
             "}" +
-            "function imgTag(el){" +
-            "var src=el.currentSrc||el.src||el.getAttribute('data-src')||el.getAttribute('data-original')" +
-            "||el.getAttribute('data-lazy-src')||el.getAttribute('data-url')||'';" +
-            "if((!src||src.indexOf('data:')===0)&&el.srcset){" +
-            "src=(el.srcset.split(',')[0]||'').trim().split(/\\s+/)[0]||'';" +
+            // SPEC-092: prefer lazy attrs over placeholder src (news sites often use 1x1 + data-src).
+            "function firstSrcset(v){" +
+            "if(!v)return '';var p=(v.split(',')[0]||'').trim().split(/\\s+/)[0]||'';return p;" +
             "}" +
-            "src=abs(src);if(isBadImg(el,src))return '';" +
+            "function imgTag(el){" +
+            "var lazy=el.getAttribute('data-src')||el.getAttribute('data-original')" +
+            "||el.getAttribute('data-lazy-src')||el.getAttribute('data-url')" +
+            "||el.getAttribute('data-actualsrc')||el.getAttribute('data-original-src')||'';" +
+            "if(!lazy)lazy=firstSrcset(el.getAttribute('data-srcset'));" +
+            "var src=lazy||el.currentSrc||el.src||'';" +
+            "if((!src||src.indexOf('data:')===0)&&el.srcset){src=firstSrcset(el.srcset);}" +
+            "src=abs(src);" +
+            "if(isBadImg(el,src,!!lazy))return '';" +
             "return '<img src=\"'+src.replace(/\"/g,'')+'\">';" +
             "}" +
             "function isSkip(tag){" +

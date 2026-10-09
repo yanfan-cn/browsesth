@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -50,6 +51,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -57,6 +59,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -85,6 +88,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.zIndex
+import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
@@ -118,6 +122,12 @@ import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import java.util.UUID
+
+/** SPEC-087: NTP is disposed while browsing; keep scroll across NTP↔session. */
+private object BrowserNtpScrollMemory {
+    @Volatile
+    var offset: Int = 0
+}
 
 private data class NtpColors(
     val pageBg: Color,
@@ -190,13 +200,25 @@ fun BrowserNtpScreen(
     var dailyWallpaper by remember { mutableStateOf(chromePrefs.dailyWallpaperEnabled) }
     var showBookshelf by remember { mutableStateOf(ntpPrefs.showBookshelfCard) }
     var showShortcuts by remember { mutableStateOf(ntpPrefs.showShortcutGrid) }
-    // SPEC-084: news feed prefs (default all on).
+    // SPEC-088: news feed prefs (default all on); sources toggled in card menu.
     var newsFeedEnabled by remember { mutableStateOf(ntpPrefs.newsFeedEnabled) }
-    var newsSourceThePaper by remember { mutableStateOf(ntpPrefs.newsSourceThePaper) }
+    var newsSourceSina by remember { mutableStateOf(ntpPrefs.newsSourceSina) }
+    var newsSourceNetEase by remember { mutableStateOf(ntpPrefs.newsSourceNetEase) }
+    var newsSourceTencent by remember { mutableStateOf(ntpPrefs.newsSourceTencent) }
     var newsSourceBbcZh by remember { mutableStateOf(ntpPrefs.newsSourceBbcZh) }
     var newsSourceSspai by remember { mutableStateOf(ntpPrefs.newsSourceSspai) }
     var newsItems by remember { mutableStateOf<List<BrowserNtpNews.Item>>(emptyList()) }
     var newsLoading by remember { mutableStateOf(false) }
+    var newsSourceMenu by remember { mutableStateOf(false) }
+    val ntpScrollState = rememberScrollState()
+    val newsScope = rememberCoroutineScope()
+    var scrollRestored by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) {
+        onDispose { BrowserNtpScrollMemory.offset = ntpScrollState.value }
+    }
+    LaunchedEffect(ntpScrollState) {
+        snapshotFlow { ntpScrollState.value }.collect { BrowserNtpScrollMemory.offset = it }
+    }
 
     // SPEC-059/067: NTP follows App ColorScheme (background + surfaceContainerLow).
     val colors = rememberNtpColors(forceDark = null)
@@ -231,12 +253,50 @@ fun BrowserNtpScreen(
         }
     }
 
-    // SPEC-084: load NTP news when enabled (skip incognito).
+    fun anyNewsSource() =
+        newsSourceSina || newsSourceNetEase || newsSourceTencent ||
+            newsSourceBbcZh || newsSourceSspai
+
+    fun newsFlags() = BrowserNtpNews.SourceFlags(
+        sina = newsSourceSina,
+        netEase = newsSourceNetEase,
+        tencent = newsSourceTencent,
+        bbcZh = newsSourceBbcZh,
+        sspai = newsSourceSspai,
+    )
+
+    fun refreshNews(force: Boolean) {
+        if (incognito || !newsFeedEnabled) return
+        if (!anyNewsSource()) {
+            newsItems = emptyList()
+            newsLoading = false
+            return
+        }
+        newsScope.launch {
+            val flags = newsFlags()
+            if (!force) {
+                BrowserNtpNews.cached(flags)?.let {
+                    newsItems = it
+                    newsLoading = false
+                    return@launch
+                }
+            }
+            if (newsItems.isEmpty()) newsLoading = true
+            newsItems = withContext(Dispatchers.IO) {
+                BrowserNtpNews.load(flags, force = force)
+            }
+            newsLoading = false
+        }
+    }
+
+    // SPEC-088: load when enabled/source changes; cache avoids auto-refresh on return.
     LaunchedEffect(
         firstFrameDone,
         incognito,
         newsFeedEnabled,
-        newsSourceThePaper,
+        newsSourceSina,
+        newsSourceNetEase,
+        newsSourceTencent,
         newsSourceBbcZh,
         newsSourceSspai,
     ) {
@@ -245,22 +305,33 @@ fun BrowserNtpScreen(
             newsLoading = false
             return@LaunchedEffect
         }
-        if (!newsSourceThePaper && !newsSourceBbcZh && !newsSourceSspai) {
+        if (!anyNewsSource()) {
             newsItems = emptyList()
             newsLoading = false
             return@LaunchedEffect
         }
-        newsLoading = true
+        val flags = newsFlags()
+        BrowserNtpNews.cached(flags)?.let {
+            newsItems = it
+            newsLoading = false
+            return@LaunchedEffect
+        }
+        if (newsItems.isEmpty()) newsLoading = true
         newsItems = withContext(Dispatchers.IO) {
-            BrowserNtpNews.load(
-                BrowserNtpNews.SourceFlags(
-                    thePaper = newsSourceThePaper,
-                    bbcZh = newsSourceBbcZh,
-                    sspai = newsSourceSspai,
-                ),
-            )
+            BrowserNtpNews.load(flags, force = false)
         }
         newsLoading = false
+    }
+
+    // SPEC-088: restore scroll after content is measurable (news list / first frame).
+    LaunchedEffect(firstFrameDone, newsLoading, newsItems.size) {
+        if (!firstFrameDone || scrollRestored) return@LaunchedEffect
+        if (newsLoading && newsItems.isEmpty()) return@LaunchedEffect
+        val saved = BrowserNtpScrollMemory.offset
+        if (saved > 0) {
+            ntpScrollState.scrollTo(saved)
+        }
+        scrollRestored = true
     }
 
     fun submit() {
@@ -372,9 +443,6 @@ fun BrowserNtpScreen(
                         showBookshelf = showBookshelf,
                         showShortcuts = showShortcuts,
                         newsFeedEnabled = newsFeedEnabled,
-                        newsSourceThePaper = newsSourceThePaper,
-                        newsSourceBbcZh = newsSourceBbcZh,
-                        newsSourceSspai = newsSourceSspai,
                         textColor = chromeTint,
                         onDismiss = { customizeMenu = false },
                         onDailyWallpaper = {
@@ -392,18 +460,6 @@ fun BrowserNtpScreen(
                         onNewsFeedEnabled = {
                             newsFeedEnabled = it
                             ntpPrefs.newsFeedEnabled = it
-                        },
-                        onNewsSourceThePaper = {
-                            newsSourceThePaper = it
-                            ntpPrefs.newsSourceThePaper = it
-                        },
-                        onNewsSourceBbcZh = {
-                            newsSourceBbcZh = it
-                            ntpPrefs.newsSourceBbcZh = it
-                        },
-                        onNewsSourceSspai = {
-                            newsSourceSspai = it
-                            ntpPrefs.newsSourceSspai = it
                         },
                     )
                 }
@@ -429,6 +485,7 @@ fun BrowserNtpScreen(
                     tint = chromeTint,
                     useGlass = true,
                     containerColor = chromeBtnBg,
+                    menuBelowTopBar = true,
                     onOpenTabs = onOpenTabs,
                     onNewTab = { BrowserTabManager.openNewTab(url = null, select = true) },
                     onCloseAll = { BrowserTabManager.closeAll() },
@@ -440,29 +497,26 @@ fun BrowserNtpScreen(
             modifier = Modifier
                 .then(
                     if (tabletLayout) {
-                        // SPEC-060: portrait 75% / landscape 55%; content +70dp (menu stays in outer chrome)
+                        // SPEC-060/088: portrait 75% / landscape 55%; content +85dp below status bars.
                         val portrait = LocalConfiguration.current.orientation ==
                             android.content.res.Configuration.ORIENTATION_PORTRAIT
                         Modifier
                             .fillMaxWidth(if (portrait) 0.75f else 0.55f)
                             .align(Alignment.TopCenter)
-                            .padding(
-                                top = 40.dp + BrowserUiTokens.NtpPhoneContentExtraTop,
-                                bottom = 40.dp,
-                            )
+                            .statusBarsPadding()
+                            .padding(top = BrowserUiTokens.NtpContentShiftDown, bottom = 24.dp)
                     } else {
+                        // Top/bottom chrome float (no TopBarHeight/BottomBarHeight reserve).
+                        // Content = statusBars + 85dp (previous 80dp-from-screen-top looked like no shift).
                         Modifier
                             .fillMaxSize()
                             .padding(horizontal = BrowserUiTokens.PagePaddingH)
                             .statusBarsPadding()
-                            .padding(
-                                top = BrowserUiTokens.TopBarHeight + 8.dp +
-                                    BrowserUiTokens.NtpPhoneContentExtraTop,
-                                bottom = 72.dp,
-                            )
+                            .navigationBarsPadding()
+                            .padding(top = BrowserUiTokens.NtpContentShiftDown)
                     },
                 )
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(ntpScrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             val showLogo = incognito || !dailyWallpaper
@@ -789,7 +843,7 @@ fun BrowserNtpScreen(
                 }
             }
 
-            // SPEC-084: optional news feed (hidden in incognito).
+            // SPEC-084/087: optional news feed (hidden in incognito).
             if (!incognito && newsFeedEnabled) {
                 Spacer(modifier = Modifier.height(BrowserUiTokens.SpaceXl))
                 val newsFill = ntpGlassOverlayAlpha()
@@ -808,16 +862,75 @@ fun BrowserNtpScreen(
                     tonalElevation = 0.dp,
                 ) {
                     Column(modifier = Modifier.padding(BrowserUiTokens.SpaceLg)) {
-                        Text(
-                            "资讯",
-                            color = colors.primaryText,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Medium,
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = BrowserUiTokens.SpaceMd),
-                            textAlign = TextAlign.Start,
-                        )
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "资讯",
+                                color = colors.primaryText,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Box {
+                                IconButton(
+                                    onClick = { newsSourceMenu = true },
+                                    modifier = Modifier.size(BrowserUiTokens.ControlMedium),
+                                ) {
+                                    SymbolIcon(
+                                        Symbols.FilterList,
+                                        contentDescription = "资讯来源",
+                                        tint = colors.primaryText,
+                                        size = 22.dp,
+                                    )
+                                }
+                                if (newsSourceMenu) {
+                                    NtpNewsSourceMenu(
+                                        sina = newsSourceSina,
+                                        netEase = newsSourceNetEase,
+                                        tencent = newsSourceTencent,
+                                        bbcZh = newsSourceBbcZh,
+                                        sspai = newsSourceSspai,
+                                        textColor = colors.primaryText,
+                                        onDismiss = { newsSourceMenu = false },
+                                        onSina = {
+                                            newsSourceSina = it
+                                            ntpPrefs.newsSourceSina = it
+                                        },
+                                        onNetEase = {
+                                            newsSourceNetEase = it
+                                            ntpPrefs.newsSourceNetEase = it
+                                        },
+                                        onTencent = {
+                                            newsSourceTencent = it
+                                            ntpPrefs.newsSourceTencent = it
+                                        },
+                                        onBbcZh = {
+                                            newsSourceBbcZh = it
+                                            ntpPrefs.newsSourceBbcZh = it
+                                        },
+                                        onSspai = {
+                                            newsSourceSspai = it
+                                            ntpPrefs.newsSourceSspai = it
+                                        },
+                                    )
+                                }
+                            }
+                            IconButton(
+                                onClick = { refreshNews(force = true) },
+                                modifier = Modifier.size(BrowserUiTokens.ControlMedium),
+                            ) {
+                                SymbolIcon(
+                                    Symbols.Refresh,
+                                    contentDescription = "刷新资讯",
+                                    tint = colors.primaryText,
+                                    size = 22.dp,
+                                )
+                            }
+                        }
                         when {
                             newsLoading && newsItems.isEmpty() -> {
                                 Text(
@@ -846,29 +959,13 @@ fun BrowserNtpScreen(
                                     if (index > 0) {
                                         Spacer(modifier = Modifier.height(2.dp))
                                     }
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable {
-                                                onOpenUrl(item.url, false, item.title)
-                                            }
-                                            .padding(vertical = 10.dp, horizontal = 4.dp),
-                                    ) {
-                                        Text(
-                                            item.title,
-                                            color = colors.primaryText,
-                                            fontSize = 15.sp,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            item.source.label,
-                                            color = colors.secondaryText,
-                                            fontSize = 12.sp,
-                                        )
-                                    }
+                                    NtpNewsRow(
+                                        item = item,
+                                        primaryText = colors.primaryText,
+                                        secondaryText = colors.secondaryText,
+                                        placeholderBg = colors.fieldBg,
+                                        onOpen = { onOpenUrl(item.url, false, item.title) },
+                                    )
                                 }
                             }
                         }
@@ -1019,23 +1116,110 @@ private fun NtpGlassIcon(
 }
 
 @Composable
+private fun NtpNewsRow(
+    item: BrowserNtpNews.Item,
+    primaryText: Color,
+    secondaryText: Color,
+    placeholderBg: Color,
+    onOpen: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onOpen)
+            .padding(vertical = 10.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                item.title,
+                color = primaryText,
+                fontSize = 15.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                item.source.label,
+                color = secondaryText,
+                fontSize = 12.sp,
+            )
+        }
+        val image = item.imageUrl
+        if (!image.isNullOrBlank()) {
+            Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceMd))
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(image)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(width = 84.dp, height = 56.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(placeholderBg),
+            )
+        }
+    }
+}
+
+@Composable
+private fun NtpNewsSourceMenu(
+    sina: Boolean,
+    netEase: Boolean,
+    tencent: Boolean,
+    bbcZh: Boolean,
+    sspai: Boolean,
+    textColor: Color,
+    onDismiss: () -> Unit,
+    onSina: (Boolean) -> Unit,
+    onNetEase: (Boolean) -> Unit,
+    onTencent: (Boolean) -> Unit,
+    onBbcZh: (Boolean) -> Unit,
+    onSspai: (Boolean) -> Unit,
+) {
+    Popup(
+        alignment = Alignment.TopEnd,
+        offset = IntOffset(0, 0),
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.PopupProperties(focusable = true),
+    ) {
+        val shape = RoundedCornerShape(BrowserUiTokens.CardCorner)
+        Column(
+            modifier = Modifier
+                .width(220.dp)
+                .clip(shape)
+                .browserControlLiquidGlass(
+                    shape,
+                    interactive = false,
+                    readableOverlay = true,
+                )
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        ) {
+            Text("来源", color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            NtpCustomizeRow("新浪", sina, textColor, onSina)
+            NtpCustomizeRow("网易", netEase, textColor, onNetEase)
+            NtpCustomizeRow("腾讯", tencent, textColor, onTencent)
+            NtpCustomizeRow("BBC中文", bbcZh, textColor, onBbcZh)
+            NtpCustomizeRow("少数派", sspai, textColor, onSspai)
+        }
+    }
+}
+
+@Composable
 private fun NtpCustomizePanel(
     dailyWallpaper: Boolean,
     showBookshelf: Boolean,
     showShortcuts: Boolean,
     newsFeedEnabled: Boolean,
-    newsSourceThePaper: Boolean,
-    newsSourceBbcZh: Boolean,
-    newsSourceSspai: Boolean,
     textColor: Color,
     onDismiss: () -> Unit,
     onDailyWallpaper: (Boolean) -> Unit,
     onShowBookshelf: (Boolean) -> Unit,
     onShowShortcuts: (Boolean) -> Unit,
     onNewsFeedEnabled: (Boolean) -> Unit,
-    onNewsSourceThePaper: (Boolean) -> Unit,
-    onNewsSourceBbcZh: (Boolean) -> Unit,
-    onNewsSourceSspai: (Boolean) -> Unit,
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -1088,13 +1272,8 @@ private fun NtpCustomizePanel(
             NtpCustomizeRow("每日壁纸", dailyWallpaper, textColor, onDailyWallpaper)
             NtpCustomizeRow("阅读列表卡", showBookshelf, textColor, onShowBookshelf)
             NtpCustomizeRow("快捷书签", showShortcuts, textColor, onShowShortcuts)
-            // SPEC-084: master news switch + per-source toggles.
+            // SPEC-087: master switch only; per-source toggles live in the news card.
             NtpCustomizeRow("资讯信息流", newsFeedEnabled, textColor, onNewsFeedEnabled)
-            if (newsFeedEnabled) {
-                NtpCustomizeRow("澎湃", newsSourceThePaper, textColor, onNewsSourceThePaper)
-                NtpCustomizeRow("BBC中文", newsSourceBbcZh, textColor, onNewsSourceBbcZh)
-                NtpCustomizeRow("少数派", newsSourceSspai, textColor, onNewsSourceSspai)
-            }
         }
     }
 }

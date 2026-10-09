@@ -21,6 +21,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.browser.engine.BrowserChromePrefs
 import io.legado.app.browser.engine.BrowserFormFactor
@@ -303,9 +304,9 @@ private fun BrowserNtpSessionSwitch(
     session: @Composable () -> Unit,
 ) {
     // SPEC-033/039: never compose NTP and session (AwContents) together.
-    // SPEC-083: surface underlay + snap NTP away on push (no empty black gap).
+    // SPEC-088 fix: session zIndex above NTP so exit slide is visible (not covered by snapped NTP).
     val scheme = LegadoTheme.colorScheme
-    val spec = tween<IntOffset>(durationMillis = 480, easing = FastOutSlowInEasing)
+    val spec = tween<IntOffset>(durationMillis = 280, easing = FastOutSlowInEasing)
     var ntpState by remember {
         mutableStateOf(MutableTransitionState(showNtp).apply { targetState = showNtp })
     }
@@ -316,7 +317,6 @@ private fun BrowserNtpSessionSwitch(
     LaunchedEffect(showNtp) {
         val wantNtp = showNtp
         val wantSession = !showNtp
-        // Already settled (incl. first composition) — do not replay exit/enter.
         if (ntpState.isIdle && sessionState.isIdle &&
             ntpState.currentState == wantNtp && ntpState.targetState == wantNtp &&
             sessionState.currentState == wantSession && sessionState.targetState == wantSession
@@ -324,7 +324,7 @@ private fun BrowserNtpSessionSwitch(
             return@LaunchedEffect
         }
         if (!showNtp) {
-            // Push: snap NTP off (recreate state; currentState is internal), then session enters.
+            // Push: hide NTP, then session slides in from right.
             sessionState.targetState = false
             if (sessionState.currentState) {
                 snapshotFlow { sessionState.isIdle && !sessionState.currentState }.first { it }
@@ -332,17 +332,13 @@ private fun BrowserNtpSessionSwitch(
             ntpState = MutableTransitionState(false)
             sessionState.targetState = true
         } else {
-            // Pop: session exits right, then NTP enters from left.
+            // Pop: NTP ready underneath; session slides out to the right on top.
             if (!ntpState.currentState && !ntpState.targetState) {
-                ntpState = MutableTransitionState(false)
-            }
-            ntpState.targetState = false
-            if (ntpState.currentState) {
-                snapshotFlow { ntpState.isIdle && !ntpState.currentState }.first { it }
+                ntpState = MutableTransitionState(true)
+            } else {
+                ntpState.targetState = true
             }
             sessionState.targetState = false
-            snapshotFlow { sessionState.isIdle && !sessionState.currentState }.first { it }
-            ntpState.targetState = true
         }
     }
 
@@ -352,20 +348,24 @@ private fun BrowserNtpSessionSwitch(
             .background(scheme.surface),
     ) {
         AnimatedVisibility(
+            visibleState = ntpState,
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(0f),
+            enter = slideInHorizontally(animationSpec = spec) { fullWidth -> -fullWidth / 4 },
+            exit = slideOutHorizontally(animationSpec = spec) { fullWidth -> -fullWidth },
+        ) {
+            ntp()
+        }
+        AnimatedVisibility(
             visibleState = sessionState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(1f),
             enter = slideInHorizontally(animationSpec = spec) { fullWidth -> fullWidth },
             exit = slideOutHorizontally(animationSpec = spec) { fullWidth -> fullWidth },
         ) {
             session()
-        }
-        AnimatedVisibility(
-            visibleState = ntpState,
-            modifier = Modifier.fillMaxSize(),
-            enter = slideInHorizontally(animationSpec = spec) { fullWidth -> -fullWidth },
-            exit = slideOutHorizontally(animationSpec = spec) { fullWidth -> -fullWidth },
-        ) {
-            ntp()
         }
     }
 }
