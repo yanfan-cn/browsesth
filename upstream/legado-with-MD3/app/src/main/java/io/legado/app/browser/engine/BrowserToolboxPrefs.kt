@@ -38,6 +38,8 @@ class BrowserToolboxPrefs(context: Context) {
             "pick_block",
             "ad_block",
             "ua_toggle",
+            "eye_protection",
+            "text_zoom",
         )
     }
 }

@@ -1,11 +1,15 @@
 package io.legado.app.ui.main.home
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
@@ -43,8 +48,11 @@ import io.legado.app.ui.theme.LegadoTheme
 import kotlinx.coroutines.flow.first
 
 /**
- * Home tab: multi-tab NTP ↔ session (SPEC-012/018).
- * Tablet uses Chrome-style top chrome + right side panels.
+ * Home tab: multi-tab NTP ↔ session (SPEC-012/018/108).
+ * Tablet / foldable inner screen: Chrome-style top chrome + half-width side panels.
+ * Phone / foldable cover: phone chrome.
+ * Shell swap uses no fade/scale (liquid-glass RenderThread safety); smoothness comes from
+ * MainActivity configChanges + BrowserSessionHolder reattach.
  */
 @Composable
 fun BrowserHomeTabScreen(
@@ -92,7 +100,8 @@ private fun BrowserHomeTabBody(
     onOpenBookshelf: () -> Unit,
 ) {
     val context = LocalContext.current
-    val isTablet = remember { BrowserFormFactor.isTablet(context) }
+    // SPEC-108: react to fold/unfold (do not remember forever).
+    val isTablet = BrowserFormFactor.isTablet(LocalConfiguration.current)
     val chromePrefs = remember { BrowserChromePrefs(context) }
     val tabs by BrowserTabManager.tabs.collectAsStateWithLifecycle()
     val activeId by BrowserTabManager.activeTabId.collectAsStateWithLifecycle()
@@ -174,7 +183,20 @@ private fun BrowserHomeTabBody(
         }
     }
 
-    if (!isTablet) {
+    // SPEC-108: collapsing to cover closes tablet side panels.
+    LaunchedEffect(isTablet) {
+        if (!isTablet) sidePanel = TabletSidePanel.None
+    }
+
+    AnimatedContent(
+        targetState = isTablet,
+        transitionSpec = {
+            // SPEC-108 / 079: no fade/scale over browser + liquid glass.
+            EnterTransition.None togetherWith ExitTransition.None
+        },
+        label = "browserShellFormFactor",
+    ) { tablet ->
+    if (!tablet) {
         PhoneBrowserHome(
             showNtp = showNtp,
             activeUrl = active?.url,
@@ -191,9 +213,7 @@ private fun BrowserHomeTabBody(
             sessionKey = active?.id,
             onSessionExitFinished = onSessionExitFinished,
         )
-        return
-    }
-
+    } else {
     TabletBrowserShell(
         address = address,
         onAddressChange = { address = it },
@@ -308,6 +328,8 @@ private fun BrowserHomeTabBody(
         }
         }
     }
+    } // tablet shell
+    } // AnimatedContent
 }
 
 @Composable

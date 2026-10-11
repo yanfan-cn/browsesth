@@ -1,6 +1,7 @@
 # Conservative built-in ad URL substrings for Browsesth (one per line).
 # Matching is case-insensitive contains(); keep this list small to limit false positives.
 # SPEC-013: removed over-broad /ads? and bare adsystem (false-positive on Baidu assets).
+# SPEC-107: add common CN/global ad hosts; still avoid bare "ads" / path-only noise.
 doubleclick.net
 googlesyndication.com
 googleadservices.com
@@ -25,3 +26,24 @@ ad.doubleclick
 /ad.js
 /ads.js
 browsesth-ad-probe
+# SPEC-107 CN / video / union (host substrings; Baidu ad hosts also in allowlist exceptions)
+pos.baidu.com
+cpro.baidu.com
+cbjs.baidu.com
+dup.baidustatic.com
+gdt.qq.com
+l.qq.com/lagent
+pgdt.gtimg.cn
+mi.gdt.qq.com
+wxsnsdy.wxs.qq.com
+ads.privacy.qq.com
+jd.com/jdads
+tanx.com
+irs01.com
+admaster.com.cn
+ipinyou.com
+mediav.com
+ad.qq.com
+ads.youtube.com
+pagead.js
+adsystem.amazon

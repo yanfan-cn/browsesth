@@ -38,10 +38,13 @@ object BrowserAdRules {
     fun shouldBlock(url: String, enabled: Boolean): Boolean {
         if (!enabled) return false
         if (url.contains(BrowserAwContentsClient.AD_PROBE_MARKER)) return true
-        if (isFirstPartyAllowlisted(url)) return false
         val lower = url.lowercase()
         val rules = loaded.get() ?: DEFAULT_RULES
-        return rules.any { lower.contains(it) }
+        val hit = rules.any { lower.contains(it) }
+        if (!hit) return false
+        // SPEC-107: first-party allowlist skips ambiguous hits, but not explicit ad hosts.
+        if (isFirstPartyAllowlisted(url) && !isAllowlistException(url)) return false
+        return true
     }
 
     fun hostOf(url: String): String? {
@@ -63,6 +66,14 @@ object BrowserAdRules {
         }
     }
 
+    /** SPEC-107: known Baidu ad / union hosts must not ride the SERP allowlist. */
+    fun isAllowlistException(url: String): Boolean {
+        val host = hostOf(url) ?: return false
+        return ALLOW_HOST_EXCEPTIONS.any { suffix ->
+            host == suffix || host.endsWith(".$suffix")
+        }
+    }
+
     private const val ASSET = "browser/adblock_rules.txt"
 
     private val ALLOW_HOST_SUFFIXES = listOf(
@@ -73,6 +84,13 @@ object BrowserAdRules {
         "baidubce.com",
         "baidu-img.cn",
         "bdstatic.cn",
+    )
+
+    private val ALLOW_HOST_EXCEPTIONS = listOf(
+        "pos.baidu.com",
+        "cpro.baidu.com",
+        "cbjs.baidu.com",
+        "dup.baidustatic.com",
     )
 
     private val DEFAULT_RULES = listOf(

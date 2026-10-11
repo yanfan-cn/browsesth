@@ -83,4 +83,19 @@ class BrowserAdRulesTest {
             ),
         )
     }
+
+    @Test
+    fun blocksBaiduAdHostDespiteAllowlist() {
+        // Rule hit on Baidu ad host must not be swallowed by the SERP allowlist.
+        // (JVM unit tests may not resolve android.net.Uri host; matching is substring-based.)
+        BrowserAdRules.replaceRulesForTest(
+            listOf("pos.baidu.com", "doubleclick.net"),
+        )
+        assertTrue(
+            BrowserAdRules.shouldBlock(
+                "https://pos.baidu.com/act?ownerid=1",
+                enabled = true,
+            ),
+        )
+    }
 }

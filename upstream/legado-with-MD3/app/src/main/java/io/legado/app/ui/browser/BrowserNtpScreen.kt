@@ -471,8 +471,8 @@ fun BrowserNtpScreen(
                 .align(Alignment.TopStart)
                 .zIndex(2f)
                 .fillMaxWidth()
-                .statusBarsPadding()
-                .height(BrowserUiTokens.TopBarHeight)
+                .then(if (tabletLayout) Modifier else Modifier.statusBarsPadding())
+                .height(BrowserUiTokens.NtpTopBarHeight)
                 .padding(horizontal = BrowserUiTokens.PagePaddingH),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceMd),
@@ -552,14 +552,17 @@ fun BrowserNtpScreen(
             modifier = Modifier
                 .then(
                     if (tabletLayout) {
-                        // SPEC-060/088: portrait 75% / landscape 55%; content +85dp below status bars.
+                        // SPEC-060/110: portrait 75% / landscape 55%; shell already owns
+                        // statusBars + tab strip + function bar — no statusBars/85dp again.
                         val portrait = LocalConfiguration.current.orientation ==
                             android.content.res.Configuration.ORIENTATION_PORTRAIT
                         Modifier
                             .fillMaxWidth(if (portrait) 0.75f else 0.55f)
                             .align(Alignment.TopCenter)
-                            .statusBarsPadding()
-                            .padding(top = BrowserUiTokens.NtpContentShiftDown, bottom = 24.dp)
+                            .padding(
+                                top = BrowserUiTokens.NtpTopBarHeight,
+                                bottom = 24.dp,
+                            )
                     } else {
                         // Top/bottom chrome float (no TopBarHeight/BottomBarHeight reserve).
                         // Content = statusBars + 85dp (previous 80dp-from-screen-top looked like no shift).
@@ -1334,7 +1337,7 @@ private fun NtpCustomizePanel(
             x = 0,
             y = with(density) {
                 (
-                    (BrowserUiTokens.TopBarHeight - BrowserUiTokens.ControlMedium) / 2 +
+                    (BrowserUiTokens.NtpTopBarHeight - BrowserUiTokens.ControlMedium) / 2 +
                         BrowserUiTokens.ControlMedium +
                         8.dp
                     ).roundToPx()

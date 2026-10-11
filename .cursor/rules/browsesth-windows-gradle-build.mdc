@@ -32,6 +32,6 @@ robocopy "C:\Users\32082\.gradle\caches" "D:\cursor\.gradle-home\caches" /E /J /
 
 ## 其它
 
-- `assemble*` 会自动 `VERSION_TENTHS` +0.1；失败已 bump 时按交接处理，勿绕过机制
+- `assemble*`：本包用当前 `MAJOR.MINOR.PATCH-beta`，结束后 PATCH+1（SPEC-108）；APK 名 `巡页`+versionName；失败已 bump 时按交接处理，勿绕过
 - adb 安装前先 `adb devices`；无设备则 `adb kill-server` 后再查
 - 教训摘要亦见 `docs/会话状态交接.md` §0.6

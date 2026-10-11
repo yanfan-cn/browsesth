@@ -1,5 +1,7 @@
 package io.legado.app.ui.browser
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,10 +23,12 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -39,8 +43,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.legado.app.browser.engine.BrowserChromePrefs
 import io.legado.app.browser.engine.BrowserToolboxPrefs
 import io.legado.app.browser.engine.BrowserUa
+import io.legado.app.ui.config.themeConfig.ThemeModeSelector
 import io.legado.app.ui.theme.ChromeSurfaceStyle
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
@@ -52,9 +58,9 @@ import sh.calvin.reorderable.rememberReorderableLazyGridState
 
 /**
  * SPEC-070: Edge-style browser toolbox — pinned accent row + outline grid + reorder.
- * SPEC-097: no "工具箱" title; each cell 24dp rounded fill / liquid glass.
+ * SPEC-097: no "工具箱" title; each cell rounded fill / liquid glass.
  * SPEC-099/102: panel glass; cells; no divider.
- * SPEC-102: panel 0.2/0.15; cell height ~70%; icon 24dp; top inset 16dp; filled=13.4 solid cell.
+ * SPEC-107: readable overlay; 20dp corners; no drag handle; web bg / eye / text zoom.
  */
 data class BrowserToolboxActions(
     val onOpenBookmarks: () -> Unit,
@@ -71,6 +77,13 @@ data class BrowserToolboxActions(
     val onToggleAdBlock: () -> Unit,
     val uaMode: BrowserUa.Mode,
     val onToggleUa: () -> Unit,
+    val webDarkMode: String,
+    val onWebDarkModeChange: (String) -> Unit,
+    val eyeProtectionEnabled: Boolean,
+    val onToggleEyeProtection: () -> Unit,
+    val onOpenEyeProtectionSettings: () -> Unit,
+    val textZoomPercent: Int,
+    val onOpenTextZoom: () -> Unit,
 )
 
 private data class ToolboxGridDef(
@@ -79,27 +92,15 @@ private data class ToolboxGridDef(
     val icon: MaterialSymbol,
 )
 
-private val ToolboxCellShape = RoundedCornerShape(24.dp)
+/** SPEC-107: 20dp corners. */
+private val ToolboxCellShape = RoundedCornerShape(20.dp)
 private val ToolboxPanelShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 private val ToolboxCellGap = 12.dp
-/** SPEC-102: ~70% of SPEC-099 88dp container; label/padding unchanged. */
 private val ToolboxCellHeight = 62.dp
 private val ToolboxCellIcon = 24.dp
 private val ToolboxCellLabelSp = 11.sp
-private val ToolboxContentTopInset = 16.dp
-
-/** SPEC-102: panel overlay — light 0.2 / dark 0.15 */
-@Composable
-private fun toolboxPanelOverlayAlpha(): Float =
-    if (LegadoTheme.isDark) 0.15f else 0.20f
-
-/** Liquid-glass keys stay denser; filled mode uses default (13.4 solid) via null overlay. */
-@Composable
-private fun toolboxCellOverlayAlpha(): Float? {
-    val style = currentChromeSurfaceStyle()
-    if (style == ChromeSurfaceStyle.Filled) return null
-    return if (LegadoTheme.isDark) 0.72f else 0.68f
-}
+private val ToolboxContentTopInset = 12.dp
+private val ToolboxWebBgShape = RoundedCornerShape(20.dp)
 
 @Composable
 fun Modifier.toolboxPanelSurface(
@@ -110,17 +111,35 @@ fun Modifier.toolboxPanelSurface(
         interactive = false,
         showShadow = false,
         enableLens = false,
-        overlayAlpha = toolboxPanelOverlayAlpha(),
+        // SPEC-107 1A: match NTP home-menu readable overlay alphas.
+        readableOverlay = true,
     )
 
 @Composable
-private fun Modifier.toolboxCellSurface(): Modifier =
-    browserControlLiquidGlass(
+private fun Modifier.toolboxCellSurface(): Modifier {
+    val style = currentChromeSurfaceStyle()
+    // SPEC-109: denser keys for readability (was 0.68 / 0.72).
+    val overlay = when (style) {
+        ChromeSurfaceStyle.Filled -> null
+        else -> if (LegadoTheme.isDark) 0.92f else 0.90f
+    }
+    return browserControlLiquidGlass(
         shape = ToolboxCellShape,
         interactive = false,
         showShadow = false,
         enableLens = false,
-        overlayAlpha = toolboxCellOverlayAlpha(),
+        overlayAlpha = overlay,
+    )
+}
+
+@Composable
+private fun Modifier.toolboxWebBgSurface(): Modifier =
+    browserControlLiquidGlass(
+        shape = ToolboxWebBgShape,
+        interactive = false,
+        showShadow = false,
+        enableLens = false,
+        readableOverlay = true,
     )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -136,7 +155,7 @@ fun BrowserToolboxSheet(
     var editing by remember { mutableStateOf(false) }
     val scheme = LegadoTheme.colorScheme
     val screenH = LocalConfiguration.current.screenHeightDp.dp
-    val sheetHeight = screenH * 0.5f
+    val sheetHeight = screenH * 0.55f
 
     AppModalBottomSheet(
         show = show,
@@ -165,6 +184,7 @@ fun BrowserToolboxSheet(
         contentPaddingEnabled = false,
         animateContentSize = false,
         containerColor = Color.Transparent,
+        showDragHandle = false,
         contentWindowInsets = {
             WindowInsets.statusBars.union(WindowInsets.navigationBars)
         },
@@ -205,10 +225,35 @@ fun BrowserToolboxBody(
 ) {
     val scheme = LegadoTheme.colorScheme
     Column(modifier = modifier) {
+        if (!editing) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = ToolboxContentTopInset)
+                    .toolboxWebBgSurface()
+                    .clip(ToolboxWebBgShape)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            ) {
+                Text(
+                    "网页背景",
+                    color = scheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                )
+                Spacer(Modifier.height(6.dp))
+                ThemeModeSelector(
+                    selectedMode = webDarkToSelector(actions.webDarkMode),
+                    onModeSelected = { value ->
+                        actions.onWebDarkModeChange(selectorToWebDark(value))
+                    },
+                )
+            }
+            Spacer(Modifier.height(ToolboxCellGap))
+        } else {
+            Spacer(Modifier.height(ToolboxContentTopInset))
+        }
+
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = ToolboxContentTopInset),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(ToolboxCellGap),
         ) {
             ToolboxCell(
@@ -258,7 +303,13 @@ fun BrowserToolboxBody(
         }
         Spacer(Modifier.height(ToolboxCellGap))
 
-        val defs = remember(order, actions.adBlockEnabled, actions.uaMode) {
+        val defs = remember(
+            order,
+            actions.adBlockEnabled,
+            actions.uaMode,
+            actions.eyeProtectionEnabled,
+            actions.textZoomPercent,
+        ) {
             order.mapNotNull { id -> gridDef(id, actions) }
         }
 
@@ -310,8 +361,12 @@ fun BrowserToolboxBody(
                     ToolboxCell(
                         icon = def.icon,
                         label = def.label,
-                        tint = scheme.onSurface,
-                        iconFilled = false,
+                        tint = when (def.id) {
+                            "eye_protection" ->
+                                if (actions.eyeProtectionEnabled) scheme.primary else scheme.onSurface
+                            else -> scheme.onSurface
+                        },
+                        iconFilled = def.id == "eye_protection" && actions.eyeProtectionEnabled,
                         onClick = {
                             when (def.id) {
                                 "new_incognito" -> {
@@ -340,7 +395,21 @@ fun BrowserToolboxBody(
                                 }
                                 "ad_block" -> actions.onToggleAdBlock()
                                 "ua_toggle" -> actions.onToggleUa()
+                                "eye_protection" -> actions.onToggleEyeProtection()
+                                "text_zoom" -> {
+                                    onDismiss()
+                                    actions.onOpenTextZoom()
+                                }
                             }
+                        },
+                        onLongClick = when (def.id) {
+                            "eye_protection" -> {
+                                {
+                                    onDismiss()
+                                    actions.onOpenEyeProtectionSettings()
+                                }
+                            }
+                            else -> null
                         },
                     )
                 }
@@ -375,9 +444,20 @@ private fun gridDef(id: String, actions: BrowserToolboxActions): ToolboxGridDef?
         "UA·${actions.uaMode.label}",
         if (actions.uaMode == BrowserUa.Mode.Desktop) Symbols.Computer else Symbols.PhoneAndroid,
     )
+    "eye_protection" -> ToolboxGridDef(
+        id,
+        if (actions.eyeProtectionEnabled) "护眼·开" else "护眼·关",
+        Symbols.Visibility,
+    )
+    "text_zoom" -> ToolboxGridDef(
+        id,
+        "字体·${actions.textZoomPercent}%",
+        Symbols.FormatSize,
+    )
     else -> null
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ToolboxCell(
     icon: MaterialSymbol,
@@ -387,6 +467,7 @@ private fun ToolboxCell(
     editing: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -396,10 +477,13 @@ private fun ToolboxCell(
             .toolboxCellSurface()
             .clip(ToolboxCellShape)
             .then(
-                if (onClick != null && !editing) {
-                    Modifier.clickable(onClick = onClick)
-                } else {
-                    Modifier
+                when {
+                    editing || onClick == null -> Modifier
+                    onLongClick != null -> Modifier.combinedClickable(
+                        onClick = onClick,
+                        onLongClick = onLongClick,
+                    )
+                    else -> Modifier.clickable(onClick = onClick)
                 },
             )
             .padding(horizontal = 4.dp, vertical = 8.dp),
@@ -421,5 +505,92 @@ private fun ToolboxCell(
             textAlign = TextAlign.Center,
             lineHeight = 14.sp,
         )
+    }
+}
+
+/** SPEC-107: Chrome/Edge-style webpage text zoom sheet. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BrowserTextZoomSheet(
+    show: Boolean,
+    percent: Int,
+    onDismiss: () -> Unit,
+    onPercentChange: (Int) -> Unit,
+) {
+    val scheme = LegadoTheme.colorScheme
+    var local by remember(show, percent) { mutableIntStateOf(percent) }
+    AppModalBottomSheet(
+        show = show,
+        onDismissRequest = onDismiss,
+        title = "网页字体大小",
+        endAction = {
+            TextButton(
+                onClick = {
+                    onPercentChange(local)
+                    onDismiss()
+                },
+            ) {
+                Text("完成", color = scheme.primary)
+            }
+        },
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+        ) {
+            Text(
+                "$local%",
+                color = scheme.onSurface,
+                fontSize = 22.sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "仅放大或缩小网页文字，不影响应用界面（类似 Chrome / Edge 无障碍字体）。",
+                color = scheme.onSurfaceVariant,
+                fontSize = 13.sp,
+            )
+            Spacer(Modifier.height(12.dp))
+            Slider(
+                value = local.toFloat(),
+                onValueChange = {
+                    val stepped = (
+                        (it / BrowserChromePrefs.TEXT_ZOOM_STEP)
+                            .toInt() * BrowserChromePrefs.TEXT_ZOOM_STEP
+                        ).coerceIn(
+                        BrowserChromePrefs.TEXT_ZOOM_MIN,
+                        BrowserChromePrefs.TEXT_ZOOM_MAX,
+                    )
+                    local = stepped
+                    onPercentChange(stepped)
+                },
+                valueRange = BrowserChromePrefs.TEXT_ZOOM_MIN.toFloat()..
+                    BrowserChromePrefs.TEXT_ZOOM_MAX.toFloat(),
+                steps = ((BrowserChromePrefs.TEXT_ZOOM_MAX - BrowserChromePrefs.TEXT_ZOOM_MIN) /
+                    BrowserChromePrefs.TEXT_ZOOM_STEP) - 1,
+            )
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                TextButton(onClick = {
+                    local = 100
+                    onPercentChange(100)
+                }) { Text("默认") }
+                TextButton(onClick = {
+                    val next = (local - BrowserChromePrefs.TEXT_ZOOM_STEP)
+                        .coerceAtLeast(BrowserChromePrefs.TEXT_ZOOM_MIN)
+                    local = next
+                    onPercentChange(next)
+                }) { Text("缩小") }
+                TextButton(onClick = {
+                    val next = (local + BrowserChromePrefs.TEXT_ZOOM_STEP)
+                        .coerceAtMost(BrowserChromePrefs.TEXT_ZOOM_MAX)
+                    local = next
+                    onPercentChange(next)
+                }) { Text("放大") }
+            }
+        }
     }
 }

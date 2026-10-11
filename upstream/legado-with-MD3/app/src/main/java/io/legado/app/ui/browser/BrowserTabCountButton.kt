@@ -83,7 +83,8 @@ fun BrowserTabCountBadge(
                         enableLens = false,
                     )
                 } else if (drawBorder) {
-                    Modifier.border(borderWidth, tint.copy(alpha = 0.45f), shape)
+                    // SPEC-108: solid onSurface border (match other chrome icons; no faded edge).
+                    Modifier.border(borderWidth, tint, shape)
                 } else {
                     Modifier
                 },
@@ -117,24 +118,28 @@ fun BrowserTabCountMenu(
     onAddBookmark: (() -> Unit)? = null,
     /** SPEC-087: match NtpCustomizePanel — sit just below the top-bar control. */
     belowTopBar: Boolean = false,
+    /** SPEC-109: grow upward above phone bottom-bar anchor. */
+    aboveAnchor: Boolean = false,
 ) {
     if (!expanded) return
     val scheme = LegadoTheme.colorScheme
     val shape = RoundedCornerShape(BrowserUiTokens.CardCorner)
     val density = LocalDensity.current
-    val yOffset = if (belowTopBar) {
-        with(density) {
+    val gapPx = with(density) { 8.dp.roundToPx() }
+    val yOffset = when {
+        aboveAnchor -> -gapPx
+        belowTopBar -> with(density) {
             (
-                (BrowserUiTokens.TopBarHeight - BrowserUiTokens.ControlMedium) / 2 +
+                (BrowserUiTokens.NtpTopBarHeight - BrowserUiTokens.ControlMedium) / 2 +
                     BrowserUiTokens.ControlMedium +
                     8.dp
                 ).roundToPx()
         }
-    } else {
-        0
+        else -> 0
     }
+    val popupAlignment = if (aboveAnchor) Alignment.BottomEnd else Alignment.TopEnd
     Popup(
-        alignment = Alignment.TopEnd,
+        alignment = popupAlignment,
         offset = IntOffset(0, yOffset),
         onDismissRequest = onDismiss,
         properties = PopupProperties(focusable = true),

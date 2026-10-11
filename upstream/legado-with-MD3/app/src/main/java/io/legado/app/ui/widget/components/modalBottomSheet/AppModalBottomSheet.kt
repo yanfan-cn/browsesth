@@ -58,6 +58,8 @@ fun AppModalBottomSheet(
     sheetGesturesEnabled: Boolean = true,
     /** SPEC-099: override sheet chrome (e.g. Transparent under liquid-glass content). */
     containerColor: Color? = null,
+    /** SPEC-107: toolbox hides the top drag indicator. */
+    showDragHandle: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val colorScheme = LocalLegadoThemeColors.current.colorScheme
@@ -87,7 +89,11 @@ fun AppModalBottomSheet(
                     sheetState = sheetState,
                     containerColor = sheetContainerColor,
                     contentColor = sheetContentColor,
-                    dragHandle = { BottomSheetDefaults.DragHandle(color = sheetDragHandleColor) },
+                    dragHandle = if (showDragHandle) {
+                        { BottomSheetDefaults.DragHandle(color = sheetDragHandleColor) }
+                    } else {
+                        null
+                    },
                     contentWindowInsets = contentWindowInsets,
                     sheetGesturesEnabled = sheetGesturesEnabled,
                 ) {

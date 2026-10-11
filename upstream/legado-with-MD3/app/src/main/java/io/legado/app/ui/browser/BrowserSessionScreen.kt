@@ -12,8 +12,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -118,8 +120,10 @@ import io.legado.app.browser.reader.WebPageLangDetect
 import io.legado.app.browser.reader.WebPageLangDetectJs
 import io.legado.app.browser.reader.WebPageTranslate
 import io.legado.app.browser.reader.WebTocDiscoverJs
+import io.legado.app.domain.gateway.ThemeSettingsGateway
 import io.legado.app.domain.gateway.TranslationSettingsGateway
 import io.legado.app.ui.association.OnLineImportActivity
+import io.legado.app.ui.book.read.sheet.EyeProtectionConfigSheet
 import org.koin.core.context.GlobalContext
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.LocalTopBarBackdrop
@@ -164,13 +168,17 @@ data class BrowserSessionActions(
     val shareCurrentPage: () -> Unit = {},
     val saveCurrentPage: () -> Unit = {},
     val openDownloads: () -> Unit = {},
+    /** SPEC-107: live AwSettings from tablet toolbox. */
+    val applyWebContentDarkMode: (String) -> Unit = {},
+    val applyTextZoom: (Int) -> Unit = {},
+    val injectAdShield: () -> Unit = {},
 )
 
 /**
  * Browser session chrome per UI design §3.2 / SPEC-008/011/017/018.
  * [tabletEmbedded]=true hides phone top/bottom chrome (parent supplies tablet shell).
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun BrowserSessionScreen(
     initialUrl: String,
@@ -201,6 +209,16 @@ fun BrowserSessionScreen(
     var uaMode by remember {
         mutableStateOf(chromePrefs.uaModeOrDefault(BrowserFormFactor.isTablet(context)))
     }
+    var webDarkMode by remember { mutableStateOf(chromePrefs.webContentDarkMode) }
+    var textZoomPercent by remember { mutableIntStateOf(chromePrefs.textZoomPercent) }
+    var showTextZoomSheet by remember { mutableStateOf(false) }
+    var showEyeConfigSheet by remember { mutableStateOf(false) }
+    val themeSettingsGateway = remember {
+        GlobalContext.get().get<ThemeSettingsGateway>()
+    }
+    val themeSettings by themeSettingsGateway.settings.collectAsStateWithLifecycle(
+        themeSettingsGateway.currentSettings,
+    )
     remember { BrowserAdRules.ensureLoaded(context) }
 
     var progress by remember { mutableIntStateOf(100) }
@@ -216,6 +234,10 @@ fun BrowserSessionScreen(
     /** SPEC-022 B: phone floating chrome auto-hide on scroll down. */
     var phoneChromeVisible by remember { mutableStateOf(true) }
     var tabMenu by remember { mutableStateOf(false) }
+    var readerModeMenu by remember { mutableStateOf(false) }
+    var readerAutoOpen by remember {
+        mutableStateOf(readerPrefs.triggerMode != BrowserReaderPrefs.TriggerMode.Manual)
+    }
     val openTabCount by BrowserTabManager.tabs.collectAsStateWithLifecycle()
     var pickMode by remember { mutableStateOf(false) }
     /** SPEC-093: long-press link/image sheet. */
@@ -385,6 +407,8 @@ fun BrowserSessionScreen(
         pageUrl: String,
         titleHint: String? = null,
         forceTranslate: Boolean? = null,
+        /** SPEC-109: false = text-only (strip images); true = mixed HTML keeps in-body images. */
+        keepImages: Boolean = true,
     ) {
         val host = hostRef
         val open = onOpenReader
@@ -396,11 +420,11 @@ fun BrowserSessionScreen(
         val extracted = WebArticleBookFactory.parseExtractResult(partRaw)
         val toc = discoverToc(host)
         val rawText = extracted?.text.orEmpty()
-        // SPEC-057: HTML-aware chrome filter (mixed layout keeps <img>).
-        val cleaned = if (rawText.contains('<')) {
-            WebArticleChromeFilter.filterHtml(rawText)
-        } else {
-            WebArticleChromeFilter.filter(rawText)
+        // SPEC-057/109: mixed keeps <img>; text-only strips images first.
+        val cleaned = when {
+            !rawText.contains('<') -> WebArticleChromeFilter.filter(rawText)
+            keepImages -> WebArticleChromeFilter.filterHtml(rawText)
+            else -> WebArticleChromeFilter.filterHtmlTextOnly(rawText)
         }
         if (cleaned.length < 40) {
             context.toastOnUi("未能提取正文，请换一个页面再试")
@@ -627,6 +651,13 @@ fun BrowserSessionScreen(
         hostRef?.evaluateJavaScript(BrowserShieldJs.hideSelectorsScript(rules), null)
     }
 
+    /** SPEC-107: per-host hide + built-in cosmetic popup filters. */
+    fun applyAdShield(url: String) {
+        if (!shield.adBlockEnabled) return
+        applyCustomHide(url)
+        hostRef?.evaluateJavaScript(BrowserShieldJs.cosmeticPopupScript(), null)
+    }
+
     fun shareCurrentPage() {
         val url = clientRef?.lastUrl.orEmpty().ifBlank { address }.trim()
         if (url.isEmpty() || !url.startsWith("http")) {
@@ -807,6 +838,8 @@ fun BrowserSessionScreen(
                 context.toastOnUi("已取消点选屏蔽")
             }
             showToolbox -> showToolbox = false
+            readerModeMenu -> readerModeMenu = false
+            tabMenu -> tabMenu = false
             showModePicker -> showModePicker = false
             host?.canGoBack() == true -> host.goBack()
             showNavigationBack -> onNavigateBack()
@@ -884,6 +917,11 @@ fun BrowserSessionScreen(
                 openDownloads = {
                     val open = onOpenDownloads
                     if (open != null) open() else showSnack("下载页不可用")
+                },
+                applyWebContentDarkMode = { hostRef?.applyWebContentDarkMode(it) },
+                applyTextZoom = { hostRef?.applyTextZoom(it) },
+                injectAdShield = {
+                    applyAdShield(clientRef?.lastUrl.orEmpty().ifBlank { address })
                 },
             ),
         )
@@ -1096,9 +1134,7 @@ fun BrowserSessionScreen(
                                 BrowserSiteCssFixes.scriptForUrl(url)?.let { js ->
                                     hostRef?.evaluateJavaScript(js, null)
                                 }
-                                if (shield.adBlockEnabled) {
-                                    applyCustomHide(url)
-                                }
+                                applyAdShield(url)
                                 maybeAutoOpenReader(url)
                             }
                             // SPEC-045: non-Simplified-Chinese → ask translate above chrome.
@@ -1256,9 +1292,11 @@ fun BrowserSessionScreen(
                                 FloatingBottomBarItem(
                                     onClick = { activateChromeTab(2) },
                                 ) {
-                                    SymbolIcon(Symbols.Handyman,
+                                    SymbolIcon(
+                                        Symbols.Box,
                                         contentDescription = "工具箱",
                                         tint = scheme.onSurface,
+                                        size = 28.dp,
                                     )
                                 }
                                 FloatingBottomBarItem(
@@ -1270,12 +1308,13 @@ fun BrowserSessionScreen(
                                             count = openTabCount.size,
                                             tint = scheme.onSurface,
                                             useGlass = false,
-                                            size = 32.dp,
+                                            size = 28.dp,
                                             borderWidth = 2.dp,
                                         )
                                         BrowserTabCountMenu(
                                             expanded = tabMenu,
                                             onDismiss = { tabMenu = false },
+                                            aboveAnchor = true,
                                             onNewTab = {
                                                 BrowserTabManager.openNewTab(url = null, select = true)
                                             },
@@ -1296,13 +1335,48 @@ fun BrowserSessionScreen(
                             modifier = Modifier
                                 .size(phoneChromeBarHeight)
                                 .browserReaderFabGlass(ReaderFabBlue)
-                                .clickable(enabled = !extracting) { openReaderView() },
+                                .combinedClickable(
+                                    enabled = !extracting,
+                                    onClick = { openReaderView() },
+                                    onLongClick = { readerModeMenu = true },
+                                ),
                             contentAlignment = Alignment.Center,
                         ) {
                             SymbolIcon(symbol = Symbols.Book2,
                                 contentDescription = "阅读视图",
                                 tint = Color.White,
                                 modifier = Modifier.size(24.dp),
+                            )
+                            BrowserReaderModeMenu(
+                                expanded = readerModeMenu,
+                                onDismiss = { readerModeMenu = false },
+                                autoOpenEnabled = readerAutoOpen,
+                                onAutoOpenChange = { enabled ->
+                                    readerAutoOpen = enabled
+                                    readerPrefs.triggerMode = if (enabled) {
+                                        BrowserReaderPrefs.TriggerMode.AutoDetect
+                                    } else {
+                                        BrowserReaderPrefs.TriggerMode.Manual
+                                    }
+                                    showSnack(
+                                        if (enabled) "已开启自动阅读模式" else "已关闭自动阅读模式",
+                                    )
+                                },
+                                onTextMode = {
+                                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+                                    startExtract {
+                                        openNovelReader(pageUrl, keepImages = false)
+                                    }
+                                },
+                                onImageMode = {
+                                    openReaderView(WebMangaBookFactory.Kind.Manga)
+                                },
+                                onMixedMode = {
+                                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+                                    startExtract {
+                                        openNovelReader(pageUrl, keepImages = true)
+                                    }
+                                },
                             )
                         }
                     }
@@ -1476,7 +1550,7 @@ fun BrowserSessionScreen(
                 adBlockEnabled = enabled
                 shield.adBlockEnabled = enabled
                 if (enabled) {
-                    applyCustomHide(clientRef?.lastUrl ?: address)
+                    applyAdShield(clientRef?.lastUrl ?: address)
                     showSnack("已开启广告拦截")
                 } else {
                     showSnack("已关闭广告拦截（新请求生效）")
@@ -1491,7 +1565,83 @@ fun BrowserSessionScreen(
                 chromePrefs.uaMode = uaMode
                 showSnack("已切换为${uaMode.label} UA，请刷新页面")
             },
+            webDarkMode = webDarkMode,
+            onWebDarkModeChange = { mode ->
+                webDarkMode = mode
+                chromePrefs.webContentDarkMode = mode
+                hostRef?.applyWebContentDarkMode(mode)
+                showSnack(
+                    when (mode) {
+                        BrowserChromePrefs.WEB_DARK_OFF -> "网页背景：浅色"
+                        BrowserChromePrefs.WEB_DARK_ON -> "网页背景：深色"
+                        else -> "网页背景：跟随系统"
+                    },
+                )
+            },
+            eyeProtectionEnabled = themeSettings.eyeProtectionEnabled,
+            onToggleEyeProtection = {
+                val next = !themeSettings.eyeProtectionEnabled
+                scope.launch {
+                    themeSettingsGateway.update { it.copy(eyeProtectionEnabled = next) }
+                }
+                showSnack(if (next) "已开启护眼模式" else "已关闭护眼模式")
+            },
+            onOpenEyeProtectionSettings = { showEyeConfigSheet = true },
+            textZoomPercent = textZoomPercent,
+            onOpenTextZoom = { showTextZoomSheet = true },
         ),
+    )
+
+    BrowserTextZoomSheet(
+        show = showTextZoomSheet,
+        percent = textZoomPercent,
+        onDismiss = { showTextZoomSheet = false },
+        onPercentChange = { zoom ->
+            textZoomPercent = zoom
+            chromePrefs.textZoomPercent = zoom
+            hostRef?.applyTextZoom(zoom)
+        },
+    )
+
+    EyeProtectionConfigSheet(
+        show = showEyeConfigSheet,
+        enabled = themeSettings.eyeProtectionEnabled,
+        intensity = themeSettings.colorTemperature,
+        autoNight = themeSettings.eyeProtectionAutoNight,
+        schedule = themeSettings.eyeProtectionSchedule,
+        startTime = themeSettings.eyeProtectionStartTime,
+        endTime = themeSettings.eyeProtectionEndTime,
+        onDismissRequest = { showEyeConfigSheet = false },
+        onEnabledChange = { value ->
+            scope.launch {
+                themeSettingsGateway.update { it.copy(eyeProtectionEnabled = value) }
+            }
+        },
+        onIntensityChange = { value ->
+            scope.launch {
+                themeSettingsGateway.update { it.copy(colorTemperature = value) }
+            }
+        },
+        onAutoNightChange = { value ->
+            scope.launch {
+                themeSettingsGateway.update { it.copy(eyeProtectionAutoNight = value) }
+            }
+        },
+        onScheduleChange = { value ->
+            scope.launch {
+                themeSettingsGateway.update { it.copy(eyeProtectionSchedule = value) }
+            }
+        },
+        onStartTimeChange = { value ->
+            scope.launch {
+                themeSettingsGateway.update { it.copy(eyeProtectionStartTime = value) }
+            }
+        },
+        onEndTimeChange = { value ->
+            scope.launch {
+                themeSettingsGateway.update { it.copy(eyeProtectionEndTime = value) }
+            }
+        },
     )
 
     if (showModePicker) {

@@ -111,6 +111,8 @@ object Symbols {
     val GridView = MaterialSymbol("grid_view", autoMirror = false)
     val Group = MaterialSymbol("group", autoMirror = false)
     val Handyman = MaterialSymbol("handyman", autoMirror = false)
+    /** SPEC-108: toolbox glyph (Material Symbols "box"). */
+    val Box = MaterialSymbol("box", autoMirror = false)
     val Headphones = MaterialSymbol("headphones", autoMirror = false)
     val Height = MaterialSymbol("height", autoMirror = false)
     val Highlight = MaterialSymbol("highlight", autoMirror = false)

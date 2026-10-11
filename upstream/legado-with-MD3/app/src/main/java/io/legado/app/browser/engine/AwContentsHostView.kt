@@ -114,7 +114,12 @@ class AwContentsHostView @JvmOverloads constructor(
             m.invoke(settings, -1)
         }
         // SPEC-043: Chromium Force Dark / algorithmic darkening (Edge-like).
-        applyWebContentDarkMode(settings, BrowserChromePrefs(context).webContentDarkMode)
+        val chromePrefs = BrowserChromePrefs(context)
+        applyWebContentDarkMode(settings, chromePrefs.webContentDarkMode)
+        // SPEC-107: Chrome/Edge-style accessibility text zoom for webpage fonts only.
+        runCatching {
+            settings.textZoom = chromePrefs.textZoomPercent
+        }.onFailure { Log.w(TAG, "setTextZoom: ${it.message}") }
         // SPEC-066: allow local file / content loads for saved pages.
         runCatching {
             settings.javaClass
@@ -154,6 +159,24 @@ class AwContentsHostView @JvmOverloads constructor(
     fun applyForceDarkOff() {
         val settings = awSettings ?: return
         applyWebContentDarkMode(settings, BrowserChromePrefs.WEB_DARK_OFF)
+    }
+
+    /** SPEC-107: apply webpage Force Dark to the live session (settings + toolbox). */
+    fun applyWebContentDarkMode(mode: String) {
+        val settings = awSettings ?: return
+        Companion.applyWebContentDarkMode(settings, mode)
+    }
+
+    /** SPEC-107: Chrome/Edge accessibility-equivalent webpage text zoom. */
+    fun applyTextZoom(percent: Int) {
+        val settings = awSettings ?: return
+        val zoom = percent.coerceIn(
+            BrowserChromePrefs.TEXT_ZOOM_MIN,
+            BrowserChromePrefs.TEXT_ZOOM_MAX,
+        )
+        runCatching {
+            settings.textZoom = zoom
+        }.onFailure { Log.w(TAG, "applyTextZoom: ${it.message}") }
     }
 
     fun loadUrl(url: String) {

@@ -58,9 +58,9 @@ class TabletBrowserLayoutTest {
     }
 
     @Test
-    fun sidePanelHalfInPortraitThirdInLandscape() {
+    fun sidePanelAlwaysHalfWidth() {
         assertEquals(0.5f, TabletBrowserLayout.sidePanelWidthFraction(portrait = true))
-        assertEquals(1f / 3f, TabletBrowserLayout.sidePanelWidthFraction(portrait = false))
+        assertEquals(0.5f, TabletBrowserLayout.sidePanelWidthFraction(portrait = false))
     }
 
     @Test

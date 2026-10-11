@@ -46,6 +46,18 @@ object WebArticleChromeFilter {
         return kept.joinToString("\n").trim()
     }
 
+    /** SPEC-109: drop `<img>` for text-only reader entry. */
+    fun stripImages(html: String): String =
+        html.replace(Regex("""(?is)<img\b[^>]*/?>"""), "")
+
+    /**
+     * SPEC-109: novel extract without in-body images.
+     */
+    fun filterHtmlTextOnly(html: String): String {
+        val noImg = stripImages(html)
+        return if (noImg.contains('<')) filterHtml(noImg) else filter(noImg)
+    }
+
     /**
      * SPEC-057: filter chrome text inside mixed HTML while keeping `<img>` blocks.
      */

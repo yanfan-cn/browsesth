@@ -1,3 +1,4 @@
+import java.io.File
 import java.io.FileInputStream
 import java.util.Properties
 
@@ -21,29 +22,33 @@ val versionProps = Properties().apply {
     }
 }
 
-fun tenthsToName(tenths: Int): String = "${tenths / 10}.${tenths % 10}"
-
-// Browsesth operator rule: every assemble* → versionName +0.1, versionCode +1
+// SPEC-108: versionName = MAJOR.MINOR.PATCH-beta; each assemble* ships current, then +0.0.1 for next.
+val versionCodeValue = versionProps.getProperty("VERSION_CODE", "1").toInt()
+val versionMajor = versionProps.getProperty("VERSION_MAJOR", "1").toInt()
+val versionMinor = versionProps.getProperty("VERSION_MINOR", "0").toInt()
+val versionPatch = versionProps.getProperty("VERSION_PATCH", "0").toInt()
+val appName = "browsesth"
+val projectVersionName = "$versionMajor.$versionMinor.$versionPatch-beta"
 val requestingAssemble = gradle.startParameter.taskNames.any {
     val n = it.substringAfterLast(':')
     n.startsWith("assemble") && n != "assemble"
 }
 if (requestingAssemble) {
-    val nextTenths = versionProps.getProperty("VERSION_TENTHS", "8").toInt() + 1
-    val nextCode = versionProps.getProperty("VERSION_CODE", "8").toInt() + 1
-    versionProps.setProperty("VERSION_TENTHS", nextTenths.toString())
+    val nextPatch = versionPatch + 1
+    val nextCode = versionCodeValue + 1
+    versionProps.setProperty("VERSION_MAJOR", versionMajor.toString())
+    versionProps.setProperty("VERSION_MINOR", versionMinor.toString())
+    versionProps.setProperty("VERSION_PATCH", nextPatch.toString())
     versionProps.setProperty("VERSION_CODE", nextCode.toString())
-    versionPropsFile.outputStream().use { versionProps.store(it, "Bumped by assemble (+0.1)") }
-    logger.lifecycle("Browsesth version -> ${tenthsToName(nextTenths)} (code $nextCode)")
+    versionProps.remove("VERSION_TENTHS")
+    versionPropsFile.outputStream().use {
+        versionProps.store(it, "Bumped after assemble identity (+0.0.1 for next)")
+    }
+    logger.lifecycle(
+        "Browsesth this assemble -> $projectVersionName (code $versionCodeValue); " +
+            "next -> $versionMajor.$versionMinor.$nextPatch-beta (code $nextCode)",
+    )
 }
-
-val versionTenths = versionProps.getProperty("VERSION_TENTHS", "8").toInt()
-val versionCodeValue = versionProps.getProperty("VERSION_CODE", "8").toInt()
-val versionMajor = versionProps["VERSION_MAJOR"]?.toString()?.toInt() ?: 0
-val versionMinor = versionProps["VERSION_MINOR"]?.toString()?.toInt() ?: 0
-val versionPatch = versionProps["VERSION_PATCH"]?.toString()?.toInt() ?: 0
-val appName = "browsesth"
-val projectVersionName = tenthsToName(versionTenths)
 val enableAbiSplits = providers.gradleProperty("enableAbiSplits")
     .map(String::toBoolean)
     .getOrElse(false)
@@ -346,4 +351,28 @@ dependencies {
     implementation(libs.backdrop)
     implementation(libs.lyricViewx)
     implementation(libs.timber)
+}
+
+// SPEC-108: after package, copy APK to 巡页{versionName}.apk (configuration-cache safe).
+val browsesthApkVersionLabel = projectVersionName
+val renameBrowsesthApks = tasks.register("renameBrowsesthApks") {
+    val versionLabel = browsesthApkVersionLabel
+    val apkRoot = layout.buildDirectory.dir("outputs/apk")
+    doLast {
+        val root = apkRoot.get().asFile
+        if (!root.exists()) return@doLast
+        root.walkTopDown()
+            .filter { it.isFile && it.extension.equals("apk", ignoreCase = true) }
+            .filter { !it.name.startsWith("巡页") }
+            .forEach { apk ->
+                val dest = File(apk.parentFile, "巡页${versionLabel}.apk")
+                apk.copyTo(dest, overwrite = true)
+                println("SPEC-108 APK -> ${dest.absolutePath}")
+            }
+    }
+}
+listOf("assembleAppDebug", "assembleAppRelease", "assembleAppNoR8").forEach { assembleName ->
+    tasks.matching { it.name == assembleName }.configureEach {
+        finalizedBy(renameBrowsesthApks)
+    }
 }

@@ -5,8 +5,12 @@ package io.legado.app.ui.browser
  */
 object TabletBrowserLayout {
 
-    fun sidePanelWidthFraction(portrait: Boolean): Float =
-        if (portrait) 0.5f else 1f / 3f
+    /**
+     * SPEC-108: history / bookmarks / toolbox (and other tablet side panels) use half width
+     * in both orientations for a stable foldable + tablet layout.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun sidePanelWidthFraction(portrait: Boolean): Float = 0.5f
 
     fun pagerUserScrollEnabled(
         isTablet: Boolean,

@@ -35,8 +35,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,8 +66,12 @@ import io.legado.app.browser.engine.BrowserShieldPrefs
 import io.legado.app.browser.engine.BrowserTabManager
 import io.legado.app.browser.engine.BrowserToolboxPrefs
 import io.legado.app.browser.engine.BrowserUa
+import io.legado.app.domain.gateway.ThemeSettingsGateway
+import io.legado.app.ui.book.read.sheet.EyeProtectionConfigSheet
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.utils.toastOnUi
+import kotlinx.coroutines.launch
+import org.koin.core.context.GlobalContext
 
 /** SPEC-080: Downloads opens in side panel (not full-screen route). */
 enum class TabletSidePanel { None, Bookmarks, History, Toolbox, Tabs, Downloads }
@@ -97,8 +103,19 @@ fun TabletBrowserShell(
     val chromePrefs = remember { BrowserChromePrefs(context) }
     val shield = remember { BrowserShieldPrefs(context) }
     val store = remember { BrowseStore(context) }
+    val scope = rememberCoroutineScope()
     var uaMode by remember { mutableStateOf(chromePrefs.uaModeOrDefault(true)) }
     var adBlockEnabled by remember { mutableStateOf(shield.adBlockEnabled) }
+    var webDarkMode by remember { mutableStateOf(chromePrefs.webContentDarkMode) }
+    var textZoomPercent by remember { mutableIntStateOf(chromePrefs.textZoomPercent) }
+    var showTextZoomSheet by remember { mutableStateOf(false) }
+    var showEyeConfigSheet by remember { mutableStateOf(false) }
+    val themeSettingsGateway = remember {
+        GlobalContext.get().get<ThemeSettingsGateway>()
+    }
+    val themeSettings by themeSettingsGateway.settings.collectAsStateWithLifecycle(
+        themeSettingsGateway.currentSettings,
+    )
     val addressSuggestions = remember(address, addressFocused) {
         if (!addressFocused || address.isBlank()) {
             emptyList()
@@ -117,6 +134,7 @@ fun TabletBrowserShell(
     BackHandler(enabled = sidePanel != TabletSidePanel.None) {
         onSidePanelChange(TabletSidePanel.None)
     }
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(modifier = Modifier.fillMaxSize().background(scheme.surface)) {
         if (showBrowserChrome) {
             // SPEC-080: tab strip + function bar share one chrome column (no gap).
@@ -360,6 +378,9 @@ fun TabletBrowserShell(
                                         onToggleAdBlock = {
                                             adBlockEnabled = !adBlockEnabled
                                             shield.adBlockEnabled = adBlockEnabled
+                                            if (adBlockEnabled) {
+                                                sessionActions?.injectAdShield()
+                                            }
                                             context.toastOnUi(
                                                 if (adBlockEnabled) "已开启广告拦截"
                                                 else "已关闭广告拦截（新请求生效）",
@@ -374,6 +395,36 @@ fun TabletBrowserShell(
                                             chromePrefs.uaMode = uaMode
                                             context.toastOnUi("已切换为${uaMode.label} UA，请刷新页面")
                                         },
+                                        webDarkMode = webDarkMode,
+                                        onWebDarkModeChange = { mode ->
+                                            webDarkMode = mode
+                                            chromePrefs.webContentDarkMode = mode
+                                            sessionActions?.applyWebContentDarkMode(mode)
+                                            context.toastOnUi(
+                                                when (mode) {
+                                                    BrowserChromePrefs.WEB_DARK_OFF -> "网页背景：浅色"
+                                                    BrowserChromePrefs.WEB_DARK_ON -> "网页背景：深色"
+                                                    else -> "网页背景：跟随系统"
+                                                },
+                                            )
+                                        },
+                                        eyeProtectionEnabled = themeSettings.eyeProtectionEnabled,
+                                        onToggleEyeProtection = {
+                                            val next = !themeSettings.eyeProtectionEnabled
+                                            scope.launch {
+                                                themeSettingsGateway.update {
+                                                    it.copy(eyeProtectionEnabled = next)
+                                                }
+                                            }
+                                            context.toastOnUi(
+                                                if (next) "已开启护眼模式" else "已关闭护眼模式",
+                                            )
+                                        },
+                                        onOpenEyeProtectionSettings = {
+                                            showEyeConfigSheet = true
+                                        },
+                                        textZoomPercent = textZoomPercent,
+                                        onOpenTextZoom = { showTextZoomSheet = true },
                                     ),
                                     onDismiss = { onSidePanelChange(TabletSidePanel.None) },
                                     modifier = Modifier.fillMaxSize(),
@@ -399,6 +450,59 @@ fun TabletBrowserShell(
                 }
             }
         }
+    }
+
+    BrowserTextZoomSheet(
+        show = showTextZoomSheet,
+        percent = textZoomPercent,
+        onDismiss = { showTextZoomSheet = false },
+        onPercentChange = { zoom ->
+            textZoomPercent = zoom
+            chromePrefs.textZoomPercent = zoom
+            sessionActions?.applyTextZoom(zoom)
+        },
+    )
+
+    EyeProtectionConfigSheet(
+        show = showEyeConfigSheet,
+        enabled = themeSettings.eyeProtectionEnabled,
+        intensity = themeSettings.colorTemperature,
+        autoNight = themeSettings.eyeProtectionAutoNight,
+        schedule = themeSettings.eyeProtectionSchedule,
+        startTime = themeSettings.eyeProtectionStartTime,
+        endTime = themeSettings.eyeProtectionEndTime,
+        onDismissRequest = { showEyeConfigSheet = false },
+        onEnabledChange = { value ->
+            scope.launch {
+                themeSettingsGateway.update { it.copy(eyeProtectionEnabled = value) }
+            }
+        },
+        onIntensityChange = { value ->
+            scope.launch {
+                themeSettingsGateway.update { it.copy(colorTemperature = value) }
+            }
+        },
+        onAutoNightChange = { value ->
+            scope.launch {
+                themeSettingsGateway.update { it.copy(eyeProtectionAutoNight = value) }
+            }
+        },
+        onScheduleChange = { value ->
+            scope.launch {
+                themeSettingsGateway.update { it.copy(eyeProtectionSchedule = value) }
+            }
+        },
+        onStartTimeChange = { value ->
+            scope.launch {
+                themeSettingsGateway.update { it.copy(eyeProtectionStartTime = value) }
+            }
+        },
+        onEndTimeChange = { value ->
+            scope.launch {
+                themeSettingsGateway.update { it.copy(eyeProtectionEndTime = value) }
+            }
+        },
+    )
     }
 }
 
@@ -580,7 +684,7 @@ private fun TabletFunctionBar(
             onReader,
             tint = BrowserUiTokens.Primary,
         )
-        ChromeIcon(Symbols.Menu, "工具箱", onOpenToolbox)
+        ChromeIcon(Symbols.Box, "工具箱", onOpenToolbox)
     }
 }
 
