@@ -166,6 +166,8 @@ fun Modifier.browserControlLiquidGlass(
     readableOverlay: Boolean = false,
     /** SPEC-075: lens on small circles squashes icons into ellipses — keep off for NTP bubbles. */
     enableLens: Boolean = true,
+    /** SPEC-099: optional surface tint alpha (toolbox panel / denser cells). */
+    overlayAlpha: Float? = null,
 ): Modifier {
     val isDark = LegadoTheme.isDark
     val surface = LegadoTheme.colorScheme.surface
@@ -176,7 +178,7 @@ fun Modifier.browserControlLiquidGlass(
     }
     val backdrop = scaffoldBackdrop ?: localBackdrop
     val blurRadius = if (readableOverlay) BrowserUiTokens.NtpOverlayBlur else 12.dp
-    val surfaceAlpha = when {
+    val surfaceAlpha = overlayAlpha ?: when {
         readableOverlay && isDark -> BrowserUiTokens.NtpOverlaySurfaceDark
         readableOverlay -> BrowserUiTokens.NtpOverlaySurfaceLight
         isDark -> 0.50f
@@ -185,7 +187,9 @@ fun Modifier.browserControlLiquidGlass(
     val fallbackAlpha = when (style) {
         ChromeSurfaceStyle.Filled -> 1f
         ChromeSurfaceStyle.Translucent, ChromeSurfaceStyle.LiquidGlass -> {
-            if (readableOverlay) surfaceAlpha else BrowserChromeGlassStyle.barFallbackAlpha(isDark)
+            if (overlayAlpha != null) surfaceAlpha
+            else if (readableOverlay) surfaceAlpha
+            else BrowserChromeGlassStyle.barFallbackAlpha(isDark)
         }
     }
     val fallback = clip(shape).background(

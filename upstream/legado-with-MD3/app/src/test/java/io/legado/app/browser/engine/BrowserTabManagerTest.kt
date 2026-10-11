@@ -58,4 +58,38 @@ class BrowserTabManagerTest {
         val tab = BrowserTabManager.tabs.value.first { it.id == id }
         assertTrue(tab.incognito)
     }
+
+    @Test
+    fun clearActiveToNtpKeepsUrlForTabRestore() {
+        BrowserTabManager.openUrlInActive("https://example.com/path", omniboxLabel = "example")
+        BrowserTabManager.updateActiveMeta("https://example.com/path", "Example Domain")
+        assertTrue(BrowserTabManager.isWebSessionShowing(BrowserTabManager.activeTab()))
+        BrowserTabManager.clearActiveToNtp()
+        val parked = BrowserTabManager.activeTab()!!
+        assertTrue(parked.showHome)
+        assertEquals("https://example.com/path", parked.url)
+        assertEquals("Example Domain", parked.title)
+        assertEquals("Example Domain", BrowserTabManager.tabDisplayTitle(parked))
+        // SPEC-097: parked NTP must not count as web session (main bottom bar).
+        assertTrue(!BrowserTabManager.isWebSessionShowing(parked))
+        // SPEC-100: release is deferred until exit animation; explicit call is safe.
+        BrowserTabManager.releaseSessionHostIfParked()
+        BrowserTabManager.switchTo(parked.id)
+        val restored = BrowserTabManager.activeTab()!!
+        assertTrue(!restored.showHome)
+        assertEquals("https://example.com/path", restored.url)
+        assertTrue(BrowserTabManager.isWebSessionShowing(restored))
+    }
+
+    @Test
+    fun releaseSessionHostIfParkedSkippedWhenBackOnWeb() {
+        BrowserTabManager.openUrlInActive("https://example.com/", omniboxLabel = "example")
+        BrowserTabManager.clearActiveToNtp()
+        assertTrue(BrowserTabManager.activeTab()!!.showHome)
+        BrowserTabManager.switchTo(BrowserTabManager.activeTab()!!.id)
+        assertTrue(!BrowserTabManager.activeTab()!!.showHome)
+        // Must not destroy a live web session after user already left NTP.
+        BrowserTabManager.releaseSessionHostIfParked()
+        assertTrue(BrowserTabManager.isWebSessionShowing(BrowserTabManager.activeTab()))
+    }
 }

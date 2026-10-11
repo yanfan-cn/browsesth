@@ -42,8 +42,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -82,6 +80,7 @@ import io.legado.app.browser.engine.BrowserContextMenuJs
 import io.legado.app.browser.engine.BrowserDownloadHelper
 import io.legado.app.browser.engine.BrowserDownloadRepository
 import io.legado.app.browser.engine.BrowserFormFactor
+import io.legado.app.browser.engine.BrowserHttpsFallback
 import io.legado.app.browser.engine.BrowserLoadProgress
 import io.legado.app.browser.engine.BrowserNtpPrefs
 import io.legado.app.browser.engine.BrowserOmniboxLabel
@@ -228,11 +227,12 @@ fun BrowserSessionScreen(
     // SPEC-025: keep bottom gap on phone; 8dp also sits above function bar + reader FAB.
     val floatingBottomPad = BrowserUiTokens.FloatingChromeBottomGap + navBottom
     val floatingChromeTopGap = BrowserUiTokens.FloatingChromeTopGap
-    val phoneChromeBarHeight = 64.dp
+    // SPEC-103: web function bar + reader FAB are 48dp (main shell bar stays 64).
+    val phoneChromeBarHeight = 48.dp
     var showTranslatePrompt by remember { mutableStateOf(false) }
     val translatePromptExtra = if (showTranslatePrompt) 56.dp else 0.dp
     val floatingChromeReserve =
-        floatingChromeTopGap + maxOf(phoneChromeBarHeight, BrowserUiTokens.ReaderFabSize) +
+        floatingChromeTopGap + phoneChromeBarHeight +
             floatingBottomPad + translatePromptExtra
     // SPEC-075: fixed chrome — always reserve bottom height (do not overlay web; do not
     // toggle inset with auto-hide, so viewport stays stable).
@@ -276,7 +276,11 @@ fun BrowserSessionScreen(
     /** SPEC-066: transient download banner above bottom chrome (~5s). */
     var downloadBanner by remember { mutableStateOf<String?>(null) }
     var downloadBannerToken by remember { mutableIntStateOf(0) }
-    val snackbarHostState = remember { SnackbarHostState() }
+    /** SPEC-094: short toast above bottom bar (24dp), not Material Snackbar over chrome. */
+    var chromeSnack by remember { mutableStateOf<String?>(null) }
+    var chromeSnackToken by remember { mutableIntStateOf(0) }
+    /** SPEC-095: https URL armed for one-shot HTTP fallback after auto-upgrade failure. */
+    var armedHttpsFallback by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val scheme = LegadoTheme.colorScheme
     val chromeBackdrop = rememberLayerBackdrop {
@@ -291,7 +295,40 @@ fun BrowserSessionScreen(
     }
 
     fun showSnack(msg: String) {
-        scope.launch { snackbarHostState.showSnackbar(msg) }
+        chromeSnack = msg
+        chromeSnackToken += 1
+    }
+
+    fun armHttpsFallback(rawInput: String?, resolvedUrl: String) {
+        armedHttpsFallback = if (
+            BrowserHttpsFallback.wasAutoHttpsUpgrade(
+                rawInput,
+                resolvedUrl,
+                ntpPrefs.searchEngine(),
+            )
+        ) {
+            resolvedUrl
+        } else {
+            null
+        }
+    }
+
+    /** SPEC-095: one-shot http:// retry after auto-upgraded https:// connection failure. */
+    fun tryHttpsFallback(failedUrl: String, netError: Int): Boolean {
+        val armed = armedHttpsFallback ?: return false
+        if (!BrowserHttpsFallback.isConnectionLikeError(netError)) return false
+        val failed = failedUrl.ifBlank { armed }
+        if (!failed.startsWith("https://", ignoreCase = true)) return false
+        val armedHost = Uri.parse(armed).host ?: return false
+        val failedHost = Uri.parse(failed).host ?: return false
+        if (!armedHost.equals(failedHost, ignoreCase = true)) return false
+        val http = BrowserHttpsFallback.httpFallbackUrl(failed) ?: return false
+        armedHttpsFallback = null
+        clientRef?.lastError = null
+        hostRef?.loadUrl(http)
+        BrowserSessionHolder.markLoaded()
+        onPageMeta?.invoke(http, omniboxLabel.ifBlank { failedHost })
+        return true
     }
 
     fun setReaderStatus(msg: String?) {
@@ -660,6 +697,12 @@ fun BrowserSessionScreen(
         downloadBanner = null
     }
 
+    LaunchedEffect(chromeSnackToken, chromeSnack) {
+        if (chromeSnack == null) return@LaunchedEffect
+        delay(3_500)
+        chromeSnack = null
+    }
+
     LaunchedEffect(hostRef) {
         val host = hostRef ?: return@LaunchedEffect
         BrowserOpenBridge.armedLocalHtml.collect { armed ->
@@ -705,6 +748,8 @@ fun BrowserSessionScreen(
         focusManager.clearFocus(force = true)
         applyOmniboxLabel(raw)
         addressFocused = false
+        clientRef?.lastError = null
+        armHttpsFallback(raw, url)
         hostRef?.loadUrl(url)
         BrowserSessionHolder.markLoaded()
         onPageMeta?.invoke(url, raw)
@@ -723,6 +768,8 @@ fun BrowserSessionScreen(
         val url = resolveBrowserNavigationInput(typed, ntpPrefs.searchEngine())
         if (url.isEmpty()) return
         applyOmniboxLabel(typed)
+        clientRef?.lastError = null
+        armHttpsFallback(typed, url)
         hostRef?.loadUrl(url)
         BrowserSessionHolder.markLoaded()
         onPageMeta?.invoke(url, typed)
@@ -774,23 +821,27 @@ fun BrowserSessionScreen(
         }
     }
 
-    // SPEC-021/023: tab URL change → load; if live host already ahead (in-page nav), trust lastUrl.
+    // SPEC-021/023/094: tab URL change → load.
+    // If live host is ahead (in-page nav) and not in error, trust lastUrl.
+    // If last load failed, always honor newer tab URL so navigation does not stick on the error page.
     LaunchedEffect(initialUrl, hostRef) {
         val host = hostRef ?: return@LaunchedEffect
         if (BrowserSessionHolder.sessionKey != resolvedSessionKey) return@LaunchedEffect
         if (!BrowserSessionHolder.hasLoadedInitialUrl) return@LaunchedEffect
         val last = clientRef?.lastUrl.orEmpty()
+        val hadError = clientRef?.lastError != null
         if (initialUrl.isBlank()) return@LaunchedEffect
         if (initialUrl == last) {
             syncOmniboxLabelFromTab(last)
             return@LaunchedEffect
         }
-        if (last.isNotBlank() && last != initialUrl) {
+        if (last.isNotBlank() && last != initialUrl && !hadError) {
             // In-page navigation already moved lastUrl; do not reload stale search/tab draft.
             syncOmniboxLabelFromTab(last)
             return@LaunchedEffect
         }
         syncOmniboxLabelFromTab(initialUrl)
+        clientRef?.lastError = null
         host.loadUrl(initialUrl)
     }
 
@@ -841,7 +892,6 @@ fun BrowserSessionScreen(
     AppScaffold(
         disableContentSampling = true,
         contentWindowInsets = WindowInsets(0),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             if (!tabletEmbedded) {
                 Column(
@@ -858,6 +908,7 @@ fun BrowserSessionScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (showNavigationBack) {
+                            // SPEC-096: Home glyph (same as main bottom bar); always exit to NTP/host, never WebView goBack.
                             Box(
                                 modifier = Modifier
                                     .padding(horizontal = 4.dp)
@@ -866,8 +917,8 @@ fun BrowserSessionScreen(
                                     .clickable(onClick = onNavigateBack),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                SymbolIcon(Symbols.ArrowBack,
-                                    contentDescription = "返回",
+                                SymbolIcon(Symbols.Home,
+                                    contentDescription = "主页",
                                     tint = scheme.onSurface,
                                     modifier = Modifier.size(20.dp),
                                 )
@@ -1006,10 +1057,24 @@ fun BrowserSessionScreen(
                         onDownloadRequested = { url, ua, disposition, mime, _ ->
                             enqueueTriggeredDownload(url, ua, disposition, mime)
                         },
+                        onMainFrameError = { url, netError, _ ->
+                            tryHttpsFallback(url, netError)
+                        },
                         onUrlChanged = { url -> syncOmniboxLabelFromTab(url) },
+                        onTitleChanged = { url, title ->
+                            onPageMeta?.invoke(url, title)
+                        },
                         onPageFinishedExtra = { url, title ->
                             mainFrameLoading = false
                             progress = 100
+                            // SPEC-106: do not clear HTTPS fallback arm immediately —
+                            // Chromium often finishes the failed main frame before
+                            // onReceivedError, which raced away agefans.com HTTP retry.
+                            // Give error handling a short window, then drop the one-shot arm.
+                            scope.launch {
+                                delay(500)
+                                armedHttpsFallback = null
+                            }
                             syncOmniboxLabelFromTab(url)
                             onPageMeta?.invoke(url, title)
                             if (!incognito) {
@@ -1051,8 +1116,10 @@ fun BrowserSessionScreen(
                     clientRef = client
                     if (!BrowserSessionHolder.hasLoadedInitialUrl) {
                         if (initialHtml.isNullOrEmpty()) {
+                            armHttpsFallback(initialOmniboxLabel, initialUrl)
                             host.loadUrl(initialUrl)
                         } else {
+                            armedHttpsFallback = null
                             host.loadDataWithBaseURL(
                                 initialUrl,
                                 initialHtml,
@@ -1114,6 +1181,11 @@ fun BrowserSessionScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                         }
+                        val snackText = chromeSnack
+                        if (snackText != null) {
+                            ChromeSnackBar(message = snackText)
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
                         val bannerText = downloadBanner
                         if (bannerText != null) {
                             DownloadBannerBar(
@@ -1162,6 +1234,8 @@ fun BrowserSessionScreen(
                                 isBlurEnabled = blurOn,
                                 enableDragSwitch = false,
                                 persistentSelection = false,
+                                barHeight = phoneChromeBarHeight,
+                                indicatorHeight = phoneChromeBarHeight,
                             ) {
                                 FloatingBottomBarItem(
                                     onClick = { activateChromeTab(0) },
@@ -1182,7 +1256,7 @@ fun BrowserSessionScreen(
                                 FloatingBottomBarItem(
                                     onClick = { activateChromeTab(2) },
                                 ) {
-                                    SymbolIcon(Symbols.Menu,
+                                    SymbolIcon(Symbols.Handyman,
                                         contentDescription = "工具箱",
                                         tint = scheme.onSurface,
                                     )
@@ -1196,6 +1270,8 @@ fun BrowserSessionScreen(
                                             count = openTabCount.size,
                                             tint = scheme.onSurface,
                                             useGlass = false,
+                                            size = 32.dp,
+                                            borderWidth = 2.dp,
                                         )
                                         BrowserTabCountMenu(
                                             expanded = tabMenu,
@@ -1218,15 +1294,15 @@ fun BrowserSessionScreen(
                         Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceMd))
                         Box(
                             modifier = Modifier
-                                .size(BrowserUiTokens.ReaderFabSize)
+                                .size(phoneChromeBarHeight)
                                 .browserReaderFabGlass(ReaderFabBlue)
                                 .clickable(enabled = !extracting) { openReaderView() },
                             contentAlignment = Alignment.Center,
                         ) {
-                            SymbolIcon(symbol = Symbols.AutoStories,
+                            SymbolIcon(symbol = Symbols.Book2,
                                 contentDescription = "阅读视图",
                                 tint = Color.White,
-                                modifier = Modifier.size(BrowserUiTokens.ControlSmall),
+                                modifier = Modifier.size(24.dp),
                             )
                         }
                     }
@@ -1235,7 +1311,8 @@ fun BrowserSessionScreen(
             } else {
                 // SPEC-045/066 tablet: prompts near bottom of content (shell has top chrome only).
                 val tabletBanner = downloadBanner
-                if (showTranslatePrompt || tabletBanner != null) {
+                val tabletSnack = chromeSnack
+                if (showTranslatePrompt || tabletBanner != null || tabletSnack != null) {
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -1243,6 +1320,12 @@ fun BrowserSessionScreen(
                             .padding(horizontal = BrowserUiTokens.PagePaddingH)
                             .padding(bottom = 16.dp),
                     ) {
+                        if (tabletSnack != null) {
+                            ChromeSnackBar(message = tabletSnack)
+                            if (showTranslatePrompt || tabletBanner != null) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
                         if (showTranslatePrompt) {
                             TranslatePromptBar(
                                 onTranslate = { acceptTranslatePrompt() },
@@ -1511,6 +1594,24 @@ private fun TranslatePromptBar(
             }
         }
     }
+}
+
+/** SPEC-094: short status above bottom chrome, 24dp corners. */
+@Composable
+private fun ChromeSnackBar(message: String) {
+    val scheme = LegadoTheme.colorScheme
+    Text(
+        text = message,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(scheme.inverseSurface)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        color = scheme.inverseOnSurface,
+        fontSize = 14.sp,
+        maxLines = 3,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 /** SPEC-066: bottom-chrome download notice (~5s), right action opens downloads. */

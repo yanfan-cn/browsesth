@@ -72,8 +72,9 @@ object LegacyReaderPaginationStyleFactory : KoinComponent {
             preferredColumn
         }
         val isTablet = appCtx.isPad
-        // Dual-page column modes need page-turn layout (not continuous scroll).
-        val isScroll = ReadBook.pageAnim() == 3 && columnMode == ReaderColumnMode.SINGLE
+        // SPEC-095: scroll anim ⇒ continuousScroll always (do not require SINGLE).
+        // ReaderColumnMode.columnCount already disables LANDSCAPE dual-page when isScroll.
+        val isScroll = ReadBook.pageAnim() == 3
         return ReaderAndroidPaginationStyle(
             columnMode = columnMode,
             isTablet = isTablet,

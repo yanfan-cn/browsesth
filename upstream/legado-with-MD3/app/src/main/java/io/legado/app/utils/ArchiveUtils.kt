@@ -97,7 +97,7 @@ object ArchiveUtils {
 
     private fun checkAchieve(name: String) {
         if (!isArchive(name))
-            throw IllegalArgumentException("Unexpected file suffix: Only 7z rar zip Accepted")
+            throw IllegalArgumentException("Unexpected file suffix: Only zip/cbz/cbr/rar/7z Accepted")
     }
 
     private fun getCacheFolderFileDoc(

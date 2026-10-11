@@ -46,6 +46,7 @@ import io.legado.app.domain.gateway.ThemeSettingsGateway
 import io.legado.app.browser.engine.BrowserClearDataHelper
 import io.legado.app.browser.engine.BrowserDownloadPaths
 import io.legado.app.browser.engine.BrowserDrawMode
+import io.legado.app.browser.engine.BrowserNtpNews
 import io.legado.app.browser.engine.BrowsesthBromiumBootstrap
 import io.legado.app.help.AppFreezeMonitor
 import android.util.Log
@@ -260,6 +261,10 @@ class App : Application(), SingletonImageLoader.Factory {
                 .collect {
                     withContext(Main) { ThemeConfigStore.initNightMode() }
                 }
+        }
+        // SPEC-098: warm NTP news cache as soon as process starts (when feed enabled).
+        Coroutine.async {
+            BrowserNtpNews.prefetchIfEnabled(this@App)
         }
         Coroutine.async {
             LogUtils.init(this@App)

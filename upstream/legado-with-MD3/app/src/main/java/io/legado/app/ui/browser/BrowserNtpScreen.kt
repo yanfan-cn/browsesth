@@ -98,6 +98,7 @@ import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.browser.engine.BrowserChromePrefs
 import io.legado.app.browser.engine.BrowserNtpNews
 import io.legado.app.browser.engine.BrowserNtpPrefs
+import io.legado.app.browser.engine.BrowserNtpScrollMemory
 import io.legado.app.browser.engine.BrowserOmniboxSuggest
 import io.legado.app.browser.engine.BrowserSearchEngine
 import io.legado.app.browser.engine.BrowserShortcut
@@ -117,17 +118,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.utils.toastOnUi
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import java.util.UUID
-
-/** SPEC-087: NTP is disposed while browsing; keep scroll across NTP↔session. */
-private object BrowserNtpScrollMemory {
-    @Volatile
-    var offset: Int = 0
-}
 
 private data class NtpColors(
     val pageBg: Color,
@@ -209,15 +205,18 @@ fun BrowserNtpScreen(
     var newsSourceSspai by remember { mutableStateOf(ntpPrefs.newsSourceSspai) }
     var newsItems by remember { mutableStateOf<List<BrowserNtpNews.Item>>(emptyList()) }
     var newsLoading by remember { mutableStateOf(false) }
+    var newsLoadingMore by remember { mutableStateOf(false) }
+    var newsHasMore by remember { mutableStateOf(false) }
     var newsSourceMenu by remember { mutableStateOf(false) }
     val ntpScrollState = rememberScrollState()
     val newsScope = rememberCoroutineScope()
-    var scrollRestored by remember { mutableStateOf(false) }
+    // SPEC-098: arm before sync; remount at 0 must not wipe saved offset (web ScrollMemory pattern).
     DisposableEffect(Unit) {
-        onDispose { BrowserNtpScrollMemory.offset = ntpScrollState.value }
+        BrowserNtpScrollMemory.armRestore()
+        onDispose { BrowserNtpScrollMemory.rememberLeaving(ntpScrollState.value) }
     }
     LaunchedEffect(ntpScrollState) {
-        snapshotFlow { ntpScrollState.value }.collect { BrowserNtpScrollMemory.offset = it }
+        snapshotFlow { ntpScrollState.value }.collect { BrowserNtpScrollMemory.remember(it) }
     }
 
     // SPEC-059/067: NTP follows App ColorScheme (background + surfaceContainerLow).
@@ -270,6 +269,7 @@ fun BrowserNtpScreen(
         if (!anyNewsSource()) {
             newsItems = emptyList()
             newsLoading = false
+            newsHasMore = false
             return
         }
         newsScope.launch {
@@ -277,15 +277,33 @@ fun BrowserNtpScreen(
             if (!force) {
                 BrowserNtpNews.cached(flags)?.let {
                     newsItems = it
+                    newsHasMore = BrowserNtpNews.hasMore(flags)
                     newsLoading = false
                     return@launch
                 }
             }
-            if (newsItems.isEmpty()) newsLoading = true
+            // SPEC-094: manual refresh always shows feedback (even when list non-empty).
+            newsLoading = true
+            if (force) BrowserNtpNews.invalidateCache()
             newsItems = withContext(Dispatchers.IO) {
                 BrowserNtpNews.load(flags, force = force)
             }
+            newsHasMore = BrowserNtpNews.hasMore(flags)
             newsLoading = false
+        }
+    }
+
+    fun loadMoreNews() {
+        if (incognito || !newsFeedEnabled || newsLoading || newsLoadingMore || !newsHasMore) return
+        if (!anyNewsSource()) return
+        newsScope.launch {
+            val flags = newsFlags()
+            newsLoadingMore = true
+            newsItems = withContext(Dispatchers.IO) {
+                BrowserNtpNews.loadMore(flags)
+            }
+            newsHasMore = BrowserNtpNews.hasMore(flags)
+            newsLoadingMore = false
         }
     }
 
@@ -303,16 +321,20 @@ fun BrowserNtpScreen(
         if (!firstFrameDone || incognito || !newsFeedEnabled) {
             newsItems = emptyList()
             newsLoading = false
+            newsHasMore = false
             return@LaunchedEffect
         }
         if (!anyNewsSource()) {
             newsItems = emptyList()
             newsLoading = false
+            newsHasMore = false
             return@LaunchedEffect
         }
         val flags = newsFlags()
+        // SPEC-094: prefer cache (3h TTL) — returning from article must not force refresh.
         BrowserNtpNews.cached(flags)?.let {
             newsItems = it
+            newsHasMore = BrowserNtpNews.hasMore(flags)
             newsLoading = false
             return@LaunchedEffect
         }
@@ -320,18 +342,51 @@ fun BrowserNtpScreen(
         newsItems = withContext(Dispatchers.IO) {
             BrowserNtpNews.load(flags, force = false)
         }
+        newsHasMore = BrowserNtpNews.hasMore(flags)
         newsLoading = false
     }
 
-    // SPEC-088: restore scroll after content is measurable (news list / first frame).
+    // SPEC-098: restore like AwContentsHostView.restoreScrollY — wait for list, retry while height grows.
     LaunchedEffect(firstFrameDone, newsLoading, newsItems.size) {
-        if (!firstFrameDone || scrollRestored) return@LaunchedEffect
-        if (newsLoading && newsItems.isEmpty()) return@LaunchedEffect
-        val saved = BrowserNtpScrollMemory.offset
-        if (saved > 0) {
-            ntpScrollState.scrollTo(saved)
+        if (!firstFrameDone) return@LaunchedEffect
+        if (!BrowserNtpScrollMemory.pendingRestore) return@LaunchedEffect
+        val saved = BrowserNtpScrollMemory.recall()
+        if (saved <= 0) {
+            BrowserNtpScrollMemory.markRestored()
+            return@LaunchedEffect
         }
-        scrollRestored = true
+        // Do not settle on pre-news maxValue; wait until feed rows exist when enabled.
+        if (newsFeedEnabled && !incognito && anyNewsSource() && newsItems.isEmpty()) {
+            return@LaunchedEffect
+        }
+        repeat(40) { attempt ->
+            if (!BrowserNtpScrollMemory.pendingRestore) return@LaunchedEffect
+            val max = ntpScrollState.maxValue
+            if (max > 0) {
+                ntpScrollState.scrollTo(saved.coerceAtMost(max))
+                if (ntpScrollState.value >= saved) {
+                    BrowserNtpScrollMemory.markRestored()
+                    return@LaunchedEffect
+                }
+            }
+            delay(if (attempt < 2) 16L else 50L)
+        }
+        if (ntpScrollState.maxValue > 0) {
+            ntpScrollState.scrollTo(saved.coerceAtMost(ntpScrollState.maxValue))
+        }
+        BrowserNtpScrollMemory.markRestored()
+    }
+
+    // SPEC-094: near bottom → append next page.
+    LaunchedEffect(ntpScrollState, newsHasMore, newsLoadingMore, newsItems.size) {
+        snapshotFlow { ntpScrollState.value to ntpScrollState.maxValue }
+            .collect { (value, max) ->
+                if (!newsHasMore || newsLoadingMore || newsLoading) return@collect
+                if (max <= 0) return@collect
+                if (value >= max - 1200) {
+                    loadMoreNews()
+                }
+            }
     }
 
     fun submit() {
@@ -875,52 +930,20 @@ fun BrowserNtpScreen(
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.weight(1f),
                             )
-                            Box {
-                                IconButton(
-                                    onClick = { newsSourceMenu = true },
-                                    modifier = Modifier.size(BrowserUiTokens.ControlMedium),
-                                ) {
-                                    SymbolIcon(
-                                        Symbols.FilterList,
-                                        contentDescription = "资讯来源",
-                                        tint = colors.primaryText,
-                                        size = 22.dp,
-                                    )
-                                }
-                                if (newsSourceMenu) {
-                                    NtpNewsSourceMenu(
-                                        sina = newsSourceSina,
-                                        netEase = newsSourceNetEase,
-                                        tencent = newsSourceTencent,
-                                        bbcZh = newsSourceBbcZh,
-                                        sspai = newsSourceSspai,
-                                        textColor = colors.primaryText,
-                                        onDismiss = { newsSourceMenu = false },
-                                        onSina = {
-                                            newsSourceSina = it
-                                            ntpPrefs.newsSourceSina = it
-                                        },
-                                        onNetEase = {
-                                            newsSourceNetEase = it
-                                            ntpPrefs.newsSourceNetEase = it
-                                        },
-                                        onTencent = {
-                                            newsSourceTencent = it
-                                            ntpPrefs.newsSourceTencent = it
-                                        },
-                                        onBbcZh = {
-                                            newsSourceBbcZh = it
-                                            ntpPrefs.newsSourceBbcZh = it
-                                        },
-                                        onSspai = {
-                                            newsSourceSspai = it
-                                            ntpPrefs.newsSourceSspai = it
-                                        },
-                                    )
-                                }
+                            IconButton(
+                                onClick = { newsSourceMenu = true },
+                                modifier = Modifier.size(BrowserUiTokens.ControlMedium),
+                            ) {
+                                SymbolIcon(
+                                    Symbols.FilterList,
+                                    contentDescription = "资讯来源",
+                                    tint = colors.primaryText,
+                                    size = 22.dp,
+                                )
                             }
                             IconButton(
                                 onClick = { refreshNews(force = true) },
+                                enabled = !newsLoading,
                                 modifier = Modifier.size(BrowserUiTokens.ControlMedium),
                             ) {
                                 SymbolIcon(
@@ -942,6 +965,29 @@ fun BrowserNtpScreen(
                                         .padding(vertical = BrowserUiTokens.SpaceLg),
                                     textAlign = TextAlign.Center,
                                 )
+                            }
+                            newsLoading && newsItems.isNotEmpty() -> {
+                                Text(
+                                    "正在刷新…",
+                                    color = colors.secondaryText,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = BrowserUiTokens.SpaceSm),
+                                    textAlign = TextAlign.Center,
+                                )
+                                newsItems.forEachIndexed { index, item ->
+                                    if (index > 0) {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                    }
+                                    NtpNewsRow(
+                                        item = item,
+                                        primaryText = colors.primaryText,
+                                        secondaryText = colors.secondaryText,
+                                        placeholderBg = colors.fieldBg,
+                                        onOpen = { onOpenUrl(item.url, false, item.title) },
+                                    )
+                                }
                             }
                             newsItems.isEmpty() -> {
                                 Text(
@@ -967,11 +1013,56 @@ fun BrowserNtpScreen(
                                         onOpen = { onOpenUrl(item.url, false, item.title) },
                                     )
                                 }
+                                Text(
+                                    when {
+                                        newsLoadingMore -> "正在加载更多…"
+                                        newsHasMore -> "上滑加载更多"
+                                        else -> "没有更多了"
+                                    },
+                                    color = colors.secondaryText,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = BrowserUiTokens.SpaceMd),
+                                    textAlign = TextAlign.Center,
+                                )
                             }
                         }
                     }
                 }
             }
+        }
+
+        if (newsSourceMenu && !incognito) {
+            NtpNewsSourceMenu(
+                sina = newsSourceSina,
+                netEase = newsSourceNetEase,
+                tencent = newsSourceTencent,
+                bbcZh = newsSourceBbcZh,
+                sspai = newsSourceSspai,
+                textColor = colors.primaryText,
+                onDismiss = { newsSourceMenu = false },
+                onSina = {
+                    newsSourceSina = it
+                    ntpPrefs.newsSourceSina = it
+                },
+                onNetEase = {
+                    newsSourceNetEase = it
+                    ntpPrefs.newsSourceNetEase = it
+                },
+                onTencent = {
+                    newsSourceTencent = it
+                    ntpPrefs.newsSourceTencent = it
+                },
+                onBbcZh = {
+                    newsSourceBbcZh = it
+                    ntpPrefs.newsSourceBbcZh = it
+                },
+                onSspai = {
+                    newsSourceSspai = it
+                    ntpPrefs.newsSourceSspai = it
+                },
+            )
         }
 
     val editing = editShortcut
@@ -1180,9 +1271,19 @@ private fun NtpNewsSourceMenu(
     onBbcZh: (Boolean) -> Unit,
     onSspai: (Boolean) -> Unit,
 ) {
+    // SPEC-094: anchor above floating bottom bar (same liquid glass as home customize menu).
+    val density = LocalDensity.current
+    val bottomLift = with(density) {
+        (
+            BrowserUiTokens.BottomBarHeight +
+                BrowserUiTokens.FloatingChromeBottomGap +
+                BrowserUiTokens.FloatingChromeTopGap +
+                16.dp
+            ).roundToPx()
+    }
     Popup(
-        alignment = Alignment.TopEnd,
-        offset = IntOffset(0, 0),
+        alignment = Alignment.BottomEnd,
+        offset = IntOffset(x = with(density) { (-16).dp.roundToPx() }, y = -bottomLift),
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.PopupProperties(focusable = true),
     ) {

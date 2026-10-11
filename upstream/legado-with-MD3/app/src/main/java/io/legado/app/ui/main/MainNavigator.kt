@@ -117,7 +117,25 @@ object MainNavigator {
                 }
             }
 
-            MainRouteSettingsBrowser,
+            // SPEC-094: browser settings from Home/toolbox → direct entry; back returns to web.
+            MainRouteSettingsBrowser -> {
+                when (currentRoute) {
+                    MainRouteHome,
+                    MainRouteBrowserTabs,
+                    MainRouteBrowserBookmarks,
+                    MainRouteBrowserDownloads,
+                    MainRouteBrowserHistory,
+                    MainRouteBrowserClearData,
+                    -> backStack.add(route)
+                    MainRouteSettings -> backStack.add(route)
+                    else -> {
+                        backStack.clear()
+                        backStack.add(MainRouteHome)
+                        backStack.add(route)
+                    }
+                }
+            }
+
             MainRouteSettingsOther,
             MainRouteSettingsRead,
             MainRouteSettingsCover,

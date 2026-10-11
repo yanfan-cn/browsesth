@@ -28,6 +28,8 @@ object Symbols {
     val BarChart = MaterialSymbol("bar_chart", autoMirror = false)
     val Block = MaterialSymbol("block", autoMirror = false)
     val Book = MaterialSymbol("book", autoMirror = false)
+    /** SPEC-096: reading mode chrome entry (Material Symbols book_2). */
+    val Book2 = MaterialSymbol("book_2", autoMirror = false)
     val Bookmark = MaterialSymbol("bookmark", autoMirror = false)
     val BookmarkAdd = MaterialSymbol("bookmark_add", autoMirror = false)
     val Bookmarks = MaterialSymbol("bookmarks", autoMirror = false)
@@ -108,6 +110,7 @@ object Symbols {
     val GridOn = MaterialSymbol("grid_on", autoMirror = false)
     val GridView = MaterialSymbol("grid_view", autoMirror = false)
     val Group = MaterialSymbol("group", autoMirror = false)
+    val Handyman = MaterialSymbol("handyman", autoMirror = false)
     val Headphones = MaterialSymbol("headphones", autoMirror = false)
     val Height = MaterialSymbol("height", autoMirror = false)
     val Highlight = MaterialSymbol("highlight", autoMirror = false)

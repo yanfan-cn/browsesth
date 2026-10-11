@@ -175,6 +175,10 @@ fun FloatingBottomBar(
     enableDragSwitch: Boolean = true,
     /** When false (browser chrome): no sticky selected tab; press feedback only. */
     persistentSelection: Boolean = true,
+    /** Outer capsule / row height. Main shell 64dp; web chrome 48dp (SPEC-103). */
+    barHeight: Dp = 64.dp,
+    /** Selection sampling layer + sticky pill height. Main shell 56dp (SPEC-103). */
+    indicatorHeight: Dp = 56.dp,
     content: @Composable RowScope.() -> Unit
 ) {
     val navigationAlpha = (1f - compactProgress * 3f).coerceIn(0f, 1f)
@@ -371,7 +375,7 @@ fun FloatingBottomBar(
                         Modifier
                     }
                 )
-                .height(64.dp)
+                .height(barHeight)
                 .then(if (compactProgress > 0f) Modifier.clip(ContinuousCapsule) else Modifier),
         ) {
             Row(
@@ -384,7 +388,7 @@ fun FloatingBottomBar(
                             )
                             .requiredWidth(expandedWidth) else Modifier
                     )
-                    .height(64.dp)
+                    .height(barHeight)
                     .onGloballyPositioned { coords ->
                         totalWidthPx = coords.size.width.toFloat()
                         tabWidthPx = (totalWidthPx - with(density) { 8.dp.toPx() }) / tabsCount
@@ -453,7 +457,8 @@ fun FloatingBottomBar(
                             Modifier
                         }
                     )
-                    .height(56.dp)
+                    // SPEC-103: selection / indicator sampling layer (main 56; web chrome matches bar).
+                    .height(indicatorHeight)
                     .padding(horizontal = 4.dp)
                     .then(
                         if (hasCustomIcons) Modifier
@@ -545,7 +550,8 @@ fun FloatingBottomBar(
                                 drawRect(Color.Black.copy(alpha = 0.03f * progress))
                             }
                         )
-                        .height(56.dp)
+                        // SPEC-103: sticky selection pill matches indicator layer height.
+                        .height(indicatorHeight)
                         .width(with(density) { ((totalWidthPx - 8.dp.toPx()) / tabsCount).toDp() })
                 )
             }
@@ -557,7 +563,7 @@ fun FloatingBottomBar(
                 enabled = compactProgress > 0.35f,
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .size(64.dp)
+                    .size(barHeight)
                     .graphicsLayer { alpha = menuAlpha },
             ) {
                 SymbolIcon(Symbols.Menu, stringResource(R.string.home_capsule_restore_navigation),

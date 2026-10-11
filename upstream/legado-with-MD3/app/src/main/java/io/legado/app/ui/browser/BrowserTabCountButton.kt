@@ -61,6 +61,8 @@ fun BrowserTabCountBadge(
     shape: Shape = TabCountShape,
     /** SPEC-081: tablet strip has no outline. */
     drawBorder: Boolean = true,
+    /** SPEC-103: web bottom bar uses 2dp; default 1dp. */
+    borderWidth: Dp = 1.dp,
 ) {
     val digitCount = count.toString().length
     val textSize = when {
@@ -81,7 +83,7 @@ fun BrowserTabCountBadge(
                         enableLens = false,
                     )
                 } else if (drawBorder) {
-                    Modifier.border(1.dp, tint.copy(alpha = 0.45f), shape)
+                    Modifier.border(borderWidth, tint.copy(alpha = 0.45f), shape)
                 } else {
                     Modifier
                 },

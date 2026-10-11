@@ -269,24 +269,34 @@ fun TabletBrowserShell(
                                 mutableStateOf(toolboxPrefs.orderedIds())
                             }
                             var toolboxEditing by remember { mutableStateOf(false) }
-                            Column(Modifier.fillMaxSize().padding(8.dp)) {
+                            Column(
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(8.dp)
+                                    // SPEC-099: same panel glass as phone toolbox sheet.
+                                    .toolboxPanelSurface(RoundedCornerShape(24.dp))
+                                    .padding(8.dp),
+                            ) {
                                 Row(
                                     Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text(
-                                        if (toolboxEditing) "调整顺序" else "工具箱",
-                                        Modifier.weight(1f),
-                                        fontSize = 18.sp,
-                                        color = scheme.onSurface,
-                                    )
+                                    // SPEC-097: drop "工具箱" label; keep edit title only.
                                     if (toolboxEditing) {
+                                        Text(
+                                            "调整顺序",
+                                            Modifier.weight(1f),
+                                            fontSize = 18.sp,
+                                            color = scheme.onSurface,
+                                        )
                                         TextButton(
                                             onClick = {
                                                 toolboxPrefs.saveOrder(toolboxOrder)
                                                 toolboxEditing = false
                                             },
                                         ) { Text("完成") }
+                                    } else {
+                                        Spacer(Modifier.weight(1f))
                                     }
                                     IconButton(onClick = { onSidePanelChange(TabletSidePanel.None) }) {
                                         SymbolIcon(Symbols.Close, contentDescription = "关闭")
@@ -433,7 +443,7 @@ private fun TabletTabStrip(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = tab.title.takeIf { it.isNotBlank() } ?: tab.url?.take(28) ?: "新标签页",
+                        text = BrowserTabManager.tabDisplayTitle(tab),
                         modifier = Modifier.weight(1f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -563,9 +573,9 @@ private fun TabletFunctionBar(
         // SPEC-080: tab count moved to TabletTabStrip; no FilterNone here.
         ChromeIcon(Symbols.Bookmark, "收藏", onOpenBookmarks)
         ChromeIcon(Symbols.History, "历史", onOpenHistory)
-        ChromeIcon(Symbols.LibraryBooks, "阅读列表", onOpenBookshelf)
+        ChromeIcon(Symbols.Book, "阅读列表", onOpenBookshelf)
         ChromeIcon(
-            Symbols.AutoStories,
+            Symbols.Book2,
             "阅读模式",
             onReader,
             tint = BrowserUiTokens.Primary,

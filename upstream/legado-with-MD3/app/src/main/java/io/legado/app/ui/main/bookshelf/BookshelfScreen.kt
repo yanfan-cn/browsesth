@@ -643,6 +643,12 @@ fun BookshelfScreen(
                     }
 
                     if (!isEditMode) {
+                        // SPEC-104: add-local between search and overflow menu.
+                        TopBarActionButton(
+                            onClick = onNavigateToLocalImport,
+                            symbol = Symbols.Save,
+                            contentDescription = stringResource(R.string.book_local)
+                        )
                         Box {
                             TopBarActionButton(
                                 onClick = { showTopBarMenu = true },
@@ -657,11 +663,6 @@ fun BookshelfScreen(
                                     text = stringResource(R.string.add_remote_book),
                                     onClick = { onNavigateToRemoteImport(); dismiss() },
                                     leadingIcon = { SymbolIcon(Symbols.Wifi, null) }
-                                )
-                                RoundDropdownMenuItem(
-                                    text = stringResource(R.string.book_local),
-                                    onClick = { onNavigateToLocalImport(); dismiss() },
-                                    leadingIcon = { SymbolIcon(Symbols.Save, null) }
                                 )
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.update_toc),

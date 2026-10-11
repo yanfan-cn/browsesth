@@ -35,6 +35,8 @@ class BrowserAwContentsClient(
     private val onStatus: (String) -> Unit = {},
     private val onNavigationOverride: ((String) -> Unit)? = null,
     private val onPageFinishedExtra: ((String, String) -> Unit)? = null,
+    /** SPEC-094: document title as soon as Chromium reports it (tabs grid label). */
+    private val onTitleChanged: ((String, String) -> Unit)? = null,
     /** SPEC-023: omnibox sync as soon as navigation starts. */
     private val onUrlChanged: ((String) -> Unit)? = null,
     private val onProgress: ((Int) -> Unit)? = null,
@@ -59,6 +61,11 @@ class BrowserAwContentsClient(
         mimeType: String,
         contentLength: Long,
     ) -> Unit)? = null,
+    /**
+     * SPEC-095: main-frame load error. Return true if the host handled it
+     * (e.g. HTTPS→HTTP fallback) so the default error snack is skipped.
+     */
+    private val onMainFrameError: ((url: String, netError: Int, description: String) -> Boolean)? = null,
 ) : AwContentsClient() {
 
     val interceptHits = AtomicInteger(0)
@@ -124,12 +131,21 @@ class BrowserAwContentsClient(
 
     override fun onReceivedTitle(title: String) {
         lastTitle = title
+        val url = lastUrl
+        if (url.isNotBlank()) {
+            onTitleChanged?.invoke(url, title)
+        }
     }
 
     override fun onReceivedError(request: AwWebResourceRequest, error: AwWebResourceError) {
         if (request.isOutermostMainFrame) {
+            val url = request.url.orEmpty().ifBlank { lastUrl }
             lastError = "${error.description} (net=${error.netError})"
-            onStatus("错误: $lastError")
+            val handled = onMainFrameError?.invoke(url, error.netError, error.description) == true
+            // SPEC-094/095: short tip unless host already recovered (e.g. HTTP fallback).
+            if (!handled) {
+                onStatus("错误: $lastError")
+            }
         }
     }
 

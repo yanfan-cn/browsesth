@@ -42,10 +42,10 @@ object AppPattern {
     //书源调试信息中的各种符号
     val debugMessageSymbolRegex = Regex("[⇒◇┌└≡]")
 
-    //本地书籍支持类型
-    val bookFileRegex = Regex(".*\\.(txt|epub|umd|pdf|mobi|azw3|azw)", RegexOption.IGNORE_CASE)
-    //压缩文件支持类型
-    val archiveFileRegex = Regex(".*\\.(zip|cbz|rar|7z)$", RegexOption.IGNORE_CASE)
+    //本地书籍支持类型（SPEC-105：末尾锚定）
+    val bookFileRegex = Regex(".*\\.(txt|epub|umd|pdf|mobi|azw3|azw)$", RegexOption.IGNORE_CASE)
+    //压缩/漫画包（SPEC-105：含 cbr）
+    val archiveFileRegex = Regex(".*\\.(zip|cbz|cbr|rar|7z)$", RegexOption.IGNORE_CASE)
 
     /**
      * 所有标点

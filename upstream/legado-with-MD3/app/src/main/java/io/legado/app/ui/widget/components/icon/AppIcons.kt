@@ -25,7 +25,7 @@ object AppIcons {
     fun mainDestination(destination: MainDestination, selected: Boolean): MaterialSymbol {
         return when (destination) {
             MainDestination.Home -> Symbols.Home
-            MainDestination.Bookshelf -> Symbols.LibraryBooks
+            MainDestination.Bookshelf -> Symbols.Book
             MainDestination.Explore -> Symbols.Explore
             MainDestination.Rss -> Symbols.RssFeed
             MainDestination.My -> Symbols.Person

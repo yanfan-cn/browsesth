@@ -30,31 +30,31 @@ import io.legado.app.utils.exists
 import io.legado.app.utils.isContentScheme
 import io.legado.app.utils.isUri
 import io.legado.app.utils.list
-import io.legado.app.utils.mapParallel
 import io.legado.app.utils.takePersistablePermissionSafely
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.ArrayDeque
 
 @Immutable
 data class ImportBookUiState(
@@ -684,7 +684,20 @@ class ImportBookViewModel(
     }
 
     fun scanCurrentDoc() {
-        val current = currentDoc() ?: return
+        val current = currentDoc()
+        if (current == null) {
+            // SPEC-105: silent return felt like “智能扫描无效”.
+            _effects.tryEmit(ImportBookEffect.ShowToast("请先选择文件夹"))
+            _effects.tryEmit(
+                ImportBookEffect.RequestFolderPicker(
+                    target = ImportFolderPickTarget.IMPORT_FOLDER,
+                    initialUri = importBookSettingsGateway.currentSettings.importBookPath
+                        ?.takeIf { it.isUri() }
+                        ?.toUri()
+                )
+            )
+            return
+        }
 
         scanDocJob?.cancel()
         _state.update {
@@ -706,6 +719,13 @@ class ImportBookViewModel(
                         selectedIds = emptySet(),
                         interaction = it.interaction.copy(isLoading = false)
                     )
+                }
+                if (docs.isEmpty()) {
+                    withContext(Main) {
+                        _effects.tryEmit(
+                            ImportBookEffect.ShowToast("未找到支持的书籍/漫画文件")
+                        )
+                    }
                 }
             }.onFailure {
                 withContext(Main) {
@@ -821,30 +841,37 @@ class ImportBookViewModel(
         }
     }
 
+    /**
+     * SPEC-105: reliable BFS. Previous channel + mapParallel + takeWhile(n) could
+     * cancel early under concurrent listing and look like a no-op scan.
+     */
     private suspend fun scanDoc(fileDoc: FileDoc): List<FileDoc> {
-        val channel = Channel<FileDoc>(UNLIMITED)
-        var n = 1
-        channel.trySend(fileDoc)
-        val docs = arrayListOf<FileDoc>()
-
-        channel.consumeAsFlow()
-            .mapParallel(16) { doc ->
-                doc.list() ?: emptyList<FileDoc>()
+        val docs = ArrayList<FileDoc>()
+        val queue = ArrayDeque<FileDoc>()
+        queue.add(fileDoc)
+        while (queue.isNotEmpty()) {
+            currentCoroutineContext().ensureActive()
+            val batchSize = minOf(16, queue.size)
+            val batch = ArrayList<FileDoc>(batchSize)
+            repeat(batchSize) { batch.add(queue.removeFirst()) }
+            val listed = coroutineScope {
+                batch.map { doc ->
+                    async(IO) {
+                        runCatching { doc.list() ?: emptyList() }.getOrDefault(emptyList())
+                    }
+                }.awaitAll()
             }
-            .onEach { fileDocs ->
-                n--
-                fileDocs.forEach {
-                    if (it.isDir) {
-                        n++
-                        channel.trySend(it)
-                    } else if (it.name.matches(bookFileRegex) || it.name.matches(archiveFileRegex)) {
-                        docs.add(it)
+            for (children in listed) {
+                for (child in children) {
+                    if (child.name.startsWith(".")) continue
+                    when {
+                        child.isDir -> queue.add(child)
+                        child.name.matches(bookFileRegex) ||
+                            child.name.matches(archiveFileRegex) -> docs.add(child)
                     }
                 }
             }
-            .takeWhile { n > 0 }
-            .collect {}
-
+        }
         return docs
     }
 

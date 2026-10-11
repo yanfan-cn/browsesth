@@ -11,11 +11,14 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -627,56 +630,32 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                                 ModalOverlaySceneStrategy(),
                                 SinglePaneSceneStrategy(),
                             ),
-                            // Match legacy (10.x) slide pop that was visibly working on device.
+                            // SPEC-101: Keep underneath on push; pop = top slides right only.
                             transitionSpec = {
-                                slideIntoContainer(
-                                    towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                                slideInHorizontally(
                                     animationSpec = tween(
-                                        durationMillis = 480,
+                                        durationMillis = 280,
                                         easing = FastOutSlowInEasing,
                                     ),
-                                    initialOffset = { fullWidth -> fullWidth },
-                                ) togetherWith slideOutOfContainer(
-                                    towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                                    animationSpec = tween(
-                                        durationMillis = 480,
-                                        easing = FastOutSlowInEasing,
-                                    ),
-                                    targetOffset = { fullWidth -> fullWidth / 4 },
-                                )
+                                    initialOffsetX = { fullWidth -> fullWidth },
+                                ) togetherWith ExitTransition.KeepUntilTransitionsFinished
                             },
                             popTransitionSpec = {
-                                slideIntoContainer(
-                                    towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                                EnterTransition.None togetherWith slideOutHorizontally(
                                     animationSpec = tween(
-                                        durationMillis = 480,
+                                        durationMillis = 280,
                                         easing = FastOutSlowInEasing,
                                     ),
-                                    initialOffset = { fullWidth -> -fullWidth / 4 },
-                                ) togetherWith slideOutOfContainer(
-                                    towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                                    animationSpec = tween(
-                                        durationMillis = 480,
-                                        easing = FastOutSlowInEasing,
-                                    ),
-                                    targetOffset = { fullWidth -> fullWidth },
+                                    targetOffsetX = { fullWidth -> fullWidth },
                                 )
                             },
                             predictivePopTransitionSpec = { _ ->
-                                slideIntoContainer(
-                                    towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                                EnterTransition.None togetherWith slideOutHorizontally(
                                     animationSpec = tween(
-                                        durationMillis = 480,
+                                        durationMillis = 280,
                                         easing = FastOutSlowInEasing,
                                     ),
-                                    initialOffset = { fullWidth -> -fullWidth / 4 },
-                                ) togetherWith slideOutOfContainer(
-                                    towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                                    animationSpec = tween(
-                                        durationMillis = 480,
-                                        easing = FastOutSlowInEasing,
-                                    ),
-                                    targetOffset = { fullWidth -> fullWidth },
+                                    targetOffsetX = { fullWidth -> fullWidth },
                                 )
                             },
                             onBack = { MainNavigator.navigateBack(this@MainActivity, backStack) },

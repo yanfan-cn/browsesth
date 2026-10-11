@@ -370,7 +370,7 @@ private fun TabCard(
                 tint = scheme.onSurfaceVariant,
             )
             Text(
-                tab.title.ifBlank { tab.url ?: "新标签页" },
+                BrowserTabManager.tabDisplayTitle(tab),
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 6.dp),

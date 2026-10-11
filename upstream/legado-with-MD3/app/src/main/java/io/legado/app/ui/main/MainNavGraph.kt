@@ -14,7 +14,10 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.ContentTransform
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -181,73 +184,42 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 /**
- * WebView 类页面（内置浏览器、订阅阅读）只做位移转场。
+ * SPEC-101: Nav3 official overlay pattern (see animate-destinations):
+ * - Push: new page slides in; underneath KeepUntilTransitionsFinished (do not drag Home/AwContents).
+ * - Pop: Enter None; top page slides out to the right.
+ * Still no fade/scale over AwContents / liquid glass.
  *
- * WebView 是 AndroidView interop view：所在子树一旦被加上 graphicsLayer（fade 的 alpha、
- * scaleOut 的缩放），Compose 会把网页一并画进离屏 RenderNode
- * （`AndroidViewHolder.draw` → `AndroidComposeView.drawAndroidView`），Chromium 在这条绘制路径上
- * 不稳定，部分设备会表现为网页闪烁。`slideIntoContainer` / `slideOutOfContainer` 只改 layout
- * offset、不产生图层，所以这里保留默认的位移与时长，去掉 fade 与 scale。
+ * KeepUntilTransitionsFinished is only public on [AnimatedContentTransitionScope]
+ * (internal on ExitTransition.Companion alone — do not call from top-level helpers).
  */
-/**
- * Restore pre-SPEC-083 Pop that actually animated on device (d52fbac / 10.x):
- * SlideDirection.Start + targetOffset=fullWidth → current page exits to the right.
- * SPEC-083 End-direction Pop was a no-op / invisible on Nav3 + OnBackInvoked.
- */
-private const val BrowserSlideMs = 480
+private const val BrowserSlideMs = 280
 
-private fun AnimatedContentTransitionScope<*>.browserRightSlidePop() =
-    slideIntoContainer(
-        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+private fun AnimatedContentTransitionScope<*>.browserOverlayPush(): ContentTransform =
+    slideInHorizontally(
         animationSpec = tween(durationMillis = BrowserSlideMs, easing = FastOutSlowInEasing),
-        initialOffset = { fullWidth -> -fullWidth / 4 },
-    ) togetherWith slideOutOfContainer(
-        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+        initialOffsetX = { fullWidth -> fullWidth },
+    ) togetherWith ExitTransition.KeepUntilTransitionsFinished
+
+private fun AnimatedContentTransitionScope<*>.browserOverlayPop(): ContentTransform =
+    EnterTransition.None togetherWith slideOutHorizontally(
         animationSpec = tween(durationMillis = BrowserSlideMs, easing = FastOutSlowInEasing),
-        targetOffset = { fullWidth -> fullWidth },
+        targetOffsetX = { fullWidth -> fullWidth },
     )
 
 private fun webViewEntryMetadata(@Suppress("UNUSED_PARAMETER") predictiveBackEnabled: Boolean) =
     metadata {
-        put(NavDisplay.TransitionKey) {
-            slideIntoContainer(
-                towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                animationSpec = tween(durationMillis = BrowserSlideMs, easing = FastOutSlowInEasing),
-                initialOffset = { fullWidth -> fullWidth }
-            ) togetherWith slideOutOfContainer(
-                towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                animationSpec = tween(durationMillis = BrowserSlideMs, easing = FastOutSlowInEasing),
-                targetOffset = { fullWidth -> fullWidth / 4 }
-            )
-        }
-        put(NavDisplay.PopTransitionKey) { browserRightSlidePop() }
-        put(NavDisplay.PredictivePopTransitionKey) { _ -> browserRightSlidePop() }
+        put(NavDisplay.TransitionKey) { browserOverlayPush() }
+        put(NavDisplay.PopTransitionKey) { browserOverlayPop() }
+        put(NavDisplay.PredictivePopTransitionKey) { _ -> browserOverlayPop() }
     }
 
-/** SPEC-028: bookmarks / history / browser settings — horizontal push, no fade. */
+/** SPEC-028/101: bookmarks / history / downloads / clear-data. */
 private fun browserSlideEntryMetadata(predictiveBackEnabled: Boolean) =
     webViewEntryMetadata(predictiveBackEnabled)
 
-/**
- * SPEC-087: tabs use slide-only (no fade/scale graphicsLayer over liquid-glass Home).
- * SPEC-079 None was a crash workaround; slide does not create offscreen layers.
- */
+/** SPEC-087/101: tabs — same Keep/None slide overlay (name historical). */
 private fun browserTabsScaleMetadata(@Suppress("UNUSED_PARAMETER") predictiveBackEnabled: Boolean) =
-    metadata {
-        put(NavDisplay.TransitionKey) {
-            slideIntoContainer(
-                towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                animationSpec = tween(durationMillis = BrowserSlideMs, easing = FastOutSlowInEasing),
-                initialOffset = { fullWidth -> fullWidth },
-            ) togetherWith slideOutOfContainer(
-                towards = AnimatedContentTransitionScope.SlideDirection.Start,
-                animationSpec = tween(durationMillis = BrowserSlideMs, easing = FastOutSlowInEasing),
-                targetOffset = { fullWidth -> fullWidth / 4 },
-            )
-        }
-        put(NavDisplay.PopTransitionKey) { browserRightSlidePop() }
-        put(NavDisplay.PredictivePopTransitionKey) { _ -> browserRightSlidePop() }
-    }
+    webViewEntryMetadata(predictiveBackEnabled)
 
 /** Full-screen book destinations share the same scene fade as the text reader. */
 private fun readerEntryMetadata(@Suppress("UNUSED_PARAMETER") predictiveBackEnabled: Boolean) =

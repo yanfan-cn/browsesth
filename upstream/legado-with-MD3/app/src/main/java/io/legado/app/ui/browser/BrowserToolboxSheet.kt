@@ -1,9 +1,7 @@
 package io.legado.app.ui.browser
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -23,7 +21,6 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -43,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.legado.app.browser.engine.BrowserToolboxPrefs
 import io.legado.app.browser.engine.BrowserUa
+import io.legado.app.ui.theme.ChromeSurfaceStyle
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import io.legado.app.ui.widget.components.icon.SymbolIcon
@@ -53,6 +52,9 @@ import sh.calvin.reorderable.rememberReorderableLazyGridState
 
 /**
  * SPEC-070: Edge-style browser toolbox — pinned accent row + outline grid + reorder.
+ * SPEC-097: no "工具箱" title; each cell 24dp rounded fill / liquid glass.
+ * SPEC-099/102: panel glass; cells; no divider.
+ * SPEC-102: panel 0.2/0.15; cell height ~70%; icon 24dp; top inset 16dp; filled=13.4 solid cell.
  */
 data class BrowserToolboxActions(
     val onOpenBookmarks: () -> Unit,
@@ -76,6 +78,50 @@ private data class ToolboxGridDef(
     val label: String,
     val icon: MaterialSymbol,
 )
+
+private val ToolboxCellShape = RoundedCornerShape(24.dp)
+private val ToolboxPanelShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+private val ToolboxCellGap = 12.dp
+/** SPEC-102: ~70% of SPEC-099 88dp container; label/padding unchanged. */
+private val ToolboxCellHeight = 62.dp
+private val ToolboxCellIcon = 24.dp
+private val ToolboxCellLabelSp = 11.sp
+private val ToolboxContentTopInset = 16.dp
+
+/** SPEC-102: panel overlay — light 0.2 / dark 0.15 */
+@Composable
+private fun toolboxPanelOverlayAlpha(): Float =
+    if (LegadoTheme.isDark) 0.15f else 0.20f
+
+/** Liquid-glass keys stay denser; filled mode uses default (13.4 solid) via null overlay. */
+@Composable
+private fun toolboxCellOverlayAlpha(): Float? {
+    val style = currentChromeSurfaceStyle()
+    if (style == ChromeSurfaceStyle.Filled) return null
+    return if (LegadoTheme.isDark) 0.72f else 0.68f
+}
+
+@Composable
+fun Modifier.toolboxPanelSurface(
+    shape: Shape = ToolboxPanelShape,
+): Modifier =
+    browserControlLiquidGlass(
+        shape = shape,
+        interactive = false,
+        showShadow = false,
+        enableLens = false,
+        overlayAlpha = toolboxPanelOverlayAlpha(),
+    )
+
+@Composable
+private fun Modifier.toolboxCellSurface(): Modifier =
+    browserControlLiquidGlass(
+        shape = ToolboxCellShape,
+        interactive = false,
+        showShadow = false,
+        enableLens = false,
+        overlayAlpha = toolboxCellOverlayAlpha(),
+    )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,7 +147,7 @@ fun BrowserToolboxSheet(
             }
             onDismiss()
         },
-        title = if (editing) "调整顺序" else "工具箱",
+        title = if (editing) "调整顺序" else null,
         endAction = if (editing) {
             {
                 TextButton(
@@ -116,12 +162,16 @@ fun BrowserToolboxSheet(
         } else {
             null
         },
-        contentPaddingEnabled = true,
+        contentPaddingEnabled = false,
         animateContentSize = false,
+        containerColor = Color.Transparent,
         contentWindowInsets = {
             WindowInsets.statusBars.union(WindowInsets.navigationBars)
         },
-        modifier = Modifier.height(sheetHeight),
+        modifier = Modifier
+            .height(sheetHeight)
+            .toolboxPanelSurface()
+            .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
     ) {
         Column(
             Modifier
@@ -158,27 +208,55 @@ fun BrowserToolboxBody(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(top = ToolboxContentTopInset),
+            horizontalArrangement = Arrangement.spacedBy(ToolboxCellGap),
         ) {
-            PinnedCell(Symbols.Bookmarks, "书签", scheme.primary, Modifier.weight(1f)) {
-                onDismiss()
-                actions.onOpenBookmarks()
-            }
-            PinnedCell(Symbols.History, "历史", scheme.primary, Modifier.weight(1f)) {
-                onDismiss()
-                actions.onOpenHistory()
-            }
-            PinnedCell(Symbols.Download, "下载", scheme.primary, Modifier.weight(1f)) {
-                onDismiss()
-                actions.onOpenDownloads()
-            }
-            PinnedCell(Symbols.Settings, "设置", scheme.primary, Modifier.weight(1f)) {
-                onDismiss()
-                actions.onOpenSettings()
-            }
+            ToolboxCell(
+                icon = Symbols.Bookmarks,
+                label = "书签",
+                tint = scheme.primary,
+                iconFilled = true,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    onDismiss()
+                    actions.onOpenBookmarks()
+                },
+            )
+            ToolboxCell(
+                icon = Symbols.History,
+                label = "历史",
+                tint = scheme.primary,
+                iconFilled = true,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    onDismiss()
+                    actions.onOpenHistory()
+                },
+            )
+            ToolboxCell(
+                icon = Symbols.Download,
+                label = "下载",
+                tint = scheme.primary,
+                iconFilled = true,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    onDismiss()
+                    actions.onOpenDownloads()
+                },
+            )
+            ToolboxCell(
+                icon = Symbols.Settings,
+                label = "设置",
+                tint = scheme.primary,
+                iconFilled = true,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    onDismiss()
+                    actions.onOpenSettings()
+                },
+            )
         }
-        HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.5f))
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(ToolboxCellGap))
 
         val defs = remember(order, actions.adBlockEnabled, actions.uaMode) {
             order.mapNotNull { id -> gridDef(id, actions) }
@@ -200,16 +278,16 @@ fun BrowserToolboxBody(
                     .fillMaxWidth()
                     .weight(1f),
                 contentPadding = PaddingValues(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(ToolboxCellGap),
+                verticalArrangement = Arrangement.spacedBy(ToolboxCellGap),
             ) {
                 itemsIndexed(defs, key = { _, d -> d.id }) { _, def ->
                     ReorderableItem(state = reorderable, key = def.id) {
-                        GridCell(
+                        ToolboxCell(
                             icon = def.icon,
                             label = def.label,
-                            filled = false,
                             tint = scheme.onSurface,
+                            iconFilled = false,
                             editing = true,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -225,15 +303,15 @@ fun BrowserToolboxBody(
                     .fillMaxWidth()
                     .weight(1f),
                 contentPadding = PaddingValues(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(ToolboxCellGap),
+                verticalArrangement = Arrangement.spacedBy(ToolboxCellGap),
             ) {
                 items(defs, key = { it.id }) { def ->
-                    GridCell(
+                    ToolboxCell(
                         icon = def.icon,
                         label = def.label,
-                        filled = false,
                         tint = scheme.onSurface,
+                        iconFilled = false,
                         onClick = {
                             when (def.id) {
                                 "new_incognito" -> {
@@ -267,11 +345,11 @@ fun BrowserToolboxBody(
                     )
                 }
                 item(key = "customize") {
-                    GridCell(
+                    ToolboxCell(
                         icon = Symbols.Tune,
                         label = "自定义顺序",
-                        filled = false,
                         tint = scheme.onSurface,
+                        iconFilled = false,
                         onClick = { onEditingChange(true) },
                     )
                 }
@@ -301,47 +379,22 @@ private fun gridDef(id: String, actions: BrowserToolboxActions): ToolboxGridDef?
 }
 
 @Composable
-private fun PinnedCell(
+private fun ToolboxCell(
     icon: MaterialSymbol,
     label: String,
     tint: Color,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 8.dp),
-    ) {
-        SymbolIcon(icon, contentDescription = label, tint = tint, filled = true, size = 28.dp)
-        Spacer(Modifier.height(6.dp))
-        Text(
-            label,
-            color = LegadoTheme.colorScheme.onSurface,
-            fontSize = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-        )
-    }
-}
-
-@Composable
-private fun GridCell(
-    icon: MaterialSymbol,
-    label: String,
-    filled: Boolean,
-    tint: Color,
+    iconFilled: Boolean,
     editing: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .height(ToolboxCellHeight)
+            .toolboxCellSurface()
+            .clip(ToolboxCellShape)
             .then(
                 if (onClick != null && !editing) {
                     Modifier.clickable(onClick = onClick)
@@ -349,20 +402,20 @@ private fun GridCell(
                     Modifier
                 },
             )
-            .padding(vertical = 10.dp, horizontal = 4.dp),
+            .padding(horizontal = 4.dp, vertical = 8.dp),
     ) {
         SymbolIcon(
             icon,
             contentDescription = label,
             tint = tint,
-            filled = filled,
-            size = 26.dp,
+            filled = iconFilled,
+            size = ToolboxCellIcon,
         )
         Spacer(Modifier.height(6.dp))
         Text(
             label,
             color = LegadoTheme.colorScheme.onSurface,
-            fontSize = 11.sp,
+            fontSize = ToolboxCellLabelSp,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,

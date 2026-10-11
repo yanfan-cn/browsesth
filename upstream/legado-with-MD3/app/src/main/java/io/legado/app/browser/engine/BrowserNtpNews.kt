@@ -1,5 +1,6 @@
 package io.legado.app.browser.engine
 
+import android.content.Context
 import android.util.Log
 import com.google.gson.JsonParser
 import io.legado.app.help.http.newCallStrResponse
@@ -12,19 +13,22 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
+import java.util.EnumMap
+import java.util.EnumSet
 import java.util.Locale
 import java.util.TimeZone
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * SPEC-088: NTP news — Sina / NetEase / Tencent / BBC / SSPAI (RSS or public list APIs).
+ * SPEC-088/094: NTP news — Sina / NetEase / Tencent / BBC / SSPAI.
+ * SPEC-094: 3h cache TTL; no hard total cap; page/offset load-more until sources exhaust.
+ * SPEC-098: cold-start prefetch into the same cache.
  */
 object BrowserNtpNews {
 
     private const val TAG = "BrowsesthNtpNews"
-    private const val PER_SOURCE = 10
-    private const val MAX_TOTAL = 40
-    private const val CACHE_TTL_MS = 15L * 60L * 1000L
+    internal const val PAGE_SIZE = 20
+    private const val CACHE_TTL_MS = 3L * 60L * 60L * 1000L
     private const val FETCH_TIMEOUT_MS = 4_000L
 
     enum class Source(val id: String, val label: String) {
@@ -55,6 +59,9 @@ object BrowserNtpNews {
         val flags: SourceFlags,
         val items: List<Item>,
         val loadedAt: Long,
+        /** Next page index to request (0 = first page already loaded → next is 1). */
+        val nextPage: Map<Source, Int>,
+        val exhausted: Set<Source>,
     )
 
     private val cache = AtomicReference<CacheEntry?>(null)
@@ -67,8 +74,35 @@ object BrowserNtpNews {
         return hit.items
     }
 
+    fun hasMore(flags: SourceFlags): Boolean {
+        val hit = cache.get() ?: return false
+        if (hit.flags != flags) return false
+        return enabledSources(flags).any { it !in hit.exhausted }
+    }
+
     fun invalidateCache() {
         cache.set(null)
+    }
+
+    /**
+     * SPEC-098: warm cache at process start when the news feed is enabled.
+     * No-op when disabled or all sources off; respects 3h TTL via [load].
+     */
+    suspend fun prefetchIfEnabled(context: Context) {
+        val prefs = BrowserNtpPrefs(context)
+        if (!prefs.newsFeedEnabled) return
+        val flags = SourceFlags(
+            sina = prefs.newsSourceSina,
+            netEase = prefs.newsSourceNetEase,
+            tencent = prefs.newsSourceTencent,
+            bbcZh = prefs.newsSourceBbcZh,
+            sspai = prefs.newsSourceSspai,
+        )
+        if (!flags.sina && !flags.netEase && !flags.tencent && !flags.bbcZh && !flags.sspai) {
+            return
+        }
+        runCatching { load(flags, force = false) }
+            .onFailure { Log.w(TAG, "prefetch failed: ${it.message}") }
     }
 
     suspend fun load(flags: SourceFlags, force: Boolean = false): List<Item> =
@@ -76,24 +110,114 @@ object BrowserNtpNews {
             if (!force) cached(flags)?.let { return@withContext it }
             loadMutex.withLock {
                 if (!force) cached(flags)?.let { return@withLock it }
-                val items = fetchAll(flags)
-                cache.set(CacheEntry(flags, items, System.currentTimeMillis()))
+                val batch = fetchPage(flags, pageBySource = emptyMap(), existingUrls = emptySet())
+                val next = EnumMap<Source, Int>(Source::class.java)
+                val exhausted = EnumSet.noneOf(Source::class.java)
+                for (src in enabledSources(flags)) {
+                    val got = batch.count { it.source == src }
+                    if (src == Source.BbcZh || src == Source.Sspai || got < PAGE_SIZE) {
+                        exhausted += src
+                        next[src] = 1
+                    } else {
+                        next[src] = 1
+                    }
+                }
+                val items = batch.distinctBy { it.url }.sortedByDescending { it.publishedAt }
+                cache.set(
+                    CacheEntry(
+                        flags = flags,
+                        items = items,
+                        loadedAt = System.currentTimeMillis(),
+                        nextPage = next,
+                        exhausted = exhausted,
+                    ),
+                )
                 items
             }
         }
 
-    private suspend fun fetchAll(flags: SourceFlags): List<Item> = coroutineScope {
+    /** Append next page from sources that still have more; returns full merged list. */
+    suspend fun loadMore(flags: SourceFlags): List<Item> =
+        withContext(Dispatchers.IO) {
+            val existing = cache.get()
+            if (existing == null || existing.flags != flags) {
+                return@withContext load(flags, force = false)
+            }
+            loadMutex.withLock {
+                val hit = cache.get()
+                if (hit == null || hit.flags != flags) {
+                    return@withLock hit?.items.orEmpty()
+                }
+                val pending = enabledSources(flags).filter { it !in hit.exhausted }
+                if (pending.isEmpty()) return@withLock hit.items
+                val batch = fetchPage(
+                    flags = flags,
+                    pageBySource = hit.nextPage,
+                    existingUrls = hit.items.map { it.url }.toSet(),
+                    only = pending.toSet(),
+                )
+                val next = hit.nextPage.toMutableMap()
+                val exhausted = hit.exhausted.toMutableSet()
+                for (src in pending) {
+                    val got = batch.count { it.source == src }
+                    val page = hit.nextPage[src] ?: 1
+                    next[src] = page + 1
+                    if (src == Source.BbcZh || src == Source.Sspai || got == 0 || got < PAGE_SIZE) {
+                        exhausted += src
+                    }
+                }
+                val items = (hit.items + batch)
+                    .distinctBy { it.url }
+                    .sortedByDescending { it.publishedAt }
+                cache.set(
+                    hit.copy(
+                        items = items,
+                        nextPage = next,
+                        exhausted = exhausted,
+                    ),
+                )
+                items
+            }
+        }
+
+    private fun enabledSources(flags: SourceFlags): List<Source> = buildList {
+        if (flags.sina) add(Source.Sina)
+        if (flags.netEase) add(Source.NetEase)
+        if (flags.tencent) add(Source.Tencent)
+        if (flags.bbcZh) add(Source.BbcZh)
+        if (flags.sspai) add(Source.Sspai)
+    }
+
+    private suspend fun fetchPage(
+        flags: SourceFlags,
+        pageBySource: Map<Source, Int>,
+        existingUrls: Set<String>,
+        only: Set<Source>? = null,
+    ): List<Item> = coroutineScope {
         val jobs = buildList {
-            if (flags.sina) add(async { timed { fetchSina() } })
-            if (flags.netEase) add(async { timed { fetchNetEase() } })
-            if (flags.tencent) add(async { timed { fetchTencent() } })
-            if (flags.bbcZh) add(async { timed { fetchBbcZh() } })
-            if (flags.sspai) add(async { timed { fetchSspai() } })
+            fun want(src: Source) = (only == null || src in only)
+            if (flags.sina && want(Source.Sina)) {
+                val page = (pageBySource[Source.Sina] ?: 0) + 1
+                add(async { timed { fetchSina(page) } })
+            }
+            if (flags.netEase && want(Source.NetEase)) {
+                val page = pageBySource[Source.NetEase] ?: 0
+                add(async { timed { fetchNetEase(page) } })
+            }
+            if (flags.tencent && want(Source.Tencent)) {
+                val page = (pageBySource[Source.Tencent] ?: 0) + 1
+                add(async { timed { fetchTencent(page) } })
+            }
+            if (flags.bbcZh && want(Source.BbcZh) && (pageBySource[Source.BbcZh] ?: 0) == 0) {
+                add(async { timed { fetchBbcZh() } })
+            }
+            if (flags.sspai && want(Source.Sspai) && (pageBySource[Source.Sspai] ?: 0) == 0) {
+                add(async { timed { fetchSspai() } })
+            }
         }
         jobs.flatMap { runCatching { it.await() }.getOrElse { emptyList() } }
+            .filter { it.url !in existingUrls }
             .distinctBy { it.url }
-            .sortedByDescending { it.publishedAt }
-            .take(MAX_TOTAL)
     }
 
     private suspend fun timed(block: suspend () -> List<Item>): List<Item> =
@@ -104,9 +228,8 @@ object BrowserNtpNews {
             "<(?:item|entry)\\b[\\s\\S]*?</(?:item|entry)>",
             RegexOption.IGNORE_CASE,
         ).findAll(xml).map { it.value }.toList()
-        val out = ArrayList<Item>(PER_SOURCE)
+        val out = ArrayList<Item>(itemBlocks.size.coerceAtMost(200))
         for (block in itemBlocks) {
-            if (out.size >= PER_SOURCE) break
             val title = firstTagText(block, "title")?.let(::decodeXmlEntities)?.trim().orEmpty()
             val link = extractLink(block)
             if (title.isEmpty() || !link.startsWith("http")) continue
@@ -174,7 +297,7 @@ object BrowserNtpNews {
                 ?: 0L
             val ts = if (ctime in 1 until 10_000_000_000L) ctime * 1000L else ctime
             Item(title, url, Source.Sina, ts, img)
-        }.take(PER_SOURCE)
+        }
     }
 
     /** NetEase touch list is JSONP: artiList({...}) */
@@ -195,7 +318,7 @@ object BrowserNtpNews {
                 ?.takeIf { it.startsWith("http") }
             val ptime = o.get("ptime")?.asString
             Item(title, url, Source.NetEase, parsePubDate(ptime), img)
-        }.take(PER_SOURCE)
+        }
     }
 
     internal fun parseTencentHotRank(json: String): List<Item> {
@@ -224,7 +347,7 @@ object BrowserNtpNews {
                 if (sec < 10_000_000_000L) sec * 1000L else sec
             } ?: 0L
             Item(title, url, Source.Tencent, ts, img)
-        }.take(PER_SOURCE)
+        }
     }
 
     private fun looksLikeImageUrl(url: String): Boolean {
@@ -262,28 +385,32 @@ object BrowserNtpNews {
             .replace("&apos;", "'")
             .replace("&#34;", "\"")
 
-    private suspend fun fetchSina(): List<Item> {
-        val rss = getText("https://rss.sina.com.cn/news/china/focus15.xml")
-        if (!rss.isNullOrBlank()) {
-            val items = parseRssItems(rss, Source.Sina)
-            if (items.isNotEmpty()) return items
+    private suspend fun fetchSina(page: Int): List<Item> {
+        if (page <= 1) {
+            val rss = getText("https://rss.sina.com.cn/news/china/focus15.xml")
+            if (!rss.isNullOrBlank()) {
+                val items = parseRssItems(rss, Source.Sina)
+                if (items.isNotEmpty()) return items
+            }
         }
         val json = getText(
-            "https://feed.mix.sina.com.cn/api/roll/get?pageid=153&lid=2509&k=&num=$PER_SOURCE&page=1",
+            "https://feed.mix.sina.com.cn/api/roll/get?pageid=153&lid=2509&k=&num=$PAGE_SIZE&page=$page",
         ) ?: return emptyList()
         return parseSinaRollJson(json)
     }
 
-    private suspend fun fetchNetEase(): List<Item> {
+    private suspend fun fetchNetEase(pageIndex: Int): List<Item> {
+        val start = pageIndex * PAGE_SIZE
+        val end = start + PAGE_SIZE
         val body = getText(
-            "https://3g.163.com/touch/reconstruct/article/list/BBM54PGAwangning/0-$PER_SOURCE.html",
+            "https://3g.163.com/touch/reconstruct/article/list/BBM54PGAwangning/$start-$end.html",
         ) ?: return emptyList()
         return parseNetEaseArtiList(body)
     }
 
-    private suspend fun fetchTencent(): List<Item> {
+    private suspend fun fetchTencent(page: Int): List<Item> {
         val body = getText(
-            "https://r.inews.qq.com/gw/event/hot_ranking_list?page_size=$PER_SOURCE",
+            "https://r.inews.qq.com/gw/event/hot_ranking_list?page_size=$PAGE_SIZE&page=$page",
         ) ?: return emptyList()
         return parseTencentHotRank(body)
     }

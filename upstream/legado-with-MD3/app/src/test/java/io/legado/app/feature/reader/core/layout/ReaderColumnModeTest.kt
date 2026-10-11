@@ -16,4 +16,11 @@ class ReaderColumnModeTest {
         assertEquals(ReaderColumnMode.LANDSCAPE_OR_TABLET, ReaderColumnMode.fromPreference("3"))
         assertEquals(ReaderColumnMode.SINGLE, ReaderColumnMode.fromPreference("unknown"))
     }
+
+    /** SPEC-095: scroll mode forces single column even when LANDSCAPE preference is set. */
+    @Test
+    fun scrollDisablesLandscapeDualPage() {
+        assertEquals(1, ReaderColumnMode.LANDSCAPE.columnCount(1600, 900, false, isScroll = true))
+        assertEquals(2, ReaderColumnMode.LANDSCAPE.columnCount(1600, 900, false, isScroll = false))
+    }
 }

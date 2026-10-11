@@ -15,6 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -114,12 +115,24 @@ private fun BrowserHomeTabBody(
         )
     }
 
-    val sessionActive = active?.url != null
-    LaunchedEffect(sessionActive) {
-        onSessionActiveChange(sessionActive)
+    // SPEC-094: showHome keeps url/title for tab restore while showing NTP.
+    // SPEC-097/101: logical session vs chrome — defer sessionActive=false until exit slide ends
+    // so MainScreen bottom bar / pager do not recompose away the outgoing page.
+    val logicalSessionActive = BrowserTabManager.isWebSessionShowing(active)
+    val showNtp = !logicalSessionActive
+    LaunchedEffect(logicalSessionActive) {
+        if (logicalSessionActive) {
+            onSessionActiveChange(true)
+        }
     }
     DisposableEffect(Unit) {
         onDispose { onSessionActiveChange(false) }
+    }
+    val onSessionExitFinished = remember(onSessionActiveChange) {
+        {
+            BrowserTabManager.releaseSessionHostIfParked()
+            onSessionActiveChange(false)
+        }
     }
 
     var sidePanel by remember { mutableStateOf(TabletSidePanel.None) }
@@ -161,8 +174,6 @@ private fun BrowserHomeTabBody(
         }
     }
 
-    val showNtp = active == null || active.url.isNullOrBlank()
-
     if (!isTablet) {
         PhoneBrowserHome(
             showNtp = showNtp,
@@ -178,6 +189,7 @@ private fun BrowserHomeTabBody(
             onOpenReader = onOpenReader,
             onOpenMangaReader = onOpenMangaReader,
             sessionKey = active?.id,
+            onSessionExitFinished = onSessionExitFinished,
         )
         return
     }
@@ -216,7 +228,7 @@ private fun BrowserHomeTabBody(
         onRefresh = { sessionActions?.reload() },
         onReader = { sessionActions?.openReader() },
         onOpenBookshelf = onOpenBookshelf,
-        chromeVisible = chromeVisible || !sessionActive || embeddedKind != null,
+        chromeVisible = chromeVisible || !logicalSessionActive || embeddedKind != null,
         sidePanel = sidePanel,
         onSidePanelChange = { sidePanel = it },
         onOpenUrl = { BrowserTabManager.openUrlInActive(it) },
@@ -228,6 +240,7 @@ private fun BrowserHomeTabBody(
         Box(Modifier.fillMaxSize()) {
         BrowserNtpSessionSwitch(
             showNtp = showNtp,
+            onSessionExitFinished = onSessionExitFinished,
             ntp = {
                 BrowserNtpScreen(
                     incognito = active?.incognito == true,
@@ -300,19 +313,22 @@ private fun BrowserHomeTabBody(
 @Composable
 private fun BrowserNtpSessionSwitch(
     showNtp: Boolean,
+    onSessionExitFinished: () -> Unit = {},
     ntp: @Composable () -> Unit,
     session: @Composable () -> Unit,
 ) {
-    // SPEC-033/039: never compose NTP and session (AwContents) together.
-    // SPEC-088 fix: session zIndex above NTP so exit slide is visible (not covered by snapped NTP).
+    // SPEC-100/101: slide-only (no fade/scale over glass / AwContents).
+    // Push: NTP under → session slides in → snap-dispose NTP.
+    // Pop: NTP under → session slides out → then release host + reveal main bottom bar.
     val scheme = LegadoTheme.colorScheme
-    val spec = tween<IntOffset>(durationMillis = 280, easing = FastOutSlowInEasing)
+    val spec = tween<IntOffset>(durationMillis = 240, easing = FastOutSlowInEasing)
     var ntpState by remember {
         mutableStateOf(MutableTransitionState(showNtp).apply { targetState = showNtp })
     }
     val sessionState = remember {
         MutableTransitionState(!showNtp).apply { targetState = !showNtp }
     }
+    val exitFinished by rememberUpdatedState(onSessionExitFinished)
 
     LaunchedEffect(showNtp) {
         val wantNtp = showNtp
@@ -321,16 +337,23 @@ private fun BrowserNtpSessionSwitch(
             ntpState.currentState == wantNtp && ntpState.targetState == wantNtp &&
             sessionState.currentState == wantSession && sessionState.targetState == wantSession
         ) {
+            // Remount / already settled on NTP: still sync bar + release (idempotent).
+            if (showNtp) exitFinished()
             return@LaunchedEffect
         }
         if (!showNtp) {
-            // Push: hide NTP, then session slides in from right.
-            sessionState.targetState = false
-            if (sessionState.currentState) {
-                snapshotFlow { sessionState.isIdle && !sessionState.currentState }.first { it }
+            // Push: NTP stays as underlay (avoids blank + cold AwContents on empty stage).
+            if (!ntpState.currentState && !ntpState.targetState) {
+                ntpState = MutableTransitionState(true)
+            } else {
+                ntpState.targetState = true
             }
-            ntpState = MutableTransitionState(false)
             sessionState.targetState = true
+            snapshotFlow { sessionState.isIdle && sessionState.currentState }.first { it }
+            // Drop NTP without exit slide so it does not drag under the page.
+            if (!showNtp) {
+                ntpState = MutableTransitionState(false)
+            }
         } else {
             // Pop: NTP ready underneath; session slides out to the right on top.
             if (!ntpState.currentState && !ntpState.targetState) {
@@ -339,6 +362,8 @@ private fun BrowserNtpSessionSwitch(
                 ntpState.targetState = true
             }
             sessionState.targetState = false
+            snapshotFlow { sessionState.isIdle && !sessionState.currentState }.first { it }
+            exitFinished()
         }
     }
 
@@ -385,9 +410,11 @@ private fun PhoneBrowserHome(
     onOpenReader: (bookUrl: String) -> Unit,
     onOpenMangaReader: (bookUrl: String) -> Unit,
     sessionKey: String?,
+    onSessionExitFinished: () -> Unit,
 ) {
     BrowserNtpSessionSwitch(
         showNtp = showNtp,
+        onSessionExitFinished = onSessionExitFinished,
         ntp = {
             BrowserNtpScreen(
                 incognito = incognito,
