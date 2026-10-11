@@ -28,8 +28,8 @@ import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
 
 /**
- * SPEC-109: long-press reader FAB menu — auto-open switch + text / image / mixed modes.
- * Anchored above the FAB (phone bottom chrome).
+ * SPEC-109/111: reader mode menu — auto-open switch + text / image / mixed.
+ * Phone FAB: above anchor; tablet top chrome: belowAnchor.
  */
 @Composable
 fun BrowserReaderModeMenu(
@@ -40,14 +40,15 @@ fun BrowserReaderModeMenu(
     onTextMode: () -> Unit,
     onImageMode: () -> Unit,
     onMixedMode: () -> Unit,
+    belowAnchor: Boolean = false,
 ) {
     if (!expanded) return
     val scheme = LegadoTheme.colorScheme
     val shape = RoundedCornerShape(BrowserUiTokens.CardCorner)
     val gapPx = with(LocalDensity.current) { 8.dp.roundToPx() }
     Popup(
-        alignment = Alignment.BottomEnd,
-        offset = IntOffset(0, -gapPx),
+        alignment = if (belowAnchor) Alignment.TopEnd else Alignment.BottomEnd,
+        offset = IntOffset(0, if (belowAnchor) gapPx else -gapPx),
         onDismissRequest = onDismiss,
         properties = PopupProperties(focusable = true),
     ) {

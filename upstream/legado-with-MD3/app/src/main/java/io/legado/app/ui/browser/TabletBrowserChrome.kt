@@ -5,13 +5,13 @@ import androidx.activity.compose.BackHandler
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import io.legado.app.ui.widget.components.icon.Symbols
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -76,6 +76,9 @@ import org.koin.core.context.GlobalContext
 /** SPEC-080: Downloads opens in side panel (not full-screen route). */
 enum class TabletSidePanel { None, Bookmarks, History, Toolbox, Tabs, Downloads }
 
+/** SPEC-111: match function-bar ChromeIcon slot so strip +/- count align with back/toolbox. */
+private val TabletChromeIconSlot = 40.dp
+
 @Composable
 fun TabletBrowserShell(
     address: String,
@@ -110,6 +113,9 @@ fun TabletBrowserShell(
     var textZoomPercent by remember { mutableIntStateOf(chromePrefs.textZoomPercent) }
     var showTextZoomSheet by remember { mutableStateOf(false) }
     var showEyeConfigSheet by remember { mutableStateOf(false) }
+    var readerModeMenu by remember { mutableStateOf(false) }
+    var readerAutoOpenUi by remember { mutableStateOf(false) }
+    BackHandler(enabled = readerModeMenu) { readerModeMenu = false }
     val themeSettingsGateway = remember {
         GlobalContext.get().get<ThemeSettingsGateway>()
     }
@@ -194,6 +200,16 @@ fun TabletBrowserShell(
                     },
                     onOpenBookshelf = onOpenBookshelf,
                     onReader = onReader,
+                    onReaderLongClick = {
+                        readerAutoOpenUi =
+                            sessionActions?.readerAutoOpenEnabled?.invoke() == true
+                        readerModeMenu = true
+                    },
+                    readerModeMenu = readerModeMenu,
+                    readerAutoOpenUi = readerAutoOpenUi,
+                    onReaderAutoOpenUiChange = { readerAutoOpenUi = it },
+                    onReaderModeMenuDismiss = { readerModeMenu = false },
+                    sessionActions = sessionActions,
                     onOpenToolbox = {
                         onSidePanelChange(
                             if (sidePanel == TabletSidePanel.Toolbox) {
@@ -220,13 +236,8 @@ fun TabletBrowserShell(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
-            // SPEC-025/080: dim for side drawers (not full-screen tabs).
-            androidx.compose.animation.AnimatedVisibility(
-                visible = sidePanel != TabletSidePanel.None &&
-                    sidePanel != TabletSidePanel.Tabs,
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
+            // SPEC-025/080/111: dim for side drawers (no fade — liquid-glass SIGSEGV safety).
+            if (sidePanel != TabletSidePanel.None && sidePanel != TabletSidePanel.Tabs) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -234,11 +245,12 @@ fun TabletBrowserShell(
                         .clickable { onSidePanelChange(TabletSidePanel.None) },
                 )
             }
+            // SPEC-111: slide only (no fade) over browser content.
             androidx.compose.animation.AnimatedVisibility(
                 visible = sidePanel != TabletSidePanel.None && sidePanel != TabletSidePanel.Tabs,
                 modifier = Modifier.align(Alignment.CenterEnd),
-                enter = slideInHorizontally { it } + fadeIn(),
-                exit = slideOutHorizontally { it } + fadeOut(),
+                enter = slideInHorizontally { it },
+                exit = slideOutHorizontally { it },
             ) {
                 val portrait = LocalConfiguration.current.orientation ==
                     Configuration.ORIENTATION_PORTRAIT
@@ -281,18 +293,19 @@ fun TabletBrowserShell(
                             },
                         )
                         TabletSidePanel.Toolbox -> {
-                            // SPEC-070: same grid toolbox as phone.
+                            // SPEC-070/111: same grid as phone; solid surfaces (no liquid glass).
                             val toolboxPrefs = remember { BrowserToolboxPrefs(context) }
                             var toolboxOrder by remember {
                                 mutableStateOf(toolboxPrefs.orderedIds())
                             }
                             var toolboxEditing by remember { mutableStateOf(false) }
+                            val panelShape = RoundedCornerShape(24.dp)
                             Column(
                                 Modifier
                                     .fillMaxSize()
                                     .padding(8.dp)
-                                    // SPEC-099: same panel glass as phone toolbox sheet.
-                                    .toolboxPanelSurface(RoundedCornerShape(24.dp))
+                                    .clip(panelShape)
+                                    .background(scheme.surface, panelShape)
                                     .padding(8.dp),
                             ) {
                                 Row(
@@ -325,6 +338,7 @@ fun TabletBrowserShell(
                                     onOrderChange = { toolboxOrder = it },
                                     editing = toolboxEditing,
                                     onEditingChange = { toolboxEditing = it },
+                                    solidSurfaces = true,
                                     actions = BrowserToolboxActions(
                                         onOpenBookmarks = {
                                             onSidePanelChange(TabletSidePanel.Bookmarks)
@@ -506,7 +520,7 @@ fun TabletBrowserShell(
     }
 }
 
-/** SPEC-080: scrollable tabs + tab-count badge (long-press menu) at trailing end. */
+/** SPEC-080/111: left + (align back) + scrollable tabs + trailing count (align toolbox). */
 @Composable
 private fun TabletTabStrip(
     onSelectTab: (String) -> Unit,
@@ -523,9 +537,23 @@ private fun TabletTabStrip(
         modifier = Modifier
             .fillMaxWidth()
             .height(40.dp)
-            .padding(start = 8.dp, end = 8.dp),
+            .padding(horizontal = BrowserUiTokens.SpaceSm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // SPEC-111: fixed leftmost +, same 40dp slot / padding as function-bar back.
+        Box(
+            modifier = Modifier.size(TabletChromeIconSlot),
+            contentAlignment = Alignment.Center,
+        ) {
+            IconButton(onClick = onNewTab, modifier = Modifier.size(TabletChromeIconSlot)) {
+                SymbolIcon(
+                    symbol = Symbols.Add,
+                    contentDescription = "新建标签页",
+                    modifier = Modifier.size(22.dp),
+                    tint = scheme.onSurface,
+                )
+            }
+        }
         Row(
             modifier = Modifier
                 .weight(1f)
@@ -563,24 +591,30 @@ private fun TabletTabStrip(
                 }
             }
         }
-        // SPEC-081: smaller rounded-rect badge, no border, top-bar surface white.
-        BrowserTabCountButton(
-            count = tabs.size,
-            tint = scheme.onSurface,
-            useGlass = false,
-            onOpenTabs = onOpenTabs,
-            onNewTab = onNewTab,
-            onCloseAll = onCloseAll,
-            onAddBookmark = onAddBookmark,
-            containerColor = scheme.surface,
-            size = TabletTabCountSize,
-            shape = TabletTabCountShape,
-            drawBorder = false,
-            menuBelowTopBar = true,
-        )
+        // SPEC-081/111: count in same 40dp trailing slot as toolbox ChromeIcon.
+        Box(
+            modifier = Modifier.size(TabletChromeIconSlot),
+            contentAlignment = Alignment.Center,
+        ) {
+            BrowserTabCountButton(
+                count = tabs.size,
+                tint = scheme.onSurface,
+                useGlass = false,
+                onOpenTabs = onOpenTabs,
+                onNewTab = onNewTab,
+                onCloseAll = onCloseAll,
+                onAddBookmark = onAddBookmark,
+                containerColor = scheme.surface,
+                size = TabletTabCountSize,
+                shape = TabletTabCountShape,
+                drawBorder = false,
+                menuBelowTopBar = true,
+            )
+        }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TabletFunctionBar(
     address: String,
@@ -594,6 +628,12 @@ private fun TabletFunctionBar(
     onOpenHistory: () -> Unit,
     onOpenBookshelf: () -> Unit,
     onReader: () -> Unit,
+    onReaderLongClick: () -> Unit,
+    readerModeMenu: Boolean,
+    readerAutoOpenUi: Boolean,
+    onReaderAutoOpenUiChange: (Boolean) -> Unit,
+    onReaderModeMenuDismiss: () -> Unit,
+    sessionActions: BrowserSessionActions?,
     onOpenToolbox: () -> Unit,
 ) {
     val scheme = LegadoTheme.colorScheme
@@ -678,12 +718,55 @@ private fun TabletFunctionBar(
         ChromeIcon(Symbols.Bookmark, "收藏", onOpenBookmarks)
         ChromeIcon(Symbols.History, "历史", onOpenHistory)
         ChromeIcon(Symbols.Book, "阅读列表", onOpenBookshelf)
-        ChromeIcon(
-            Symbols.Book2,
-            "阅读模式",
-            onReader,
-            tint = BrowserUiTokens.Primary,
-        )
+        // SPEC-111: long-press opens reader mode menu (below icon).
+        Box(modifier = Modifier.size(TabletChromeIconSlot)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .combinedClickable(
+                        onClick = onReader,
+                        onLongClick = onReaderLongClick,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                SymbolIcon(
+                    symbol = Symbols.Book2,
+                    contentDescription = "阅读模式",
+                    modifier = Modifier.size(22.dp),
+                    tint = BrowserUiTokens.Primary,
+                )
+            }
+            BrowserReaderModeMenu(
+                expanded = readerModeMenu,
+                onDismiss = onReaderModeMenuDismiss,
+                autoOpenEnabled = readerAutoOpenUi,
+                onAutoOpenChange = { enabled ->
+                    val actions = sessionActions
+                    if (actions == null) {
+                        context.toastOnUi("请先打开网页")
+                        return@BrowserReaderModeMenu
+                    }
+                    onReaderAutoOpenUiChange(enabled)
+                    actions.setReaderAutoOpen(enabled)
+                    context.toastOnUi(
+                        if (enabled) "已开启自动阅读模式" else "已关闭自动阅读模式",
+                    )
+                },
+                onTextMode = {
+                    sessionActions?.openReaderText?.invoke()
+                        ?: context.toastOnUi("请先打开网页")
+                },
+                onImageMode = {
+                    sessionActions?.openReaderImage?.invoke()
+                        ?: context.toastOnUi("请先打开网页")
+                },
+                onMixedMode = {
+                    sessionActions?.openReaderMixed?.invoke()
+                        ?: context.toastOnUi("请先打开网页")
+                },
+                belowAnchor = true,
+            )
+        }
         ChromeIcon(Symbols.Box, "工具箱", onOpenToolbox)
     }
 }
@@ -696,7 +779,7 @@ private fun ChromeIcon(
     tint: Color? = null,
 ) {
     val scheme = LegadoTheme.colorScheme
-    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+    IconButton(onClick = onClick, modifier = Modifier.size(TabletChromeIconSlot)) {
         SymbolIcon(
             symbol = icon,
             contentDescription = desc,

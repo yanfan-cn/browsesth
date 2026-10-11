@@ -172,6 +172,12 @@ data class BrowserSessionActions(
     val applyWebContentDarkMode: (String) -> Unit = {},
     val applyTextZoom: (Int) -> Unit = {},
     val injectAdShield: () -> Unit = {},
+    /** SPEC-111: tablet reader long-press menu. */
+    val readerAutoOpenEnabled: () -> Boolean = { false },
+    val setReaderAutoOpen: (Boolean) -> Unit = {},
+    val openReaderText: () -> Unit = {},
+    val openReaderImage: () -> Unit = {},
+    val openReaderMixed: () -> Unit = {},
 )
 
 /**
@@ -922,6 +928,26 @@ fun BrowserSessionScreen(
                 applyTextZoom = { hostRef?.applyTextZoom(it) },
                 injectAdShield = {
                     applyAdShield(clientRef?.lastUrl.orEmpty().ifBlank { address })
+                },
+                readerAutoOpenEnabled = { readerAutoOpen },
+                setReaderAutoOpen = { enabled ->
+                    readerAutoOpen = enabled
+                    readerPrefs.triggerMode = if (enabled) {
+                        BrowserReaderPrefs.TriggerMode.AutoDetect
+                    } else {
+                        BrowserReaderPrefs.TriggerMode.Manual
+                    }
+                },
+                openReaderText = {
+                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+                    startExtract { openNovelReader(pageUrl, keepImages = false) }
+                },
+                openReaderImage = {
+                    openReaderView(WebMangaBookFactory.Kind.Manga)
+                },
+                openReaderMixed = {
+                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+                    startExtract { openNovelReader(pageUrl, keepImages = true) }
                 },
             ),
         )

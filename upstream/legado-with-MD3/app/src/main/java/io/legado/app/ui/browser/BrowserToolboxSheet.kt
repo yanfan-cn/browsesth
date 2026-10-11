@@ -1,6 +1,7 @@
 package io.legado.app.ui.browser
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,11 +28,13 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -92,6 +95,9 @@ private data class ToolboxGridDef(
     val icon: MaterialSymbol,
 )
 
+/** SPEC-111: tablet side panel forces solid toolbox fills. */
+private val LocalToolboxSolidSurfaces = staticCompositionLocalOf { false }
+
 /** SPEC-107: 20dp corners. */
 private val ToolboxCellShape = RoundedCornerShape(20.dp)
 private val ToolboxPanelShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
@@ -117,6 +123,13 @@ fun Modifier.toolboxPanelSurface(
 
 @Composable
 private fun Modifier.toolboxCellSurface(): Modifier {
+    // SPEC-111: tablet side panel must not use liquid glass (RenderThread SIGSEGV).
+    if (LocalToolboxSolidSurfaces.current) {
+        return clip(ToolboxCellShape).background(
+            LegadoTheme.colorScheme.surfaceContainerHighest,
+            ToolboxCellShape,
+        )
+    }
     val style = currentChromeSurfaceStyle()
     // SPEC-109: denser keys for readability (was 0.68 / 0.72).
     val overlay = when (style) {
@@ -133,14 +146,21 @@ private fun Modifier.toolboxCellSurface(): Modifier {
 }
 
 @Composable
-private fun Modifier.toolboxWebBgSurface(): Modifier =
-    browserControlLiquidGlass(
+private fun Modifier.toolboxWebBgSurface(): Modifier {
+    if (LocalToolboxSolidSurfaces.current) {
+        return clip(ToolboxWebBgShape).background(
+            LegadoTheme.colorScheme.surfaceContainerHighest,
+            ToolboxWebBgShape,
+        )
+    }
+    return browserControlLiquidGlass(
         shape = ToolboxWebBgShape,
         interactive = false,
         showShadow = false,
         enableLens = false,
         readableOverlay = true,
     )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -222,8 +242,11 @@ fun BrowserToolboxBody(
     actions: BrowserToolboxActions,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    /** SPEC-111: tablet side panel — solid fills only (no liquid glass). */
+    solidSurfaces: Boolean = false,
 ) {
     val scheme = LegadoTheme.colorScheme
+    CompositionLocalProvider(LocalToolboxSolidSurfaces provides solidSurfaces) {
     Column(modifier = modifier) {
         if (!editing) {
             Column(
@@ -425,6 +448,7 @@ fun BrowserToolboxBody(
             }
         }
     }
+    } // CompositionLocalProvider SPEC-111
 }
 
 private fun gridDef(id: String, actions: BrowserToolboxActions): ToolboxGridDef? = when (id) {
