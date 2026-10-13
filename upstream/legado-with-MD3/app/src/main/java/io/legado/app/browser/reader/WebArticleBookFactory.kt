@@ -88,7 +88,8 @@ object WebArticleBookFactory {
             durChapterTime = System.currentTimeMillis(),
             type = 0,
         )
-        book.addType(BookType.text, BookType.notShelf)
+        // SPEC-117: stay on reading list (已读); do not mark notShelf.
+        book.addType(BookType.text)
         // SPEC-046: full-width in-body images for mixed article layout.
         book.setImageStyle(Book.imgStyleFull)
         // SPEC-092: mixed web articles default to scroll (user can change global page anim).

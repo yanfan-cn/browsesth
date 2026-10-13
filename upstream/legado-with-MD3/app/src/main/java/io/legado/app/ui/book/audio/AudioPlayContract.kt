@@ -27,7 +27,7 @@ data class AudioPlayUiState(
     val speed: Float = 1f,
     val timerMinutes: Int = 0,
     val playMode: AudioPlay.PlayMode = AudioPlay.PlayMode.LIST_END_STOP,
-    val bgMode: Int = ReadAloudBgMode.Blur,
+    val bgMode: Int = ReadAloudBgMode.FlowingLight,
     val coverRatio: Int = CoverRatio.Unrestricted,
     val canLogin: Boolean = false,
     val wakeLockEnabled: Boolean = false,

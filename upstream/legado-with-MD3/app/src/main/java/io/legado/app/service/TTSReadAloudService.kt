@@ -41,11 +41,16 @@ class TTSReadAloudService : BaseReadAloudService(), KoinComponent {
     override val useSpeechPlaybackQueue: Boolean = true
 
     protected override val currentSpeechRate: Float
-        get() = if (ReadConfig.ttsFollowSys) 1f else (speechRateSetting + 5) / 10f
+        get() = if (ReadConfig.ttsFollowSys) {
+            1f
+        } else {
+            io.legado.app.help.readaloud.ReadAloudSpeechRate.toMultiplier(speechRateSetting)
+        }
 
     private val readAloudSettingsGateway: ReadAloudSettingsGateway by inject()
     @Volatile
-    private var speechRateSetting: Int = 5
+    private var speechRateSetting: Int =
+        io.legado.app.help.readaloud.ReadAloudSpeechRate.DEFAULT_STORED
 
     private var textToSpeech: TextToSpeech? = null
     private var ttsInitFinish = false
@@ -291,7 +296,7 @@ class TTSReadAloudService : BaseReadAloudService(), KoinComponent {
         val globalRate = if (ReadConfig.ttsFollowSys) {
             1f
         } else {
-            (ReadConfig.ttsSpeechRate + 5) / 10f
+            io.legado.app.help.readaloud.ReadAloudSpeechRate.toMultiplier(ReadConfig.ttsSpeechRate)
         }
         textToSpeech?.apply {
             setSpeechRate(config.speechRate ?: globalRate)
@@ -318,7 +323,8 @@ class TTSReadAloudService : BaseReadAloudService(), KoinComponent {
                 initTts()
             }
         } else {
-            val speechRate = (speechRateSetting + 5) / 10f
+            val speechRate =
+                io.legado.app.help.readaloud.ReadAloudSpeechRate.toMultiplier(speechRateSetting)
             textToSpeech?.setSpeechRate(speechRate)
             upMediaMetadata()
             if (reset && !pause) {

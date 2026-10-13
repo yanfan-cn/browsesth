@@ -125,7 +125,7 @@
     <string name="edit_tag">编辑标签</string>
     <string name="tag">标签</string>
     <string name="lasted_show">最新 · %s</string>
-    <string name="check_add_bookshelf">是否将《%s》放入阅读列表？</string>
+    <string name="check_add_bookshelf">是否将《%s》加入列表？</string>
     <string name="import_books_count">共 %s 个文本文件</string>
     <string name="is_loading">加载中…</string>
     <string name="retry">重试</string>
@@ -354,7 +354,9 @@
     <string name="group_yf">养肥区</string>
     <string name="bookmark">书签</string>
     <string name="bookmark_add">添加书签</string>
-    <string name="bookmark_added">已添加书签</string>
+        <string name="browser_add_favorite">加入收藏</string>
+    <string name="browser_favorite_added">已加入收藏</string>
+<string name="bookmark_added">已添加书签</string>
     <string name="bookmark_removed">已取消书签</string>
     <string name="swipe_to_add_bookmark">下滑添加书签</string>
     <string name="bookmark_swipe_release_to_add">松手以添加书签</string>
@@ -536,7 +538,7 @@
     <string name="status_bar_immersion">状态栏颜色透明</string>
     <string name="imm_navigation_bar">沉浸式导航栏</string>
     <string name="imm_navigation_bar_s">导航栏颜色透明</string>
-    <string name="add_to_bookshelf">放入阅读列表</string>
+    <string name="add_to_bookshelf">加入列表</string>
     <string name="click_to_remove">点击删除</string>
     <string name="long_press_group">长按分组</string>
     <string name="continue_read">继续阅读</string>
@@ -1445,6 +1447,10 @@
     <string name="refuse">拒绝</string>
     <string name="file_manage">文件管理</string>
     <string name="file_manage_summary">管理私有文件夹的文件</string>
+    <!-- SPEC-114: 「我的」列表占位 -->
+    <string name="software_update">软件更新</string>
+    <string name="ads">广告</string>
+    <string name="feature_coming_soon">即将推出</string>
     <string name="create_folder">创建文件夹</string>
     <string name="allow_drop_down_refresh">允许下拉刷新</string>
     <string name="private_group">设为隐私分组</string>

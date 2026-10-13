@@ -492,7 +492,11 @@ class ReadAloudDelegate(
 
     fun setTtsSpeechRate(value: Int) {
         scope.launch {
-            readAloudSettingsRepository.update { it.copy(ttsSpeechRate = value.coerceIn(0, 80)) }
+            readAloudSettingsRepository.update {
+                it.copy(
+                    ttsSpeechRate = io.legado.app.help.readaloud.ReadAloudSpeechRate.coerce(value)
+                )
+            }
             ReadAloud.upTtsSpeechRate(context)
         }
         host.updateState { it.copy(readAloudTtsSpeechRate = value) }

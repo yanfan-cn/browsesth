@@ -121,11 +121,11 @@ fun ReadStyleContent(
             }
         }
 
+        // SPEC-112: 设置仅保留全局、菜单、信息三个顶层入口。
         val tabTitles = listOf(
             stringResource(R.string.read_config_global_theme),
             stringResource(R.string.read_config_menu_system),
             stringResource(R.string.information),
-            stringResource(R.string.more_setting),
         )
         CardTabRow(
             tabTitles = tabTitles,
@@ -141,7 +141,6 @@ fun ReadStyleContent(
                         }
                     }
                     2 -> onOpenInformationConfig()
-                    3 -> onOpenMoreConfig()
                 }
             },
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),

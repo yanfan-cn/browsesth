@@ -114,14 +114,18 @@ class HttpReadAloudService : BaseReadAloudService(),
     private var otherSettings: OtherSettings = otherSettingsGateway.currentSettings
 
     private val speechRatePlay: Int
-        get() = if (readAloudSettings.ttsFollowSys) 5 else readAloudSettings.ttsSpeechRate
+        get() = if (readAloudSettings.ttsFollowSys) {
+            io.legado.app.help.readaloud.ReadAloudSpeechRate.DEFAULT_STORED
+        } else {
+            readAloudSettings.ttsSpeechRate
+        }
 
     /**
      * 全局语速倍率, 由设置里的朗读语速换算而来, 在播放端 (ExoPlayer) 变速,
      * 对所有来源的音频 (http/系统/云端合成) 统一生效。
      */
     private val globalPlaybackSpeed: Float
-        get() = (speechRatePlay + 5) / 10f
+        get() = io.legado.app.help.readaloud.ReadAloudSpeechRate.toMultiplier(speechRatePlay)
 
     /**
      * 源级合成语速倍率, 仅当源接口支持语速参数 ({{speakSpeed}}) 时影响返回的音频。
@@ -161,7 +165,7 @@ class HttpReadAloudService : BaseReadAloudService(),
     private val loadErrorHandlingPolicy by lazy {
         CustomLoadErrorHandlingPolicy()
     }
-    private var speechRate: Int = speechRatePlay + 5
+    private var speechRate: Int = speechRatePlay
     private var downloadTask: Coroutine<*>? = null
     private var preDownloadJob: Job? = null
     private var playIndexJob: Job? = null

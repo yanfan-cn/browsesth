@@ -21,7 +21,8 @@ data class BookshelfGroupSelectorState(
     val isInitialLoading: Boolean = true,
     val groups: ImmutableList<BookGroupUi> = persistentListOf(),
     val selectedGroupIndex: Int = 0,
-    val selectedGroupId: Long = BookGroup.IdAll
+    /** SPEC-117: default 已读. */
+    val selectedGroupId: Long = BookGroup.IdReadFinished
 )
 
 sealed interface BookshelfOverlay {
@@ -126,7 +127,8 @@ data class BookshelfUiState(
     val currentGroupBookCount: Int = 0,
     val allBooksCount: Int = 0,
     val selectedGroupIndex: Int = 0,
-    val selectedGroupId: Long = BookGroup.IdAll,
+    /** SPEC-117: default 已读. */
+    val selectedGroupId: Long = BookGroup.IdReadFinished,
     val loadingText: String? = null,
     val upBooksCount: Int = 0,
     val updatingBooks: ImmutableSet<String> = persistentSetOf(),

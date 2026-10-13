@@ -2,6 +2,8 @@ package io.legado.app.browser.engine
 
 import android.content.Context
 import android.net.Uri
+import androidx.annotation.DrawableRes
+import io.legado.app.R
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -35,6 +37,13 @@ data class BrowserShortcut(
     fun faviconCandidates(): List<String> = siteFaviconCandidates(url)
 
     fun faviconUrl(): String = faviconCandidates().firstOrNull().orEmpty()
+
+    /** SPEC-117: bundled high-res icons (avoid blurry remote favicons). */
+    @DrawableRes
+    fun localIconRes(): Int? = when (id) {
+        "baidu" -> R.drawable.ic_engine_baidu
+        else -> null
+    }
 }
 
 /** Customizable NTP shortcuts (Chrome-like speed dial). */
@@ -42,6 +51,7 @@ class BrowserShortcutStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     fun list(): List<BrowserShortcut> {
+        migrateDefaultsIfNeeded()
         val raw = prefs.getString(KEY, null)
         if (raw.isNullOrBlank()) return defaultShortcuts()
         return try {
@@ -86,15 +96,28 @@ class BrowserShortcutStore(context: Context) {
         saveAll(list().filterNot { it.id == id })
     }
 
+    /** SPEC-117 B1: force-replace defaults for installed users once. */
+    fun migrateDefaultsIfNeeded() {
+        if (prefs.getBoolean(KEY_SPEC117, false)) return
+        saveAll(defaultShortcuts())
+        prefs.edit().putBoolean(KEY_SPEC117, true).apply()
+    }
+
     companion object {
         private const val PREFS = "browsesth_ntp_shortcuts"
         private const val KEY = "shortcuts"
+        private const val KEY_SPEC117 = "shortcuts_spec117_v1"
 
         fun defaultShortcuts(): List<BrowserShortcut> = listOf(
             BrowserShortcut("baidu", "百度", "https://www.baidu.com/"),
-            BrowserShortcut("youtube", "YouTube", "https://www.youtube.com/"),
-            BrowserShortcut("hupu", "虎扑", "https://www.hupu.com/"),
-            BrowserShortcut("facebook", "Facebook", "https://www.facebook.com/"),
+            BrowserShortcut(
+                "bilibili",
+                "哔哩哔哩",
+                "https://m.bilibili.com/?uc_biz_str=OPT%3ABACK_BTN_STYLE%400%7COPT%3ATOOLBAR_STYLE%401",
+            ),
+            BrowserShortcut("rebang", "热榜", "https://rebang.open2hub.com"),
+            BrowserShortcut("ithome", "IT之家", "https://www.ithome.com/"),
+            BrowserShortcut("thepaper", "澎湃", "https://www.thepaper.cn/"),
         )
     }
 }

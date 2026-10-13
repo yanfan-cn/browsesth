@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.legado.app.R
@@ -32,6 +34,10 @@ import io.legado.app.ui.book.read.ReadBookIntent
 import io.legado.app.ui.book.read.ReadBookMenuRoute
 import io.legado.app.ui.book.read.ReadBookSheet
 import io.legado.app.ui.book.read.ReadBookUiState
+import io.legado.app.ui.browser.browserControlLiquidGlass
+import io.legado.app.ui.browser.currentChromeSurfaceStyle
+import io.legado.app.ui.theme.ChromeSurfaceStyle
+import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.ConfigListEntry
 import io.legado.app.ui.widget.components.ReorderableConfigList
 import io.legado.app.ui.widget.components.menuItem.RoundDropdownMenu
@@ -65,11 +71,28 @@ fun ReaderMoreActionsSheet(
     val config = state.menuConfig.moreActionItems.ifEmpty {
         MoreActionIds.map { ReadBookButtonConfigItem(it, true) }
     }
+    // SPEC-112: 更多菜单适配液态玻璃（与工具箱同套路：透明底 + 本地玻璃层）。
+    val liquidGlass = currentChromeSurfaceStyle() == ChromeSurfaceStyle.LiquidGlass
+    val panelShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 
     AppModalBottomSheet(
         show = show,
         onDismissRequest = onDismissRequest,
         contentPaddingEnabled = false,
+        containerColor = if (liquidGlass) Color.Transparent else null,
+        modifier = if (liquidGlass) {
+            Modifier
+                .browserControlLiquidGlass(
+                    shape = panelShape,
+                    interactive = false,
+                    showShadow = false,
+                    enableLens = false,
+                    readableOverlay = true,
+                )
+                .padding(bottom = 8.dp)
+        } else {
+            Modifier
+        },
     ) {
         Box(modifier = Modifier.padding(horizontal = 16.dp)) {
             ReaderBookHeader(book = state.book)
@@ -87,15 +110,27 @@ fun ReaderMoreActionsSheet(
             )
         } else {
             MoreActionsPager(
-                actions = orderedVisibleActions(config, specs) + MoreActionSpec(
-                    id = "configure_more_actions",
-                    label = stringResource(R.string.more_actions_config),
-                    icon = Symbols.Settings,
-                    onClick = { editing = true },
+                actions = orderedVisibleActions(config, specs) + listOf(
+                    MoreActionSpec(
+                        id = "more_setting",
+                        label = stringResource(R.string.more_setting),
+                        icon = Symbols.Tune,
+                        onClick = {
+                            onDismissRequest()
+                            onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreConfig))
+                        },
+                    ),
+                    MoreActionSpec(
+                        id = "configure_more_actions",
+                        label = stringResource(R.string.more_actions_config),
+                        icon = Symbols.Settings,
+                        onClick = { editing = true },
+                    ),
                 ),
                 state = state,
                 onIntent = onIntent,
                 dispatch = ::dispatch,
+                liquidGlass = liquidGlass,
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
@@ -118,6 +153,7 @@ private fun MoreActionsPager(
     state: ReadBookUiState,
     onIntent: (ReadBookIntent) -> Unit,
     dispatch: (ReadBookIntent) -> Unit,
+    liquidGlass: Boolean = false,
 ) {
     val pages = actions.chunked(8).ifEmpty { listOf(emptyList()) }
     val pagerState = rememberPagerState { pages.size }
@@ -148,6 +184,7 @@ private fun MoreActionsPager(
                                 state = state,
                                 onIntent = onIntent,
                                 dispatch = dispatch,
+                                liquidGlass = liquidGlass,
                                 modifier = Modifier.weight(1f),
                             )
                         }
@@ -165,17 +202,31 @@ private fun ActionSquareHost(
     state: ReadBookUiState,
     onIntent: (ReadBookIntent) -> Unit,
     dispatch: (ReadBookIntent) -> Unit,
+    liquidGlass: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember(action.id) { mutableStateOf(false) }
     val hasMore = action.id == "change_source" || action.id == "refresh" ||
             action.id == "source_custom_button"
-    Box(modifier = modifier) {
+    val cellShape = RoundedCornerShape(16.dp)
+    val glassCell = if (liquidGlass) {
+        Modifier.browserControlLiquidGlass(
+            shape = cellShape,
+            interactive = false,
+            showShadow = false,
+            enableLens = false,
+            overlayAlpha = if (LegadoTheme.isDark) 0.92f else 0.90f,
+        )
+    } else {
+        Modifier
+    }
+    Box(modifier = modifier.then(glassCell)) {
         ReaderMenuActionSquare(
             icon = action.icon,
             text = action.label,
             selected = action.selected,
             hasMore = hasMore,
+            transparentSurface = liquidGlass,
             onClick = if (action.id == "image_style" || action.id == "page_anim") {
                 { expanded = true }
             } else {

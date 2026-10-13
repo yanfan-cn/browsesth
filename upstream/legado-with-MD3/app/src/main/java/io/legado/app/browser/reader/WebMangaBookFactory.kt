@@ -177,7 +177,8 @@ object WebMangaBookFactory {
             durChapterTime = System.currentTimeMillis(),
             type = 0,
         )
-        book.addType(BookType.image, BookType.notShelf)
+        // SPEC-117: stay on reading list (已读); do not mark notShelf.
+        book.addType(BookType.image)
         book.save()
 
         val entities = chapters.mapIndexed { index, ch ->

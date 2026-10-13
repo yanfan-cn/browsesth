@@ -87,6 +87,7 @@ internal fun SystemMenuPage(
     Column(
         modifier = modifier.fillMaxWidth(),
     ) {
+        // SPEC-113: 更多操作/更多设置改由右上角更多面板进入，设置-菜单不再展示。
         val tabTitles = listOf(
             stringResource(R.string.title_bar_layout),
             stringResource(R.string.read_menu_bottom_bar_layout),
@@ -436,5 +437,15 @@ internal fun readMenuButtonInfos(context: Context): List<ReadMenuButtonInfo> = l
         "more_actions",
         Symbols.MoreVert,
         context.getString(R.string.more_actions)
+    ),
+    ReadMenuButtonInfo(
+        "re_segment",
+        Symbols.Toc,
+        context.getString(R.string.re_segment)
+    ),
+    ReadMenuButtonInfo(
+        "add_to_bookshelf",
+        Symbols.Book,
+        context.getString(R.string.add_to_bookshelf)
     ),
 )

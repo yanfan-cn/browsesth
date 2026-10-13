@@ -174,7 +174,7 @@ data class ReadSheetConfigUiState(
     val applyHeaderStyle: Boolean = true,
     /** -1 表示"跟随主题分割线"，0 表示"跟随正文颜色"。 */
     val tipDividerColor: Int = 0,
-    val headerMode: Int = 0,
+    val headerMode: Int = 2,
     val footerMode: Int = 0,
     val showHeaderLine: Boolean = false,
     val showFooterLine: Boolean = false,
@@ -285,7 +285,7 @@ data class ReadBookUiState(
     val readAloudWakeLock: Boolean = false,
     val readAloudKeepOnExit: Boolean = false,
     val showReadAloudCapsule: Boolean = true,
-    val capsuleAutoCollapse: Boolean = true,
+    val capsuleAutoCollapse: Boolean = false,
     val readAloudCapsuleOffsetX: Float = 0f,
     val readAloudCapsuleOffsetY: Float = 0f,
     val readAloudMediaButtonPerNext: Boolean = false,
@@ -378,7 +378,7 @@ data class ReadMenuConfig(
     val readMenuFloatingBottomBar: Boolean = true,
     val readMenuBottomCornerRadius: Int = 32,
     val readMenuIconItemsPerRow: Int = 5,
-    val readMenuIconRowCount: Int = 1,
+    val readMenuIconRowCount: Int = 2,
     val readMenuBorderWidth: Int = 1,
     val readMenuBorderColor: Int = 0,
     val readMenuBorderColorNight: Int = 0,
@@ -401,7 +401,7 @@ data class ReadMenuConfig(
     val readMenuBottomBarBlurStyle: Int = ReadMenuBlurStyle.Solid,
     val readMenuIconStyle: Int = 1,
     val titleBarIconStyle: Int = 1,
-    val readMenuIconShowText: Boolean = false,
+    val readMenuIconShowText: Boolean = true,
     val readSliderMode: String = "0",
     val titleBarCustomIcons: ImmutableMap<String, String> = persistentMapOf(),
     val readMenuCustomIcons: ImmutableMap<String, String> = persistentMapOf(),
@@ -440,6 +440,22 @@ internal val ReadBookButtonIds = listOf(
     "replace_badge",
     "translate",
     "refresh_current",
+    "re_segment",
+    "add_to_bookshelf",
+)
+
+/** SPEC-112: 底栏默认两行顺序（第一行五项 + 第二行五项）。 */
+internal val DefaultEnabledBottomBarButtonIds = listOf(
+    "search",
+    "auto_page",
+    "catalog",
+    "read_aloud",
+    "setting",
+    "addBookmark",
+    "translate",
+    "re_segment",
+    "add_to_bookshelf",
+    "ai_summary",
 )
 
 internal val MoreActionIds = listOf(
@@ -541,6 +557,8 @@ sealed interface ReadBookIntent {
 
     // Bookmark
     data object AddBookmark : ReadBookIntent
+    /** SPEC-112: 底栏「加入列表」——放入阅读列表（不退出阅读）。 */
+    data object AddToBookshelf : ReadBookIntent
 
     /** 下滑手势：本页无书签则直接存，有则取消。 */
     data object ToggleBookmark : ReadBookIntent

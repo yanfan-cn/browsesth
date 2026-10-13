@@ -453,7 +453,7 @@ fun BrowserToolboxBody(
 
 private fun gridDef(id: String, actions: BrowserToolboxActions): ToolboxGridDef? = when (id) {
     "new_incognito" -> ToolboxGridDef(id, "新建无痕标签页", Symbols.VisibilityOff)
-    "add_bookmark" -> ToolboxGridDef(id, "添加书签", Symbols.BookmarkAdd)
+    "add_bookmark" -> ToolboxGridDef(id, "加入收藏", Symbols.BookmarkAdd)
     "save_page" -> ToolboxGridDef(id, "保存网页", Symbols.DownloadForOffline)
     "share" -> ToolboxGridDef(id, "转发网页", Symbols.Share)
     "copy_link" -> ToolboxGridDef(id, "复制链接", Symbols.ContentCopy)

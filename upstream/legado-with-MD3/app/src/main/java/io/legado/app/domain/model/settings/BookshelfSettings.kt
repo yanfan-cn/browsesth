@@ -50,5 +50,6 @@ data class BookshelfSettings(
     val bookshelfGridCoverWidth: Int = 120,
     val bookshelfSearchActionDirectToSearch: Boolean = true,
     val autoRefreshBook: Boolean = false,
-    val saveTabPosition: Long = BookGroup.IdAll,
+    /** SPEC-117: default open 已读 (ever opened in reading mode). */
+    val saveTabPosition: Long = BookGroup.IdReadFinished,
 )

@@ -1,5 +1,6 @@
 package io.legado.app.ui.browser
 
+import io.legado.app.R
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import io.legado.app.ui.widget.components.icon.Symbols
@@ -906,7 +907,7 @@ fun BrowserSessionScreen(
                         context.toastOnUi("当前没有可收藏的链接")
                     } else {
                         store.addBookmark(url, clientRef?.lastTitle.orEmpty())
-                        context.toastOnUi("已加书签")
+                        context.toastOnUi(context.getString(R.string.browser_favorite_added))
                     }
                 },
                 copyCurrentUrl = {
@@ -1349,7 +1350,7 @@ fun BrowserSessionScreen(
                                                 val url = clientRef?.lastUrl?.takeIf { it.startsWith("http") }
                                                     ?: address
                                                 store.addBookmark(url, clientRef?.lastTitle.orEmpty())
-                                                context.toastOnUi("已加书签")
+                                                context.toastOnUi(context.getString(R.string.browser_favorite_added))
                                             },
                                         )
                                     }
@@ -1557,7 +1558,7 @@ fun BrowserSessionScreen(
             onAddBookmark = {
                 val url = clientRef?.lastUrl?.takeIf { it.startsWith("http") } ?: address
                 store.addBookmark(url, clientRef?.lastTitle.orEmpty())
-                context.toastOnUi("已加书签")
+                context.toastOnUi(context.getString(R.string.browser_favorite_added))
             },
             onSavePage = { saveCurrentPage() },
             onShare = { shareCurrentPage() },

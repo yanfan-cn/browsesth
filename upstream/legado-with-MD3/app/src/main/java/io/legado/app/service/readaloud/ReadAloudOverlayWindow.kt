@@ -180,6 +180,28 @@ class ReadAloudOverlayWindow(
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                             service.startActivity(intent)
                         },
+                        onOpenSettings = {
+                            io.legado.app.ui.book.read.ReadAloudConfigRequestBus.request()
+                            val intent = Intent(service, MainActivity::class.java).apply {
+                                addFlags(
+                                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                )
+                            }
+                            service.startActivity(intent)
+                        },
+                        onOpenVoiceSwitch = {
+                            io.legado.app.ui.book.read.ReadAloudVoiceRequestBus.request()
+                            val intent = Intent(service, MainActivity::class.java).apply {
+                                addFlags(
+                                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                )
+                            }
+                            service.startActivity(intent)
+                        },
                         onWindowPositionChanged = ::moveWindow,
                     )
                 }

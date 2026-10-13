@@ -177,7 +177,7 @@ fun BrowserTabCountMenu(
             if (onAddBookmark != null) {
                 TabCountMenuRow(
                     icon = Symbols.BookmarkAdd,
-                    label = "添加书签",
+                    label = "加入收藏",
                     tint = scheme.onSurface,
                     onClick = {
                         onDismiss()

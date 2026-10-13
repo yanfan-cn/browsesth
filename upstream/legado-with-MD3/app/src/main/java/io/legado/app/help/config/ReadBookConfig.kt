@@ -626,7 +626,7 @@ object ReadBookConfig {
         val tipFooterColor: Int = 0,
         val tipFooterColorNight: Int = 0,
         val tipDividerColor: Int = -1,
-        val headerMode: Int = 0,
+        val headerMode: Int = 2,//0状态栏显示时隐藏 1显示 2隐藏（SPEC-112 默认关页眉）
         val footerMode: Int = 0,
         @Transient
         val menuIconShowText: Boolean = true,

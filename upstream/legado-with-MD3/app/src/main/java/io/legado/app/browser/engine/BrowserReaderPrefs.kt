@@ -13,9 +13,9 @@ class BrowserReaderPrefs(context: Context) {
         get() = TriggerMode.fromStorage(prefs.getString(KEY_TRIGGER, TriggerMode.Manual.storage))
         set(value) = prefs.edit().putString(KEY_TRIGGER, value.storage).apply()
 
-    /** SPEC-042: open browser ephemeral novel with translationMode on. */
+    /** SPEC-042/113: open browser ephemeral novel with translationMode; default off. */
     var autoTranslateOnOpen: Boolean
-        get() = prefs.getBoolean(KEY_AUTO_TRANSLATE, true)
+        get() = prefs.getBoolean(KEY_AUTO_TRANSLATE, false)
         set(value) = prefs.edit().putBoolean(KEY_AUTO_TRANSLATE, value).apply()
 
     enum class TriggerMode(val storage: String, val label: String) {

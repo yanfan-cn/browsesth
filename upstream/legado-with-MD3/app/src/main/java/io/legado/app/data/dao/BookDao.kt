@@ -470,7 +470,8 @@ interface BookDao {
     )
     fun flowBookShelfUnread(): Flow<List<BookShelfItem>>
 
-    @Query("""SELECT * FROM books WHERE totalChapterNum > 0 AND durChapterIndex >= totalChapterNum - 1""")
+    /** SPEC-117: 已读 = opened in reading mode (durChapterTime > 0), not only last chapter. */
+    @Query("""SELECT * FROM books WHERE durChapterTime > 0""")
     fun flowReadFinished(): Flow<List<Book>>
 
     @Query(
@@ -500,7 +501,7 @@ interface BookDao {
             customTag,
             wordCount
         FROM books 
-        WHERE totalChapterNum > 0 AND durChapterIndex >= totalChapterNum - 1
+        WHERE durChapterTime > 0
         AND $PUBLIC_BOOK_FILTER
         """
     )
@@ -879,7 +880,7 @@ interface BookDao {
         UNION ALL SELECT ${BookGroup.IdError}, COUNT(*) FROM books WHERE type & ${BookType.updateError} > 0 AND $PUBLIC_BOOK_FILTER
         UNION ALL SELECT ${BookGroup.IdUnread}, COUNT(*) FROM books WHERE durChapterIndex = 0 AND durChapterPos = 0 AND $PUBLIC_BOOK_FILTER
         UNION ALL SELECT ${BookGroup.IdReading}, COUNT(*) FROM books WHERE totalChapterNum > 0 AND durChapterIndex > 0 AND durChapterIndex < totalChapterNum - 1 AND $PUBLIC_BOOK_FILTER
-        UNION ALL SELECT ${BookGroup.IdReadFinished}, COUNT(*) FROM books WHERE totalChapterNum > 0 AND durChapterIndex >= totalChapterNum - 1 AND $PUBLIC_BOOK_FILTER
+        UNION ALL SELECT ${BookGroup.IdReadFinished}, COUNT(*) FROM books WHERE durChapterTime > 0 AND $PUBLIC_BOOK_FILTER
         UNION ALL SELECT ${BookGroup.IdReadFinishedUpdate}, COUNT(*) FROM books WHERE totalChapterNum > 0 AND durChapterIndex >= totalChapterNum - 1 AND canUpdate = 1 AND $PUBLIC_BOOK_FILTER
         UNION ALL SELECT ${BookGroup.IdReadFinishedComplete}, COUNT(*) FROM books WHERE totalChapterNum > 0 AND durChapterIndex >= totalChapterNum - 1 AND canUpdate = 0 AND $PUBLIC_BOOK_FILTER
         """
@@ -1116,7 +1117,7 @@ interface BookDao {
             type, `group`, `order`, canUpdate,
             ifnull(customIntro, ifnull(listIntro, intro)) as intro, kind, customTag, wordCount
         FROM books
-        WHERE totalChapterNum > 0 AND durChapterIndex >= totalChapterNum - 1
+        WHERE durChapterTime > 0
             AND $PUBLIC_BOOK_FILTER
         ORDER BY durChapterTime DESC
         LIMIT 10

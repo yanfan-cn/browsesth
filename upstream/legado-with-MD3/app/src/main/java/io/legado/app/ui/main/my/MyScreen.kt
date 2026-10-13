@@ -35,7 +35,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.R
-import io.legado.app.ui.file.FileManageActivity
 import io.legado.app.ui.theme.adaptiveContentPadding
 import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.SplicedColumnGroup
@@ -44,6 +43,7 @@ import io.legado.app.ui.widget.components.settingItem.ClickableSettingItem
 import io.legado.app.ui.widget.components.settingItem.SwitchSettingItem
 import io.legado.app.ui.widget.components.topbar.GlassMediumFlexibleTopAppBar
 import io.legado.app.ui.widget.components.topbar.GlassTopAppBarDefaults
+import io.legado.app.utils.toastOnUi
 import kotlinx.coroutines.flow.collectLatest
 import org.koin.androidx.compose.koinViewModel
 
@@ -99,6 +99,7 @@ fun MyScreen(
     onNavigateToChat: () -> Unit,
     onNavigate: (PrefClickEvent) -> Unit,
 ) {
+    val context = LocalContext.current
     val scrollBehavior = GlassTopAppBarDefaults.defaultScrollBehavior()
     AppScaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -167,11 +168,23 @@ fun MyScreen(
                         onNavigate(PrefClickEvent.OpenBrowserDownloads)
                     }
                 )
+                // SPEC-115: software update opens Feipan share; ads still placeholder
                 ClickableSettingItem(
-                    title = stringResource(R.string.file_manage),
-                    symbol = Symbols.Folder,
+                    title = stringResource(R.string.software_update),
+                    symbol = Symbols.Update,
                     onClick = {
-                        onNavigate(PrefClickEvent.StartActivity(FileManageActivity::class.java))
+                        onNavigate(
+                            PrefClickEvent.OpenUrl(
+                                context.getString(R.string.software_update_url)
+                            )
+                        )
+                    }
+                )
+                ClickableSettingItem(
+                    title = stringResource(R.string.ads),
+                    symbol = Symbols.Block,
+                    onClick = {
+                        context.toastOnUi(R.string.feature_coming_soon)
                     }
                 )
                 ClickableSettingItem(

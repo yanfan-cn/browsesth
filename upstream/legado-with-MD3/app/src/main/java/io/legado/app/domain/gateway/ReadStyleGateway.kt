@@ -21,6 +21,11 @@ interface ReadStyleGateway {
     fun updateCurrentStyle(mutation: ReadStyleMutation)
 
     /**
+     * SPEC-112: 强制关闭页眉（全部样式预设 + 共享排版）。
+     */
+    fun applyHeaderHiddenDefault()
+
+    /**
      * 排版时发现当前字体文件已不存在——清空字体设置并落盘，下次排版回落到系统字体。
      */
     fun clearMissingTextFont()

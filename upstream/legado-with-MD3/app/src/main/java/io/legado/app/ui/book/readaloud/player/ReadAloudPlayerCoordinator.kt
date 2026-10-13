@@ -357,19 +357,13 @@ data class ReadAloudPlayerSourceState(
     val finishCurrentChapterAfterTimer: Boolean,
 )
 
-/** 语速调节范围，与经典朗读控制（ReadAloudScreen 的 valueRange = 0f..80f）保持一致。 */
-internal const val READ_ALOUD_SPEED_MIN = 0
-internal const val READ_ALOUD_SPEED_MAX = 80
+/** SPEC-112: 语速 0.5×～4×，步进 0.25×（存储见 [io.legado.app.help.readaloud.ReadAloudSpeechRate]）。 */
+internal val READ_ALOUD_SPEED_MIN = io.legado.app.help.readaloud.ReadAloudSpeechRate.MIN_STORED
+internal val READ_ALOUD_SPEED_MAX = io.legado.app.help.readaloud.ReadAloudSpeechRate.MAX_STORED
 
 internal fun coerceReadAloudSpeed(value: Int): Int =
-    value.coerceIn(READ_ALOUD_SPEED_MIN, READ_ALOUD_SPEED_MAX)
+    io.legado.app.help.readaloud.ReadAloudSpeechRate.coerce(value)
 
-/** 语速显示文本，如 20 -> "2.0"、15 -> "1.5"，与播放器 valueLabel 格式化一致。 */
-internal fun formatReadAloudSpeedLabel(speed: Int): String {
-    val display = speed / 10f
-    return if (display == display.roundToInt().toFloat()) {
-        "${display.roundToInt()}.0"
-    } else {
-        String.format("%.1f", display)
-    }
-}
+/** 语速显示文本，如 4 -> "1.0"、3 -> "0.75"。 */
+internal fun formatReadAloudSpeedLabel(speed: Int): String =
+    io.legado.app.help.readaloud.ReadAloudSpeechRate.formatLabel(speed)

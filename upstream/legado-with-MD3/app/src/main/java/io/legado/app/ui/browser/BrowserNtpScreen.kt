@@ -1453,6 +1453,7 @@ private fun ShortcutChip(
         FaviconBubble(
             title = shortcut.title,
             urls = if (loadFavicon) shortcut.faviconCandidates() else emptyList(),
+            localIconRes = shortcut.localIconRes(),
             darkBubble = darkBubble,
         )
         Text(
@@ -1529,7 +1530,12 @@ private fun AddShortcutChip(
 }
 
 @Composable
-private fun FaviconBubble(title: String, urls: List<String>, darkBubble: Boolean) {
+private fun FaviconBubble(
+    title: String,
+    urls: List<String>,
+    darkBubble: Boolean,
+    @androidx.annotation.DrawableRes localIconRes: Int? = null,
+) {
     val letter = title.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "#"
     var index by remember(title, urls.size) { mutableIntStateOf(0) }
     val url = urls.getOrNull(index).orEmpty()
@@ -1566,7 +1572,15 @@ private fun FaviconBubble(title: String, urls: List<String>, darkBubble: Boolean
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
-        if (url.isNotBlank()) {
+        // SPEC-117: prefer bundled high-res icon (e.g. Baidu) over blurry remote favicon.
+        if (localIconRes != null) {
+            Image(
+                painter = painterResource(localIconRes),
+                contentDescription = title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else if (url.isNotBlank()) {
             // SPEC-069: crop favicon to fill the circle (no inner padding).
             SubcomposeAsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)

@@ -66,7 +66,7 @@ class AudioPlayViewModel(
     ) { source, bgMode, coverRatio, sheet ->
         toUiState(
             source,
-            bgMode ?: ReadAloudBgMode.Blur,
+            bgMode ?: ReadAloudBgMode.FlowingLight,
             coverRatio ?: CoverRatio.Unrestricted,
             sheet,
         )
@@ -295,7 +295,7 @@ class AudioPlayViewModel(
 
     private fun readBgMode(): Int =
         AppConfigStore.preferences.compatDsInt(PreferKey.audioPlayBgMode)
-            ?: ReadAloudBgMode.Blur
+            ?: ReadAloudBgMode.FlowingLight
 
     private fun lyricLines(lyric: String?): ImmutableList<AudioLyricLine> {
         if (lyric == lyricCacheKey) return lyricCache

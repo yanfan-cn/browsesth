@@ -81,6 +81,23 @@ class ReadBookStyleConfigRepository(
         publishState()
     }
 
+    override fun applyHeaderHiddenDefault() {
+        val tipNone = io.legado.app.constant.ReadTipType.tipNone
+        val transform: (ReadBookConfig.Config) -> ReadBookConfig.Config = { cfg ->
+            cfg.copy(
+                headerMode = 2,
+                tipHeaderLeft = tipNone,
+                tipHeaderMiddle = tipNone,
+                tipHeaderRight = tipNone,
+            )
+        }
+        configStore.configsSnapshot().indices.forEach { index ->
+            configStore.updateStyleAt(index, transform)
+        }
+        configStore.updateEffective(0, useShare = true, transform = transform)
+        save()
+    }
+
     override fun clearMissingTextFont() {
         updateCurrentStyle(ReadStyleMutation.StringValue(ReadStyleStringKey.TextFont, ""))
         save()

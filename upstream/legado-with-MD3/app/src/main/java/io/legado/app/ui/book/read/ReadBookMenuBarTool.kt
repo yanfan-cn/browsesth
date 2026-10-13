@@ -515,6 +515,12 @@ internal fun loadToolButtons(
         infoMap.getValue("more_actions").toButton {
             onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreActions))
         },
+        infoMap.getValue("re_segment").toButton(isActive = state.reSegment) {
+            onIntent(ReadBookIntent.MenuReSegment)
+        },
+        infoMap.getValue("add_to_bookshelf").toButton {
+            onIntent(ReadBookIntent.AddToBookshelf)
+        },
     )
 
     val allMap = allButtons.associateBy { it.id }

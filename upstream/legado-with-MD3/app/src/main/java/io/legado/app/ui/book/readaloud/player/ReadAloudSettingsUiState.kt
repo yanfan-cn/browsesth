@@ -36,7 +36,7 @@ enum class ReadAloudConfigOption {
 data class ReadAloudSettingsUiState(
     val defaultReadAloudInterface: String = "classic",
     val showReadAloudCapsule: Boolean = true,
-    val capsuleAutoCollapse: Boolean = true,
+    val capsuleAutoCollapse: Boolean = false,
     val readAloudIgnoreAudioFocus: Boolean = false,
     val readAloudPauseOnPhoneCall: Boolean = false,
     val readAloudWakeLock: Boolean = false,

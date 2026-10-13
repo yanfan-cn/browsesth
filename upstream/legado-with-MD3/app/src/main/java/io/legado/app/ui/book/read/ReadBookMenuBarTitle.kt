@@ -295,7 +295,7 @@ internal fun MenuTitleBar(
                             backdrop = backdrop,
                         )
                     }
-
+                    // SPEC-113: 恢复右上角更多 → 打开更多操作面板。
                     MenuTitleGlassButton(
                         onClick = {
                             onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreActions))
@@ -877,10 +877,9 @@ private fun MenuTitleBarMergedGlassButton(
                 )
                 MergedGlassDivider(tint)
             }
-
-            // MoreVert - overflow menu
+            // SPEC-113: 恢复右上角更多 → 打开更多操作面板。
             MergedGlassIconButton(
-                icon = AppIcons.MoreVert,
+                icon = Symbols.MoreVert,
                 tint = tint,
                 contentDescription = stringResource(R.string.more_actions),
                 onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreActions)) },

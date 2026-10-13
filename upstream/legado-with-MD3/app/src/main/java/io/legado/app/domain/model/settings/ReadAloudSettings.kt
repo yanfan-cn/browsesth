@@ -56,7 +56,7 @@ data class ReadAloudSettings(
     /** 退出阅读界面时不停朗读，继续在后台/胶囊里播放。 */
     val keepReadAloudOnExit: Boolean = false,
     val showReadAloudCapsule: Boolean = true,
-    val capsuleAutoCollapse: Boolean = true,
+    val capsuleAutoCollapse: Boolean = false,
     /** 相对屏幕底部中央默认中心的 dp 偏移；应用内外共用，尺寸/系统栏不参与。 */
     val capsuleOffsetX: Float = 0f,
     val capsuleOffsetY: Float = 0f,
@@ -80,7 +80,7 @@ data class ReadAloudSettings(
     /** 章节定时：还剩几章；0 表示未开启。 */
     val timerChapters: Int = 0,
     val ttsFollowSys: Boolean = true,
-    val ttsSpeechRate: Int = 5,
+    val ttsSpeechRate: Int = 4, // SPEC-112: 1.0×（四分之一倍速刻度，见 ReadAloudSpeechRate）
     val speechAnalysisMode: String = "rule",
     /**
      * Reasoning level for AI speech analysis (dialogue attribution / AI understanding).

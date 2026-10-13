@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -37,6 +38,8 @@ fun ReaderMenuActionSquare(
     modifier: Modifier = Modifier,
     selected: Boolean = false,
     hasMore: Boolean = false,
+    /** SPEC-112: 外层已铺液态玻璃时不再画实色底。 */
+    transparentSurface: Boolean = false,
     onClick: () -> Unit,
     onMoreClick: (() -> Unit)? = null,
 ) {
@@ -46,8 +49,11 @@ fun ReaderMenuActionSquare(
             .aspectRatio(1f)
             .clip(RoundedCornerShape(16.dp))
             .background(
-                if (selected) LegadoTheme.colorScheme.secondaryContainer
-                else LegadoTheme.colorScheme.surfaceContainerLow
+                when {
+                    selected -> LegadoTheme.colorScheme.secondaryContainer
+                    transparentSurface -> Color.Transparent
+                    else -> LegadoTheme.colorScheme.surfaceContainerLow
+                }
             ),
     ) {
         Column(

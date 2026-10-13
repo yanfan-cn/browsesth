@@ -47,6 +47,7 @@ import io.legado.app.browser.engine.BrowserClearDataHelper
 import io.legado.app.browser.engine.BrowserDownloadPaths
 import io.legado.app.browser.engine.BrowserDrawMode
 import io.legado.app.browser.engine.BrowserNtpNews
+import io.legado.app.browser.engine.BrowserReaderPrefs
 import io.legado.app.browser.engine.BrowsesthBromiumBootstrap
 import io.legado.app.help.AppFreezeMonitor
 import android.util.Log
@@ -152,6 +153,48 @@ class App : Application(), SingletonImageLoader.Factory {
                 AppConfigStore.putBoolean(PreferKey.showRss, false)
                 ntp.edit().putBoolean("hide_rss_default_v1", true).apply()
             }
+            // SPEC-113: 胶囊不自动收缩；浏览器进阅读不自动开翻译（含已装机）。
+            if (!ntp.getBoolean("read_aloud_fav_defaults_spec113_v1", false)) {
+                AppConfigStore.putBoolean(PreferKey.capsuleAutoCollapse, false)
+                BrowserReaderPrefs(this).autoTranslateOnOpen = false
+                ntp.edit().putBoolean("read_aloud_fav_defaults_spec113_v1", true).apply()
+            }
+            // SPEC-117: NTP 快捷书签强制换成新默认（百度/B站/热榜/IT之家/澎湃）。
+            if (!ntp.getBoolean("ntp_shortcuts_spec117_v1", false)) {
+                io.legado.app.browser.engine.BrowserShortcutStore(this).migrateDefaultsIfNeeded()
+                ntp.edit().putBoolean("ntp_shortcuts_spec117_v1", true).apply()
+            }
+            // SPEC-112: 阅读/朗读默认强制覆盖（含已装机用户）。
+            if (!ntp.getBoolean("read_ui_defaults_spec112_v1", false)) {
+                AppConfigStore.putString(PreferKey.titleBarMode, "2")
+                AppConfigStore.putBoolean(PreferKey.readMenuIconShowText, true)
+                AppConfigStore.putInt(PreferKey.readMenuIconItemsPerRow, 5)
+                AppConfigStore.putInt(PreferKey.readMenuIconRowCount, 2)
+                AppConfigStore.putBoolean(PreferKey.readMenuTopBarTitleCapsule, true)
+                AppConfigStore.putBoolean(PreferKey.volumeKeyPageOnPlay, false)
+                AppConfigStore.putInt(
+                    PreferKey.readAloudPlayerBgMode,
+                    io.legado.app.constant.ReadAloudBgMode.FlowingLight,
+                )
+                val legacySpeed = AppConfigStore.getInt(PreferKey.ttsSpeechRate) ?: 5
+                AppConfigStore.putInt(
+                    PreferKey.ttsSpeechRate,
+                    io.legado.app.help.readaloud.ReadAloudSpeechRate.migrateFromLegacy(legacySpeed),
+                )
+                val defaultButtons = io.legado.app.ui.book.read.DefaultEnabledBottomBarButtonIds
+                    .map { io.legado.app.ui.book.read.ReadBookButtonConfigItem(it, true) } +
+                    io.legado.app.ui.book.read.ReadBookButtonIds
+                        .filter { it !in io.legado.app.ui.book.read.DefaultEnabledBottomBarButtonIds }
+                        .map { io.legado.app.ui.book.read.ReadBookButtonConfigItem(it, false) }
+                getSharedPreferences(
+                    io.legado.app.ui.book.read.ReadButtonConfigDelegate.TOOL_BUTTON_PREFS,
+                    MODE_PRIVATE,
+                ).edit().putString(
+                    io.legado.app.ui.book.read.ReadButtonConfigDelegate.TOOL_BUTTON_KEY,
+                    io.legado.app.ui.book.read.ReadButtonConfigDelegate.encodeButtonConfig(defaultButtons),
+                ).apply()
+                ntp.edit().putBoolean("read_ui_defaults_spec112_v1", true).apply()
+            }
         }
         // Browsesth: cold-start Aloha before any UI that might touch WebView.
         try {
@@ -195,6 +238,29 @@ class App : Application(), SingletonImageLoader.Factory {
             configStore = get(),
             readSettingsGateway = get(),
         )
+        // SPEC-112: 强制关闭页眉（全部样式 + 共享排版）。
+        run {
+            val ntp = getSharedPreferences("browsesth_ntp_prefs", MODE_PRIVATE)
+            if (!ntp.getBoolean("read_ui_header_off_spec112_v1", false)) {
+                get<ReadStyleGateway>().applyHeaderHiddenDefault()
+                ntp.edit().putBoolean("read_ui_header_off_spec112_v1", true).apply()
+            }
+        }
+        // SPEC-117: 阅读列表默认打开「已读」，并确保该系统分组可见。
+        run {
+            val ntp = getSharedPreferences("browsesth_ntp_prefs", MODE_PRIVATE)
+            if (!ntp.getBoolean("read_list_default_read_spec117_v1", false)) {
+                AppConfigStore.putLong(
+                    PreferKey.saveTabPosition,
+                    io.legado.app.data.entities.BookGroup.IdReadFinished,
+                )
+                runCatching {
+                    io.legado.app.data.appDb.bookGroupDao
+                        .enableGroup(io.legado.app.data.entities.BookGroup.IdReadFinished)
+                }
+                ntp.edit().putBoolean("read_list_default_read_spec117_v1", true).apply()
+            }
+        }
         if (legacyLanguage != null) {
             get<AppLocaleGateway>().migrateLegacyLanguage(legacyLanguage)
         }

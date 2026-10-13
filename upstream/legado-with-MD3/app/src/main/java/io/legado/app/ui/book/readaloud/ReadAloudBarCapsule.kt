@@ -113,6 +113,8 @@ fun ReadAloudBarCapsule(
     onLongPress: () -> Unit = {},
     onTogglePause: () -> Unit = {},
     onStop: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    onOpenVoiceSwitch: () -> Unit = {},
     chapterTitle: String = "",
     chapterIndex: Int = -1,
     isPaused: Boolean = true,
@@ -350,6 +352,18 @@ fun ReadAloudBarCapsule(
                 contentDescription = stringResource(if (isPaused) R.string.resume else R.string.pause)
             )
             MediumPlainButton(
+                onClick = onOpenSettings,
+                enabled = controlsEnabled,
+                icon = Symbols.Settings,
+                contentDescription = stringResource(R.string.aloud_config)
+            )
+            MediumPlainButton(
+                onClick = onOpenVoiceSwitch,
+                enabled = controlsEnabled,
+                icon = Symbols.RecordVoiceOver,
+                contentDescription = stringResource(R.string.read_aloud_engines_and_voices)
+            )
+            MediumPlainButton(
                 onClick = onStop,
                 enabled = controlsEnabled,
                 icon = Symbols.Close,
@@ -429,6 +443,12 @@ fun ReadAloudBarCapsuleSlot(
                 onStop = {
                     onControlsExpandedChange(false)
                     playerState.source?.let(playbackGateway::stop)
+                },
+                onOpenSettings = {
+                    io.legado.app.ui.book.read.ReadAloudConfigRequestBus.request()
+                },
+                onOpenVoiceSwitch = {
+                    io.legado.app.ui.book.read.ReadAloudVoiceRequestBus.request()
                 },
                 chapterTitle = displayState.chapterTitle,
                 chapterIndex = displayState.chapterIndex,

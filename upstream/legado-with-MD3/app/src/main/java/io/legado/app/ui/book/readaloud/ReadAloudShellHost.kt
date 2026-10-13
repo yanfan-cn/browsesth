@@ -18,6 +18,8 @@ import io.legado.app.domain.gateway.PlaybackCapsuleGateway
 import io.legado.app.domain.model.PlaybackCapsuleState
 import io.legado.app.ui.book.readaloud.morph.LocalReadAloudMorph
 import io.legado.app.ui.book.read.ReadAloudCapsule
+import io.legado.app.ui.book.read.ReadAloudConfigRequestBus
+import io.legado.app.ui.book.read.ReadAloudVoiceRequestBus
 import org.koin.compose.koinInject
 
 /** 应用内播放胶囊宿主，共用朗读和有声书状态；播放器初始化仍由各自页面负责。 */
@@ -65,6 +67,8 @@ fun ReadAloudShellHost(
                     onTogglePause = { playerState.source?.let(playbackGateway::togglePause) },
                     onStop = { playerState.source?.let(playbackGateway::stop) },
                     onOpenPlayer = { onOpenPlayer(playerState) },
+                    onOpenSettings = { ReadAloudConfigRequestBus.request() },
+                    onOpenVoiceSwitch = { ReadAloudVoiceRequestBus.request() },
                 )
             }
         }

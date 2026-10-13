@@ -82,7 +82,12 @@ object ReadConfig {
     val maxLengthWithNoToc get() = read.maxLengthWithNoToc
     val selectVibrator get() = read.selectVibrator
 
-    val speechRatePlay get() = if (aloud.ttsFollowSys) 5 else aloud.ttsSpeechRate
+    val speechRatePlay get() =
+        if (aloud.ttsFollowSys) {
+            io.legado.app.help.readaloud.ReadAloudSpeechRate.DEFAULT_STORED
+        } else {
+            aloud.ttsSpeechRate
+        }
     val ttsEngine get() = aloud.ttsEngine
     val ttsFollowSys get() = aloud.ttsFollowSys
     val ttsSpeechRate get() = aloud.ttsSpeechRate

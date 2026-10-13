@@ -309,7 +309,7 @@ abstract class AppDatabase : RoomDatabase() {
                 @Language("sql")
                 val insertGroupReadFinished = """
                     insert into book_groups(groupId, groupName, 'order', show) 
-                    select ${BookGroup.IdReadFinished}, '已读', -28, 0
+                    select ${BookGroup.IdReadFinished}, '已读', -28, 1
                     where not exists (select * from book_groups where groupId = ${BookGroup.IdReadFinished})
                 """.trimIndent()
                 db.execSQL(insertGroupReadFinished)

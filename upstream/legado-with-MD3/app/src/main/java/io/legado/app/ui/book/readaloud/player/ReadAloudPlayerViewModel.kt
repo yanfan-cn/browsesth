@@ -59,7 +59,7 @@ class ReadAloudPlayerViewModel(
         AppConfigStore.observeInt(PreferKey.readAloudPlayerBgMode),
         activeSheet,
     ) { source, bgMode, sheet ->
-        toUiState(source, bgMode ?: ReadAloudBgMode.Blur, sheet)
+        toUiState(source, bgMode ?: ReadAloudBgMode.FlowingLight, sheet)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -276,7 +276,7 @@ class ReadAloudPlayerViewModel(
 
     private fun readBgMode(): Int {
         return AppConfigStore.preferences.compatDsInt(PreferKey.readAloudPlayerBgMode)
-            ?: ReadAloudBgMode.Blur
+            ?: ReadAloudBgMode.FlowingLight
     }
 
 }

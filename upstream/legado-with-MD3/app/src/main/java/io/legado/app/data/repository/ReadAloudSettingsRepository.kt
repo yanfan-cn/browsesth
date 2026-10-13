@@ -87,7 +87,7 @@ internal fun Preferences.toReadAloudSettings(): ReadAloudSettings = ReadAloudSet
     readAloudWakeLock = compatDsValue(ReadAloudKeys.ReadAloudWakeLock, false),
     keepReadAloudOnExit = compatDsValue(ReadAloudKeys.KeepReadAloudOnExit, false),
     showReadAloudCapsule = compatDsValue(ReadAloudKeys.ShowReadAloudCapsule, true),
-    capsuleAutoCollapse = compatDsValue(ReadAloudKeys.CapsuleAutoCollapse, true),
+    capsuleAutoCollapse = compatDsValue(ReadAloudKeys.CapsuleAutoCollapse, false),
     capsuleOffsetX = compatDsValue(ReadAloudKeys.CapsuleOffsetX, 0f),
     capsuleOffsetY = compatDsValue(ReadAloudKeys.CapsuleOffsetY, 0f),
     mediaButtonPerNext = compatDsValue(ReadAloudKeys.MediaButtonPerNext, false),
@@ -109,7 +109,7 @@ internal fun Preferences.toReadAloudSettings(): ReadAloudSettings = ReadAloudSet
         compatDsValue(ReadAloudKeys.TimerChapters, 0)
     ),
     ttsFollowSys = compatDsValue(ReadAloudKeys.TtsFollowSys, true),
-    ttsSpeechRate = compatDsValue(ReadAloudKeys.TtsSpeechRate, 5),
+    ttsSpeechRate = compatDsValue(ReadAloudKeys.TtsSpeechRate, 4),
     speechAnalysisMode = compatDsValue(ReadAloudKeys.SpeechAnalysisMode, "rule"),
     speechAnalysisReasoningLevel = compatDsValue(
         ReadAloudKeys.SpeechAnalysisReasoningLevel,

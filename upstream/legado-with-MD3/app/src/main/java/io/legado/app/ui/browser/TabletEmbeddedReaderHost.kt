@@ -100,6 +100,17 @@ private fun TabletEmbeddedNovelReader(
                 host = controller,
                 controller = controller,
                 onEffectsReady = { effectsReady.complete(Unit) },
+                // SPEC-112: 平板壳内阅读也要能进引擎/音色页（原先默认空回调导致「不可用」）。
+                onOpenTtsEnginesAndVoices = {
+                    io.legado.app.ui.main.MainRouteRequestBus.request(
+                        io.legado.app.ui.main.MainRouteCloudTtsEngines(bookUrl)
+                    )
+                },
+                onOpenVoiceCasting = { url ->
+                    io.legado.app.ui.main.MainRouteRequestBus.request(
+                        io.legado.app.ui.main.MainRouteBookVoiceCasting(url)
+                    )
+                },
             )
         }
 

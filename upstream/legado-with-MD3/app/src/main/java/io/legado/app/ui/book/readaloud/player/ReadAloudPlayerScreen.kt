@@ -655,7 +655,7 @@ private fun ReadAloudSpeedSheet(
                 onIntent(ReadAloudPlayerIntent.SetSpeed(speedPreview.roundToInt()))
             },
             valueRange = READ_ALOUD_SPEED_MIN.toFloat()..READ_ALOUD_SPEED_MAX.toFloat(),
-            steps = READ_ALOUD_SPEED_MAX - READ_ALOUD_SPEED_MIN - 1,
+            steps = io.legado.app.help.readaloud.ReadAloudSpeechRate.sliderSteps,
         )
     }
 }

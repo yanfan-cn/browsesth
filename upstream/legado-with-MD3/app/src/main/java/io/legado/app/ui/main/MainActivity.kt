@@ -70,6 +70,7 @@ import io.legado.app.ui.about.MarkdownSheet
 import io.legado.app.ui.about.UpdateDialog
 import io.legado.app.ui.book.audio.AudioPlayViewModel
 import io.legado.app.ui.book.read.ReadAloudControlsRequestBus
+import io.legado.app.ui.book.read.ReadAloudVoiceRequestBus
 import io.legado.app.ui.book.read.ReadBookInputHandler
 import io.legado.app.ui.book.read.ReadBookRouteHost
 import io.legado.app.ui.book.read.page.entities.PageDirection
@@ -599,6 +600,30 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                         resetToHome = event.resetToHome,
                     )
                 }
+            }
+        }
+
+        // SPEC-112: 平板嵌入阅读等壳内请求压栈（引擎/音色、角色配音）。
+        LaunchedEffect(backStack) {
+            MainRouteRequestBus.events.collect { route ->
+                MainNavigator.navigateToRoute(
+                    backStack = backStack,
+                    route = route,
+                    tracker = navRouteTracker,
+                )
+            }
+        }
+
+        // SPEC-113: 朗读胶囊「切换音色」→ 引擎与音色页。
+        LaunchedEffect(backStack) {
+            ReadAloudVoiceRequestBus.events.collect {
+                val bookUrl = playbackGateway.state.value.bookUrl
+                    .takeIf { it.isNotBlank() }
+                MainNavigator.navigateToRoute(
+                    backStack = backStack,
+                    route = MainRouteCloudTtsEngines(bookUrl),
+                    tracker = navRouteTracker,
+                )
             }
         }
 

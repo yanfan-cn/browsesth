@@ -586,11 +586,23 @@ class ReadBookViewModel(
         },
     )
 
+    /**
+     * SPEC-112: 勿用 `TextToSpeech(ctx, null)` 立刻 `shutdown()` 取引擎列表——
+     * 初始化未完成时 `engines` 常为空，导致朗读设置里「引擎与音色」像不可用。
+     * 改为查询 TTS Service Intent。
+     */
     private val sysEngines: List<TextToSpeech.EngineInfo> by lazy {
-        val tts = TextToSpeech(context, null)
-        val engines = tts.engines
-        tts.shutdown()
-        engines
+        val pm = context.packageManager
+        val intent = android.content.Intent(TextToSpeech.Engine.INTENT_ACTION_TTS_SERVICE)
+        @Suppress("DEPRECATION")
+        pm.queryIntentServices(intent, 0).mapNotNull { resolve ->
+            val serviceInfo = resolve.serviceInfo ?: return@mapNotNull null
+            TextToSpeech.EngineInfo().apply {
+                name = serviceInfo.packageName
+                label = runCatching { serviceInfo.loadLabel(pm).toString() }
+                    .getOrDefault(serviceInfo.packageName)
+            }
+        }
     }
 
     private val _readPreferences = MutableStateFlow(ReadPreferences())
@@ -956,6 +968,7 @@ class ReadBookViewModel(
             is ReadBookIntent.SureNewProgress -> ReadBook.setProgress(intent.progress)
             is ReadBookIntent.SureSyncProgress -> ReadBook.setProgress(intent.progress)
             is ReadBookIntent.AddBookmark -> bookmarkDelegate.addForCurrentPage()
+            ReadBookIntent.AddToBookshelf -> addCurrentBookToBookshelfKeepReading()
             is ReadBookIntent.ToggleBookmark -> bookmarkDelegate.toggleForCurrentPage()
             is ReadBookIntent.SaveBookmark -> bookmarkDelegate.save(intent.bookmark)
             is ReadBookIntent.DeleteBookmark -> bookmarkDelegate.delete(intent.bookmark)
@@ -1773,6 +1786,12 @@ class ReadBookViewModel(
             }
         }
         viewModelScope.launch {
+            // SPEC-112: 朗读胶囊「朗读设置」入口。
+            ReadAloudConfigRequestBus.events.collect {
+                onIntent(ReadBookIntent.ShowReadAloudConfig)
+            }
+        }
+        viewModelScope.launch {
             var previousStatus: ReadAloudSessionStatus? = null
             readAloudSessionStore.state.collect { session ->
                 val status = session.status
@@ -2199,7 +2218,34 @@ class ReadBookViewModel(
     }
 
     private fun addCurrentBookToBookshelfAndFinish() {
-        val book = ReadBook.book ?: return removeCurrentNotShelfBookAndFinish()
+        addCurrentBookToBookshelfInternal(
+            onSuccess = {
+                _uiState.update { it.copy(activeDialog = null) }
+                stopReadAloudForClose()
+                _effects.tryEmit(ReadBookEffect.Finish)
+            },
+        )
+    }
+
+    /** SPEC-112: 底栏加入列表，放入阅读列表后继续阅读。 */
+    private fun addCurrentBookToBookshelfKeepReading() {
+        if (ReadBook.inBookshelf) {
+            _effects.tryEmit(
+                ReadBookEffect.ShowToast(context.getString(R.string.already_in_bookshelf))
+            )
+            return
+        }
+        addCurrentBookToBookshelfInternal(
+            onSuccess = {
+                _effects.tryEmit(
+                    ReadBookEffect.ShowToast(context.getString(R.string.add_to_bookshelf))
+                )
+            },
+        )
+    }
+
+    private fun addCurrentBookToBookshelfInternal(onSuccess: () -> Unit) {
+        val book = ReadBook.book ?: return
         execute {
             val toc = bookRepository.getChapters(book.bookUrl)
             book.removeType(BookType.notShelf)
@@ -2212,9 +2258,7 @@ class ReadBookViewModel(
             }
             ReadBook.inBookshelf = true
         }.onSuccess {
-            _uiState.update { it.copy(activeDialog = null) }
-            stopReadAloudForClose()
-            _effects.tryEmit(ReadBookEffect.Finish)
+            onSuccess()
         }.onError {
             AppLog.put("添加书籍到书架失败", it)
             _effects.tryEmit(ReadBookEffect.ShowToast("添加书籍失败"))

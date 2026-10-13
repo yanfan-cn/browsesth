@@ -146,15 +146,28 @@ class ReadButtonConfigDelegate(
             ?: emptyList()
 
         return if (raw.isEmpty()) {
-            ReadBookButtonIds.map { id ->
-                ReadBookButtonConfigItem(
-                    id = id,
-                    enabled = id in DEFAULT_ENABLED_BUTTON_IDS,
-                )
-            }
+            defaultBottomBarButtons()
         } else {
             normalizeButtonConfig(raw)
         }
+    }
+
+    /** SPEC-112: 默认两行十键，顺序固定。 */
+    fun defaultBottomBarButtons(): List<ReadBookButtonConfigItem> {
+        val enabledOrder = DefaultEnabledBottomBarButtonIds
+        val enabledSet = enabledOrder.toSet()
+        val items = enabledOrder.map { ReadBookButtonConfigItem(it, true) }.toMutableList()
+        ReadBookButtonIds.forEach { id ->
+            if (id !in enabledSet) {
+                items.add(ReadBookButtonConfigItem(id, false))
+            }
+        }
+        return items
+    }
+
+    /** SPEC-112: 强制覆盖底栏为默认两行十键。 */
+    fun forceDefaultBottomBarButtons() {
+        saveMenuButtons(defaultBottomBarButtons())
     }
 
     private fun saveButtonConfig(
@@ -162,7 +175,7 @@ class ReadButtonConfigDelegate(
         key: String,
         items: List<ReadBookButtonConfigItem>,
     ) {
-        val value = items.joinToString(";") { "${it.id},${it.enabled}" }
+        val value = encodeButtonConfig(items)
         context.getSharedPreferences(preferenceName, Context.MODE_PRIVATE)
             .edit()
             .putString(key, value)
@@ -189,17 +202,13 @@ class ReadButtonConfigDelegate(
         return normalized
     }
 
-    private companion object {
+    companion object {
         const val TITLE_BAR_ICON_PREFS = "title_bar_icons"
         const val TITLE_BAR_ICON_KEY = "icons"
         const val TOOL_BUTTON_PREFS = "tool_button_config"
         const val TOOL_BUTTON_KEY = "tool_buttons"
-        val DEFAULT_ENABLED_BUTTON_IDS = setOf(
-            "search",
-            "auto_page",
-            "catalog",
-            "read_aloud",
-            "setting",
-        )
+
+        fun encodeButtonConfig(items: List<ReadBookButtonConfigItem>): String =
+            items.joinToString(";") { "${it.id},${it.enabled}" }
     }
 }

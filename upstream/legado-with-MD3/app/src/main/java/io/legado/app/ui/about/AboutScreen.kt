@@ -1,12 +1,13 @@
 package io.legado.app.ui.about
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -78,6 +80,7 @@ private fun MaterialAboutScreen(
     val privacyPolicyTitle = stringResource(R.string.about_privacy_policy_title)
     val licenseTitle = stringResource(R.string.about_license_title)
     val disclaimerTitle = stringResource(R.string.about_disclaimer_title)
+    val contributorsUrl = stringResource(R.string.contributors_url)
 
     AppScaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -96,18 +99,23 @@ private fun MaterialAboutScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            // SPEC-068: rounded app icon; no name under icon; no social/update icon row.
-            Image(
-                painter = painterResource(R.drawable.ic_launcher_foreground),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
+            // SPEC-118: cream plate so adaptive foreground (black 巡页 on transparent) stays readable.
+            Box(
                 modifier = Modifier
                     .padding(top = 8.dp)
-                    .height(120.dp)
-                    .width(120.dp)
+                    .size(120.dp)
                     .align(Alignment.CenterHorizontally)
-                    .clip(RoundedCornerShape(24.dp)),
-            )
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFFF6F1EA)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.ic_launcher_foreground),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
             TextCard(
                 text = versionName,
                 cornerRadius = 8.dp,
@@ -133,7 +141,7 @@ private fun MaterialAboutScreen(
                 SettingItemWithDivider {
                     SettingItem(
                         title = stringResource(R.string.contributors),
-                        onClick = { onIntent(AboutIntent.OpenUrl("https://github.com/yanfan-cn/browsesth")) }
+                        onClick = { onIntent(AboutIntent.OpenUrl(contributorsUrl)) }
                     )
                 }
                 SettingItemWithDivider {

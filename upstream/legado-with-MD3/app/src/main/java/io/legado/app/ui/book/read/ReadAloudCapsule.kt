@@ -98,6 +98,10 @@ fun ReadAloudCapsule(
     onTogglePause: () -> Unit,
     onStop: () -> Unit,
     onOpenPlayer: () -> Unit,
+    /** SPEC-112: 朗读设置入口。 */
+    onOpenSettings: () -> Unit = {},
+    /** SPEC-113: 切换音色入口。 */
+    onOpenVoiceSwitch: () -> Unit = {},
     /** 系统窗口由平台宿主管理位置，组件只报告拖拽，不创建 WindowManager。 */
     onWindowPositionChanged: ((xDp: Float, yDp: Float, expansion: Float) -> Unit)? = null,
 ) {
@@ -304,6 +308,8 @@ fun ReadAloudCapsule(
                 expansion = expansion,
                 onTogglePause = { onTouched(); onTogglePause() },
                 onStop = onStop,
+                onOpenSettings = { onTouched(); onOpenSettings() },
+                onOpenVoiceSwitch = { onTouched(); onOpenVoiceSwitch() },
                 onCoverClick = {
                     onTouched()
                     if (collapsed || expansion < 1f) collapsed = false else onOpenPlayer()
@@ -345,6 +351,8 @@ private fun CapsuleContent(
     expansion: Float,
     onTogglePause: () -> Unit,
     onStop: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenVoiceSwitch: () -> Unit,
     onCoverClick: () -> Unit,
 ) {
     val coverSize = (48f - 8f * expansion).dp
@@ -395,9 +403,10 @@ private fun CapsuleContent(
                 .clickable(onClick = onCoverClick),
         )
         // 按钮始终以完整尺寸测量，仅连续揭示宽度；不切换两套封面或压缩按钮。
+        // SPEC-112/113: 设置 + 音色 → 宽度 128→172。
         Box(
             Modifier
-                .width((84f * expansion).dp)
+                .width((172f * expansion).dp)
                 .height(40.dp)
                 .clipToBounds()
                 .graphicsLayer { alpha = expansion },
@@ -405,7 +414,7 @@ private fun CapsuleContent(
             Row(
                 Modifier
                     .wrapContentSize(Alignment.CenterStart, unbounded = true)
-                    .width(84.dp),
+                    .width(172.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -422,6 +431,36 @@ private fun CapsuleContent(
                         contentDescription = stringResource(
                             if (isPaused) R.string.resume_read_aloud else R.string.pause_read_aloud
                         ),
+                        modifier = Modifier.size(24.dp),
+                        tint = contentColor,
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(mutedColor.copy(alpha = 0.1f))
+                        .clickable(enabled = expansion >= 1f, onClick = onOpenSettings),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    SymbolIcon(
+                        symbol = Symbols.Settings,
+                        contentDescription = stringResource(R.string.aloud_config),
+                        modifier = Modifier.size(24.dp),
+                        tint = contentColor,
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(mutedColor.copy(alpha = 0.1f))
+                        .clickable(enabled = expansion >= 1f, onClick = onOpenVoiceSwitch),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    SymbolIcon(
+                        symbol = Symbols.RecordVoiceOver,
+                        contentDescription = stringResource(R.string.read_aloud_engines_and_voices),
                         modifier = Modifier.size(24.dp),
                         tint = contentColor,
                     )

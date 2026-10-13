@@ -1,20 +1,33 @@
 package io.legado.app.ui.browser
 
 import android.content.ClipData
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +40,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,17 +52,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.browser.engine.BrowserOpenBridge
 import io.legado.app.browser.engine.BrowserShortcut
 import io.legado.app.browser.engine.BrowserShortcutStore
 import io.legado.app.browser.engine.BrowserTabManager
+import io.legado.app.browser.engine.ReadingBookmarkOrgStore
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.Bookmark
 import io.legado.app.data.repository.BookRepository
@@ -57,16 +74,15 @@ import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
-import io.legado.app.ui.widget.components.topbar.GlassSmallTopAppBar
 import io.legado.app.ui.widget.components.topbar.TopBarActionButton
+import io.legado.app.ui.widget.components.topbar.TopBarButtonStyle
 import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
 import io.legado.app.utils.toastOnUi
 import java.util.UUID
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
-/** SPEC-082: history-style rows + overflow menu + sort + folders + multi-select.
- * SPEC-090: also show Room reading bookmarks (local / browser reader). */
+/** SPEC-082/090/113/116: 收藏=BrowseStore；书签=Room；顶栏胶囊分段 + 阅读书签文件夹. */
 @Composable
 fun BrowserBookmarksScreen(
     onBack: () -> Unit,
@@ -93,6 +109,7 @@ private fun BrowserBookmarksBody(
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     val store = remember { BrowseStore(context) }
+    val readingOrg = remember { ReadingBookmarkOrgStore(context) }
     val shortcutStore = remember { BrowserShortcutStore(context) }
     val bookmarkRepository: BookmarkRepository = koinInject()
     val bookRepository: BookRepository = koinInject()
@@ -102,6 +119,8 @@ private fun BrowserBookmarksBody(
 
     var items by remember { mutableStateOf(store.sortedBookmarks()) }
     var folders by remember { mutableStateOf(store.folders()) }
+    var readingFolders by remember { mutableStateOf(readingOrg.folders()) }
+    var readingMembershipRev by remember { mutableStateOf(0) }
     var sort by remember { mutableStateOf(store.bookmarkSort()) }
     var query by remember { mutableStateOf("") }
     var currentFolderId by remember { mutableStateOf("") }
@@ -117,30 +136,60 @@ private fun BrowserBookmarksBody(
     fun reload() {
         items = store.sortedBookmarks()
         folders = store.folders()
+        readingFolders = readingOrg.folders()
+        readingMembershipRev += 1
         sort = store.bookmarkSort()
     }
 
-    val readingEntries = remember(readingBookmarks) {
-        readingBookmarks.map { it.toSyntheticEntry() }
+    val pagerState = rememberPagerState(pageCount = { 2 })
+    val onFavoritesTab = pagerState.currentPage == 0
+    LaunchedEffect(pagerState.currentPage) {
+        currentFolderId = ""
+        query = ""
     }
-    val inFolder = remember(items, currentFolderId, readingEntries, sort) {
-        val web = items.filter { it.folderId == currentFolderId }
-        if (currentFolderId.isNotEmpty()) web
-        else sortMergedEntries(web + readingEntries, sort)
+
+    val readingEntries = remember(readingBookmarks, readingMembershipRev) {
+        readingBookmarks.map { bm ->
+            bm.toSyntheticEntry(folderId = readingOrg.folderIdOf(bm.time))
+        }
     }
-    val filtered = remember(inFolder, query, readingBookmarks) {
+    // SPEC-113/116: 收藏=网页；书签=阅读（含独立文件夹）。
+    // Folder id is per-tab; only the active tab's folder filter applies.
+    val favoriteFolderId = if (onFavoritesTab) currentFolderId else ""
+    val readingFolderId = if (!onFavoritesTab) currentFolderId else ""
+    val favoriteEntries = remember(items, favoriteFolderId, sort) {
+        sortMergedEntries(items.filter { it.folderId == favoriteFolderId }, sort)
+    }
+    val bookmarkEntries = remember(readingEntries, readingFolderId, sort) {
+        sortMergedEntries(readingEntries.filter { it.folderId == readingFolderId }, sort)
+    }
+    val filteredFavorites = remember(favoriteEntries, query) {
         val q = query.trim()
-        if (q.isEmpty()) inFolder
-        else inFolder.filter { entry ->
+        if (q.isEmpty()) favoriteEntries
+        else favoriteEntries.filter {
+            it.title.contains(q, true) || it.url.contains(q, true)
+        }
+    }
+    val filteredBookmarks = remember(bookmarkEntries, query, readingBookmarks) {
+        val q = query.trim()
+        if (q.isEmpty()) bookmarkEntries
+        else bookmarkEntries.filter { entry ->
             entry.title.contains(q, true) ||
                 entry.url.contains(q, true) ||
                 entry.readingSubtitle(readingBookmarks).contains(q, true)
         }
     }
-    val folderRows = remember(folders, currentFolderId, query) {
-        if (currentFolderId.isNotEmpty() || query.isNotBlank()) emptyList()
+    val activeFolders = if (onFavoritesTab) folders else readingFolders
+    val favoriteFolderRows = remember(folders, favoriteFolderId, query) {
+        if (favoriteFolderId.isNotEmpty() || query.isNotBlank()) emptyList()
         else folders.sortedBy { it.order }
     }
+    val readingFolderRows = remember(readingFolders, readingFolderId, query) {
+        if (readingFolderId.isNotEmpty() || query.isNotBlank()) emptyList()
+        else readingFolders.sortedBy { it.order }
+    }
+    val favoritesCount = remember(items) { items.size }
+    val bookmarksCount = remember(readingBookmarks) { readingBookmarks.size }
 
     fun deleteSelected() {
         if (selectedUrls.isEmpty()) {
@@ -150,18 +199,24 @@ private fun BrowserBookmarksBody(
         val web = selectedUrls.filterNot { it.isReadingBookmarkUrl() }
         val readTimes = selectedUrls.mapNotNull { it.readingBookmarkTime() }
         if (web.isNotEmpty()) store.removeBookmarks(web.toSet())
+        selecting = false
+        selectedUrls = emptySet()
         if (readTimes.isNotEmpty()) {
             val toDelete = readTimes.mapNotNull { time ->
                 readingBookmarks.firstOrNull { it.time == time }
             }
-            if (toDelete.isNotEmpty()) {
-                scope.launch { bookmarkRepository.deleteAll(toDelete) }
+            scope.launch {
+                if (toDelete.isNotEmpty()) {
+                    bookmarkRepository.deleteAll(toDelete)
+                    readTimes.forEach { readingOrg.setFolder(it, "") }
+                }
+                reload()
+                context.toastOnUi("已删除")
             }
+        } else {
+            reload()
+            context.toastOnUi("已删除")
         }
-        selecting = false
-        selectedUrls = emptySet()
-        reload()
-        context.toastOnUi("已删除")
     }
 
     fun openReadingBookmark(entry: BrowseStore.Entry) {
@@ -208,86 +263,42 @@ private fun BrowserBookmarksBody(
 
     AppScaffold(
         topBar = {
-            GlassSmallTopAppBar(
-                title = when {
-                    selecting -> "已选 ${selectedUrls.size}"
-                    currentFolderId.isNotEmpty() ->
-                        folders.firstOrNull { it.id == currentFolderId }?.name ?: "书签"
-                    else -> "书签"
-                },
-                navigationIcon = {
-                    TopBarNavigationButton(
-                        onClick = {
-                            when {
-                                selecting -> {
-                                    selecting = false
-                                    selectedUrls = emptySet()
-                                }
-                                currentFolderId.isNotEmpty() -> currentFolderId = ""
-                                else -> onBack()
-                            }
-                        },
-                    )
-                },
-                actions = {
-                    if (selecting) {
-                        TopBarActionButton(
-                            onClick = { deleteSelected() },
-                            symbol = Symbols.Delete,
-                            contentDescription = "删除所选",
-                        )
-                    } else {
-                        Box {
-                            TopBarActionButton(
-                                onClick = { showSort = true },
-                                symbol = Symbols.Sort,
-                                contentDescription = "排序",
-                            )
-                            DropdownMenu(
-                                expanded = showSort,
-                                onDismissRequest = { showSort = false },
-                            ) {
-                                BrowseStore.BookmarkSort.entries.forEach { option ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Row(
-                                                Modifier.fillMaxWidth(),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                Text(
-                                                    option.label,
-                                                    modifier = Modifier.weight(1f),
-                                                )
-                                                if (option == sort) {
-                                                    SymbolIcon(
-                                                        Symbols.Check,
-                                                        contentDescription = null,
-                                                        tint = scheme.primary,
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        onClick = {
-                                            store.setBookmarkSort(option)
-                                            showSort = false
-                                            reload()
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                        TopBarActionButton(
-                            onClick = { showAdd = true },
-                            symbol = Symbols.Add,
-                            contentDescription = "新增书签",
-                        )
-                        TopBarActionButton(
-                            onClick = { showNewFolder = true },
-                            symbol = Symbols.CreateNewFolder,
-                            contentDescription = "新建文件夹",
-                        )
+            BookmarksModeTopBar(
+                selecting = selecting,
+                selectedCount = selectedUrls.size,
+                inFolder = currentFolderId.isNotEmpty(),
+                folderTitle = activeFolders.firstOrNull { it.id == currentFolderId }?.name
+                    ?: if (onFavoritesTab) "收藏" else "书签",
+                showFavorites = onFavoritesTab,
+                favoritesCount = favoritesCount,
+                bookmarksCount = bookmarksCount,
+                onShowFavoritesChange = { fav ->
+                    scope.launch {
+                        pagerState.animateScrollToPage(if (fav) 0 else 1)
                     }
                 },
+                onNavClick = {
+                    when {
+                        selecting -> {
+                            selecting = false
+                            selectedUrls = emptySet()
+                        }
+                        currentFolderId.isNotEmpty() -> currentFolderId = ""
+                        else -> onBack()
+                    }
+                },
+                showSort = showSort,
+                onShowSortChange = { showSort = it },
+                sort = sort,
+                onSortSelected = { option ->
+                    store.setBookmarkSort(option)
+                    showSort = false
+                    reload()
+                },
+                showAddFavorite = onFavoritesTab && !selecting,
+                onAddFavorite = { showAdd = true },
+                onNewFolder = { showNewFolder = true },
+                onDeleteSelected = { deleteSelected() },
             )
         },
     ) { padding ->
@@ -299,68 +310,79 @@ private fun BrowserBookmarksBody(
             BrowserListSearchField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = "搜索书签",
+                placeholder = if (onFavoritesTab) "搜索收藏" else "搜索书签",
             )
-            if (filtered.isEmpty() && folderRows.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        if (items.isEmpty() && folders.isEmpty() && readingBookmarks.isEmpty()) {
-                            "还没有书签"
-                        } else {
-                            "无匹配书签"
-                        },
-                        color = scheme.onSurfaceVariant,
-                    )
-                }
-            } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(folderRows, key = { "f-${it.id}" }) { folder ->
-                        FolderRow(
-                            name = folder.name,
-                            onOpen = { currentFolderId = folder.id },
-                            onDelete = {
-                                store.removeFolder(folder.id)
-                                reload()
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                userScrollEnabled = currentFolderId.isEmpty() && !selecting,
+            ) { page ->
+                val pageFavorites = page == 0
+                val pageItems = if (pageFavorites) filteredFavorites else filteredBookmarks
+                val pageFolders =
+                    if (pageFavorites) favoriteFolderRows else readingFolderRows
+                if (pageItems.isEmpty() && pageFolders.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            when {
+                                pageFavorites && items.isEmpty() && folders.isEmpty() -> "还没有收藏"
+                                !pageFavorites && readingBookmarks.isEmpty() -> "还没有书签"
+                                else -> if (pageFavorites) "无匹配收藏" else "无匹配书签"
                             },
+                            color = scheme.onSurfaceVariant,
                         )
-                        HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.4f))
                     }
-                    items(filtered, key = { it.url }) { entry ->
-                        val reading = entry.url.isReadingBookmarkUrl()
-                        BookmarkRow(
-                            entry = entry,
-                            subtitle = if (reading) {
-                                entry.readingSubtitle(readingBookmarks)
-                            } else {
-                                entry.url
-                            },
-                            useBookIcon = reading,
-                            selecting = selecting,
-                            selected = entry.url in selectedUrls,
-                            onOpen = {
-                                if (selecting) {
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        items(pageFolders, key = { "f-${it.id}" }) { folder ->
+                            FolderRow(
+                                name = folder.name,
+                                onOpen = { currentFolderId = folder.id },
+                                onDelete = {
+                                    if (pageFavorites) store.removeFolder(folder.id)
+                                    else readingOrg.removeFolder(folder.id)
+                                    reload()
+                                },
+                            )
+                            HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.4f))
+                        }
+                        items(pageItems, key = { it.url }) { entry ->
+                            val reading = entry.url.isReadingBookmarkUrl()
+                            BookmarkRow(
+                                entry = entry,
+                                subtitle = if (reading) {
+                                    entry.readingSubtitle(readingBookmarks)
+                                } else {
+                                    entry.url
+                                },
+                                useBookIcon = reading,
+                                selecting = selecting,
+                                selected = entry.url in selectedUrls,
+                                onOpen = {
+                                    if (selecting) {
+                                        selectedUrls = if (entry.url in selectedUrls) {
+                                            selectedUrls - entry.url
+                                        } else {
+                                            selectedUrls + entry.url
+                                        }
+                                    } else {
+                                        openEntry(entry, newTab = false, incognito = false)
+                                    }
+                                },
+                                onMenu = { menuFor = entry },
+                                onToggleSelect = {
                                     selectedUrls = if (entry.url in selectedUrls) {
                                         selectedUrls - entry.url
                                     } else {
                                         selectedUrls + entry.url
                                     }
-                                } else {
-                                    openEntry(entry, newTab = false, incognito = false)
-                                }
-                            },
-                            onMenu = { menuFor = entry },
-                            onToggleSelect = {
-                                selectedUrls = if (entry.url in selectedUrls) {
-                                    selectedUrls - entry.url
-                                } else {
-                                    selectedUrls + entry.url
-                                }
-                            },
-                        )
-                        HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.4f))
+                                },
+                            )
+                            HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.4f))
+                        }
                     }
                 }
             }
@@ -400,7 +422,11 @@ private fun BrowserBookmarksBody(
                     val time = entry.url.readingBookmarkTime()
                     val bm = readingBookmarks.firstOrNull { it.time == time }
                     if (bm != null) {
-                        scope.launch { bookmarkRepository.delete(bm) }
+                        scope.launch {
+                            bookmarkRepository.delete(bm)
+                            if (time != null) readingOrg.setFolder(time, "")
+                            reload()
+                        }
                     }
                 } else {
                     store.removeBookmark(entry.url)
@@ -481,7 +507,8 @@ private fun BrowserBookmarksBody(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        store.addFolder(name)
+                        if (onFavoritesTab) store.addFolder(name)
+                        else readingOrg.addFolder(name)
                         reload()
                         showNewFolder = false
                     },
@@ -493,6 +520,8 @@ private fun BrowserBookmarksBody(
         )
     }
     moving?.let { entry ->
+        val reading = entry.url.isReadingBookmarkUrl()
+        val moveFolders = if (reading) readingFolders else folders
         AlertDialog(
             onDismissRequest = { moving = null },
             title = { Text("移动到…") },
@@ -500,21 +529,33 @@ private fun BrowserBookmarksBody(
                 Column {
                     TextButton(
                         onClick = {
-                            store.moveBookmark(entry.url, "")
+                            if (reading) {
+                                entry.url.readingBookmarkTime()?.let {
+                                    readingOrg.setFolder(it, "")
+                                }
+                            } else {
+                                store.moveBookmark(entry.url, "")
+                            }
                             reload()
                             moving = null
                         },
                     ) { Text("根目录") }
-                    folders.forEach { folder ->
+                    moveFolders.forEach { folder ->
                         TextButton(
                             onClick = {
-                                store.moveBookmark(entry.url, folder.id)
+                                if (reading) {
+                                    entry.url.readingBookmarkTime()?.let {
+                                        readingOrg.setFolder(it, folder.id)
+                                    }
+                                } else {
+                                    store.moveBookmark(entry.url, folder.id)
+                                }
                                 reload()
                                 moving = null
                             },
                         ) { Text(folder.name) }
                     }
-                    if (folders.isEmpty()) {
+                    if (moveFolders.isEmpty()) {
                         Text("暂无文件夹，请先新建", color = scheme.onSurfaceVariant)
                     }
                 }
@@ -523,6 +564,225 @@ private fun BrowserBookmarksBody(
             dismissButton = {
                 TextButton(onClick = { moving = null }) { Text("取消") }
             },
+        )
+    }
+}
+
+/** SPEC-116: same chrome pattern as [BrowserTabsScreen] TabsModeTopBar. */
+@Composable
+private fun BookmarksModeTopBar(
+    selecting: Boolean,
+    selectedCount: Int,
+    inFolder: Boolean,
+    folderTitle: String,
+    showFavorites: Boolean,
+    favoritesCount: Int,
+    bookmarksCount: Int,
+    onShowFavoritesChange: (Boolean) -> Unit,
+    onNavClick: () -> Unit,
+    showSort: Boolean,
+    onShowSortChange: (Boolean) -> Unit,
+    sort: BrowseStore.BookmarkSort,
+    onSortSelected: (BrowseStore.BookmarkSort) -> Unit,
+    showAddFavorite: Boolean,
+    onAddFavorite: () -> Unit,
+    onNewFolder: () -> Unit,
+    onDeleteSelected: () -> Unit,
+) {
+    val scheme = LegadoTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(scheme.surface)
+            .windowInsetsPadding(WindowInsets.statusBars),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .padding(end = BrowserUiTokens.PagePaddingH),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            TopBarNavigationButton(
+                onClick = onNavClick,
+                style = TopBarButtonStyle.Tonal,
+            )
+            when {
+                selecting -> {
+                    Text(
+                        "已选 $selectedCount",
+                        modifier = Modifier.weight(1f),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = scheme.onSurface,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                inFolder -> {
+                    Text(
+                        folderTitle,
+                        modifier = Modifier.weight(1f),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = scheme.onSurface,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                else -> {
+                    BookmarksModeSegmentedControl(
+                        showFavorites = showFavorites,
+                        favoritesCount = favoritesCount,
+                        bookmarksCount = bookmarksCount,
+                        onShowFavoritesChange = onShowFavoritesChange,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (selecting) {
+                    TopBarActionButton(
+                        onClick = onDeleteSelected,
+                        symbol = Symbols.Delete,
+                        contentDescription = "删除所选",
+                        style = TopBarButtonStyle.Tonal,
+                    )
+                } else {
+                    Box {
+                        TopBarActionButton(
+                            onClick = { onShowSortChange(true) },
+                            symbol = Symbols.Sort,
+                            contentDescription = "排序",
+                            style = TopBarButtonStyle.Tonal,
+                        )
+                        DropdownMenu(
+                            expanded = showSort,
+                            onDismissRequest = { onShowSortChange(false) },
+                        ) {
+                            BrowseStore.BookmarkSort.entries.forEach { option ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text(
+                                                option.label,
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                            if (option == sort) {
+                                                SymbolIcon(
+                                                    Symbols.Check,
+                                                    contentDescription = null,
+                                                    tint = scheme.primary,
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onClick = { onSortSelected(option) },
+                                )
+                            }
+                        }
+                    }
+                    if (showAddFavorite) {
+                        TopBarActionButton(
+                            onClick = onAddFavorite,
+                            symbol = Symbols.Add,
+                            contentDescription = "加入收藏",
+                            style = TopBarButtonStyle.Tonal,
+                        )
+                    }
+                    TopBarActionButton(
+                        onClick = onNewFolder,
+                        symbol = Symbols.CreateNewFolder,
+                        contentDescription = "新建文件夹",
+                        style = TopBarButtonStyle.Tonal,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BookmarksModeSegmentedControl(
+    showFavorites: Boolean,
+    favoritesCount: Int,
+    bookmarksCount: Int,
+    onShowFavoritesChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = LegadoTheme.colorScheme
+    val shape = RoundedCornerShape(50)
+    BoxWithConstraints(
+        modifier = modifier
+            .height(36.dp)
+            .clip(shape)
+            .background(scheme.surfaceContainerHighest)
+            .padding(3.dp),
+    ) {
+        val segmentWidth = maxWidth / 2
+        val targetOffset = if (showFavorites) 0.dp else segmentWidth
+        val indicatorOffset by animateDpAsState(
+            targetValue = targetOffset,
+            animationSpec = tween(durationMillis = 220),
+            label = "bookmarksModeIndicator",
+        )
+        Box(
+            modifier = Modifier
+                .offset(x = indicatorOffset)
+                .width(segmentWidth)
+                .fillMaxHeight()
+                .clip(shape)
+                .background(scheme.surface)
+                .zIndex(0f),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(1f),
+        ) {
+            BookmarksModeSegment(
+                label = "收藏 ($favoritesCount)",
+                selected = showFavorites,
+                onClick = { onShowFavoritesChange(true) },
+            )
+            BookmarksModeSegment(
+                label = "书签 ($bookmarksCount)",
+                selected = !showFavorites,
+                onClick = { onShowFavoritesChange(false) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun RowScope.BookmarksModeSegment(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val scheme = LegadoTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) scheme.onSurface else scheme.onSurfaceVariant,
+            maxLines = 1,
         )
     }
 }
@@ -686,8 +946,8 @@ private fun BookmarkOverflowMenu(
             if (!readingOnly) {
                 MenuLine("编辑", onEdit)
                 MenuLine("复制链接", onCopy)
-                MenuLine("移动到…", onMove)
             }
+            MenuLine("移动到…", onMove)
             MenuLine("删除", onDelete)
             if (!readingOnly) {
                 MenuLine("添加至主页", onAddHome)
@@ -705,7 +965,7 @@ private fun String.isReadingBookmarkUrl(): Boolean = startsWith(READ_BM_PREFIX)
 private fun String.readingBookmarkTime(): Long? =
     removePrefix(READ_BM_PREFIX).toLongOrNull()
 
-private fun Bookmark.toSyntheticEntry(): BrowseStore.Entry {
+private fun Bookmark.toSyntheticEntry(folderId: String = ""): BrowseStore.Entry {
     val title = buildString {
         append(bookName.ifBlank { "未命名" })
         if (chapterName.isNotBlank()) {
@@ -718,7 +978,7 @@ private fun Bookmark.toSyntheticEntry(): BrowseStore.Entry {
         title = title,
         at = time,
         lastOpened = 0L,
-        folderId = "",
+        folderId = folderId,
         order = Int.MAX_VALUE / 2,
     )
 }
@@ -773,7 +1033,12 @@ private fun BookmarkEditDialog(
     var url by remember { mutableStateOf(initialUrl) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initialUrl.startsWith("http") && initialTitle.isNotBlank()) "编辑书签" else "添加书签") },
+        title = {
+            Text(
+                if (initialUrl.startsWith("http") && initialTitle.isNotBlank()) "编辑收藏"
+                else "加入收藏",
+            )
+        },
         text = {
             Column {
                 OutlinedTextField(

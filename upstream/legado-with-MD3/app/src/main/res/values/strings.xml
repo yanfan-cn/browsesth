@@ -384,7 +384,9 @@
     <string name="group_yf">Awaiting more</string>
     <string name="bookmark">Bookmarks</string>
     <string name="bookmark_add">Add to Bookmarks</string>
-    <string name="bookmark_added">Bookmark added</string>
+        <string name="browser_add_favorite">Add to Favorites</string>
+    <string name="browser_favorite_added">Added to Favorites</string>
+<string name="bookmark_added">Bookmark added</string>
     <string name="bookmark_removed">Bookmark removed</string>
     <string name="swipe_to_add_bookmark">Swipe down to add bookmark</string>
     <string name="bookmark_swipe_release_to_add">Release to add bookmark</string>
@@ -566,7 +568,7 @@
     <string name="status_bar_immersion">The status bar color becomes transparent</string>
     <string name="imm_navigation_bar">immersion navigation bar</string>
     <string name="imm_navigation_bar_s">The navigation bar becomes transparent</string>
-    <string name="add_to_bookshelf">Add to Reading list</string>
+    <string name="add_to_bookshelf">Join list</string>
     <string name="click_to_remove">Tap to remove</string>
     <string name="long_press_group">Long press to group</string>
     <string name="continue_read">Continue reading</string>
@@ -1510,6 +1512,10 @@
     <string name="refuse">Refuse</string>
     <string name="file_manage">File Management</string>
     <string name="file_manage_summary">Managing files in the application\'s private folder</string>
+    <!-- SPEC-114: Me list placeholders -->
+    <string name="software_update">Software update</string>
+    <string name="ads">Ads</string>
+    <string name="feature_coming_soon">Coming soon</string>
     <string name="create_folder">Create Folder</string>
     <string name="allow_drop_down_refresh">Allow drop-down refresh</string>
     <string name="private_group">Set as private group</string>
