@@ -2,7 +2,11 @@ package io.legado.app.ui.browser
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,7 +20,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,8 +40,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
+import io.legado.app.browser.engine.BrowserChromePrefs
 import io.legado.app.browser.engine.BrowserDownloadItem
 import io.legado.app.browser.engine.BrowserDownloadKind
+import io.legado.app.browser.engine.BrowserDownloadPaths
 import io.legado.app.browser.engine.BrowserDownloadRepository
 import io.legado.app.browser.engine.BrowserDownloadStatus
 import io.legado.app.constant.AppConst
@@ -43,10 +52,12 @@ import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
 import io.legado.app.ui.widget.components.topbar.GlassSmallTopAppBar
+import io.legado.app.ui.widget.components.topbar.TopBarActionButton
 import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
 import io.legado.app.utils.toastOnUi
 import java.io.File
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BrowserDownloadsScreen(
     onBack: () -> Unit,
@@ -57,6 +68,7 @@ fun BrowserDownloadsScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BrowserDownloadsBody(
     onBack: () -> Unit,
@@ -64,8 +76,20 @@ private fun BrowserDownloadsBody(
 ) {
     val context = LocalContext.current
     val repo = remember { BrowserDownloadRepository.get(context) }
+    val chromePrefs = remember { BrowserChromePrefs(context) }
     val items by repo.items.collectAsState()
     var query by remember { mutableStateOf("") }
+    var selecting by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(emptySet<String>()) }
+    var showSettings by remember { mutableStateOf(false) }
+    var askBefore by remember { mutableStateOf(chromePrefs.askBeforeDownload) }
+    var customPath by remember {
+        mutableStateOf(
+            chromePrefs.downloadDirPath.ifBlank {
+                BrowserDownloadPaths.defaultRootDir().absolutePath
+            },
+        )
+    }
     val scheme = LegadoTheme.colorScheme
     val filtered = remember(items, query) {
         val q = query.trim()
@@ -76,12 +100,80 @@ private fun BrowserDownloadsBody(
                 it.url.contains(q, ignoreCase = true)
         }
     }
+    val dirPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
+        }
+        // Prefer resolvable filesystem path when available; else keep tree URI string.
+        val path = uri.path?.let { p ->
+            if (p.contains(":")) {
+                val after = p.substringAfterLast(':')
+                "/storage/emulated/0/$after"
+            } else p
+        }.orEmpty()
+        if (path.isNotBlank()) {
+            customPath = path
+            chromePrefs.downloadDirPath = path
+            BrowserDownloadPaths.ensureRoot(context)
+            context.toastOnUi("已设置下载路径")
+        } else {
+            context.toastOnUi("无法解析所选文件夹路径")
+        }
+    }
 
     AppScaffold(
         topBar = {
             GlassSmallTopAppBar(
-                title = "下载",
-                navigationIcon = { TopBarNavigationButton(onClick = onBack) },
+                title = if (selecting) "已选 ${selectedIds.size}" else "下载",
+                navigationIcon = {
+                    TopBarNavigationButton(
+                        onClick = {
+                            if (selecting) {
+                                selecting = false
+                                selectedIds = emptySet()
+                            } else {
+                                onBack()
+                            }
+                        },
+                    )
+                },
+                actions = {
+                    if (selecting) {
+                        TopBarActionButton(
+                            onClick = {
+                                selectedIds.forEach { id ->
+                                    repo.remove(id, deleteFile = true)
+                                }
+                                selectedIds = emptySet()
+                                selecting = false
+                                context.toastOnUi("已删除")
+                            },
+                            symbol = Symbols.Delete,
+                            contentDescription = "删除所选",
+                        )
+                    } else {
+                        // SPEC-119: same icon as history clear (DeleteSweep).
+                        TopBarActionButton(
+                            onClick = {
+                                selecting = true
+                                selectedIds = emptySet()
+                            },
+                            symbol = Symbols.DeleteSweep,
+                            contentDescription = "多选删除",
+                        )
+                        TopBarActionButton(
+                            onClick = { showSettings = true },
+                            symbol = Symbols.Settings,
+                            contentDescription = "下载设置",
+                        )
+                    }
+                },
             )
         },
     ) { padding ->
@@ -90,7 +182,6 @@ private fun BrowserDownloadsBody(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            // SPEC-071: history-style search capsule.
             BrowserListSearchField(
                 value = query,
                 onValueChange = { query = it },
@@ -130,8 +221,28 @@ private fun BrowserDownloadsBody(
                     items(filtered, key = { it.id }) { item ->
                         DownloadRow(
                             item = item,
+                            selecting = selecting,
+                            selected = item.id in selectedIds,
+                            onToggleSelect = {
+                                selectedIds = if (item.id in selectedIds) {
+                                    selectedIds - item.id
+                                } else {
+                                    selectedIds + item.id
+                                }
+                            },
+                            onLongPress = {
+                                selecting = true
+                                selectedIds = selectedIds + item.id
+                            },
                             onOpen = {
                                 when {
+                                    selecting -> {
+                                        selectedIds = if (item.id in selectedIds) {
+                                            selectedIds - item.id
+                                        } else {
+                                            selectedIds + item.id
+                                        }
+                                    }
                                     item.status != BrowserDownloadStatus.COMPLETED -> {
                                         context.toastOnUi("尚未下载完成")
                                     }
@@ -157,32 +268,122 @@ private fun BrowserDownloadsBody(
             }
         }
     }
+
+    if (showSettings) {
+        AlertDialog(
+            onDismissRequest = { showSettings = false },
+            title = { Text("下载设置") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("默认下载路径", fontSize = 13.sp, color = scheme.onSurfaceVariant)
+                    Text(
+                        customPath,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                // Open path in system file manager when possible.
+                                runCatching {
+                                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                                        setDataAndType(
+                                            Uri.parse("content://com.android.externalstorage.documents/document/primary:Download%2F$FOLDER_SAFE"),
+                                            "vnd.android.document/directory",
+                                        )
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(intent)
+                                }.onFailure {
+                                    runCatching {
+                                        context.startActivity(
+                                            Intent(Intent.ACTION_VIEW).setDataAndType(
+                                                Uri.fromFile(File(customPath)),
+                                                "*/*",
+                                            ),
+                                        )
+                                    }.onFailure {
+                                        context.toastOnUi(customPath)
+                                    }
+                                }
+                            }
+                            .padding(vertical = 4.dp),
+                        color = scheme.primary,
+                        fontSize = 14.sp,
+                    )
+                    TextButton(onClick = { dirPicker.launch(null) }) {
+                        Text("自定义路径…")
+                    }
+                    TextButton(
+                        onClick = {
+                            chromePrefs.downloadDirPath = ""
+                            customPath = BrowserDownloadPaths.defaultRootDir().absolutePath
+                            context.toastOnUi("已恢复默认路径")
+                        },
+                    ) {
+                        Text("恢复默认路径")
+                    }
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text("每次下载前询问", modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = askBefore,
+                            onCheckedChange = {
+                                askBefore = it
+                                chromePrefs.askBeforeDownload = it
+                            },
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSettings = false }) { Text("完成") }
+            },
+        )
+    }
 }
 
+private val FOLDER_SAFE = BrowserDownloadPaths.FOLDER_NAME
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DownloadRow(
     item: BrowserDownloadItem,
+    selecting: Boolean,
+    selected: Boolean,
+    onToggleSelect: () -> Unit,
+    onLongPress: () -> Unit,
     onOpen: () -> Unit,
     onPause: () -> Unit,
     onResume: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val scheme = LegadoTheme.colorScheme
+    val speed = item.speedLabel
     val statusLabel = when (item.status) {
         BrowserDownloadStatus.QUEUED -> "等待中"
-        BrowserDownloadStatus.RUNNING -> "下载中"
+        BrowserDownloadStatus.RUNNING ->
+            if (speed.isNotEmpty()) "下载中  $speed" else "下载中"
         BrowserDownloadStatus.PAUSED -> "已暂停"
-        BrowserDownloadStatus.COMPLETED -> if (item.kind == BrowserDownloadKind.PAGE) "已保存网页" else "已完成"
+        BrowserDownloadStatus.COMPLETED ->
+            if (item.kind == BrowserDownloadKind.PAGE) "已保存网页" else "已完成"
         BrowserDownloadStatus.FAILED -> "失败：${item.error ?: ""}"
     }
     Column(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onOpen)
+            .combinedClickable(
+                onClick = onOpen,
+                onLongClick = onLongPress,
+            )
             .padding(vertical = 10.dp, horizontal = 4.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            if (selecting) {
+                Checkbox(checked = selected, onCheckedChange = { onToggleSelect() })
+            }
             SymbolIcon(
                 if (item.kind == BrowserDownloadKind.PAGE) Symbols.Language else Symbols.Download,
                 contentDescription = null,
@@ -205,15 +406,17 @@ private fun DownloadRow(
                     fontSize = 12.sp,
                 )
             }
-            when (item.status) {
-                BrowserDownloadStatus.RUNNING, BrowserDownloadStatus.QUEUED -> {
-                    TextButton(onClick = onPause) { Text("暂停") }
-                }
-                BrowserDownloadStatus.PAUSED, BrowserDownloadStatus.FAILED -> {
-                    TextButton(onClick = onResume) { Text("继续") }
-                }
-                BrowserDownloadStatus.COMPLETED -> {
-                    TextButton(onClick = onDelete) { Text("删除") }
+            if (!selecting) {
+                when (item.status) {
+                    BrowserDownloadStatus.RUNNING, BrowserDownloadStatus.QUEUED -> {
+                        TextButton(onClick = onPause) { Text("暂停") }
+                    }
+                    BrowserDownloadStatus.PAUSED, BrowserDownloadStatus.FAILED -> {
+                        TextButton(onClick = onResume) { Text("继续") }
+                    }
+                    BrowserDownloadStatus.COMPLETED -> {
+                        TextButton(onClick = onDelete) { Text("删除") }
+                    }
                 }
             }
         }

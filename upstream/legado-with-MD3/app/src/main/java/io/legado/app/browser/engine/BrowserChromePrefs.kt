@@ -49,6 +49,41 @@ class BrowserChromePrefs(context: Context) {
             .putInt(KEY_TEXT_ZOOM, value.coerceIn(TEXT_ZOOM_MIN, TEXT_ZOOM_MAX))
             .apply()
 
+    /** SPEC-119: custom download directory absolute path; blank = default. */
+    var downloadDirPath: String
+        get() = prefs.getString(KEY_DOWNLOAD_DIR, "").orEmpty()
+        set(value) = prefs.edit().putString(KEY_DOWNLOAD_DIR, value).apply()
+
+    /** SPEC-119: ask user before each download starts. */
+    var askBeforeDownload: Boolean
+        get() = prefs.getBoolean(KEY_ASK_DOWNLOAD, false)
+        set(value) = prefs.edit().putBoolean(KEY_ASK_DOWNLOAD, value).apply()
+
+    /** SPEC-120: Chrome-like force enable zoom; default ON. */
+    var forcePageZoom: Boolean
+        get() = prefs.getBoolean(KEY_FORCE_ZOOM, true)
+        set(value) = prefs.edit().putBoolean(KEY_FORCE_ZOOM, value).apply()
+
+    /** SPEC-120: accept cookies. */
+    var acceptCookies: Boolean
+        get() = prefs.getBoolean(KEY_ACCEPT_COOKIES, true)
+        set(value) = prefs.edit().putBoolean(KEY_ACCEPT_COOKIES, value).apply()
+
+    /** SPEC-120: third-party cookies. */
+    var acceptThirdPartyCookies: Boolean
+        get() = prefs.getBoolean(KEY_ACCEPT_3P_COOKIES, true)
+        set(value) = prefs.edit().putBoolean(KEY_ACCEPT_3P_COOKIES, value).apply()
+
+    /** SPEC-120: Safe Browsing when supported. */
+    var safeBrowsingEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SAFE_BROWSING, true)
+        set(value) = prefs.edit().putBoolean(KEY_SAFE_BROWSING, value).apply()
+
+    /** SPEC-122: restore open tabs on launch; default ON. */
+    var restoreSessionOnLaunch: Boolean
+        get() = prefs.getBoolean(KEY_RESTORE_SESSION, true)
+        set(value) = prefs.edit().putBoolean(KEY_RESTORE_SESSION, value).apply()
+
     companion object {
         private const val PREFS = "browsesth_browser_chrome"
         private const val KEY_UA = "ua_mode"
@@ -58,6 +93,13 @@ class BrowserChromePrefs(context: Context) {
         private const val KEY_WALLPAPER_DATE = "wallpaper_date"
         private const val KEY_WEB_DARK = "web_content_dark_mode"
         private const val KEY_TEXT_ZOOM = "text_zoom_percent"
+        private const val KEY_DOWNLOAD_DIR = "download_dir_path"
+        private const val KEY_ASK_DOWNLOAD = "ask_before_download"
+        private const val KEY_FORCE_ZOOM = "force_page_zoom"
+        private const val KEY_ACCEPT_COOKIES = "accept_cookies"
+        private const val KEY_ACCEPT_3P_COOKIES = "accept_third_party_cookies"
+        private const val KEY_SAFE_BROWSING = "safe_browsing_enabled"
+        private const val KEY_RESTORE_SESSION = "restore_session_on_launch"
 
         const val WEB_DARK_OFF = "off"
         const val WEB_DARK_AUTO = "auto"

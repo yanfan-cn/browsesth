@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import coil3.size.Size
 import io.legado.app.browser.engine.siteFaviconCandidates
 import io.legado.app.ui.theme.LegadoTheme
 
@@ -67,6 +68,7 @@ fun SiteFaviconIcon(
             SubcomposeAsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(url)
+                    .size(Size(256, 256))
                     .crossfade(true)
                     .build(),
                 contentDescription = null,

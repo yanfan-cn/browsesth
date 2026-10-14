@@ -40,6 +40,7 @@ class BrowserToolboxPrefs(context: Context) {
             "ua_toggle",
             "eye_protection",
             "text_zoom",
+            "find_in_page",
         )
     }
 }

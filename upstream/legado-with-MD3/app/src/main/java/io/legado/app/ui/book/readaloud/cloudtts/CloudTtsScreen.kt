@@ -32,7 +32,9 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.material3.Text
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.legado.app.R
 import io.legado.app.data.entities.HttpTTS
 import io.legado.app.domain.model.readaloud.CloudTtsProviderType
@@ -315,6 +317,15 @@ fun CloudTtsScreen(
                         },
                     )
                 }
+                    // SPEC-119: tip at bottom of 引擎选项.
+                    item(key = "engine_tip_spec119") {
+                        Text(
+                            "选择手机厂商自带的语音引擎（默认为安卓TTS），并选择应用范围为全局。",
+                            color = LegadoTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    }
             }
             }
         }

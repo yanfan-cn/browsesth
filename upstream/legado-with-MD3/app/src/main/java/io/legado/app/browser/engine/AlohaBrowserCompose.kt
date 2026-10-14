@@ -4,6 +4,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
@@ -25,7 +26,32 @@ fun AlohaBrowserCompose(
     onReady: (host: AwContentsHostView, client: BrowserAwContentsClient) -> Unit,
     onDestroyed: (() -> Unit)? = null,
 ) {
-    val holder = remember(incognito, retainAcrossDispose, sessionKey) { AlohaHolder() }
+    // SPEC-122: remount AndroidView when sessionKey changes so attachTo/onReady run.
+    // Without key(), update-only left an empty container after parkActive removed the host.
+    key(sessionKey, retainAcrossDispose, incognito) {
+        AlohaBrowserComposeInner(
+            modifier = modifier,
+            incognito = incognito,
+            retainAcrossDispose = retainAcrossDispose,
+            sessionKey = sessionKey,
+            clientFactory = clientFactory,
+            onReady = onReady,
+            onDestroyed = onDestroyed,
+        )
+    }
+}
+
+@Composable
+private fun AlohaBrowserComposeInner(
+    modifier: Modifier,
+    incognito: Boolean,
+    retainAcrossDispose: Boolean,
+    sessionKey: String?,
+    clientFactory: () -> BrowserAwContentsClient,
+    onReady: (host: AwContentsHostView, client: BrowserAwContentsClient) -> Unit,
+    onDestroyed: (() -> Unit)?,
+) {
+    val holder = remember { AlohaHolder() }
     AndroidView(
         modifier = modifier,
         factory = { context ->

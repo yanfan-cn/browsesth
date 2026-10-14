@@ -239,8 +239,15 @@ private fun BrowserHomeTabBody(
                 address = raw
                 closeEmbeddedReader()
                 BrowserTabManager.updateActiveOmniboxLabel(raw)
-                sessionActions?.loadUrl(raw)
-                    ?: BrowserTabManager.openUrlInActive(raw, omniboxLabel = raw)
+                // SPEC-120: always resolve search/host → URL (fixes net::ERROR on NTP).
+                val url = io.legado.app.browser.engine.resolveBrowserNavigationInput(
+                    raw,
+                    io.legado.app.browser.engine.BrowserNtpPrefs(context).searchEngine(),
+                )
+                if (url.isNotEmpty()) {
+                    sessionActions?.loadUrl(url)
+                        ?: BrowserTabManager.openUrlInActive(url, omniboxLabel = raw)
+                }
             }
         },
         onBack = { sessionActions?.goBack() ?: BrowserTabManager.clearActiveToNtp() },

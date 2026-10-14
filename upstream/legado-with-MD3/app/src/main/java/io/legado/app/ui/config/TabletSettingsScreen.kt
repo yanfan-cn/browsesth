@@ -75,6 +75,8 @@ fun TabletSettingsScreen(
     onNavigateToAiSummary: () -> Unit,
     onNavigateToAiPrompt: () -> Unit,
     onNavigateToAiFromTranslation: () -> Unit,
+    onOpenClearBrowsingData: () -> Unit = {},
+    onOpenBrowserPrivacy: () -> Unit = {},
 ) {
     var selected by rememberSaveable { mutableStateOf(initialPane.name) }
     val selectedPane = TabletSettingsPane.entries
@@ -148,7 +150,11 @@ fun TabletSettingsScreen(
                         .fillMaxHeight(),
                 ) {
                     when (selectedPane) {
-                        TabletSettingsPane.Browser -> BrowserConfigScreen(onBackClick = onBackClick)
+                        TabletSettingsPane.Browser -> BrowserConfigScreen(
+                            onBackClick = onBackClick,
+                            onOpenClearBrowsingData = onOpenClearBrowsingData,
+                            onOpenPrivacy = onOpenBrowserPrivacy,
+                        )
                         TabletSettingsPane.Theme -> ThemeConfigRouteScreen(
                             onBackClick = onBackClick,
                             onNavigateToCustomTheme = onNavigateToCustomTheme,

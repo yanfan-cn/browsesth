@@ -7,7 +7,7 @@ import io.legado.app.R
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** SPEC-049/071: site favicon URL candidates (local → DDG → Google s2). */
+/** SPEC-049/071/119: prefer high-res resolvers before tiny /favicon.ico. */
 fun siteFaviconCandidates(pageUrl: String): List<String> {
     val host = try {
         Uri.parse(pageUrl).host?.removePrefix("www.").orEmpty()
@@ -15,10 +15,21 @@ fun siteFaviconCandidates(pageUrl: String): List<String> {
         ""
     }
     if (host.isBlank()) return emptyList()
+    val origin = try {
+        val u = Uri.parse(pageUrl)
+        val scheme = u.scheme?.takeIf { it == "http" || it == "https" } ?: "https"
+        "$scheme://${u.host}"
+    } catch (_: Throwable) {
+        "https://$host"
+    }
     return listOf(
-        "https://$host/favicon.ico",
-        "https://icons.duckduckgo.com/ip3/$host.ico",
+        "https://www.google.com/s2/favicons?sz=256&domain_url=$origin",
         "https://www.google.com/s2/favicons?sz=128&domain=$host",
+        "https://icons.duckduckgo.com/ip3/$host.ico",
+        "$origin/apple-touch-icon.png",
+        "$origin/apple-touch-icon-precomposed.png",
+        "$origin/favicon.ico",
+        "https://$host/favicon.ico",
     )
 }
 

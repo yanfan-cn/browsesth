@@ -39,9 +39,15 @@ import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
 @Composable
 fun BrowserConfigScreen(
     onBackClick: () -> Unit,
+    onOpenClearBrowsingData: () -> Unit = {},
+    onOpenPrivacy: () -> Unit = {},
 ) {
     BrowserTheme {
-        BrowserConfigBody(onBackClick = onBackClick)
+        BrowserConfigBody(
+            onBackClick = onBackClick,
+            onOpenClearBrowsingData = onOpenClearBrowsingData,
+            onOpenPrivacy = onOpenPrivacy,
+        )
     }
 }
 
@@ -49,6 +55,8 @@ fun BrowserConfigScreen(
 @Composable
 private fun BrowserConfigBody(
     onBackClick: () -> Unit,
+    onOpenClearBrowsingData: () -> Unit,
+    onOpenPrivacy: () -> Unit,
 ) {
     val context = LocalContext.current
     val prefs = remember { BrowserShieldPrefs(context) }
@@ -133,6 +141,22 @@ private fun BrowserConfigBody(
                             chromePrefs.autoHideTopBar = it
                         },
                     )
+                    // SPEC-122: restore open tabs on launch (default ON).
+                    var restoreSession by remember {
+                        mutableStateOf(chromePrefs.restoreSessionOnLaunch)
+                    }
+                    SwitchSettingItem(
+                        title = "启动时恢复上次浏览页面",
+                        description = "重新打开应用时恢复上次未关闭的标签页",
+                        checked = restoreSession,
+                        onCheckedChange = {
+                            restoreSession = it
+                            chromePrefs.restoreSessionOnLaunch = it
+                            if (!it) {
+                                io.legado.app.browser.engine.BrowserTabPersist.clear(context)
+                            }
+                        },
+                    )
                 }
             }
             item {
@@ -163,6 +187,21 @@ private fun BrowserConfigBody(
                             autoTranslate = it
                             readerPrefs.autoTranslateOnOpen = it
                         },
+                    )
+                }
+            }
+            item {
+                // SPEC-120: dedicated privacy page (not inline switches).
+                SplicedColumnGroup(title = "隐私与安全") {
+                    ClickableSettingItem(
+                        title = "隐私与安全",
+                        description = "Cookie、第三方 Cookie、安全浏览、清除数据",
+                        onClick = onOpenPrivacy,
+                    )
+                    ClickableSettingItem(
+                        title = "清除浏览数据",
+                        description = "Cookie、缓存、历史等（跳转清除页）",
+                        onClick = onOpenClearBrowsingData,
                     )
                 }
             }

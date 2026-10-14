@@ -1731,7 +1731,7 @@
     <string name="input_value_range">输入数值（%1$d-%2$d）</string>
     <string name="change_icon_success">图标已修改</string>
     <string name="replace_rule_title_setting">替换规则</string>
-    <string name="more_setting">更多</string>
+    <string name="more_setting">更多设置</string>
     <string name="read_chapter_total">共 %d 章</string>
     <string name="read_chapter_index">已读 %d 章</string>
     <string name="manga_epaper">墨水屏</string>
@@ -2799,7 +2799,7 @@
     <string name="reading_time_with_value">阅读时长：%1$s</string>
     <string name="a11y_reading_summary_card">%1$s，%2$d 本书，总时长 %3$s，打开总览</string>
     <string name="read_books_prefix">已读 </string>
-    <string name="read_books_suffix"> 本书</string>
+    <string name="read_books_suffix"> 篇</string>
     <string name="hours_minutes_format">%1$d小时%2$d分钟</string>
     <string name="whole_hours_format">%1$d小时</string>
     <string name="minutes_format">%1$d分钟</string>

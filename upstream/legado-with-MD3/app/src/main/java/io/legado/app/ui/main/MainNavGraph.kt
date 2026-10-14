@@ -114,6 +114,7 @@ import io.legado.app.ui.book.readaloud.casting.BookVoiceCastingViewModel
 import io.legado.app.ui.book.readaloud.cloudtts.CloudTtsEffect
 import io.legado.app.ui.book.readaloud.cloudtts.CloudTtsIntent
 import io.legado.app.ui.book.readaloud.cloudtts.CloudTtsScreen
+import io.legado.app.ui.book.readaloud.cloudtts.CloudTtsTab
 import io.legado.app.ui.book.readaloud.cloudtts.CloudTtsViewModel
 import io.legado.app.ui.book.readaloud.morph.ReadAloudMorphState
 import io.legado.app.ui.book.readaloud.player.rememberPlayerThemeOverride
@@ -450,10 +451,11 @@ fun MainActivity.mainEntryProvider(
                 onNavigateToRoute(MainRouteBrowserTabs)
             },
             onNavigateToBrowserReader = { bookUrl ->
+                // SPEC-119: keep web reading books on shelf (已读); do not delete on exit.
                 onNavigateToRoute(
                     MainRouteReadBook(
                         bookUrl = bookUrl,
-                        inBookshelf = false,
+                        inBookshelf = true,
                     ),
                 )
             },
@@ -461,7 +463,7 @@ fun MainActivity.mainEntryProvider(
                 onNavigateToRoute(
                     MainRouteReadManga(
                         bookUrl = bookUrl,
-                        inBookshelf = false,
+                        inBookshelf = true,
                     ),
                 )
             },
@@ -620,6 +622,8 @@ fun MainActivity.mainEntryProvider(
                 onNavigateToAiSummary = { backStack.add(MainRouteSettingsAiSummary) },
                 onNavigateToAiPrompt = { backStack.add(MainRouteSettingsAiPrompt) },
                 onNavigateToAiFromTranslation = { backStack.add(MainRouteSettingsAi) },
+                onOpenClearBrowsingData = { onNavigateToRoute(MainRouteBrowserClearData) },
+                onOpenBrowserPrivacy = { onNavigateToRoute(MainRouteBrowserPrivacy) },
             )
         } else {
             ConfigNavScreen(
@@ -644,6 +648,17 @@ fun MainActivity.mainEntryProvider(
     ) {
         io.legado.app.ui.config.browserConfig.BrowserConfigScreen(
             onBackClick = { onNavigateBack() },
+            onOpenClearBrowsingData = { onNavigateToRoute(MainRouteBrowserClearData) },
+            onOpenPrivacy = { onNavigateToRoute(MainRouteBrowserPrivacy) },
+        )
+    }
+
+    entry<MainRouteBrowserPrivacy>(
+        metadata = browserSlideEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
+    ) {
+        io.legado.app.ui.browser.BrowserPrivacyScreen(
+            onBack = { onNavigateBack() },
+            onOpenClearBrowsingData = { onNavigateToRoute(MainRouteBrowserClearData) },
         )
     }
 
@@ -1245,16 +1260,18 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteReadRecord> {
+        val context = LocalContext.current
         ReadRecordRouteScreen(
             onBackClick = { onNavigateBack() },
             onBookClick = { name, author ->
+                // SPEC-119: open book/web directly; never fall through to search.
                 lifecycleScope.launch {
                     val book = withContext(IO) {
                         io.legado.app.data.appDb.bookDao.getBook(name, author)
                     }
-                    if (book != null) this@mainEntryProvider.startActivityForBook(book)
-                    else {
-                        onNavigateToRoute(MainRouteSearch(key = name))
+                    when {
+                        book != null -> this@mainEntryProvider.startActivityForBook(book)
+                        else -> context.toastOnUi("找不到对应书本或网页")
                     }
                 }
             },
@@ -1265,6 +1282,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteReadRecordOverview> {
+        val context = LocalContext.current
         ReadRecordOverviewRouteScreen(
             onBackClick = { onNavigateBack() },
             onBookClick = { name, author ->
@@ -1272,9 +1290,9 @@ fun MainActivity.mainEntryProvider(
                     val book = withContext(IO) {
                         io.legado.app.data.appDb.bookDao.getBook(name, author)
                     }
-                    if (book != null) this@mainEntryProvider.startActivityForBook(book)
-                    else {
-                        onNavigateToRoute(MainRouteSearch(key = name))
+                    when {
+                        book != null -> this@mainEntryProvider.startActivityForBook(book)
+                        else -> context.toastOnUi("找不到对应书本或网页")
                     }
                 }
             }
@@ -1479,6 +1497,8 @@ fun MainActivity.mainEntryProvider(
         val viewModel = koinViewModel<CloudTtsViewModel>()
         LaunchedEffect(route.bookUrl) {
             viewModel.onIntent(CloudTtsIntent.SetBookContext(route.bookUrl))
+            // SPEC-119: this route always lands on 引擎选项.
+            viewModel.onIntent(CloudTtsIntent.SelectTab(CloudTtsTab.Engines))
         }
         val context = LocalContext.current
         val importLauncher = rememberLauncherForActivityResult(
@@ -1622,7 +1642,11 @@ fun MainActivity.mainEntryProvider(
         LaunchedEffect(viewModel) {
             viewModel.effects.collectLatest { effect ->
                 when (effect) {
-                    is AboutEffect.OpenUrl -> context.openUrl(effect.url)
+                    // SPEC-121: offer URL then go Home so browser tab consumes it (not stuck on 我的).
+                    is AboutEffect.OpenUrl -> {
+                        io.legado.app.browser.engine.BrowserOpenBridge.offer(effect.url)
+                        onNavigateToRoute(MainRouteHome)
+                    }
                     is AboutEffect.ShowToast -> context.toastOnUi(effect.message)
                     is AboutEffect.StartDownload -> Download.start(
                         context,

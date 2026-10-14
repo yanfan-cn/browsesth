@@ -22,7 +22,8 @@ val versionProps = Properties().apply {
     }
 }
 
-// SPEC-108: versionName = MAJOR.MINOR.PATCH-beta; each assemble* ships current, then +0.0.1 for next.
+// SPEC-108/122: versionName = MAJOR.MINOR.PATCH-beta; each digit 0–9 (odometer).
+// assemble* ships current, then PATCH+1; PATCH>9 → MINOR+1,PATCH=0; MINOR>9 → MAJOR+1,MINOR=0.
 val versionCodeValue = versionProps.getProperty("VERSION_CODE", "1").toInt()
 val versionMajor = versionProps.getProperty("VERSION_MAJOR", "1").toInt()
 val versionMinor = versionProps.getProperty("VERSION_MINOR", "0").toInt()
@@ -34,19 +35,29 @@ val requestingAssemble = gradle.startParameter.taskNames.any {
     n.startsWith("assemble") && n != "assemble"
 }
 if (requestingAssemble) {
-    val nextPatch = versionPatch + 1
+    var nextMajor = versionMajor
+    var nextMinor = versionMinor
+    var nextPatch = versionPatch + 1
+    if (nextPatch > 9) {
+        nextPatch = 0
+        nextMinor += 1
+    }
+    if (nextMinor > 9) {
+        nextMinor = 0
+        nextMajor += 1
+    }
     val nextCode = versionCodeValue + 1
-    versionProps.setProperty("VERSION_MAJOR", versionMajor.toString())
-    versionProps.setProperty("VERSION_MINOR", versionMinor.toString())
+    versionProps.setProperty("VERSION_MAJOR", nextMajor.toString())
+    versionProps.setProperty("VERSION_MINOR", nextMinor.toString())
     versionProps.setProperty("VERSION_PATCH", nextPatch.toString())
     versionProps.setProperty("VERSION_CODE", nextCode.toString())
     versionProps.remove("VERSION_TENTHS")
     versionPropsFile.outputStream().use {
-        versionProps.store(it, "Bumped after assemble identity (+0.0.1 for next)")
+        versionProps.store(it, "Bumped after assemble (odometer 0-9 per digit)")
     }
     logger.lifecycle(
         "Browsesth this assemble -> $projectVersionName (code $versionCodeValue); " +
-            "next -> $versionMajor.$versionMinor.$nextPatch-beta (code $nextCode)",
+            "next -> $nextMajor.$nextMinor.$nextPatch-beta (code $nextCode)",
     )
 }
 val enableAbiSplits = providers.gradleProperty("enableAbiSplits")

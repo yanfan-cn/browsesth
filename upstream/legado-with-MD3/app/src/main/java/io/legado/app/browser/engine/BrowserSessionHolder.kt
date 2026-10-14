@@ -7,25 +7,32 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 
 /**
- * Keeps the Aloha host alive across Compose dispose when navigating to
- * bookmarks / history / settings / tabs (SPEC-011/012).
- * Keyed by [sessionKey] (typically active tab id).
+ * Keeps Aloha hosts alive across Compose dispose and tab switches (SPEC-011/012/120).
+ * Active session is attached to a container; inactive tabs are [park]ed (paused, detached)
+ * so switching tabs does not reload unless the user refreshes.
  */
 object BrowserSessionHolder {
     private const val TAG = "BrowserSessionHolder"
+    private const val MAX_PARKED = 8
+
+    private data class SessionSlot(
+        val host: AwContentsHostView,
+        val client: BrowserAwContentsClient,
+        var hasLoadedInitialUrl: Boolean,
+    )
 
     @Volatile
-    private var host: AwContentsHostView? = null
+    private var active: SessionSlot? = null
 
-    @Volatile
-    private var client: BrowserAwContentsClient? = null
+    /** Parked (inactive) sessions keyed by tab id. Insertion order ≈ LRU. */
+    private val parked = linkedMapOf<String, SessionSlot>()
 
     @Volatile
     var sessionKey: String? = null
         private set
 
-    @Volatile
-    var hasLoadedInitialUrl: Boolean = false
+    val hasLoadedInitialUrl: Boolean
+        get() = active?.hasLoadedInitialUrl == true
 
     fun attachTo(
         container: FrameLayout,
@@ -33,21 +40,50 @@ object BrowserSessionHolder {
         clientFactory: () -> BrowserAwContentsClient,
         sessionKey: String,
     ): Pair<AwContentsHostView, BrowserAwContentsClient> {
-        val existing = host
-        val existingClient = client
-        if (existing != null && this.sessionKey == sessionKey && existingClient != null) {
-            (existing.parent as? ViewGroup)?.removeView(existing)
+        val current = active
+        if (current != null && this.sessionKey == sessionKey) {
+            (current.host.parent as? ViewGroup)?.removeView(current.host)
             container.addView(
-                existing,
+                current.host,
                 FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 ),
             )
-            Log.i(TAG, "reattach existing session host")
-            return existing to existingClient
+            resumeHost(current.host)
+            Log.i(TAG, "reattach existing session host key=$sessionKey")
+            return current.host to current.client
         }
-        destroy()
+
+        // SPEC-120: park previous tab instead of destroying (no reload on switch).
+        if (current != null) {
+            val oldKey = this.sessionKey
+            if (!oldKey.isNullOrBlank()) {
+                parkSlot(oldKey, current)
+            } else {
+                destroySlot(current)
+            }
+            active = null
+            this.sessionKey = null
+        }
+
+        val restored = parked.remove(sessionKey)
+        if (restored != null) {
+            (restored.host.parent as? ViewGroup)?.removeView(restored.host)
+            container.addView(
+                restored.host,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                ),
+            )
+            resumeHost(restored.host)
+            active = restored
+            this.sessionKey = sessionKey
+            Log.i(TAG, "restored parked session key=$sessionKey")
+            return restored.host to restored.client
+        }
+
         val newHost = AwContentsHostView(container.context).apply {
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -57,32 +93,42 @@ object BrowserSessionHolder {
         val newClient = clientFactory()
         newHost.attach(newClient, incognito = incognito)
         container.addView(newHost)
-        host = newHost
-        client = newClient
+        active = SessionSlot(newHost, newClient, hasLoadedInitialUrl = false)
         this.sessionKey = sessionKey
-        hasLoadedInitialUrl = false
         Log.i(TAG, "created session host key=$sessionKey")
         return newHost to newClient
     }
 
     fun markLoaded() {
-        hasLoadedInitialUrl = true
+        active?.hasLoadedInitialUrl = true
     }
 
     /** SPEC-021: navigate the retained host without requiring Compose remount. */
     fun loadUrl(url: String): Boolean {
-        val h = host ?: return false
+        val h = active?.host ?: return false
         h.loadUrl(url)
-        hasLoadedInitialUrl = true
+        active?.hasLoadedInitialUrl = true
         Log.i(TAG, "loadUrl via holder: $url")
         return true
     }
 
     fun captureActiveThumbnail() {
         val id = sessionKey ?: return
-        val h = host ?: return
+        val h = active?.host ?: return
         val bmp = h.capturePreview() ?: return
         BrowserTabThumbnailStore.put(id, bmp)
+    }
+
+    /**
+     * SPEC-120: detach + pause active host without destroying (tab switch / NTP park).
+     */
+    fun parkActive() {
+        val key = sessionKey ?: return
+        val slot = active ?: return
+        parkSlot(key, slot)
+        active = null
+        sessionKey = null
+        Log.i(TAG, "parked active session key=$key")
     }
 
     /**
@@ -90,7 +136,7 @@ object BrowserSessionHolder {
      * RenderThread does not walk WebView under scale/fade graphicsLayer.
      */
     fun pauseForTabsOverlay() {
-        val h = host ?: return
+        val h = active?.host ?: return
         try {
             h.onHostPause()
         } catch (t: Throwable) {
@@ -104,7 +150,7 @@ object BrowserSessionHolder {
     }
 
     fun resumeFromTabsOverlay() {
-        val h = host ?: return
+        val h = active?.host ?: return
         try {
             h.visibility = View.VISIBLE
         } catch (t: Throwable) {
@@ -117,28 +163,86 @@ object BrowserSessionHolder {
         }
     }
 
-    fun destroy() {
-        val current = host
-        if (current == null) {
-            client = null
-            sessionKey = null
-            hasLoadedInitialUrl = false
+    /** SPEC-120: push current privacy prefs to active + parked hosts. */
+    fun applyPrivacyToAllSessions() {
+        active?.host?.applyPrivacySettings()
+        parked.values.forEach { slot ->
+            runCatching { slot.host.applyPrivacySettings() }
+        }
+    }
+
+    fun destroyKey(key: String) {
+        if (sessionKey == key) {
+            destroyActiveOnly()
             return
         }
-        try {
-            current.onHostPause()
-        } catch (_: Throwable) {
+        parked.remove(key)?.let { destroySlot(it) }
+    }
+
+    fun destroy() {
+        destroyActiveOnly()
+        val keys = parked.keys.toList()
+        keys.forEach { k ->
+            parked.remove(k)?.let { destroySlot(it) }
         }
-        try {
-            current.destroyContents()
-        } catch (_: Throwable) {
-        }
-        (current.parent as? ViewGroup)?.removeView(current)
-        host = null
-        client = null
+        Log.i(TAG, "all session hosts destroyed")
+    }
+
+    private fun destroyActiveOnly() {
+        val current = active
+        active = null
         sessionKey = null
-        hasLoadedInitialUrl = false
-        Log.i(TAG, "session host destroyed")
+        if (current != null) {
+            destroySlot(current)
+            Log.i(TAG, "active session host destroyed")
+        }
+    }
+
+    private fun parkSlot(key: String, slot: SessionSlot) {
+        try {
+            slot.host.onHostPause()
+        } catch (_: Throwable) {
+        }
+        try {
+            slot.host.visibility = View.INVISIBLE
+        } catch (_: Throwable) {
+        }
+        (slot.host.parent as? ViewGroup)?.removeView(slot.host)
+        parked.remove(key)
+        parked[key] = slot
+        trimParked()
+    }
+
+    private fun trimParked() {
+        while (parked.size > MAX_PARKED) {
+            val oldest = parked.entries.firstOrNull() ?: break
+            parked.remove(oldest.key)
+            destroySlot(oldest.value)
+            Log.i(TAG, "evicted parked session key=${oldest.key}")
+        }
+    }
+
+    private fun resumeHost(host: AwContentsHostView) {
+        try {
+            host.visibility = View.VISIBLE
+        } catch (_: Throwable) {
+        }
+        try {
+            host.onHostResume()
+        } catch (_: Throwable) {
+        }
+    }
+
+    private fun destroySlot(slot: SessionSlot) {
+        try {
+            slot.host.onHostPause()
+        } catch (_: Throwable) {
+        }
+        try {
+            slot.host.destroyContents()
+        } catch (_: Throwable) {
+        }
+        (slot.host.parent as? ViewGroup)?.removeView(slot.host)
     }
 
     @Suppress("UNUSED_PARAMETER")

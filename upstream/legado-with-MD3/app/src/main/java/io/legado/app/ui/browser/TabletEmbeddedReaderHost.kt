@@ -4,6 +4,7 @@ import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -13,6 +14,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.legado.app.ui.book.manga.MangaReaderRouteScreen
 import io.legado.app.ui.book.manga.MangaReaderViewModel
+import io.legado.app.ui.book.read.LocalReaderUnderBrowserChrome
 import io.legado.app.ui.book.read.ReadBookController
 import io.legado.app.ui.book.read.ReadBookInitRequest
 import io.legado.app.ui.book.read.ReadBookIntent
@@ -29,6 +31,7 @@ enum class TabletEmbeddedReaderKind { Novel, Manga }
 
 /**
  * SPEC-036: keep tablet browser chrome by hosting reader inside the shell content slot.
+ * SPEC-122: mark under-omnibox so reader top bar uses 16dp gap (not statusBars).
  */
 @Composable
 fun TabletEmbeddedReaderHost(
@@ -37,17 +40,19 @@ fun TabletEmbeddedReaderHost(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(modifier) {
-    when (kind) {
-        TabletEmbeddedReaderKind.Novel -> TabletEmbeddedNovelReader(
-            bookUrl = bookUrl,
-            onClose = onClose,
-        )
-        TabletEmbeddedReaderKind.Manga -> TabletEmbeddedMangaReader(
-            bookUrl = bookUrl,
-            onClose = onClose,
-        )
-    }
+    CompositionLocalProvider(LocalReaderUnderBrowserChrome provides true) {
+        Box(modifier) {
+            when (kind) {
+                TabletEmbeddedReaderKind.Novel -> TabletEmbeddedNovelReader(
+                    bookUrl = bookUrl,
+                    onClose = onClose,
+                )
+                TabletEmbeddedReaderKind.Manga -> TabletEmbeddedMangaReader(
+                    bookUrl = bookUrl,
+                    onClose = onClose,
+                )
+            }
+        }
     }
 }
 

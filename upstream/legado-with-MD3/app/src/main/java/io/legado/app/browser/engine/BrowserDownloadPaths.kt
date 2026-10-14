@@ -5,18 +5,27 @@ import android.os.Environment
 import java.io.File
 
 /**
- * SPEC-064: public Downloads/XunYeBrowser for saved pages and file downloads.
+ * SPEC-064/119: public Downloads/XunYeBrowser by default; optional custom dir.
  */
 object BrowserDownloadPaths {
     const val FOLDER_NAME = "XunYeBrowser"
 
-    fun rootDir(): File {
+    fun defaultRootDir(): File {
         val downloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         return File(downloads, FOLDER_NAME)
     }
 
-    fun ensureRoot(@Suppress("UNUSED_PARAMETER") context: Context): File {
-        val dir = rootDir()
+    fun rootDir(context: Context? = null): File {
+        val custom = context?.let { BrowserChromePrefs(it).downloadDirPath }?.trim().orEmpty()
+        if (custom.isNotEmpty()) {
+            val dir = File(custom)
+            if (dir.isDirectory || dir.mkdirs()) return dir
+        }
+        return defaultRootDir()
+    }
+
+    fun ensureRoot(context: Context): File {
+        val dir = rootDir(context)
         if (!dir.exists()) {
             dir.mkdirs()
         }

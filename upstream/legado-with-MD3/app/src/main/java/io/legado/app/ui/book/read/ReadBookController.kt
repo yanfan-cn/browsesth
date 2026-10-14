@@ -2500,6 +2500,22 @@ class ReadBookController(
         viewModel.onIntent(ReadBookIntent.StopAutoPage)
         when {
             !BaseReadAloudService.isRun -> {
+                // SPEC-119: first TTS use shows engine tip, then opens 引擎选项.
+                val tipPrefs = activity.getSharedPreferences("browsesth_ntp_prefs", android.content.Context.MODE_PRIVATE)
+                if (!tipPrefs.getBoolean("tts_first_tip_spec119_v1", false)) {
+                    tipPrefs.edit().putBoolean("tts_first_tip_spec119_v1", true).apply()
+                    android.app.AlertDialog.Builder(activity)
+                        .setMessage(
+                            "请您在引擎选项中，选择手机厂商自带的语音引擎（默认为安卓TTS）。" +
+                                "音色的调节通常位于系统设置的无障碍里面，请自行调节。",
+                        )
+                        .setPositiveButton("引擎选项") { _, _ ->
+                            viewModel.onIntent(ReadBookIntent.OpenTtsEnginesAndVoices)
+                        }
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show()
+                    return
+                }
                 ReadAloud.upReadAloudClass()
                 if (!readAloudFromComposeVisibleStart()) ReadBook.readAloud()
             }

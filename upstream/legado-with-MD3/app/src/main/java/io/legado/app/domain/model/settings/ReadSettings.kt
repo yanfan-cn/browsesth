@@ -84,11 +84,13 @@ data class ReadSettings(
     val readMenuTextColorNight: Int = 0,
     val readMenuColorMode: Int = 1,
     val readMenuIconShowText: Boolean = true,
-    val readMenuIconStyle: Int = 0,
+    /** SPEC-119: default 色调 (1). */
+    val readMenuIconStyle: Int = 1,
     val titleBarIconStyle: Int = 0,
     val readMenuIconItemsPerRow: Int = 5,
     val readMenuIconRowCount: Int = 2,
-    val readMenuBottomCornerRadius: Int = 32,
+    /** SPEC-119: default 24dp. */
+    val readMenuBottomCornerRadius: Int = 24,
     val readMenuFloatingBottomBar: Boolean = true,
     val readMenuTopBarBlurMode: Int = ReadMenuBlurMode.None,
     val readMenuBottomBarBlurMode: Int = ReadMenuBlurMode.None,

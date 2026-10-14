@@ -81,6 +81,7 @@ import io.legado.app.browser.engine.BrowserAwContentsClient
 import io.legado.app.browser.engine.BrowserChromePrefs
 import io.legado.app.browser.engine.BrowserContextMenuJs
 import io.legado.app.browser.engine.BrowserDownloadHelper
+import io.legado.app.browser.engine.BrowserDownloadPaths
 import io.legado.app.browser.engine.BrowserDownloadRepository
 import io.legado.app.browser.engine.BrowserFormFactor
 import io.legado.app.browser.engine.BrowserHttpsFallback
@@ -173,6 +174,12 @@ data class BrowserSessionActions(
     val applyWebContentDarkMode: (String) -> Unit = {},
     val applyTextZoom: (Int) -> Unit = {},
     val injectAdShield: () -> Unit = {},
+    /** SPEC-119 */
+    val applyUserAgentAndReload: (BrowserUa.Mode) -> Unit = {},
+    val openFindInPage: () -> Unit = {},
+    /** SPEC-120 */
+    val applyForcePageZoom: (Boolean) -> Unit = {},
+    val applyPrivacySettings: () -> Unit = {},
     /** SPEC-111: tablet reader long-press menu. */
     val readerAutoOpenEnabled: () -> Boolean = { false },
     val setReaderAutoOpen: (Boolean) -> Unit = {},
@@ -220,6 +227,9 @@ fun BrowserSessionScreen(
     var textZoomPercent by remember { mutableIntStateOf(chromePrefs.textZoomPercent) }
     var showTextZoomSheet by remember { mutableStateOf(false) }
     var showEyeConfigSheet by remember { mutableStateOf(false) }
+    var showFindInPage by remember { mutableStateOf(false) }
+    var findQuery by remember { mutableStateOf("") }
+    var findMatchLabel by remember { mutableStateOf("") }
     val themeSettingsGateway = remember {
         GlobalContext.get().get<ThemeSettingsGateway>()
     }
@@ -714,18 +724,32 @@ fun BrowserSessionScreen(
         contentDisposition: String,
         mimeType: String,
     ) {
-        val result = BrowserDownloadHelper.enqueue(
-            context = context,
-            url = url,
-            userAgent = userAgent.ifBlank { BrowserUa.resolve(context) },
-            contentDisposition = contentDisposition,
-            mimeType = mimeType,
-            incognito = incognito,
-        )
-        if (result.ok) {
-            showDownloadBanner(result.fileName.ifBlank { "文件" })
+        fun start() {
+            val result = BrowserDownloadHelper.enqueue(
+                context = context,
+                url = url,
+                userAgent = userAgent.ifBlank { BrowserUa.resolve(context) },
+                contentDisposition = contentDisposition,
+                mimeType = mimeType,
+                incognito = incognito,
+            )
+            if (result.ok) {
+                showDownloadBanner(result.fileName.ifBlank { "文件" })
+            } else {
+                showSnack(result.message)
+            }
+        }
+        // SPEC-119: optional ask-before-download.
+        if (chromePrefs.askBeforeDownload) {
+            val name = BrowserDownloadHelper.guessFileName(url, contentDisposition, mimeType)
+            android.app.AlertDialog.Builder(context)
+                .setTitle("确认下载")
+                .setMessage("下载「$name」到\n${BrowserDownloadPaths.rootDir(context).absolutePath}？")
+                .setPositiveButton("下载") { _, _ -> start() }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         } else {
-            showSnack(result.message)
+            start()
         }
     }
 
@@ -791,6 +815,33 @@ fun BrowserSessionScreen(
         hostRef?.loadUrl(url)
         BrowserSessionHolder.markLoaded()
         onPageMeta?.invoke(url, raw)
+    }
+
+    /** SPEC-121: parse find script JSON `{n,i}` into match label. */
+    fun runFindInPage(query: String, findNext: Boolean, forward: Boolean) {
+        hostRef?.findInPage(query, findNext = findNext, forward = forward) { raw ->
+            if (query.isBlank()) {
+                findMatchLabel = ""
+                return@findInPage
+            }
+            val payload = raw?.trim().orEmpty()
+            val n: Int
+            val i: Int
+            if (payload.startsWith("{")) {
+                n = Regex(""""n"\s*:\s*(\d+)""").find(payload)?.groupValues?.getOrNull(1)
+                    ?.toIntOrNull() ?: 0
+                i = Regex(""""i"\s*:\s*(\d+)""").find(payload)?.groupValues?.getOrNull(1)
+                    ?.toIntOrNull() ?: 0
+            } else {
+                n = payload.toIntOrNull() ?: 0
+                i = if (n > 0) 1 else 0
+            }
+            findMatchLabel = when {
+                n <= 0 -> "无匹配"
+                i > 0 -> "$i/$n"
+                else -> "$n"
+            }
+        }
     }
 
     val addressSuggestions = remember(address, addressFocused) {
@@ -930,6 +981,17 @@ fun BrowserSessionScreen(
                 injectAdShield = {
                     applyAdShield(clientRef?.lastUrl.orEmpty().ifBlank { address })
                 },
+                applyUserAgentAndReload = { mode ->
+                    hostRef?.applyUserAgent(mode)
+                    hostRef?.reload()
+                },
+                openFindInPage = {
+                    showFindInPage = true
+                    findQuery = ""
+                    findMatchLabel = ""
+                },
+                applyForcePageZoom = { hostRef?.applyForcePageZoom(it) },
+                applyPrivacySettings = { hostRef?.applyPrivacySettings() },
                 readerAutoOpenEnabled = { readerAutoOpen },
                 setReaderAutoOpen = { enabled ->
                     readerAutoOpen = enabled
@@ -1045,6 +1107,29 @@ fun BrowserSessionScreen(
                                 modifier = Modifier.size(20.dp),
                             )
                         }
+                    }
+                    // SPEC-121: find bar under omnibox (not bottom — IME covers bottom).
+                    if (showFindInPage) {
+                        BrowserFindInPageBar(
+                            query = findQuery,
+                            matchLabel = findMatchLabel,
+                            onQueryChange = { q ->
+                                findQuery = q
+                                runFindInPage(q, findNext = false, forward = true)
+                            },
+                            onNext = {
+                                runFindInPage(findQuery, findNext = true, forward = true)
+                            },
+                            onPrev = {
+                                runFindInPage(findQuery, findNext = true, forward = false)
+                            },
+                            onClose = {
+                                runFindInPage("", findNext = false, forward = true)
+                                showFindInPage = false
+                                findQuery = ""
+                                findMatchLabel = ""
+                            },
+                        )
                     }
                 }
             }
@@ -1163,6 +1248,14 @@ fun BrowserSessionScreen(
                                 }
                                 applyAdShield(url)
                                 maybeAutoOpenReader(url)
+                            }
+                            // SPEC-120: force page zoom viewport override when enabled.
+                            if (chromePrefs.forcePageZoom) {
+                                hostRef?.evaluateJavaScript(
+                                    io.legado.app.browser.engine.BrowserPrivacyControls
+                                        .forceZoomViewportScript(true),
+                                    null,
+                                )
                             }
                             // SPEC-045: non-Simplified-Chinese → ask translate above chrome.
                             if (url != translatePromptUrl) {
@@ -1450,6 +1543,37 @@ fun BrowserSessionScreen(
                 }
             }
 
+            // SPEC-121: tablet embedded has no phone topBar — show find under chrome at top.
+            if (tabletEmbedded && showFindInPage) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .background(scheme.surface),
+                ) {
+                    BrowserFindInPageBar(
+                        query = findQuery,
+                        matchLabel = findMatchLabel,
+                        onQueryChange = { q ->
+                            findQuery = q
+                            runFindInPage(q, findNext = false, forward = true)
+                        },
+                        onNext = {
+                            runFindInPage(findQuery, findNext = true, forward = true)
+                        },
+                        onPrev = {
+                            runFindInPage(findQuery, findNext = true, forward = false)
+                        },
+                        onClose = {
+                            runFindInPage("", findNext = false, forward = true)
+                            showFindInPage = false
+                            findQuery = ""
+                            findMatchLabel = ""
+                        },
+                    )
+                }
+            }
+
             if (extracting) {
                 Box(
                     modifier = Modifier
@@ -1590,7 +1714,10 @@ fun BrowserSessionScreen(
                     BrowserUa.Mode.Desktop -> BrowserUa.Mode.Mobile
                 }
                 chromePrefs.uaMode = uaMode
-                showSnack("已切换为${uaMode.label} UA，请刷新页面")
+                // SPEC-119: apply UA and reload immediately.
+                hostRef?.applyUserAgent(uaMode)
+                hostRef?.reload()
+                showSnack("已切换为${uaMode.label} UA")
             },
             webDarkMode = webDarkMode,
             onWebDarkModeChange = { mode ->
@@ -1616,6 +1743,11 @@ fun BrowserSessionScreen(
             onOpenEyeProtectionSettings = { showEyeConfigSheet = true },
             textZoomPercent = textZoomPercent,
             onOpenTextZoom = { showTextZoomSheet = true },
+            onFindInPage = {
+                showFindInPage = true
+                findQuery = ""
+                findMatchLabel = ""
+            },
         ),
     )
 
@@ -1627,6 +1759,11 @@ fun BrowserSessionScreen(
             textZoomPercent = zoom
             chromePrefs.textZoomPercent = zoom
             hostRef?.applyTextZoom(zoom)
+        },
+        forcePageZoom = chromePrefs.forcePageZoom,
+        onForcePageZoomChange = { enabled ->
+            chromePrefs.forcePageZoom = enabled
+            hostRef?.applyForcePageZoom(enabled)
         },
     )
 
@@ -1848,6 +1985,64 @@ private fun BrowserChromeIconButton(
             modifier = Modifier.size(24.dp),
             tint = tint,
         )
+    }
+}
+
+/** SPEC-119: Chrome-style find-in-page bar above the bottom chrome. */
+@Composable
+private fun BrowserFindInPageBar(
+    query: String,
+    matchLabel: String,
+    onQueryChange: (String) -> Unit,
+    onNext: () -> Unit,
+    onPrev: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val scheme = LegadoTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(scheme.surfaceContainerHigh)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BasicTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            singleLine = true,
+            textStyle = TextStyle(color = scheme.onSurface, fontSize = 15.sp),
+            cursorBrush = SolidColor(scheme.primary),
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            decorationBox = { inner ->
+                if (query.isEmpty()) {
+                    Text("页内查找", color = scheme.onSurfaceVariant, fontSize = 15.sp)
+                }
+                inner()
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onNext() }),
+        )
+        if (matchLabel.isNotEmpty()) {
+            Text(
+                matchLabel,
+                color = scheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(end = 4.dp),
+            )
+        }
+        IconButton(onClick = onPrev) {
+            SymbolIcon(Symbols.KeyboardArrowUp, contentDescription = "上一个")
+        }
+        IconButton(onClick = onNext) {
+            SymbolIcon(Symbols.KeyboardArrowDown, contentDescription = "下一个")
+        }
+        IconButton(onClick = onClose) {
+            SymbolIcon(Symbols.Close, contentDescription = "关闭")
+        }
     }
 }
 

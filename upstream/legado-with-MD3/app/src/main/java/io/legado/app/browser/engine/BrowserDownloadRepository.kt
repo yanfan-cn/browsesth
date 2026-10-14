@@ -263,6 +263,9 @@ class BrowserDownloadRepository private constructor(
                 if (downloaded > 0L) raf.seek(downloaded)
                 val buf = ByteArray(64 * 1024)
                 var lastNotify = 0L
+                var lastSpeedAt = System.currentTimeMillis()
+                var lastSpeedBytes = downloaded
+                var speedBps = 0L
                 while (true) {
                     currentCoroutineContext().ensureActive()
                     if (pauseFlags[id] == true) {
@@ -272,6 +275,7 @@ class BrowserDownloadRepository private constructor(
                                 bytesDownloaded = downloaded,
                                 totalBytes = total,
                                 updatedAt = System.currentTimeMillis(),
+                                speedBps = 0L,
                             )
                         }
                         refresh()
@@ -283,6 +287,12 @@ class BrowserDownloadRepository private constructor(
                     raf.write(buf, 0, n)
                     downloaded += n
                     val now = System.currentTimeMillis()
+                    val dt = now - lastSpeedAt
+                    if (dt >= 400L) {
+                        speedBps = ((downloaded - lastSpeedBytes) * 1000L) / dt.coerceAtLeast(1L)
+                        lastSpeedAt = now
+                        lastSpeedBytes = downloaded
+                    }
                     if (now - lastNotify > 400L) {
                         lastNotify = now
                         val snap = store.get(id)?.copy(
@@ -290,6 +300,7 @@ class BrowserDownloadRepository private constructor(
                             bytesDownloaded = downloaded,
                             totalBytes = total,
                             updatedAt = now,
+                            speedBps = speedBps,
                         ) ?: return
                         store.upsert(snap)
                         _items.value = store.all()

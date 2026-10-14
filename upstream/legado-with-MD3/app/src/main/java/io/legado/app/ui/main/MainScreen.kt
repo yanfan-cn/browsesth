@@ -177,14 +177,21 @@ fun MainScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    // SPEC-119: open http(s) in browser Home tab (set before pagerState exists).
+    var pendingInAppBrowserUrl by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(effects, context) {
         effects.collectLatest { effect ->
             when (effect) {
                 is MainEffect.OpenUrl -> {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, effect.url.toUri())
-                    )
+                    val url = effect.url
+                    if (url.startsWith("http://") || url.startsWith("https://")) {
+                        pendingInAppBrowserUrl = url
+                    } else {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, url.toUri())
+                        )
+                    }
                 }
 
                 is MainEffect.CopyUrl -> context.sendToClip(effect.url)
@@ -234,6 +241,13 @@ fun MainScreen(
     }
     val homePageIndex = remember(destinations) {
         destinations.indexOfFirst { it == MainDestination.Home }.coerceAtLeast(0)
+    }
+    // SPEC-119: 软件更新等 → 巡页内打开并切到浏览器主页。
+    LaunchedEffect(pendingInAppBrowserUrl) {
+        val url = pendingInAppBrowserUrl ?: return@LaunchedEffect
+        io.legado.app.browser.engine.BrowserOpenBridge.offer(url)
+        pagerState.animateScrollToPage(homePageIndex)
+        pendingInAppBrowserUrl = null
     }
     BackHandler(
         enabled = currentDestination == MainDestination.Bookshelf && bookshelfPageIndex >= 0,

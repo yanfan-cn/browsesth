@@ -84,6 +84,7 @@ import io.legado.app.ui.book.readaloud.ReadAloudTimerConfig
 import io.legado.app.ui.book.readaloud.ReadAloudTimerSheet
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.button.series.SmallTonalButton
+import io.legado.app.utils.isPad
 import io.legado.app.ui.widget.components.reader.ReaderMenuAnimatedBottom
 import io.legado.app.ui.widget.components.reader.ReaderMenuAnimatedTop
 import io.legado.app.ui.widget.components.reader.ReaderMenuDismissLayer
@@ -355,6 +356,13 @@ private fun ReadBookMenuSurface(
     }
     val isFloating = state.menuConfig.readMenuFloatingBottomBar
     val orientation = LocalConfiguration.current.orientation
+    val isTablet = LocalContext.current.isPad
+    // SPEC-122: tablet floating bottom bar = 50% landscape / 60% portrait of screen width.
+    val tabletBarFraction = when {
+        !isTablet || !isFloating -> null
+        orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE -> 0.5f
+        else -> 0.6f
+    }
     val currentNavBarHeight = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
     var lastValidNavBarHeightValue by rememberSaveable(orientation) { mutableFloatStateOf(currentNavBarHeight.value) }
     if (currentNavBarHeight.value > 0f && lastValidNavBarHeightValue != currentNavBarHeight.value) {
@@ -363,12 +371,19 @@ private fun ReadBookMenuSurface(
     val navBarHeight = if (currentNavBarHeight.value > 0f) currentNavBarHeight else lastValidNavBarHeightValue.dp
     val floatingHorizontalMargin = if (isFloating) 16.dp else 0.dp
     val floatingBottomMargin = if (isFloating) 16.dp + navBarHeight else 0.dp
-    val mainHorizontalMargin =
-        if (expanded && !isFloating) 0.dp else floatingHorizontalMargin
+    val mainHorizontalMargin = when {
+        tabletBarFraction != null -> 0.dp
+        expanded && !isFloating -> 0.dp
+        else -> floatingHorizontalMargin
+    }
     val mainBottomMargin =
         if (expanded && !isFloating) 0.dp else floatingBottomMargin
     val mainCorner = state.menuConfig.readMenuBottomCornerRadius.dp
-    val mainWidth = (screenWidth - mainHorizontalMargin * 2).coerceAtLeast(0.dp)
+    val mainWidth = if (tabletBarFraction != null) {
+        screenWidth * tabletBarFraction
+    } else {
+        (screenWidth - mainHorizontalMargin * 2).coerceAtLeast(0.dp)
+    }
     val surfaceWidth = if (expanded) {
         if (isFloating && !dialogLikeRoute) mainWidth
         else lerp(screenWidth, dialogWidth, morphProgress)

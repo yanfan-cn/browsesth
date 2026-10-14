@@ -164,6 +164,12 @@ class App : Application(), SingletonImageLoader.Factory {
                 io.legado.app.browser.engine.BrowserShortcutStore(this).migrateDefaultsIfNeeded()
                 ntp.edit().putBoolean("ntp_shortcuts_spec117_v1", true).apply()
             }
+            // SPEC-119: 阅读顶/底栏图标容器默认色调；底栏圆角 24dp。
+            if (!ntp.getBoolean("read_ui_defaults_spec119_v1", false)) {
+                AppConfigStore.putInt(PreferKey.readMenuIconStyle, 1)
+                AppConfigStore.putInt(PreferKey.readMenuBottomCornerRadius, 24)
+                ntp.edit().putBoolean("read_ui_defaults_spec119_v1", true).apply()
+            }
             // SPEC-112: 阅读/朗读默认强制覆盖（含已装机用户）。
             if (!ntp.getBoolean("read_ui_defaults_spec112_v1", false)) {
                 AppConfigStore.putString(PreferKey.titleBarMode, "2")
@@ -208,6 +214,8 @@ class App : Application(), SingletonImageLoader.Factory {
         runCatching { BrowserDownloadPaths.ensureRoot(this) }
         // SPEC-082: clear selected browsing data when app backgrounds (if enabled).
         runCatching { BrowserClearDataHelper.installClearOnExit(this) }
+        // SPEC-122: restore open tabs when preference is ON (default).
+        runCatching { io.legado.app.browser.engine.BrowserTabManager.init(this) }
         // 一次性迁移：把旧版语言偏好写入 AppCompat per-app locales，之后交由
         // autoStoreLocales 持久化。不能每次启动都执行——API 33+ 上会覆盖用户在
         // 系统设置里选择的应用语言，API <33 上此时 AppCompat 存储尚未加载、

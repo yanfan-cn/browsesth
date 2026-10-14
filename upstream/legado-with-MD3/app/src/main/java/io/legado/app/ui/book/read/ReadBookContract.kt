@@ -376,7 +376,7 @@ data class ReadMenuConfig(
     val titleBarIconPosition: Int = 3,
     val showTitleBarIcons: Boolean = false,
     val readMenuFloatingBottomBar: Boolean = true,
-    val readMenuBottomCornerRadius: Int = 32,
+    val readMenuBottomCornerRadius: Int = 24,
     val readMenuIconItemsPerRow: Int = 5,
     val readMenuIconRowCount: Int = 2,
     val readMenuBorderWidth: Int = 1,

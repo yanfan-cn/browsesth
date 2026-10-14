@@ -173,10 +173,18 @@ internal fun MenuTitleBar(
                     }
                 } else Modifier
             )
+            .then(
+                // SPEC-122: under tablet omnibox → 16dp gap, do not double-apply statusBars.
+                if (LocalReaderUnderBrowserChrome.current) {
+                    Modifier.padding(top = 16.dp)
+                } else {
+                    Modifier.windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(WindowInsetsSides.Top),
+                    )
+                },
+            )
             .windowInsetsPadding(
-                WindowInsets.safeDrawing.only(
-                    WindowInsetsSides.Top + WindowInsetsSides.Horizontal
-                )
+                WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
             )
     ) {
         val capsuleIconColor = LegadoTheme.colorScheme.onSurfaceVariant
@@ -295,13 +303,13 @@ internal fun MenuTitleBar(
                             backdrop = backdrop,
                         )
                     }
-                    // SPEC-113: 恢复右上角更多 → 打开更多操作面板。
+                    // SPEC-121: 右上角 = 原设置「更多菜单」→ ReaderMoreActionsSheet（禁止旧 Overflow）。
                     MenuTitleGlassButton(
                         onClick = {
                             onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreActions))
                         },
                         icon = Symbols.MoreVert,
-                        contentDescription = stringResource(R.string.more_actions),
+                        contentDescription = stringResource(R.string.more_menu),
                         state = state,
                         colors = colors,
                         backdrop = backdrop,
@@ -877,11 +885,11 @@ private fun MenuTitleBarMergedGlassButton(
                 )
                 MergedGlassDivider(tint)
             }
-            // SPEC-113: 恢复右上角更多 → 打开更多操作面板。
+            // SPEC-121: 右上角 = 原设置「更多菜单」→ ReaderMoreActionsSheet。
             MergedGlassIconButton(
                 icon = Symbols.MoreVert,
                 tint = tint,
-                contentDescription = stringResource(R.string.more_actions),
+                contentDescription = stringResource(R.string.more_menu),
                 onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreActions)) },
             )
         }

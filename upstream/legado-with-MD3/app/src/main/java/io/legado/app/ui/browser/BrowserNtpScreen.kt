@@ -92,6 +92,7 @@ import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import coil3.size.Size
 import io.legado.app.R
 import io.legado.app.browser.engine.BingWallpaperClient
 import io.legado.app.browser.engine.BrowseStore
@@ -1582,9 +1583,11 @@ private fun FaviconBubble(
             )
         } else if (url.isNotBlank()) {
             // SPEC-069: crop favicon to fill the circle (no inner padding).
+            // SPEC-119: decode at 256px so 52dp shortcut icons stay sharp.
             SubcomposeAsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(url)
+                    .size(Size(256, 256))
                     .crossfade(true)
                     .build(),
                 contentDescription = title,

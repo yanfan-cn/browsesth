@@ -72,6 +72,10 @@ data object MainRouteBrowserHistory : MainRoute
 @Serializable
 data object MainRouteBrowserClearData : MainRoute
 
+/** SPEC-120: browser privacy / security settings page. */
+@Serializable
+data object MainRouteBrowserPrivacy : MainRoute
+
 @Serializable
 data object MainRouteBrowserTabs : MainRoute
 

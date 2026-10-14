@@ -1,15 +1,20 @@
 package io.legado.app.ui.browser
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -25,13 +30,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.icon.Symbols
-import io.legado.app.ui.widget.components.topbar.GlassSmallTopAppBar
 import io.legado.app.ui.widget.components.topbar.TopBarActionButton
 import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
 import java.text.SimpleDateFormat
@@ -87,17 +93,37 @@ private fun BrowserHistoryBody(
 
     AppScaffold(
         topBar = {
-            GlassSmallTopAppBar(
-                title = "历史记录",
-                navigationIcon = { TopBarNavigationButton(onClick = onBack) },
-                actions = {
+            // SPEC-121: compact 32dp top bar (was M3 Small ~64dp).
+            val scheme = LegadoTheme.colorScheme
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(scheme.surface)
+                    .windowInsetsPadding(WindowInsets.statusBars),
+            ) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(32.dp)
+                        .padding(end = BrowserUiTokens.PagePaddingH),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TopBarNavigationButton(onClick = onBack)
+                    Text(
+                        "历史记录",
+                        Modifier.weight(1f),
+                        color = scheme.onSurface,
+                        fontSize = 16.sp,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                    )
                     TopBarActionButton(
                         onClick = onOpenClearData,
                         symbol = Symbols.DeleteSweep,
                         contentDescription = "删除浏览数据",
                     )
-                },
-            )
+                }
+            }
         },
     ) { padding ->
         Column(

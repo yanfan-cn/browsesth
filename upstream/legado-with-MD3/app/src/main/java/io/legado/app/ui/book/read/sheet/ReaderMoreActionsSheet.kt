@@ -78,6 +78,7 @@ fun ReaderMoreActionsSheet(
     AppModalBottomSheet(
         show = show,
         onDismissRequest = onDismissRequest,
+        title = stringResource(R.string.more_menu),
         contentPaddingEnabled = false,
         containerColor = if (liquidGlass) Color.Transparent else null,
         modifier = if (liquidGlass) {

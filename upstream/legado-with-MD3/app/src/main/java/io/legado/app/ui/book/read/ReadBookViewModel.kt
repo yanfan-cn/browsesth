@@ -62,6 +62,7 @@ import io.legado.app.help.book.isEpub
 import io.legado.app.help.book.isLocal
 import io.legado.app.help.book.isLocalTxt
 import io.legado.app.help.book.isMobi
+import io.legado.app.help.book.isNotShelf
 import io.legado.app.help.book.removeType
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.coroutine.Coroutine
@@ -2196,7 +2197,9 @@ class ReadBookViewModel(
     private fun closeReadBook(keepReadAloud: Boolean = false) {
         closeReadBookKeepReadAloud = keepReadAloud
         // SPEC-057: never prompt “放入书架”; exit directly.
-        if (!ReadBook.inBookshelf) {
+        // SPEC-119: only delete true notShelf books; keep web reading books for 已读.
+        val book = ReadBook.book
+        if (!ReadBook.inBookshelf && book?.isNotShelf == true) {
             removeCurrentNotShelfBookAndFinish()
         } else {
             stopReadAloudForClose()

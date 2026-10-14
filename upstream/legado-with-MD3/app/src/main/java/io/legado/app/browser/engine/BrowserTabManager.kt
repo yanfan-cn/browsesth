@@ -1,5 +1,6 @@
 package io.legado.app.browser.engine
 
+import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,10 +23,14 @@ data class BrowserTab(
 )
 
 /**
- * In-memory multi-tab MVP (SPEC-012). One active Chromium session at a time;
- * inactive tabs keep URL/title and reload on switch.
+ * In-memory multi-tab MVP (SPEC-012/120/122).
+ * Inactive tab AwContents are parked (not destroyed) so switch does not reload.
+ * SPEC-122: optionally restore tab list across process death.
  */
 object BrowserTabManager {
+    @Volatile
+    private var appContext: Context? = null
+
     private val _tabs = MutableStateFlow(
         listOf(BrowserTab(newId(), null, "新标签页", false, showHome = true)),
     )
@@ -33,6 +38,19 @@ object BrowserTabManager {
 
     val tabs: StateFlow<List<BrowserTab>> = _tabs.asStateFlow()
     val activeTabId: StateFlow<String> = _activeId.asStateFlow()
+
+    /** SPEC-122: load persisted tabs when restore-on-launch is ON. Call once from App. */
+    fun init(context: Context) {
+        val app = context.applicationContext
+        appContext = app
+        val chrome = BrowserChromePrefs(app)
+        if (!chrome.restoreSessionOnLaunch) return
+        val restored = BrowserTabPersist.load(app) ?: return
+        val (list, active) = restored
+        if (list.isEmpty()) return
+        _tabs.value = list
+        _activeId.value = active
+    }
 
     fun activeTab(): BrowserTab? = _tabs.value.firstOrNull { it.id == _activeId.value }
 
@@ -57,6 +75,7 @@ object BrowserTabManager {
                     } else it
                 }
             }
+            persist()
             return
         }
         val id = _activeId.value
@@ -76,9 +95,11 @@ object BrowserTabManager {
             }
         }
         // SPEC-021: session retained → must hit live AwContents (state-only update was a no-op load).
+        // SPEC-122: when parked (NTP / other tab), Compose remount + LaunchedEffect loads.
         if (BrowserSessionHolder.sessionKey == id) {
             BrowserSessionHolder.loadUrl(url)
         }
+        persist()
     }
 
     fun openNewTab(url: String? = null, incognito: Boolean = false, select: Boolean = true): String {
@@ -93,9 +114,11 @@ object BrowserTabManager {
         _tabs.update { it + tab }
         if (select) {
             BrowserSessionHolder.captureActiveThumbnail()
+            // SPEC-120: park previous tab session (do not destroy/reload).
+            BrowserSessionHolder.parkActive()
             _activeId.value = tab.id
-            BrowserSessionHolder.destroy()
         }
+        persist()
         return tab.id
     }
 
@@ -104,7 +127,8 @@ object BrowserTabManager {
         val already = _activeId.value == tabId
         if (!already) {
             BrowserSessionHolder.captureActiveThumbnail()
-            BrowserSessionHolder.destroy()
+            // SPEC-120: park instead of destroy — restore without network reload.
+            BrowserSessionHolder.parkActive()
             _activeId.value = tabId
         }
         // SPEC-094: opening a tab from the grid restores the page when url is known.
@@ -113,12 +137,14 @@ object BrowserTabManager {
                 if (it.id == tabId && !it.url.isNullOrBlank()) it.copy(showHome = false) else it
             }
         }
+        persist()
     }
 
     fun close(tabId: String) {
         val list = _tabs.value
         if (list.none { it.id == tabId }) return
         BrowserTabThumbnailStore.remove(tabId)
+        BrowserSessionHolder.destroyKey(tabId)
         if (list.size <= 1) {
             closeAll()
             return
@@ -129,9 +155,10 @@ object BrowserTabManager {
         if (_activeId.value == tabId) {
             BrowserSessionHolder.captureActiveThumbnail()
             val fallback = next.getOrNull(idx.coerceAtMost(next.lastIndex)) ?: next.first()
+            BrowserSessionHolder.parkActive()
             _activeId.value = fallback.id
-            BrowserSessionHolder.destroy()
         }
+        persist()
     }
 
     /** SPEC-053: empty tab list is allowed; count shows 0. */
@@ -141,6 +168,7 @@ object BrowserTabManager {
         BrowserSessionHolder.destroy()
         _tabs.value = emptyList()
         _activeId.value = ""
+        persist()
     }
 
     /** SPEC-055: close only tabs in the given mode (常规 / 无痕 list). */
@@ -148,15 +176,19 @@ object BrowserTabManager {
         val list = _tabs.value
         val closedIds = list.filter { it.incognito == incognito }.map { it.id }.toSet()
         if (closedIds.isEmpty()) return
-        closedIds.forEach { BrowserTabThumbnailStore.remove(it) }
+        closedIds.forEach {
+            BrowserTabThumbnailStore.remove(it)
+            BrowserSessionHolder.destroyKey(it)
+        }
         val next = list.filter { it.incognito != incognito }
         val activeWasClosed = _activeId.value in closedIds
         _tabs.value = next
         if (activeWasClosed) {
             BrowserSessionHolder.captureActiveThumbnail()
-            BrowserSessionHolder.destroy()
+            BrowserSessionHolder.parkActive()
             _activeId.value = next.firstOrNull()?.id.orEmpty()
         }
+        persist()
     }
 
     fun updateActiveMeta(url: String, title: String) {
@@ -173,6 +205,7 @@ object BrowserTabManager {
                 } else it
             }
         }
+        persist()
     }
 
     fun updateActiveOmniboxLabel(label: String) {
@@ -183,6 +216,7 @@ object BrowserTabManager {
                 if (it.id == id) it.copy(omniboxLabel = trimmed.ifEmpty { null }) else it
             }
         }
+        persist()
     }
 
     fun setActiveIncognito(incognito: Boolean) {
@@ -194,6 +228,7 @@ object BrowserTabManager {
         _tabs.update { list ->
             list.map { if (it.id == id) it.copy(incognito = incognito) else it }
         }
+        persist()
     }
 
     /**
@@ -210,11 +245,12 @@ object BrowserTabManager {
                 if (it.id == id) it.copy(showHome = true) else it
             }
         }
+        persist()
     }
 
     /**
-     * SPEC-100: destroy the retained host only after NTP↔session exit animation,
-     * and only while the active tab is still parked on NTP (`showHome`).
+     * SPEC-100/120: after NTP exit animation, park (not destroy) so returning to the
+     * same tab does not reload. Destroy only when there is no active tab.
      */
     fun releaseSessionHostIfParked() {
         val tab = activeTab() ?: run {
@@ -227,7 +263,7 @@ object BrowserTabManager {
         ) {
             return
         }
-        BrowserSessionHolder.destroy()
+        BrowserSessionHolder.parkActive()
     }
 
     /**
@@ -239,6 +275,15 @@ object BrowserTabManager {
 
     /** Label for tabs grid / strip. */
     fun tabDisplayTitle(tab: BrowserTab): String = displayTitle(tab.title, tab.url, "新标签页")
+
+    private fun persist() {
+        val ctx = appContext ?: return
+        if (!BrowserChromePrefs(ctx).restoreSessionOnLaunch) {
+            BrowserTabPersist.clear(ctx)
+            return
+        }
+        BrowserTabPersist.save(ctx, _tabs.value, _activeId.value)
+    }
 
     private fun displayTitle(title: String?, url: String?, fallback: String): String {
         val t = title?.trim().orEmpty()

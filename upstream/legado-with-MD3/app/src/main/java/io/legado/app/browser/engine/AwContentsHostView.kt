@@ -67,9 +67,6 @@ class AwContentsHostView @JvmOverloads constructor(
         )
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = !incognito
-        settings.setSupportZoom(true)
-        settings.setBuiltInZoomControls(true)
-        settings.setDisplayZoomControls(false)
         // Wide viewport ON, overview OFF: overview mode often squashes mobile chrome.
         settings.setUseWideViewPort(true)
         settings.setLoadWithOverviewMode(false)
@@ -80,7 +77,8 @@ class AwContentsHostView @JvmOverloads constructor(
         }.onFailure { Log.w(TAG, "setHyperlinkContextMenuItems: ${it.message}") }
         // SPEC-018/029: phone/desktop UA + Client Hints aligned to 150.0.7871.46.
         val ua = BrowserUa.resolve(context)
-        val uaMobile = BrowserChromePrefs(context).uaModeOrDefault(
+        val chromePrefs = BrowserChromePrefs(context)
+        val uaMobile = chromePrefs.uaModeOrDefault(
             BrowserFormFactor.isTablet(context),
         ) == BrowserUa.Mode.Mobile
         runCatching {
@@ -92,10 +90,10 @@ class AwContentsHostView @JvmOverloads constructor(
         runCatching {
             settings.setUserAgentMetadataFromMap(BrowserUa.clientHintMap(uaMobile))
         }.onFailure { Log.w(TAG, "UA metadata: ${it.message}") }
-        if (BrowserKernelCompat.serpCompatEnabled(context)) {
-            runCatching { settings.setAcceptThirdPartyCookies(true) }
-                .onFailure { Log.w(TAG, "setAcceptThirdPartyCookies: ${it.message}") }
-        }
+        // SPEC-120: privacy + force zoom from prefs.
+        BrowserPrivacyControls.applyCookieManagers(context)
+        BrowserPrivacyControls.applyToSettings(context, settings)
+        BrowserPrivacyControls.applyForceZoom(context, settings)
         // SPEC-013: keep images on for SERP thumbnails / faster perceived load.
         runCatching {
             val m = settings.javaClass.getMethod("setImagesEnabled", Boolean::class.javaPrimitiveType)
@@ -114,7 +112,6 @@ class AwContentsHostView @JvmOverloads constructor(
             m.invoke(settings, -1)
         }
         // SPEC-043: Chromium Force Dark / algorithmic darkening (Edge-like).
-        val chromePrefs = BrowserChromePrefs(context)
         applyWebContentDarkMode(settings, chromePrefs.webContentDarkMode)
         // SPEC-107: Chrome/Edge-style accessibility text zoom for webpage fonts only.
         runCatching {
@@ -179,6 +176,23 @@ class AwContentsHostView @JvmOverloads constructor(
         }.onFailure { Log.w(TAG, "applyTextZoom: ${it.message}") }
     }
 
+    /** SPEC-120: re-apply force-zoom prefs to live session. */
+    fun applyForcePageZoom(enabled: Boolean) {
+        val settings = awSettings ?: return
+        BrowserChromePrefs(context).forcePageZoom = enabled
+        BrowserPrivacyControls.applyForceZoom(context, settings)
+        if (enabled) {
+            evaluateJavaScript(BrowserPrivacyControls.forceZoomViewportScript(true), null)
+        }
+    }
+
+    /** SPEC-120: re-apply privacy prefs to live session. */
+    fun applyPrivacySettings() {
+        val settings = awSettings ?: return
+        BrowserPrivacyControls.applyCookieManagers(context)
+        BrowserPrivacyControls.applyToSettings(context, settings)
+    }
+
     fun loadUrl(url: String) {
         awContents?.loadUrl(url) ?: Log.w(TAG, "loadUrl before attach: $url")
     }
@@ -222,6 +236,28 @@ class AwContentsHostView @JvmOverloads constructor(
     }
 
     fun reload() { awContents?.reload() }
+
+    /** SPEC-119: apply UA live, then caller should [reload]. */
+    fun applyUserAgent(mode: BrowserUa.Mode) {
+        val settings = awSettings ?: return
+        val mobile = mode == BrowserUa.Mode.Mobile
+        runCatching { settings.setUserAgentString(BrowserUa.stringFor(mode)) }
+        runCatching { settings.setUserAgentIsMobile(mobile) }
+        runCatching {
+            settings.setUserAgentMetadataFromMap(BrowserUa.clientHintMap(mobile))
+        }.onFailure { Log.w(TAG, "applyUserAgent metadata: ${it.message}") }
+    }
+
+    /**
+     * SPEC-121: find-in-page via TreeWalker + mark highlights (window.find unreliable).
+     * Callback receives JSON `{n,i}` or legacy digit string.
+     */
+    fun findInPage(query: String, findNext: Boolean, forward: Boolean, callback: Callback<String>?) {
+        evaluateJavaScript(
+            BrowserFindInPageScript.build(query, findNext = findNext, forward = forward),
+            callback,
+        )
+    }
 
     /** SPEC-073: restore document scroll after history navigation. */
     fun restoreScrollY(scrollY: Int) {

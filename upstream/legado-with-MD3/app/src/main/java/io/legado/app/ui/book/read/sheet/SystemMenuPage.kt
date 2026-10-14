@@ -87,7 +87,20 @@ internal fun SystemMenuPage(
     Column(
         modifier = modifier.fillMaxWidth(),
     ) {
-        // SPEC-113: 更多操作/更多设置改由右上角更多面板进入，设置-菜单不再展示。
+        // SPEC-121 fix: 恢复设置「菜单」页入口（SPEC-112 原样）。
+        // 「更多菜单」= ReaderMoreActionsSheet；「更多设置」= MoreConfigSheet。
+        // 右上角 MoreVert 打开同一 MoreActions Sheet。
+        TinyClickableSettingItem(
+            title = stringResource(R.string.more_menu),
+            description = stringResource(R.string.more_actions),
+            onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreActions)) },
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        TinyClickableSettingItem(
+            title = stringResource(R.string.more_setting),
+            onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreConfig)) },
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
         val tabTitles = listOf(
             stringResource(R.string.title_bar_layout),
             stringResource(R.string.read_menu_bottom_bar_layout),
@@ -436,7 +449,7 @@ internal fun readMenuButtonInfos(context: Context): List<ReadMenuButtonInfo> = l
     ReadMenuButtonInfo(
         "more_actions",
         Symbols.MoreVert,
-        context.getString(R.string.more_actions)
+        context.getString(R.string.more_menu)
     ),
     ReadMenuButtonInfo(
         "re_segment",

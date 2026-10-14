@@ -236,8 +236,12 @@ fun TabletBrowserShell(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
-            // SPEC-025/080/111: dim for side drawers (no fade — liquid-glass SIGSEGV safety).
-            if (sidePanel != TabletSidePanel.None && sidePanel != TabletSidePanel.Tabs) {
+            // SPEC-025/080/111: dim for side drawers / floating toolbox.
+            val showSideDrawer = sidePanel == TabletSidePanel.Bookmarks ||
+                sidePanel == TabletSidePanel.History ||
+                sidePanel == TabletSidePanel.Downloads
+            val showToolboxCard = sidePanel == TabletSidePanel.Toolbox
+            if (showSideDrawer || showToolboxCard) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -245,9 +249,167 @@ fun TabletBrowserShell(
                         .clickable { onSidePanelChange(TabletSidePanel.None) },
                 )
             }
-            // SPEC-111: slide only (no fade) over browser content.
+            // SPEC-121: toolbox = floating card (16dp inset), not edge side panel; no X.
+            if (showToolboxCard) {
+                val toolboxPrefs = remember { BrowserToolboxPrefs(context) }
+                var toolboxOrder by remember { mutableStateOf(toolboxPrefs.orderedIds()) }
+                var toolboxEditing by remember { mutableStateOf(false) }
+                val panelShape = RoundedCornerShape(24.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Column(
+                        Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(0.42f)
+                            .clip(panelShape)
+                            .background(scheme.surface, panelShape)
+                            .clickable(enabled = false) {}
+                            .padding(12.dp),
+                    ) {
+                        if (toolboxEditing) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    "调整顺序",
+                                    Modifier.weight(1f),
+                                    fontSize = 16.sp,
+                                    color = scheme.onSurface,
+                                )
+                                TextButton(
+                                    onClick = {
+                                        toolboxPrefs.saveOrder(toolboxOrder)
+                                        toolboxEditing = false
+                                    },
+                                ) { Text("完成") }
+                            }
+                        }
+                        BrowserToolboxBody(
+                            order = toolboxOrder,
+                            onOrderChange = { toolboxOrder = it },
+                            editing = toolboxEditing,
+                            onEditingChange = { toolboxEditing = it },
+                            solidSurfaces = true,
+                            actions = BrowserToolboxActions(
+                                onOpenBookmarks = {
+                                    onSidePanelChange(TabletSidePanel.Bookmarks)
+                                },
+                                onOpenHistory = {
+                                    onSidePanelChange(TabletSidePanel.History)
+                                },
+                                onOpenDownloads = {
+                                    onSidePanelChange(TabletSidePanel.Downloads)
+                                },
+                                onOpenSettings = {
+                                    onSidePanelChange(TabletSidePanel.None)
+                                    onOpenBrowserSettings()
+                                },
+                                onNewIncognitoTab = {
+                                    onSidePanelChange(TabletSidePanel.None)
+                                    BrowserTabManager.openNewTab(
+                                        url = null,
+                                        incognito = true,
+                                        select = true,
+                                    )
+                                },
+                                onAddBookmark = {
+                                    val actions = sessionActions
+                                    if (actions != null) {
+                                        actions.addBookmark()
+                                    } else {
+                                        context.toastOnUi("请先打开网页")
+                                    }
+                                },
+                                onSavePage = {
+                                    sessionActions?.saveCurrentPage()
+                                        ?: context.toastOnUi("请先打开网页")
+                                    onSidePanelChange(TabletSidePanel.None)
+                                },
+                                onShare = {
+                                    sessionActions?.shareCurrentPage()
+                                        ?: context.toastOnUi("请先打开网页")
+                                    onSidePanelChange(TabletSidePanel.None)
+                                },
+                                onCopyLink = {
+                                    sessionActions?.copyCurrentUrl()
+                                        ?: context.toastOnUi("当前没有可复制的链接")
+                                },
+                                onPickBlock = {
+                                    sessionActions?.startPickMode()
+                                        ?: context.toastOnUi("请先打开网页")
+                                    onSidePanelChange(TabletSidePanel.None)
+                                },
+                                adBlockEnabled = adBlockEnabled,
+                                onToggleAdBlock = {
+                                    adBlockEnabled = !adBlockEnabled
+                                    shield.adBlockEnabled = adBlockEnabled
+                                    if (adBlockEnabled) {
+                                        sessionActions?.injectAdShield()
+                                    }
+                                    context.toastOnUi(
+                                        if (adBlockEnabled) "已开启广告拦截"
+                                        else "已关闭广告拦截（新请求生效）",
+                                    )
+                                },
+                                uaMode = uaMode,
+                                onToggleUa = {
+                                    uaMode = when (uaMode) {
+                                        BrowserUa.Mode.Mobile -> BrowserUa.Mode.Desktop
+                                        BrowserUa.Mode.Desktop -> BrowserUa.Mode.Mobile
+                                    }
+                                    chromePrefs.uaMode = uaMode
+                                    sessionActions?.applyUserAgentAndReload(uaMode)
+                                    context.toastOnUi("已切换为${uaMode.label} UA")
+                                },
+                                webDarkMode = webDarkMode,
+                                onWebDarkModeChange = { mode ->
+                                    webDarkMode = mode
+                                    chromePrefs.webContentDarkMode = mode
+                                    sessionActions?.applyWebContentDarkMode(mode)
+                                    context.toastOnUi(
+                                        when (mode) {
+                                            BrowserChromePrefs.WEB_DARK_OFF -> "网页背景：浅色"
+                                            BrowserChromePrefs.WEB_DARK_ON -> "网页背景：深色"
+                                            else -> "网页背景：跟随系统"
+                                        },
+                                    )
+                                },
+                                eyeProtectionEnabled = themeSettings.eyeProtectionEnabled,
+                                onToggleEyeProtection = {
+                                    val next = !themeSettings.eyeProtectionEnabled
+                                    scope.launch {
+                                        themeSettingsGateway.update {
+                                            it.copy(eyeProtectionEnabled = next)
+                                        }
+                                    }
+                                    context.toastOnUi(
+                                        if (next) "已开启护眼模式" else "已关闭护眼模式",
+                                    )
+                                },
+                                onOpenEyeProtectionSettings = {
+                                    showEyeConfigSheet = true
+                                },
+                                textZoomPercent = textZoomPercent,
+                                onOpenTextZoom = { showTextZoomSheet = true },
+                                onFindInPage = {
+                                    onSidePanelChange(TabletSidePanel.None)
+                                    sessionActions?.openFindInPage()
+                                },
+                            ),
+                            onDismiss = { onSidePanelChange(TabletSidePanel.None) },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+            }
+            // SPEC-111: slide only (no fade) for history/bookmarks/downloads side drawers.
             androidx.compose.animation.AnimatedVisibility(
-                visible = sidePanel != TabletSidePanel.None && sidePanel != TabletSidePanel.Tabs,
+                visible = showSideDrawer,
                 modifier = Modifier.align(Alignment.CenterEnd),
                 enter = slideInHorizontally { it },
                 exit = slideOutHorizontally { it },
@@ -262,7 +424,6 @@ fun TabletBrowserShell(
                         .clickable(enabled = false) {},
                 ) {
                     when (sidePanel) {
-                        // SPEC-080: reuse phone history/bookmarks/downloads screens in side panel.
                         TabletSidePanel.Bookmarks -> BrowserBookmarksScreen(
                             onBack = { onSidePanelChange(TabletSidePanel.None) },
                             onOpenUrl = {
@@ -292,160 +453,7 @@ fun TabletBrowserShell(
                                 onSidePanelChange(TabletSidePanel.None)
                             },
                         )
-                        TabletSidePanel.Toolbox -> {
-                            // SPEC-070/111: same grid as phone; solid surfaces (no liquid glass).
-                            val toolboxPrefs = remember { BrowserToolboxPrefs(context) }
-                            var toolboxOrder by remember {
-                                mutableStateOf(toolboxPrefs.orderedIds())
-                            }
-                            var toolboxEditing by remember { mutableStateOf(false) }
-                            val panelShape = RoundedCornerShape(24.dp)
-                            Column(
-                                Modifier
-                                    .fillMaxSize()
-                                    .padding(8.dp)
-                                    .clip(panelShape)
-                                    .background(scheme.surface, panelShape)
-                                    .padding(8.dp),
-                            ) {
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    // SPEC-097: drop "工具箱" label; keep edit title only.
-                                    if (toolboxEditing) {
-                                        Text(
-                                            "调整顺序",
-                                            Modifier.weight(1f),
-                                            fontSize = 18.sp,
-                                            color = scheme.onSurface,
-                                        )
-                                        TextButton(
-                                            onClick = {
-                                                toolboxPrefs.saveOrder(toolboxOrder)
-                                                toolboxEditing = false
-                                            },
-                                        ) { Text("完成") }
-                                    } else {
-                                        Spacer(Modifier.weight(1f))
-                                    }
-                                    IconButton(onClick = { onSidePanelChange(TabletSidePanel.None) }) {
-                                        SymbolIcon(Symbols.Close, contentDescription = "关闭")
-                                    }
-                                }
-                                BrowserToolboxBody(
-                                    order = toolboxOrder,
-                                    onOrderChange = { toolboxOrder = it },
-                                    editing = toolboxEditing,
-                                    onEditingChange = { toolboxEditing = it },
-                                    solidSurfaces = true,
-                                    actions = BrowserToolboxActions(
-                                        onOpenBookmarks = {
-                                            onSidePanelChange(TabletSidePanel.Bookmarks)
-                                        },
-                                        onOpenHistory = {
-                                            onSidePanelChange(TabletSidePanel.History)
-                                        },
-                                        onOpenDownloads = {
-                                            onSidePanelChange(TabletSidePanel.Downloads)
-                                        },
-                                        onOpenSettings = {
-                                            onSidePanelChange(TabletSidePanel.None)
-                                            onOpenBrowserSettings()
-                                        },
-                                        onNewIncognitoTab = {
-                                            onSidePanelChange(TabletSidePanel.None)
-                                            BrowserTabManager.openNewTab(
-                                                url = null,
-                                                incognito = true,
-                                                select = true,
-                                            )
-                                        },
-                                        onAddBookmark = {
-                                            val actions = sessionActions
-                                            if (actions != null) {
-                                                actions.addBookmark()
-                                            } else {
-                                                context.toastOnUi("请先打开网页")
-                                            }
-                                        },
-                                        onSavePage = {
-                                            sessionActions?.saveCurrentPage()
-                                                ?: context.toastOnUi("请先打开网页")
-                                            onSidePanelChange(TabletSidePanel.None)
-                                        },
-                                        onShare = {
-                                            sessionActions?.shareCurrentPage()
-                                                ?: context.toastOnUi("请先打开网页")
-                                            onSidePanelChange(TabletSidePanel.None)
-                                        },
-                                        onCopyLink = {
-                                            sessionActions?.copyCurrentUrl()
-                                                ?: context.toastOnUi("当前没有可复制的链接")
-                                        },
-                                        onPickBlock = {
-                                            sessionActions?.startPickMode()
-                                                ?: context.toastOnUi("请先打开网页")
-                                            onSidePanelChange(TabletSidePanel.None)
-                                        },
-                                        adBlockEnabled = adBlockEnabled,
-                                        onToggleAdBlock = {
-                                            adBlockEnabled = !adBlockEnabled
-                                            shield.adBlockEnabled = adBlockEnabled
-                                            if (adBlockEnabled) {
-                                                sessionActions?.injectAdShield()
-                                            }
-                                            context.toastOnUi(
-                                                if (adBlockEnabled) "已开启广告拦截"
-                                                else "已关闭广告拦截（新请求生效）",
-                                            )
-                                        },
-                                        uaMode = uaMode,
-                                        onToggleUa = {
-                                            uaMode = when (uaMode) {
-                                                BrowserUa.Mode.Mobile -> BrowserUa.Mode.Desktop
-                                                BrowserUa.Mode.Desktop -> BrowserUa.Mode.Mobile
-                                            }
-                                            chromePrefs.uaMode = uaMode
-                                            context.toastOnUi("已切换为${uaMode.label} UA，请刷新页面")
-                                        },
-                                        webDarkMode = webDarkMode,
-                                        onWebDarkModeChange = { mode ->
-                                            webDarkMode = mode
-                                            chromePrefs.webContentDarkMode = mode
-                                            sessionActions?.applyWebContentDarkMode(mode)
-                                            context.toastOnUi(
-                                                when (mode) {
-                                                    BrowserChromePrefs.WEB_DARK_OFF -> "网页背景：浅色"
-                                                    BrowserChromePrefs.WEB_DARK_ON -> "网页背景：深色"
-                                                    else -> "网页背景：跟随系统"
-                                                },
-                                            )
-                                        },
-                                        eyeProtectionEnabled = themeSettings.eyeProtectionEnabled,
-                                        onToggleEyeProtection = {
-                                            val next = !themeSettings.eyeProtectionEnabled
-                                            scope.launch {
-                                                themeSettingsGateway.update {
-                                                    it.copy(eyeProtectionEnabled = next)
-                                                }
-                                            }
-                                            context.toastOnUi(
-                                                if (next) "已开启护眼模式" else "已关闭护眼模式",
-                                            )
-                                        },
-                                        onOpenEyeProtectionSettings = {
-                                            showEyeConfigSheet = true
-                                        },
-                                        textZoomPercent = textZoomPercent,
-                                        onOpenTextZoom = { showTextZoomSheet = true },
-                                    ),
-                                    onDismiss = { onSidePanelChange(TabletSidePanel.None) },
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            }
-                        }
-                        TabletSidePanel.Tabs, TabletSidePanel.None -> Unit
+                        else -> Unit
                     }
                 }
             }
@@ -474,6 +482,11 @@ fun TabletBrowserShell(
             textZoomPercent = zoom
             chromePrefs.textZoomPercent = zoom
             sessionActions?.applyTextZoom(zoom)
+        },
+        forcePageZoom = chromePrefs.forcePageZoom,
+        onForcePageZoomChange = { enabled ->
+            chromePrefs.forcePageZoom = enabled
+            sessionActions?.applyForcePageZoom(enabled)
         },
     )
 

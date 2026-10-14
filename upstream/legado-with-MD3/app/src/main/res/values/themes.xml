@@ -17,7 +17,8 @@
 
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_screen_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <!-- SPEC-120: rounded-rect plate+logo (24dp corners in drawable). -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo_rounded</item>
         <item name="windowSplashScreenIconBackgroundColor">@color/splash_screen_background</item>
         <item name="postSplashScreenTheme">@style/Base.AppTheme</item>
     </style>

@@ -599,7 +599,7 @@ private fun BookmarksModeTopBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .height(32.dp)
                 .padding(end = BrowserUiTokens.PagePaddingH),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -691,6 +691,7 @@ private fun BookmarksModeTopBar(
                             }
                         }
                     }
+                    // SPEC-121: 书签 Tab 不留 Add 空槽；排序与新建文件夹 spacedBy(4.dp)。
                     if (showAddFavorite) {
                         TopBarActionButton(
                             onClick = onAddFavorite,
@@ -723,7 +724,7 @@ private fun BookmarksModeSegmentedControl(
     val shape = RoundedCornerShape(50)
     BoxWithConstraints(
         modifier = modifier
-            .height(36.dp)
+            .height(28.dp)
             .clip(shape)
             .background(scheme.surfaceContainerHighest)
             .padding(3.dp),

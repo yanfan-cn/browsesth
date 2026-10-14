@@ -2621,7 +2621,7 @@
     <string name="reading_time_with_value">閱讀時長：%1$s</string>
     <string name="a11y_reading_summary_card">%1$s，%2$d 本書，總時長 %3$s，開啟總覽</string>
     <string name="read_books_prefix">已讀 </string>
-    <string name="read_books_suffix"> 本書</string>
+    <string name="read_books_suffix"> 篇</string>
     <string name="hours_minutes_format">%1$d小時%2$d分鐘</string>
     <string name="whole_hours_format">%1$d小時</string>
     <string name="minutes_format">%1$d分鐘</string>

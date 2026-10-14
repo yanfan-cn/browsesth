@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -87,6 +88,8 @@ data class BrowserToolboxActions(
     val onOpenEyeProtectionSettings: () -> Unit,
     val textZoomPercent: Int,
     val onOpenTextZoom: () -> Unit,
+    /** SPEC-119: open find-in-page bar on the current webpage. */
+    val onFindInPage: () -> Unit = {},
 )
 
 private data class ToolboxGridDef(
@@ -263,11 +266,13 @@ fun BrowserToolboxBody(
                     fontSize = 12.sp,
                 )
                 Spacer(Modifier.height(6.dp))
+                // SPEC-119: icons only (no 跟随系统/浅色/深色 text).
                 ThemeModeSelector(
                     selectedMode = webDarkToSelector(actions.webDarkMode),
                     onModeSelected = { value ->
                         actions.onWebDarkModeChange(selectorToWebDark(value))
                     },
+                    iconsOnly = true,
                 )
             }
             Spacer(Modifier.height(ToolboxCellGap))
@@ -423,6 +428,10 @@ fun BrowserToolboxBody(
                                     onDismiss()
                                     actions.onOpenTextZoom()
                                 }
+                                "find_in_page" -> {
+                                    onDismiss()
+                                    actions.onFindInPage()
+                                }
                             }
                         },
                         onLongClick = when (def.id) {
@@ -452,7 +461,7 @@ fun BrowserToolboxBody(
 }
 
 private fun gridDef(id: String, actions: BrowserToolboxActions): ToolboxGridDef? = when (id) {
-    "new_incognito" -> ToolboxGridDef(id, "新建无痕标签页", Symbols.VisibilityOff)
+    "new_incognito" -> ToolboxGridDef(id, "新建无痕", Symbols.VisibilityOff)
     "add_bookmark" -> ToolboxGridDef(id, "加入收藏", Symbols.BookmarkAdd)
     "save_page" -> ToolboxGridDef(id, "保存网页", Symbols.DownloadForOffline)
     "share" -> ToolboxGridDef(id, "转发网页", Symbols.Share)
@@ -478,6 +487,7 @@ private fun gridDef(id: String, actions: BrowserToolboxActions): ToolboxGridDef?
         "字体·${actions.textZoomPercent}%",
         Symbols.FormatSize,
     )
+    "find_in_page" -> ToolboxGridDef(id, "页内查找", Symbols.Search)
     else -> null
 }
 
@@ -532,7 +542,7 @@ private fun ToolboxCell(
     }
 }
 
-/** SPEC-107: Chrome/Edge-style webpage text zoom sheet. */
+/** SPEC-107/120: Chrome/Edge-style webpage text zoom sheet + force zoom. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BrowserTextZoomSheet(
@@ -540,9 +550,12 @@ fun BrowserTextZoomSheet(
     percent: Int,
     onDismiss: () -> Unit,
     onPercentChange: (Int) -> Unit,
+    forcePageZoom: Boolean = true,
+    onForcePageZoomChange: (Boolean) -> Unit = {},
 ) {
     val scheme = LegadoTheme.colorScheme
     var local by remember(show, percent) { mutableIntStateOf(percent) }
+    var forceZoom by remember(show, forcePageZoom) { mutableStateOf(forcePageZoom) }
     AppModalBottomSheet(
         show = show,
         onDismissRequest = onDismiss,
@@ -551,6 +564,7 @@ fun BrowserTextZoomSheet(
             TextButton(
                 onClick = {
                     onPercentChange(local)
+                    onForcePageZoomChange(forceZoom)
                     onDismiss()
                 },
             ) {
@@ -575,6 +589,28 @@ fun BrowserTextZoomSheet(
                 color = scheme.onSurfaceVariant,
                 fontSize = 13.sp,
             )
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text("强制页面缩放", color = scheme.onSurface, fontSize = 15.sp)
+                    Text(
+                        "开启后，即使网站禁止缩放也可捏合放大（类似 Chrome 强制启用缩放）",
+                        color = scheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                    )
+                }
+                Switch(
+                    checked = forceZoom,
+                    onCheckedChange = {
+                        forceZoom = it
+                        onForcePageZoomChange(it)
+                    },
+                )
+            }
             Spacer(Modifier.height(12.dp))
             Slider(
                 value = local.toFloat(),
