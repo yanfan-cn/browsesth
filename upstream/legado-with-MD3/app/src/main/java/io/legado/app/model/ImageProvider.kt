@@ -145,7 +145,7 @@ object ImageProvider {
                     book.isPdf -> PdfFile.getImage(book, src)
                     book.isMobi -> MobiFile.getImage(book, src)
                     else -> {
-                        // SPEC-123: chapter URL becomes the image Referer for browser web books.
+                        // SPEC-127: chapter URL becomes the image Referer for browser web books.
                         BookHelp.saveImage(bookSource, book, src, chapter)
                         null
                     }
