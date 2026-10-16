@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -435,8 +436,12 @@ fun BrowserSessionScreen(
             context.toastOnUi("阅读视图不可用")
             return
         }
-        // SPEC-123: Tencent Next.js articles often have no body <img> until hydration.
+        // SPEC-127: Tencent Next.js articles often have no body <img> until hydration.
         if (keepImages && WebArticleMixedHydration.needsWait(pageUrl)) {
+            Log.i(
+                "BrowsesthReader",
+                "wait hydration host=${runCatching { java.net.URI(pageUrl).host }.getOrNull().orEmpty()}",
+            )
             awaitMixedArticleImages(host)
         }
         val partRaw = host.evalJs(WebArticleExtractJs.SCRIPT)
@@ -449,6 +454,12 @@ fun BrowserSessionScreen(
             keepImages -> WebArticleChromeFilter.filterHtml(rawText)
             else -> WebArticleChromeFilter.filterHtmlTextOnly(rawText)
         }
+        val imgCount = Regex("(?i)<img\\b").findAll(cleaned).count()
+        val pageHost = runCatching { java.net.URI(pageUrl).host }.getOrNull().orEmpty()
+        Log.i(
+            "BrowsesthReader",
+            "extract keepImages=$keepImages imgs=$imgCount host=$pageHost",
+        )
         if (cleaned.length < 40) {
             context.toastOnUi("未能提取正文，请换一个页面再试")
             return
@@ -482,7 +493,7 @@ fun BrowserSessionScreen(
     }
 
     /**
-     * SPEC-123: poll until article images exist, the article signature stays still
+     * SPEC-127: poll until article images exist, the article signature stays still
      * for [WebArticleMixedHydration.SETTLE_MS], or the timeout elapses.
      */
     suspend fun awaitMixedArticleImages(host: AwContentsHostView) {

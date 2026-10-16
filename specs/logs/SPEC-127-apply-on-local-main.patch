@@ -1,0 +1,1030 @@
+diff --git a/specs/features/SPEC-127.md b/specs/features/SPEC-127.md
+new file mode 100644
+index 0000000..84f2466
+--- /dev/null
++++ b/specs/features/SPEC-127.md
+@@ -0,0 +1,60 @@
++# SPEC-127：网易/腾讯资讯「图文混合」正文图
++
++| Spec ID | SPEC-127 |
++| 状态 | Ready |
++| Plan | [`../plans/PLAN-127.md`](../plans/PLAN-127.md) |
++| Log | [`../logs/LOG-127.md`](../logs/LOG-127.md) |
++| 关联 | SPEC-041 / SPEC-044 / SPEC-046 / SPEC-092 / SPEC-109 |
++| 最后更新 | 2026-10-16 |
++
++编号说明：本机未入库的 SPEC-123～126 另有用途（其中 SPEC-123 是资讯页抖动，不是这份图文修复）。GitHub `main` 上已入库的规格停在 SPEC-122。本修复使用 SPEC-127，不占用 123～126。
++
++## 开工前需求确认
++
++- 已调查事实：见 PLAN-127「现状与证据」。网易正文图被抽取脚本当成广告丢掉；腾讯手动「图文混合」在页面水合出正文图之前就抽取。抽取成功之后，协议相对地址、`Accept: image/avif`、HTTP 回退抽取仍可能让图不显示。
++- 疑问：无待选产品分叉。成功标准已由 2026-10-16 任务写明。
++- 授权：该任务要求修复图文混合、按 Spec → Plan → 实施 → Log 记录，并开 PR。本环境不能在同一条已要求实施的任务里再等一轮单独的「确认」回复。
++- 确认后需求变化：真机「没变化」的直接原因是安装包不是这条分支。中午包 `巡页1.2.5-beta.apk`（`version.properties` 已到 1.2.6）来自本机脏 `main`，其 `WebArticleExtractJs.kt` 仍是未加边界的 `ads?`。PR 在合并前是草稿，GitHub `main` 不含此修复。本机无法 `git fetch`（代理 `127.0.0.1:443` 失败）。因此除代码外，还要给出可在脏工作区打上的补丁，并把 PR 标为可合并。
++- 红色问题：否。不改阅读入口、不改内核、不把正文上传到开发者服务器、不降低验收。图片请求仍只带用户正在看的文章地址作为来源头（沿用 SPEC-092）。
++
++## 为什么做
++
++在网易新闻、腾讯新闻正文页选择「图文混合」后，正文里的图片不出现。纯文本有时仍可读。用户需要正文图留在图文混合结果里，并且抽到之后能被阅读器画出来。
++
++## 范围
++
++要实现：
++
++- 网易正文图（类名含 `image-lazy`、`image-reload`，地址在 `data-src`，例如 `dingyue.ws.126.net`）进入图文混合正文，成为真实 `<img src="https://…">`。`data-src` 以 `//` 开头时补成 `https:`。
++- 在腾讯新闻页（`news.qq.com`、`new.qq.com`、`view.inews.qq.com`）手动选「图文混合」时，先等到正文图出现，或正文区域已稳定，再抽取。
++- 浏览器网页书下载正文图时，仍带 SPEC-092 的 Referer 与手机 UA。章节地址是 http(s) 时，Referer 用该章节地址。`Accept` 不声明 `image/avif`。
++- HTTP 回退抽取（邻章预取、缓存未命中）在 `src` 是 `data:` 时仍采用后面的 `data-src`。
++- 提供一份相对 GitHub `main` 的补丁，只含抽取、等待、图片请求与对应测试、本规格三件套，便于在脏的本地 `main` 上 `git apply`。不改本机那份 SPEC-123。
++
++明确不做：
++
++- 不改「文本模式」去图、「图片模式」进漫画阅读器。
++- 不给非腾讯站点的图文混合额外等待。
++- 不新增站点爬虫规则，不整包适配所有门户。
++- 本次不组装 APK、不进位版本号。
++- 不把 WebView Cookie 同步进 OkHttp（未证实这是本机失败原因）。
++- 不改用户替换规则。`refreshImageFiles` 仍不传章节，Referer 继续回退 `customIntro`。
++
++## 产品规则
++
++- 类名或图片地址里单独出现的 `ad` / `ads` / `advert` 仍视为广告图，不进入正文。
++- `reload`、`load`、`upload`、`read` 这类词里碰巧包含的字母 `ad` 不得当成广告。
++- 腾讯新闻图文混合：正文区已有可用图片则立即抽取；否则继续等到正文区稳定（至少约 0.7 秒且连续两次探测不变）或约 2.8 秒上限，然后仍抽取文字。
++- 等待期间沿用现有「正在提取」遮罩，用户可取消。
++- 下载正文图：章节 http(s) 地址优先作为 Referer；没有则用打开该页时记下的页面地址，再没有则用目录地址。非浏览器网页书不附加这组请求头。
++- 图片 `Accept` 为 `image/jpeg,image/png,image/webp,image/*;q=0.8`。
++- 短按阅读按钮：正文够长（约 200 字）时走图文混合（保留图）。长按菜单里的「文本模式」会去掉正文图。「图片模式」是漫画阅读器。
++- 安装包必须包含本规格的改动。GitHub `main` 或本机未打补丁的 `main` 打出来的包不会出这些图。
++
++## 验收标准
++
++- AC-01：类名为 `image-lazy image-reload`、`data-src` 为 `https://dingyue.ws.126.net/...` 的图片，抽取结果包含对应 `<img src="https://dingyue.ws.126.net/...">`。类名 `ad` / `ads` / `advertisement` 或地址含 `/ads/` 的图片仍被丢掉。
++- AC-02：手动「图文混合」且页面主机为 `news.qq.com`、`new.qq.com` 或 `view.inews.qq.com`（及其新闻子域）时，抽取发生在正文图已出现，或正文探测已稳定不少于约 0.7 秒，或达到约 2.8 秒上限之后。其它网站的图文混合不因此等待。文本模式不因此等待。
++- AC-03：`origin` 为 `browsesth://web-novel`（或网页漫画书）时，图片请求仍含手机 UA；章节 URL 以 `http` 开头时 Referer 为该章节 URL；否则回退到页面 URL。`Accept` 不含 `avif`，且含 `image/jpeg`。
++- AC-04：`data-src="//dingyue.ws.126.net/...jpg"` 抽成 `<img src="https://dingyue.ws.126.net/...jpg">`。HTTP 回退抽取在 `src` 为 `data:` 时仍保留该 `data-src`，结果里没有 `data:image`。
++- AC-05：真机抽查一页网易新闻、一页腾讯新闻：图文混合正文可见正文图。本仓库环境无设备，真机项在 Log 标为未验证，并写明操作步骤与 logcat 标签 `BrowsesthReader`。
+diff --git a/specs/logs/LOG-127.md b/specs/logs/LOG-127.md
+new file mode 100644
+index 0000000..194ae87
+--- /dev/null
++++ b/specs/logs/LOG-127.md
+@@ -0,0 +1,71 @@
++# LOG-127
++
++| 日期 | 2026-10-16 |
++| Spec | SPEC-127 |
++| Plan | PLAN-127 |
++| 分支 | `cursor/mixed-reader-news-images-0adc` |
++| 基线 | `main` @ `3eae471` |
++| PR | #1 已 squash 进 `main`（`8f99a45`），那一刀仍用 SPEC-123 文件名。本补丁与编号改正在后续分支 `cursor/spec-127-image-patch-0adc`。 |
++
++## 手机为什么没变化
++
++中午包 `巡页1.2.5-beta.apk` 来自本机脏 `main`（`version.properties` 已到 1.2.6）。那棵树上的 `WebArticleExtractJs.kt` 仍是未加边界的 `ads?`。本分支当时是草稿 PR，没有进 GitHub `main`。本机 `git fetch` 失败，所以手机里的包不可能含这次修复。
++
++## 根因
++
++- `isBadImg` 未加边界的 `ads?` 命中 `image-reload`。`data-src` 选对之后图仍被丢掉。Node：旧正则对 `image-lazy image-reload` 为命中，新边界正则为不命中。`upload/read` 同样不再被当成广告。`isChromeNode` 仍是 `\bads?\b`，不会单独丢掉该 img。
++- 手动「图文混合」立刻 `evalJs`。自动阅读才有 `delay(700)`。腾讯首页壳 `xw.qq.com`（2026-10-16）是 Next.js，页面里 `<img` 为 0。
++- 排版下载原先不把章节传进 `saveImage`。当前章的 `customIntro` 仍可作 Referer；邻章会错。
++- 2026-10-16 用手机 UA 打开 `https://www.163.com/dy/article/L99ASMRC0512D3VJ.html`，落到 `https://m.163.com/dy/article/L99ASMRC0512D3VJ.html`。正文两张图类名 `image-lazy image-reload`，`src` 是 `empty.png`，`data-src` 是 `http://dingyue.ws.126.net/…jpg`。同一 URL：带该文 Referer 得到 `200 image/jpeg`（138205 字节）；不带 Referer 得到 `302`，最终是 `data:image/png;base64,…` 而不是照片。桌面同一篇没有 `image-reload`，图片已是 `https://nimg.ws.126.net/?url=…`。
++
++## 实际改动
++
++- `WebArticleExtractJs.imageFilterJs`：`ads?` 改为 `(?:^|[^a-z0-9])ads?(?![a-z0-9])`，保留 `advert` 前缀；`pagead` / `doubleclick` / `googlesyndication` / `adsbygoogle` 仍按子串拒绝。`abs()` 先把 `//` 补成 `https:`。
++- `WebArticleMixedHydration`：仅 `news.qq.com`、`new.qq.com`、`*.news.qq.com`、`inews.qq.com`、`*.inews.qq.com` 等待。有正文图立刻抽；否则签名连续 2 次不变且已过 700ms，或满 2800ms。
++- `BrowserSessionScreen.openNovelReader`：`keepImages` 且上述主机时先等待。文本模式不等待。
++- `BrowserWebImageHeaders`：`Accept` 改为 `image/jpeg,image/png,image/webp,image/*;q=0.8`。章节 http(s) URL 优先作 Referer。
++- `ImageProvider.getImageSize` / `cacheImage` 增加可选章节，排版传入当前章。
++- `WebChapterHttpFetcher.preferredImgSrc`：懒加载属性优先于 `data:` 占位，`//` 补 `https:`。
++- logcat 标签 `BrowsesthReader`：`wait hydration host=`、`extract keepImages= imgs= host=`、`image fail host= `（异常类名或 `decode-null`）。不打完整 URL。
++- 规格编号改为 SPEC-127。本分支删除误占的 SPEC-123 / PLAN-123 / LOG-123。补丁不含交接文档、SPEC-092、SPEC-109，也不含 SPEC-123，避免盖住本机那份页面抖动规格。
++
++## 验证
++
++通过：
++
++- JUnit 4.13.2，直接编译相关源码（不经 App Gradle）：`WebArticleExtractJsTest`、`WebArticleMixedHydrationTest`、`BrowserWebImageHeadersTest`、`WebChapterHttpFetcherTest`，`OK (19 tests)`。其中网易类名、`//` 补 https、广告仍丢、腾讯主机才等待、章节 URL 作 Referer、`Accept` 不含 `avif`、HTTP 抽取在 `data:` 占位下保留 `data-src`。
++- Rhino 1.8.1 `compileString` 完整抽取脚本与探测脚本：`PARSE_OK scriptLen=4873 probeLen=1095`。脚本里不再有未加边界的 `|ads?|` / `ads?|`。
++- 头字段测试编译时用了与源码常量相同的 `ORIGIN` / `BrowserUa.MOBILE` 桩，只为避开 Aloha。被测的 `BrowserWebImageHeaders.kt`、`WebArticleExtractJs.kt`、`WebChapterHttpFetcher.kt` 是仓库源文件。
++- 网易 CDN 对照见上。未在真机安装。
++
++未通过 / 未跑：
++
++- `:app:testAppDebugUnitTest` 本环境缺 `app/libs/aloha-bromium-localbuild.aar`，没有再跑 Gradle 任务。
++- AC-05 真机未做。本环境没有 Android 设备，也没有组装 APK，版本号未进位。
++
++## 本机怎么装上（不能 git fetch 时）
++
++1. 用浏览器打开并保存补丁（git 的 HTTPS 代理失败时，浏览器有时仍能下）：
++   `https://github.com/yanfan-cn/browsesth/raw/cursor/spec-127-image-patch-0adc/specs/logs/SPEC-127-apply-on-local-main.patch`
++2. 在 `D:\cursor\browsesth`：
++   `git apply --reject --whitespace=nowarn <补丁路径>`
++3. 补丁只改抽取、等待、图片请求、对应测试和 SPEC-127 三件套。不改 `docs/会话状态交接.md`，不改 SPEC-092 / SPEC-109，不写 SPEC-123。若 `BrowserSessionScreen.kt` 或 `BookHelp.kt` 因本地改动出现 `.rej`，先看 `WebArticleExtractJs.kt` 是否已加上边界正则；那一行不去，图文混合仍会丢掉 `image-reload`。
++4. 设 `$env:GRADLE_USER_HOME="D:\cursor\.gradle-home"` 后再 `assemble*`。装新包。旧的 `巡页1.2.5-beta` 不含此修复。
++
++GitHub `main` 的 `8f99a45`（PR #1 squash）只含第一刀，规格文件仍叫 SPEC-123，本机也拉不下来。编号改正和抽取之后的显示修复在 `cursor/spec-127-image-patch-0adc`。本机在能 fetch 之前用上面的补丁。不要用合并 GitHub `main` 去覆盖本地未提交工作；那次 squash 不在本机这棵树上。
++
++## 真机怎么验
++
++1. 安装打过本补丁之后的新包。`adb logcat -s BrowsesthReader:I`。若全程没有 `BrowsesthReader`，装上的仍是旧包。
++2. 长按阅读按钮（书图标）选「图文混合」，不要选「文本模式」。短按在正文够长时也是图文混合。「图片模式」是漫画阅读器。
++3. 网易手机正文（`m.163.com`，类名 `image-lazy image-reload`）：应出现 `extract keepImages=true imgs=` 且数量大于 0，随后正文图可见。`keepImages=false` 表示走了文本模式。
++4. 腾讯 `news.qq.com` / `new.qq.com` / `view.inews.qq.com`：先有 `wait hydration host=`，再有抽取行。图一出来就继续，最久约 3 秒。
++5. 若 `imgs` 大于 0 但屏幕仍无图：看 `image fail host=dingyue.ws.126.net`。`decode-null` 多半是没带上文章 Referer（CDN 回了假图）或解码失败。那是下载，不是抽取。
++6. 同一页改选「文本模式」：`imgs=0`，正文不应再带这些图。
++
++## 偏差
++
++- 全量 Gradle 单测因缺少 Aloha AAR 没跑。
++- `refreshImageFiles` 仍不传章节，Referer 继续用 `customIntro`。首次排版会传章节。
++- 没有把 WebView Cookie 同步进 OkHttp。这次拉取的网易图只要求 Referer，不要求 Cookie。
++- 用户替换规则若按行删掉 `<img>`，仍会没图。未改。
+diff --git a/specs/plans/PLAN-127.md b/specs/plans/PLAN-127.md
+new file mode 100644
+index 0000000..e0e75a4
+--- /dev/null
++++ b/specs/plans/PLAN-127.md
+@@ -0,0 +1,84 @@
++# PLAN-127
++
++| Plan ID | PLAN-127 |
++| Spec | SPEC-127 |
++| 状态 | Ready |
++| 分支 | `cursor/mixed-reader-news-images-0adc` |
++| 基线 | `main` @ `3eae471` |
++| Log | [`../logs/LOG-127.md`](../logs/LOG-127.md) |
++| 补丁 | [`../logs/SPEC-127-apply-on-local-main.patch`](../logs/SPEC-127-apply-on-local-main.patch) |
++| 最后更新 | 2026-10-16 |
++
++授权与红色问题判定同 [SPEC-127](../features/SPEC-127.md)。本 Plan 不扩大范围。
++
++## 现状与证据
++
++1. **安装路径（已由操作者核对，不再争论）。** PR #1 在标为可合并之前是草稿，未进 GitHub `main`。本机 `D:\cursor\browsesth` 停在带大量本地提交的 `main`，中午包 `巡页1.2.5-beta.apk` 由那棵树打出，`WebArticleExtractJs.kt` 仍是未加边界的 `ads?`。所以手机上看不到变化。本机 `git fetch` 走代理 `127.0.0.1:443` 失败。本机未跟踪的 `specs/features/SPEC-123.md` 是资讯页抖动，不是本修复。
++2. **网易误杀（已用正则核对）。** `WebArticleExtractJs.isBadImg` 对 class/id 与 URL 使用未加边界的 `ads?`。`image-reload` 末尾的 `ad`（`relo` + `ad`）会命中，`data-src` 被选中之后图片仍被丢掉。`isChromeNode` 已有 `\b`，不会单独丢掉该 img。
++3. **腾讯抽太早。** 自动阅读在 `BrowserSessionScreen.maybeAutoOpenReader` 里 `delay(700)` 再 `openReaderView()`。手动「图文混合」（手机菜单与 `openReaderMixed`）直接 `openNovelReader(..., keepImages = true)`，立刻 `evalJs`。Next.js 首屏正文 `<img>` 往往还没有。
++4. **Referer。** `BookHelp.browserWebImageHeaders` 已对 `browsesth://web-novel` / `web-manga` 加 UA，Referer 优先 `chapter.url`。阅读排版 `ImageProvider.getImageSize` → `cacheImage` → `saveImage` 原先不传 chapter。单章时 `customIntro`（打开时的页面 URL）仍能当 Referer；邻章会错用打开时的那一页。
++5. **真机页面（2026-10-16 拉取，不是猜测）。** 手机 UA 打开 `https://www.163.com/dy/article/L99ASMRC0512D3VJ.html` 被转到 `https://m.163.com/dy/article/L99ASMRC0512D3VJ.html`。正文图是 `<img class="image-lazy image-reload" src="…/empty.png" data-src="http://dingyue.ws.126.net/…jpg">`。旧 `ads?` 会在选中 `data-src` 之后丢掉它。同一张图：带文章 Referer 时 `http://dingyue.ws.126.net/…` 返回 `200 image/jpeg`（约 138KB）；不带 Referer 时 `302` 到 `so.v.163.com`，正文是一段 `data:image/png;base64,…` 而不是照片，阅读器会解码失败。桌面版同一篇用的是已经写好的 `https://nimg.ws.126.net/?url=…`，没有 `image-reload`。腾讯 `xw.qq.com` 首页壳是 Next.js，`<img` 为 0。
++6. **抽取成功后仍可能不显示。**
++   - 网易 `dingyue.ws.126.net` 没有文章 Referer 时不回照片，而回一段假的 `data:image/png`。打开页的 `customIntro` 已能当 Referer；邻章仍要传章节 URL。
++   - `Accept` 含 `image/avif`。不少手机的 `BitmapFactory` 解不了 AVIF；CDN 按 Accept 回包后，正文里已有 `<img>`，屏幕上仍是失败占位。
++   - `data-src` 为 `//host/path` 时，若 `new URL` 抛错，结果仍是 `//…`，OkHttp 不会去拉。手机网易正文实际是 `http://dingyue.ws.126.net/…`，带 Referer 时直接 `200 image/jpeg`，不必改成 https。
++   - HTTP 回退 `extractArticleHtml` 用一条正则抓第一个 `src=`。`src="data:…"` 会让整张图被跳过，后面的 `data-src` 用不上。`\bsrc` 还会命中 `data-src` 里的 `src`（`-` 是单词边界）。
++   - 当前章打开仍走 WebView JS，不走这条 HTTP 路径。邻章预取和缓存未命中才会走到。
++
++```text
++图文混合 → evalJs(extract) → isBadImg 丢掉 image-reload
++腾讯手动混合 → 无等待 → 水合前抽取 → 正文无 img
++排版下载图 → saveImage → Accept 含 avif / Referer 缺章节 URL
++HTTP 回退 → 先碰到 data: 占位 → 丢掉 data-src
++```
++
++## 方案
++
++1. 广告标记改为边界匹配：`(?:^|[^a-z0-9])ads?(?![a-z0-9])`，并保留 `advert` 前缀。`pagead` / `doubleclick` / `googlesyndication` / `adsbygoogle` 仍按子串拒绝。同一段 JS 供 WebView 与单元测试使用。`abs()` 在 `new URL` 之前把 `//` 补成 `https:`。
++2. 仅当 `keepImages` 且主机是腾讯新闻时，抽取前轮询正文区：有可用图立即抽；否则签名连续两次不变且已过 700ms，或总时长达到 2800ms，再抽。签名含图片 `src` 长度，避免 src 还在填就当成已稳定。
++3. `ImageProvider.getImageSize` / `cacheImage` 增加可选 `chapter`，排版时传入当前章，让 Referer 使用该章 http(s) URL。头字段仍由 SPEC-092 规则生成。`Accept` 改为 jpeg / png / webp。
++4. `WebChapterHttpFetcher.preferredImgSrc` 先找懒加载属性，跳过 `data:`，`//` 补 `https:`。属性名用 `(?<![-\w])`，避免命中 `data-src` 的后缀。
++5. logcat 标签 `BrowsesthReader`：等待、抽取后的 `keepImages` 与 `<img>` 数量、网页书图片下载失败或解码为空时的主机名与原因。不打完整 URL。
++6. 规格文件使用 SPEC-127。删除本分支上误占的 SPEC-123 三件套，避免以后合并时盖住本机那份抖动规格。给脏 `main` 的补丁不包含 `docs/会话状态交接.md`、SPEC-092、SPEC-109，也不包含 SPEC-123。
++
++不改自动阅读对其它站点的 700ms，不为文本模式加等待。
++
++## 改动范围
++
++| 位置 | 改动 | 不动 |
++| --- | --- | --- |
++| `WebArticleExtractJs.kt` | 收紧 `isBadImg`；`//` 补 https | 段落遍历、封面、去 chrome |
++| `WebArticleMixedHydration.kt` | 主机判断、探测脚本、何时可以抽 | — |
++| `BrowserSessionScreen.openNovelReader` | 腾讯图文混合抽取前等待；打抽取日志 | 文本/漫画入口 |
++| `BrowserWebImageHeaders` + `BookHelp` | 头字段集中；去掉 avif；失败打日志 | 非网页书 |
++| `ImageProvider` + 排版 | 把当前章传给 `saveImage` | 刷新图片仍走 customIntro 回退 |
++| `WebChapterHttpFetcher` | 懒加载地址优先于 `data:` 占位 | 漫画展开 JSON |
++| `app/src/test/.../browser/reader/` | AC-01～04 的 JVM 断言 | 真机 |
++| `specs/logs/SPEC-127-apply-on-local-main.patch` | 相对 GitHub `main` 的可应用补丁 | 交接文档、SPEC-092/109 |
++
++## 数据合同
++
++- 抽取输入：当前 WebView DOM。输出 JSON 不变：`title` / `html` / `text` / `cover`。`html` 中的正文图为 `<img src="绝对 https 地址">`。
++- 等待输入：页面 URL + 探测脚本返回 `数量|签名`。输出：无；只决定何时调用原抽取脚本。
++- 图片请求头：仅 `origin` 为 `browsesth://web-novel` 或 `browsesth://web-manga`。`User-Agent` = `BrowserUa.MOBILE`。`Accept` = `image/jpeg,image/png,image/webp,image/*;q=0.8`。`Referer` = 第一个以 `http` 开头的值，顺序为章节 URL、`customIntro`（页面 URL）、`tocUrl`。
++
++## 执行步骤
++
++1. 写失败测试：网易类名必须留下 `dingyue.ws.126.net`；`//` 懒加载变成 https；`ad` 类与 `/ads/` 仍丢；腾讯主机才等待；章节 URL 优先作 Referer；`Accept` 不含 avif；HTTP 抽取在 `data:` 占位下仍留 `data-src`。
++2. 按上表改生产代码，使测试通过。
++3. 生成补丁。回填 Log。无设备则不宣称真机通过。
++
++## 验证
++
++```bash
++cd upstream/legado-with-MD3
++./gradlew :app:testAppDebugUnitTest --tests io.legado.app.browser.reader.WebArticleExtractJsTest --tests io.legado.app.browser.reader.WebArticleMixedHydrationTest --tests io.legado.app.browser.reader.BrowserWebImageHeadersTest --tests io.legado.app.browser.reader.WebChapterHttpFetcherTest
++```
++
++本环境若无 Android SDK 或缺 Aloha AAR，用 Node / Rhino 执行与 `imageFilterJs` 相同的脚本做 AC-01/AC-04，并用独立 Kotlin 编译跑等待与请求头测试。原因写入 Log。
++
++真机（有设备、且安装的是打过本补丁之后的新包时）：见 LOG-127。
++
++## 回退
++
++还原本 Plan 所列代码文件，并删掉 SPEC-127 三件套与补丁即可。不改数据库结构。不要删本机自己的 SPEC-123。
+diff --git a/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/BrowserWebImageHeaders.kt b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/BrowserWebImageHeaders.kt
+new file mode 100644
+index 0000000..af51365
+--- /dev/null
++++ b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/BrowserWebImageHeaders.kt
+@@ -0,0 +1,35 @@
++package io.legado.app.browser.reader
++
++import io.legado.app.browser.engine.BrowserUa
++
++/**
++ * SPEC-092 / SPEC-127: news CDNs reject body images that lack a page Referer.
++ * Only browser ephemeral novel/manga books get these headers.
++ *
++ * Do not advertise image/avif. BitmapFactory on many phones cannot decode it,
++ * so a CDN that honors Accept returns a file the reader draws as a failure.
++ */
++object BrowserWebImageHeaders {
++    const val ACCEPT = "image/jpeg,image/png,image/webp,image/*;q=0.8"
++
++    fun build(
++        origin: String?,
++        chapterUrl: String?,
++        pageUrl: String?,
++        tocUrl: String?,
++    ): Map<String, String>? {
++        val isBrowserWeb = origin == WebArticleBookFactory.ORIGIN ||
++            origin == WebMangaBookFactory.ORIGIN
++        if (!isBrowserWeb) return null
++        val referer = sequenceOf(chapterUrl, pageUrl, tocUrl)
++            .firstOrNull { !it.isNullOrBlank() && it.startsWith("http") }
++        val headers = linkedMapOf(
++            "User-Agent" to BrowserUa.MOBILE,
++            "Accept" to ACCEPT,
++        )
++        if (!referer.isNullOrBlank()) {
++            headers["Referer"] = referer
++        }
++        return headers
++    }
++}
+diff --git a/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/WebArticleExtractJs.kt b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/WebArticleExtractJs.kt
+index 374d70e..8276d5b 100644
+--- a/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/WebArticleExtractJs.kt
++++ b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/WebArticleExtractJs.kt
+@@ -6,41 +6,51 @@ package io.legado.app.browser.reader
+  * [html] keeps paragraph + in-body images in DOM order for mixed layout.
+  *
+  * SPEC-044: nested containers recurse; never flatten via innerText (that dropped imgs).
++ * SPEC-127: ad tokens are bounded so `image-reload` is not treated as an ad.
+  */
+ object WebArticleExtractJs {
++    /**
++     * Image helpers shared by the WebView script and JVM tests.
++     * `ads?` must not match the trailing "ad" inside `reload` / `load` / `upload`.
++     */
++    val imageFilterJs: String =
++        """
++        function abs(u){if(!u)return '';if(u.indexOf('//')===0)u='https:'+u;try{return new URL(u,document.baseURI).href;}catch(e){return u||'';}}
++        function isBadImg(el,src,fromLazy){
++        if(!src||src.indexOf('data:')===0)return true;
++        var low=src.toLowerCase();
++        if(/avatar|icon|logo|banner|pixel|1x1|spacer|blank\.gif|pagead|doubleclick|googlesyndication|adsbygoogle/.test(low))return true;
++        if(/(?:^|[^a-z0-9])ads?(?![a-z0-9])/.test(low))return true;
++        if(/(?:^|[^a-z0-9])advert/.test(low))return true;
++        var cls=((el.className||'')+' '+(el.id||'')).toLowerCase();
++        if(/avatar|icon|logo|emoji|sprite|banner|pixel|track|adsbygoogle/.test(cls))return true;
++        if(/(?:^|[^a-z0-9])ads?(?![a-z0-9])/.test(cls))return true;
++        if(/(?:^|[^a-z0-9])advert/.test(cls))return true;
++        if(!fromLazy){
++        var w=el.naturalWidth||el.width||0,h=el.naturalHeight||el.height||0;
++        if(w>0&&h>0&&(w<80||h<80||w*h<12000))return true;
++        }
++        return false;
++        }
++        function firstSrcset(v){
++        if(!v)return '';var p=(v.split(',')[0]||'').trim().split(/\s+/)[0]||'';return p;
++        }
++        function imgTag(el){
++        var lazy=el.getAttribute('data-src')||el.getAttribute('data-original')||el.getAttribute('data-lazy-src')||el.getAttribute('data-url')||el.getAttribute('data-actualsrc')||el.getAttribute('data-original-src')||'';
++        if(!lazy)lazy=firstSrcset(el.getAttribute('data-srcset'));
++        var src=lazy||el.currentSrc||el.src||'';
++        if((!src||src.indexOf('data:')===0)&&el.srcset){src=firstSrcset(el.srcset);}
++        src=abs(src);
++        if(isBadImg(el,src,!!lazy))return '';
++        return '<img src="'+src.replace(/"/g,'')+'">';
++        }
++        """.trimIndent()
++
+     val SCRIPT: String =
+         "(function(){" +
+-            "function abs(u){try{return new URL(u,document.baseURI).href;}catch(e){return u||'';}}" +
++            imageFilterJs +
+             "function meta(sel){var el=document.querySelector(sel);if(!el)return '';return el.getAttribute('content')||'';}" +
+             "function textOf(el){if(!el)return '';return (el.innerText||el.textContent||'').replace(/\\s+\\n/g,'\\n').trim();}" +
+-            "function isBadImg(el,src,fromLazy){" +
+-            "if(!src||src.indexOf('data:')===0)return true;" +
+-            "var low=src.toLowerCase();" +
+-            "if(/avatar|icon|logo|ads?|banner|pixel|1x1|spacer|blank\\.gif/.test(low))return true;" +
+-            "var cls=((el.className||'')+' '+(el.id||'')).toLowerCase();" +
+-            "if(/avatar|icon|logo|emoji|sprite|ads?|banner|pixel|track/.test(cls))return true;" +
+-            // Skip size check when URL came from lazy attr (placeholder dims are misleading).
+-            "if(!fromLazy){" +
+-            "var w=el.naturalWidth||el.width||0,h=el.naturalHeight||el.height||0;" +
+-            "if(w>0&&h>0&&(w<80||h<80||w*h<12000))return true;" +
+-            "}" +
+-            "return false;" +
+-            "}" +
+-            // SPEC-092: prefer lazy attrs over placeholder src (news sites often use 1x1 + data-src).
+-            "function firstSrcset(v){" +
+-            "if(!v)return '';var p=(v.split(',')[0]||'').trim().split(/\\s+/)[0]||'';return p;" +
+-            "}" +
+-            "function imgTag(el){" +
+-            "var lazy=el.getAttribute('data-src')||el.getAttribute('data-original')" +
+-            "||el.getAttribute('data-lazy-src')||el.getAttribute('data-url')" +
+-            "||el.getAttribute('data-actualsrc')||el.getAttribute('data-original-src')||'';" +
+-            "if(!lazy)lazy=firstSrcset(el.getAttribute('data-srcset'));" +
+-            "var src=lazy||el.currentSrc||el.src||'';" +
+-            "if((!src||src.indexOf('data:')===0)&&el.srcset){src=firstSrcset(el.srcset);}" +
+-            "src=abs(src);" +
+-            "if(isBadImg(el,src,!!lazy))return '';" +
+-            "return '<img src=\"'+src.replace(/\"/g,'')+'\">';" +
+-            "}" +
+             "function isSkip(tag){" +
+             "return tag==='script'||tag==='style'||tag==='noscript'||tag==='svg'||tag==='button'" +
+             "||tag==='nav'||tag==='footer'||tag==='header'||tag==='aside'||tag==='form'||tag==='iframe';" +
+diff --git a/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/WebArticleMixedHydration.kt b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/WebArticleMixedHydration.kt
+new file mode 100644
+index 0000000..0d8c8ec
+--- /dev/null
++++ b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/WebArticleMixedHydration.kt
+@@ -0,0 +1,79 @@
++package io.legado.app.browser.reader
++
++import java.net.URI
++
++/**
++ * SPEC-127: Tencent Next.js article pages often have no body images until hydration.
++ * Manual mixed-mode extract waits for those images, or for the article DOM to settle.
++ */
++object WebArticleMixedHydration {
++    /** Same floor as [io.legado.app.ui.browser.BrowserSessionScreen] auto-open settle. */
++    const val SETTLE_MS = 700L
++    const val TIMEOUT_MS = 2_800L
++    const val POLL_MS = 200L
++    const val STABLE_HITS = 2
++
++    /**
++     * Returns `count|root:nodes:imgs:srcLen:bodyImgs`.
++     * [srcLen] changes when lazy `src` is filled in, so a stable empty shell is not "ready".
++     */
++    val PROBE_SCRIPT: String =
++        """
++        (function(){
++        var root=document.querySelector('article,[role="main"],main,#ArticleContent,.content-article,.qq-article,.article-content');
++        function looks(src){
++        if(!src||src.indexOf('data:')===0||src.length<16)return false;
++        var low=src.toLowerCase();
++        if(/avatar|icon|logo|banner|pixel|1x1|spacer|blank\.gif|pagead|doubleclick|googlesyndication|adsbygoogle/.test(low))return false;
++        if(/(?:^|[^a-z0-9])ads?(?![a-z0-9])/.test(low))return false;
++        if(/(?:^|[^a-z0-9])advert/.test(low))return false;
++        return true;
++        }
++        var n=0,srcLen=0,imgN=0;
++        if(root){
++        var imgs=root.getElementsByTagName('img');
++        imgN=imgs.length;
++        for(var i=0;i<imgN;i++){
++        var el=imgs[i];
++        var lazy=el.getAttribute('data-src')||el.getAttribute('data-original')||el.getAttribute('data-lazy-src')||el.getAttribute('data-actualsrc')||'';
++        var src=lazy||el.currentSrc||el.getAttribute('src')||'';
++        srcLen+=src.length;
++        if(looks(src))n++;
++        }
++        }
++        var nodes=root?root.getElementsByTagName('*').length:0;
++        var bodyImgs=document.body?document.body.getElementsByTagName('img').length:0;
++        return n+'|'+(root?1:0)+':'+nodes+':'+imgN+':'+srcLen+':'+bodyImgs;
++        })()
++        """.trimIndent()
++
++    data class Probe(val imageCount: Int, val signature: String)
++
++    fun needsWait(pageUrl: String): Boolean {
++        val host = runCatching { URI(pageUrl.trim()).host }
++            .getOrNull()
++            ?.lowercase()
++            ?: return false
++        return host == "new.qq.com" ||
++            host == "news.qq.com" || host.endsWith(".news.qq.com") ||
++            host == "inews.qq.com" || host.endsWith(".inews.qq.com")
++    }
++
++    fun parseProbe(raw: String?): Probe {
++        if (raw.isNullOrBlank() || raw == "null") return Probe(0, "")
++        var text = raw.trim()
++        if (text.length >= 2 && text.startsWith("\"") && text.endsWith("\"")) {
++            text = text.substring(1, text.length - 1)
++        }
++        val bar = text.indexOf('|')
++        if (bar < 0) return Probe(text.toIntOrNull() ?: 0, "")
++        val count = text.substring(0, bar).toIntOrNull() ?: 0
++        return Probe(count.coerceAtLeast(0), text.substring(bar + 1))
++    }
++
++    fun readyToExtract(elapsedMs: Long, imageCount: Int, stableHits: Int): Boolean {
++        if (imageCount > 0) return true
++        if (elapsedMs >= TIMEOUT_MS) return true
++        return elapsedMs >= SETTLE_MS && stableHits >= STABLE_HITS
++    }
++}
+diff --git a/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/WebChapterHttpFetcher.kt b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/WebChapterHttpFetcher.kt
+index 539186f..7ce1a51 100644
+--- a/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/WebChapterHttpFetcher.kt
++++ b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/WebChapterHttpFetcher.kt
+@@ -233,13 +233,9 @@ object WebChapterHttpFetcher {
+             val tok = m.value
+             when {
+                 tok.startsWith("<img", ignoreCase = true) -> {
+-                    val srcM = Regex(
+-                        """(?i)(?:data-src|data-original|data-lazy-src|data-url|data-actualsrc|data-original-src|src)\s*=\s*["']([^"']+)["']""",
+-                    ).find(tok)
+-                    val raw = srcM?.groupValues?.getOrNull(1)?.trim().orEmpty()
+-                    val first = raw.split(',').firstOrNull()?.trim()?.substringBefore(' ')?.trim().orEmpty()
+-                    if (!first.startsWith("data:")) {
+-                        val abs = absUrl(baseUrl, first)
++                    val raw = preferredImgSrc(tok)
++                    if (raw.isNotEmpty()) {
++                        val abs = absUrl(baseUrl, raw)
+                         if (abs != null && abs.startsWith("http") && !looksLikeChromeImage(abs)) {
+                             blocks += """<img src="$abs">"""
+                         }
+@@ -255,6 +251,35 @@ object WebChapterHttpFetcher {
+         return WebArticleChromeFilter.filterHtml(out)
+     }
+ 
++    /**
++     * Prefer lazy URLs. A leading `src="data:..."` must not hide a later `data-src`.
++     * `(?<![-\\w])` keeps `src` from matching the suffix of `data-src`.
++     */
++    internal fun preferredImgSrc(tag: String): String {
++        val names = listOf(
++            "data-src",
++            "data-original",
++            "data-lazy-src",
++            "data-url",
++            "data-actualsrc",
++            "data-original-src",
++            "data-srcset",
++            "src",
++        )
++        for (name in names) {
++            val match = Regex(
++                """(?i)(?<![-\w])$name\s*=\s*["']([^"']+)["']""",
++            ).find(tag) ?: continue
++            val first = match.groupValues[1].trim().split(',')
++                .firstOrNull()?.trim()?.substringBefore(' ')?.trim().orEmpty()
++            if (first.isNotEmpty() && !first.startsWith("data:")) {
++                if (first.startsWith("//")) return "https:$first"
++                return first
++            }
++        }
++        return ""
++    }
++
+     private fun looksLikeChromeImage(url: String): Boolean {
+         val u = url.lowercase()
+         return listOf("avatar", "/icon", "logo", "emoji", "sprite", "/ads/", "banner", "1x1", "pixel")
+diff --git a/upstream/legado-with-MD3/app/src/main/java/io/legado/app/feature/reader/legacy/LegacyReaderChapterPaginator.kt b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/feature/reader/legacy/LegacyReaderChapterPaginator.kt
+index ef1b091..26a2c3d 100644
+--- a/upstream/legado-with-MD3/app/src/main/java/io/legado/app/feature/reader/legacy/LegacyReaderChapterPaginator.kt
++++ b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/feature/reader/legacy/LegacyReaderChapterPaginator.kt
+@@ -165,7 +165,7 @@ object LegacyReaderChapterPaginator {
+             titleShaper = AndroidReaderTextShaper(titlePaint),
+             imageDimensionsResolver = { imageSource ->
+                 try {
+-                    ImageProvider.getImageSize(book, imageSource, bookSource).let {
++                    ImageProvider.getImageSize(book, imageSource, bookSource, chapter).let {
+                         ReaderImageDimensions(it.width.toFloat(), it.height.toFloat())
+                     }
+                 } catch (error: CancellationException) {
+diff --git a/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/book/BookHelp.kt b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/book/BookHelp.kt
+index b6d01fc..6bfa5a2 100644
+--- a/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/book/BookHelp.kt
++++ b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/book/BookHelp.kt
+@@ -463,6 +463,7 @@ object BookHelp {
+                     }
+                     if (decoded == null) {
+                         AppLog.put("${book.name} ${chapter?.title} 图片 $src 下载失败 解码为空")
++                        logBrowserImageFail(book, src, "decode-null")
+                         false
+                     } else {
+                         decoded.inputStream().use { input ->
+@@ -476,10 +477,21 @@ object BookHelp {
+             currentCoroutineContext().ensureActive()
+             val msg = "${book.name} ${chapter?.title} 图片 $src 下载失败\n${e.localizedMessage}"
+             AppLog.put(msg, e)
++            logBrowserImageFail(book, src, e.javaClass.simpleName)
+             false
+         }
+     }
+ 
++    private fun logBrowserImageFail(book: Book, src: String, reason: String) {
++        if (book.origin != io.legado.app.browser.reader.WebArticleBookFactory.ORIGIN &&
++            book.origin != io.legado.app.browser.reader.WebMangaBookFactory.ORIGIN
++        ) {
++            return
++        }
++        val host = runCatching { java.net.URI(src.substringBefore(',')).host }.getOrNull()
++        android.util.Log.i("BrowsesthReader", "image fail host=$host $reason")
++    }
++
+     private suspend fun imageInputStream(analyzeUrl: AnalyzeUrl, src: String, reportProgress: Boolean): InputStream {
+         if (!reportProgress || analyzeUrl.urlNoQuery.startsWith("data:", true)) {
+             return analyzeUrl.getInputStreamAwait()
+@@ -493,28 +505,19 @@ object BookHelp {
+     }
+ 
+     /**
+-     * SPEC-092: browser ephemeral novel/manga books download body images without a BookSource;
+-     * news CDNs commonly require Referer matching the article page.
++     * SPEC-092 / SPEC-127: browser ephemeral novel/manga books download body images without a
++     * BookSource. News CDNs commonly require Referer matching the article page. Chapter URL wins
++     * when the reader passes the chapter being laid out.
+      */
+     private fun browserWebImageHeaders(
+         book: Book,
+         chapter: BookChapter?,
+-    ): Map<String, String>? {
+-        val isBrowserWeb = book.origin == io.legado.app.browser.reader.WebArticleBookFactory.ORIGIN ||
+-            book.origin == io.legado.app.browser.reader.WebMangaBookFactory.ORIGIN
+-        if (!isBrowserWeb) return null
+-        val referer = chapter?.url?.takeIf { it.startsWith("http") }
+-            ?: book.customIntro?.takeIf { it.startsWith("http") }
+-            ?: book.tocUrl.takeIf { it.startsWith("http") }
+-        val headers = linkedMapOf(
+-            "User-Agent" to io.legado.app.browser.engine.BrowserUa.MOBILE,
+-            "Accept" to "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+-        )
+-        if (!referer.isNullOrBlank()) {
+-            headers["Referer"] = referer
+-        }
+-        return headers
+-    }
++    ): Map<String, String>? = io.legado.app.browser.reader.BrowserWebImageHeaders.build(
++        origin = book.origin,
++        chapterUrl = chapter?.url,
++        pageUrl = book.customIntro,
++        tocUrl = book.tocUrl,
++    )
+ 
+     /** Android 图片适配器使用：先持有租约，再获取文件，避免发布与淘汰之间存在空窗。 */
+     suspend fun acquireReadingImage(
+diff --git a/upstream/legado-with-MD3/app/src/main/java/io/legado/app/model/ImageProvider.kt b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/model/ImageProvider.kt
+index bd5a486..91934ac 100644
+--- a/upstream/legado-with-MD3/app/src/main/java/io/legado/app/model/ImageProvider.kt
++++ b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/model/ImageProvider.kt
+@@ -7,6 +7,7 @@ import androidx.collection.LruCache
+ import io.legado.app.R
+ import io.legado.app.constant.AppLog.putDebug
+ import io.legado.app.data.entities.Book
++import io.legado.app.data.entities.BookChapter
+ import io.legado.app.data.entities.BookSource
+ import io.legado.app.domain.gateway.DownloadCacheSettingsGateway
+ import io.legado.app.domain.gateway.OtherSettingsGateway
+@@ -133,7 +134,8 @@ object ImageProvider {
+     suspend fun cacheImage(
+         book: Book,
+         src: String,
+-        bookSource: BookSource?
++        bookSource: BookSource?,
++        chapter: BookChapter? = null,
+     ): File {
+         return withContext(IO) {
+             val vFile = BookHelp.getImage(book, src)
+@@ -143,7 +145,8 @@ object ImageProvider {
+                     book.isPdf -> PdfFile.getImage(book, src)
+                     book.isMobi -> MobiFile.getImage(book, src)
+                     else -> {
+-                        BookHelp.saveImage(bookSource, book, src)
++                        // SPEC-127: chapter URL becomes the image Referer for browser web books.
++                        BookHelp.saveImage(bookSource, book, src, chapter)
+                         null
+                     }
+                 }
+@@ -164,9 +167,10 @@ object ImageProvider {
+     suspend fun getImageSize(
+         book: Book,
+         src: String,
+-        bookSource: BookSource?
++        bookSource: BookSource?,
++        chapter: BookChapter? = null,
+     ): Size {
+-        val file = cacheImage(book, src, bookSource)
++        val file = cacheImage(book, src, bookSource, chapter)
+         val op = BitmapFactory.Options()
+         // inJustDecodeBounds如果设置为true,仅仅返回图片实际的宽和高,宽和高是赋值给opts.outWidth,opts.outHeight;
+         op.inJustDecodeBounds = true
+diff --git a/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/browser/BrowserSessionScreen.kt b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/browser/BrowserSessionScreen.kt
+index 007eaf2..6a10871 100644
+--- a/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/browser/BrowserSessionScreen.kt
++++ b/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/browser/BrowserSessionScreen.kt
+@@ -7,6 +7,8 @@ import io.legado.app.ui.widget.components.icon.Symbols
+ import android.content.Intent
+ import android.net.Uri
+ import android.os.Build
++import android.os.SystemClock
++import android.util.Log
+ import androidx.activity.compose.BackHandler
+ import androidx.compose.animation.AnimatedVisibility
+ import androidx.compose.animation.fadeIn
+@@ -113,6 +115,7 @@ import io.legado.app.browser.manga.cimoc.json.CimocJsonRuleStore
+ import io.legado.app.browser.reader.WebArticleBookFactory
+ import io.legado.app.browser.reader.WebArticleChromeFilter
+ import io.legado.app.browser.reader.WebArticleExtractJs
++import io.legado.app.browser.reader.WebArticleMixedHydration
+ import io.legado.app.browser.reader.WebChapterExpandJs
+ import io.legado.app.browser.reader.WebChapterHttpFetcher
+ import io.legado.app.browser.reader.WebMangaBookFactory
+@@ -433,6 +436,14 @@ fun BrowserSessionScreen(
+             context.toastOnUi("阅读视图不可用")
+             return
+         }
++        // SPEC-127: Tencent Next.js articles often have no body <img> until hydration.
++        if (keepImages && WebArticleMixedHydration.needsWait(pageUrl)) {
++            Log.i(
++                "BrowsesthReader",
++                "wait hydration host=${runCatching { java.net.URI(pageUrl).host }.getOrNull().orEmpty()}",
++            )
++            awaitMixedArticleImages(host)
++        }
+         val partRaw = host.evalJs(WebArticleExtractJs.SCRIPT)
+         val extracted = WebArticleBookFactory.parseExtractResult(partRaw)
+         val toc = discoverToc(host)
+@@ -443,6 +454,12 @@ fun BrowserSessionScreen(
+             keepImages -> WebArticleChromeFilter.filterHtml(rawText)
+             else -> WebArticleChromeFilter.filterHtmlTextOnly(rawText)
+         }
++        val imgCount = Regex("(?i)<img\\b").findAll(cleaned).count()
++        val pageHost = runCatching { java.net.URI(pageUrl).host }.getOrNull().orEmpty()
++        Log.i(
++            "BrowsesthReader",
++            "extract keepImages=$keepImages imgs=$imgCount host=$pageHost",
++        )
+         if (cleaned.length < 40) {
+             context.toastOnUi("未能提取正文，请换一个页面再试")
+             return
+@@ -475,6 +492,32 @@ fun BrowserSessionScreen(
+         open(book.bookUrl)
+     }
+ 
++    /**
++     * SPEC-127: poll until article images exist, the article signature stays still
++     * for [WebArticleMixedHydration.SETTLE_MS], or the timeout elapses.
++     */
++    suspend fun awaitMixedArticleImages(host: AwContentsHostView) {
++        val start = SystemClock.elapsedRealtime()
++        var previousSignature: String? = null
++        var stableHits = 0
++        while (true) {
++            val probe = WebArticleMixedHydration.parseProbe(
++                host.evalJs(WebArticleMixedHydration.PROBE_SCRIPT),
++            )
++            val elapsed = SystemClock.elapsedRealtime() - start
++            stableHits = if (previousSignature != null && previousSignature == probe.signature) {
++                stableHits + 1
++            } else {
++                0
++            }
++            previousSignature = probe.signature
++            if (WebArticleMixedHydration.readyToExtract(elapsed, probe.imageCount, stableHits)) {
++                return
++            }
++            delay(WebArticleMixedHydration.POLL_MS)
++        }
++    }
++
+     fun maybeDetectTranslatePrompt(url: String) {
+         // SPEC-085: hide webpage translate prompt until in-page translate is ready.
+         if (!WebPageTranslate.WEB_PAGE_TRANSLATE_UI_ENABLED) {
+diff --git a/upstream/legado-with-MD3/app/src/test/java/io/legado/app/browser/reader/BrowserWebImageHeadersTest.kt b/upstream/legado-with-MD3/app/src/test/java/io/legado/app/browser/reader/BrowserWebImageHeadersTest.kt
+new file mode 100644
+index 0000000..4b32cc2
+--- /dev/null
++++ b/upstream/legado-with-MD3/app/src/test/java/io/legado/app/browser/reader/BrowserWebImageHeadersTest.kt
+@@ -0,0 +1,61 @@
++package io.legado.app.browser.reader
++
++import io.legado.app.browser.engine.BrowserUa
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertNull
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class BrowserWebImageHeadersTest {
++
++    @Test
++    fun chapterUrlWinsAsReferer() {
++        val headers = BrowserWebImageHeaders.build(
++            origin = WebArticleBookFactory.ORIGIN,
++            chapterUrl = "https://view.inews.qq.com/a/CH2",
++            pageUrl = "https://news.qq.com/rain/a/OPENED",
++            tocUrl = "https://news.qq.com/",
++        )
++        assertEquals("https://view.inews.qq.com/a/CH2", headers?.get("Referer"))
++        assertEquals(BrowserUa.MOBILE, headers?.get("User-Agent"))
++        val accept = headers?.get("Accept").orEmpty()
++        assertEquals(BrowserWebImageHeaders.ACCEPT, accept)
++        assertFalse(accept.contains("avif"))
++        assertTrue(accept.contains("image/jpeg"))
++    }
++
++    @Test
++    fun pageUrlUsedWhenChapterIsNotHttp() {
++        val headers = BrowserWebImageHeaders.build(
++            origin = WebArticleBookFactory.ORIGIN,
++            chapterUrl = "browsesth-novel://abc",
++            pageUrl = "https://www.163.com/dy/article/ABC.html",
++            tocUrl = "https://www.163.com/",
++        )
++        assertEquals("https://www.163.com/dy/article/ABC.html", headers?.get("Referer"))
++    }
++
++    @Test
++    fun tocUrlIsLastResort() {
++        val headers = BrowserWebImageHeaders.build(
++            origin = WebMangaBookFactory.ORIGIN,
++            chapterUrl = null,
++            pageUrl = null,
++            tocUrl = "https://news.qq.com/rain/a/1",
++        )
++        assertEquals("https://news.qq.com/rain/a/1", headers?.get("Referer"))
++    }
++
++    @Test
++    fun nonBrowserBooksGetNoExtraHeaders() {
++        assertNull(
++            BrowserWebImageHeaders.build(
++                origin = "https://example.com/booksource",
++                chapterUrl = "https://example.com/ch",
++                pageUrl = "https://example.com/page",
++                tocUrl = "https://example.com/toc",
++            ),
++        )
++    }
++}
+diff --git a/upstream/legado-with-MD3/app/src/test/java/io/legado/app/browser/reader/WebArticleExtractJsTest.kt b/upstream/legado-with-MD3/app/src/test/java/io/legado/app/browser/reader/WebArticleExtractJsTest.kt
+new file mode 100644
+index 0000000..caf1286
+--- /dev/null
++++ b/upstream/legado-with-MD3/app/src/test/java/io/legado/app/browser/reader/WebArticleExtractJsTest.kt
+@@ -0,0 +1,143 @@
++package io.legado.app.browser.reader
++
++import com.script.rhino.RhinoScriptEngine
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class WebArticleExtractJsTest {
++
++    @Test
++    fun neteaseLazyReloadImageIsKept() {
++        val html = decide(
++            cls = "image-lazy image-reload",
++            dataSrc = "https://dingyue.ws.126.net/2024/0910/abc123.jpg",
++            src = "data:image/gif;base64,AAAA",
++        )
++        assertEquals(
++            """<img src="https://dingyue.ws.126.net/2024/0910/abc123.jpg">""",
++            html,
++        )
++    }
++
++    @Test
++    fun uploadAndReadPathsAreNotTreatedAsAds() {
++        val html = decide(
++            cls = "photo",
++            dataSrc = "",
++            src = "https://cdn.example.com/upload/read/photo.jpg",
++            width = 800,
++            height = 600,
++        )
++        assertEquals(
++            """<img src="https://cdn.example.com/upload/read/photo.jpg">""",
++            html,
++        )
++    }
++
++    @Test
++    fun adClassAndAdUrlAreStillDropped() {
++        assertEquals(
++            "",
++            decide(cls = "ad", dataSrc = "", src = "https://cdn.example.com/pics/a.jpg", width = 300, height = 200),
++        )
++        assertEquals(
++            "",
++            decide(cls = "ads", dataSrc = "", src = "https://cdn.example.com/pics/a.jpg", width = 300, height = 200),
++        )
++        assertEquals(
++            "",
++            decide(
++                cls = "advertisement",
++                dataSrc = "",
++                src = "https://cdn.example.com/pics/a.jpg",
++                width = 300,
++                height = 200,
++            ),
++        )
++        assertEquals(
++            "",
++            decide(
++                cls = "photo",
++                dataSrc = "",
++                src = "https://cdn.example.com/ads/banner.jpg",
++                width = 300,
++                height = 200,
++            ),
++        )
++    }
++
++    @Test
++    fun lazyPlaceholderSizeDoesNotDropTheImage() {
++        val html = decide(
++            cls = "content",
++            dataSrc = "https://dingyue.ws.126.net/2024/0910/wide.jpg",
++            src = "https://example.com/1x1.gif",
++            width = 1,
++            height = 1,
++        )
++        assertEquals(
++            """<img src="https://dingyue.ws.126.net/2024/0910/wide.jpg">""",
++            html,
++        )
++    }
++
++    @Test
++    fun protocolRelativeLazySrcBecomesHttps() {
++        val html = decide(
++            cls = "image-lazy image-reload",
++            dataSrc = "//dingyue.ws.126.net/2024/0910/abc123.jpg",
++            src = "data:image/gif;base64,AAAA",
++        )
++        assertEquals(
++            """<img src="https://dingyue.ws.126.net/2024/0910/abc123.jpg">""",
++            html,
++        )
++    }
++
++    @Test
++    fun scriptUsesBoundedAdToken() {
++        val filter = WebArticleExtractJs.imageFilterJs
++        assertFalse(filter.contains("|ads?"))
++        assertFalse(filter.contains("ads?|"))
++        assertTrue(filter.contains("(?:^|[^a-z0-9])ads?(?![a-z0-9])"))
++        assertTrue(WebArticleExtractJs.SCRIPT.contains(filter))
++    }
++
++    private fun decide(
++        cls: String,
++        dataSrc: String,
++        src: String,
++        width: Int = 0,
++        height: Int = 0,
++    ): String {
++        val js = """
++            var document = { baseURI: 'https://www.163.com/news/article/ABC.html' };
++            ${WebArticleExtractJs.imageFilterJs}
++            function decide(cls, dataSrc, src, w, h) {
++              var el = {
++                className: cls,
++                id: '',
++                getAttribute: function(n) {
++                  if (n === 'data-src') return dataSrc || '';
++                  return '';
++                },
++                currentSrc: src || '',
++                src: src || '',
++                srcset: '',
++                naturalWidth: w || 0,
++                naturalHeight: h || 0,
++                width: w || 0,
++                height: h || 0
++              };
++              return imgTag(el);
++            }
++            decide(${jsString(cls)}, ${jsString(dataSrc)}, ${jsString(src)}, $width, $height);
++        """.trimIndent()
++        return RhinoScriptEngine.eval(js).toString()
++    }
++
++    private fun jsString(value: String): String =
++        "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
++}
+diff --git a/upstream/legado-with-MD3/app/src/test/java/io/legado/app/browser/reader/WebArticleMixedHydrationTest.kt b/upstream/legado-with-MD3/app/src/test/java/io/legado/app/browser/reader/WebArticleMixedHydrationTest.kt
+new file mode 100644
+index 0000000..3f9a19c
+--- /dev/null
++++ b/upstream/legado-with-MD3/app/src/test/java/io/legado/app/browser/reader/WebArticleMixedHydrationTest.kt
+@@ -0,0 +1,64 @@
++package io.legado.app.browser.reader
++
++import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
++import org.junit.Test
++
++class WebArticleMixedHydrationTest {
++
++    @Test
++    fun tencentNewsHostsWait() {
++        assertTrue(WebArticleMixedHydration.needsWait("https://news.qq.com/rain/a/20241016A01"))
++        assertTrue(WebArticleMixedHydration.needsWait("https://new.qq.com/rain/a/20241016A01"))
++        assertTrue(WebArticleMixedHydration.needsWait("https://view.inews.qq.com/a/20241016A01"))
++        assertTrue(WebArticleMixedHydration.needsWait("https://A.NEWS.QQ.COM/omn/123"))
++    }
++
++    @Test
++    fun otherHostsDoNotWait() {
++        assertFalse(WebArticleMixedHydration.needsWait("https://www.163.com/dy/article/ABC.html"))
++        assertFalse(WebArticleMixedHydration.needsWait("https://sports.qq.com/a/1"))
++        assertFalse(WebArticleMixedHydration.needsWait("https://qq.com/"))
++        assertFalse(WebArticleMixedHydration.needsWait(""))
++        assertFalse(WebArticleMixedHydration.needsWait("not a url"))
++    }
++
++    @Test
++    fun imagesPresentMeansExtractNow() {
++        assertTrue(WebArticleMixedHydration.readyToExtract(elapsedMs = 0, imageCount = 2, stableHits = 0))
++    }
++
++    @Test
++    fun emptyDomWaitsForSettleThenTimeout() {
++        assertFalse(WebArticleMixedHydration.readyToExtract(elapsedMs = 400, imageCount = 0, stableHits = 2))
++        assertFalse(WebArticleMixedHydration.readyToExtract(elapsedMs = 800, imageCount = 0, stableHits = 1))
++        assertTrue(
++            WebArticleMixedHydration.readyToExtract(
++                elapsedMs = WebArticleMixedHydration.SETTLE_MS,
++                imageCount = 0,
++                stableHits = WebArticleMixedHydration.STABLE_HITS,
++            ),
++        )
++        assertTrue(
++            WebArticleMixedHydration.readyToExtract(
++                elapsedMs = WebArticleMixedHydration.TIMEOUT_MS,
++                imageCount = 0,
++                stableHits = 0,
++            ),
++        )
++    }
++
++    @Test
++    fun parseProbeUnwrapsJsString() {
++        assertEquals(
++            WebArticleMixedHydration.Probe(0, "0:0:0:0:1"),
++            WebArticleMixedHydration.parseProbe("\"0|0:0:0:0:1\""),
++        )
++        assertEquals(
++            WebArticleMixedHydration.Probe(3, "1:20:3:180:4"),
++            WebArticleMixedHydration.parseProbe("3|1:20:3:180:4"),
++        )
++        assertEquals(WebArticleMixedHydration.Probe(0, ""), WebArticleMixedHydration.parseProbe(null))
++    }
++}
+diff --git a/upstream/legado-with-MD3/app/src/test/java/io/legado/app/browser/reader/WebChapterHttpFetcherTest.kt b/upstream/legado-with-MD3/app/src/test/java/io/legado/app/browser/reader/WebChapterHttpFetcherTest.kt
+index 6c7fc3e..22706f7 100644
+--- a/upstream/legado-with-MD3/app/src/test/java/io/legado/app/browser/reader/WebChapterHttpFetcherTest.kt
++++ b/upstream/legado-with-MD3/app/src/test/java/io/legado/app/browser/reader/WebChapterHttpFetcherTest.kt
+@@ -1,6 +1,7 @@
+ package io.legado.app.browser.reader
+ 
+ import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
+ import org.junit.Assert.assertTrue
+ import org.junit.Test
+ 
+@@ -29,4 +30,18 @@ class WebChapterHttpFetcherTest {
+         assertTrue(urls.any { it.endsWith("/a.jpg") })
+         assertTrue(urls.contains("https://cdn.example/b.jpg"))
+     }
++
++    @Test
++    fun articleHtmlKeepsLazySrcWhenPlaceholderIsDataUri() {
++        val html = """
++            <p>正文足够长，用来通过长度检查，这里再写几个字。</p>
++            <img class="image-lazy image-reload" src="data:image/gif;base64,AAAA" data-src="//dingyue.ws.126.net/2024/a.jpg">
++        """.trimIndent()
++        val out = WebChapterHttpFetcher.extractArticleHtml(
++            html,
++            "https://www.163.com/dy/article/X.html",
++        )
++        assertTrue(out.contains("https://dingyue.ws.126.net/2024/a.jpg"))
++        assertFalse(out.contains("data:image"))
++    }
+ }

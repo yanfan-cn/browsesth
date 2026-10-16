@@ -6,7 +6,7 @@ package io.legado.app.browser.reader
  * [html] keeps paragraph + in-body images in DOM order for mixed layout.
  *
  * SPEC-044: nested containers recurse; never flatten via innerText (that dropped imgs).
- * SPEC-123: ad tokens are bounded so `image-reload` is not treated as an ad.
+ * SPEC-127: ad tokens are bounded so `image-reload` is not treated as an ad.
  */
 object WebArticleExtractJs {
     /**
@@ -15,7 +15,7 @@ object WebArticleExtractJs {
      */
     val imageFilterJs: String =
         """
-        function abs(u){try{return new URL(u,document.baseURI).href;}catch(e){return u||'';}}
+        function abs(u){if(!u)return '';if(u.indexOf('//')===0)u='https:'+u;try{return new URL(u,document.baseURI).href;}catch(e){return u||'';}}
         function isBadImg(el,src,fromLazy){
         if(!src||src.indexOf('data:')===0)return true;
         var low=src.toLowerCase();

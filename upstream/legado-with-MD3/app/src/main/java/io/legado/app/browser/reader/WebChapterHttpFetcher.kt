@@ -233,13 +233,9 @@ object WebChapterHttpFetcher {
             val tok = m.value
             when {
                 tok.startsWith("<img", ignoreCase = true) -> {
-                    val srcM = Regex(
-                        """(?i)(?:data-src|data-original|data-lazy-src|data-url|data-actualsrc|data-original-src|src)\s*=\s*["']([^"']+)["']""",
-                    ).find(tok)
-                    val raw = srcM?.groupValues?.getOrNull(1)?.trim().orEmpty()
-                    val first = raw.split(',').firstOrNull()?.trim()?.substringBefore(' ')?.trim().orEmpty()
-                    if (!first.startsWith("data:")) {
-                        val abs = absUrl(baseUrl, first)
+                    val raw = preferredImgSrc(tok)
+                    if (raw.isNotEmpty()) {
+                        val abs = absUrl(baseUrl, raw)
                         if (abs != null && abs.startsWith("http") && !looksLikeChromeImage(abs)) {
                             blocks += """<img src="$abs">"""
                         }
@@ -253,6 +249,35 @@ object WebChapterHttpFetcher {
         var out = blocks.joinToString("\n").trim()
         if (out.length > 200_000) out = out.take(200_000)
         return WebArticleChromeFilter.filterHtml(out)
+    }
+
+    /**
+     * Prefer lazy URLs. A leading `src="data:..."` must not hide a later `data-src`.
+     * `(?<![-\\w])` keeps `src` from matching the suffix of `data-src`.
+     */
+    internal fun preferredImgSrc(tag: String): String {
+        val names = listOf(
+            "data-src",
+            "data-original",
+            "data-lazy-src",
+            "data-url",
+            "data-actualsrc",
+            "data-original-src",
+            "data-srcset",
+            "src",
+        )
+        for (name in names) {
+            val match = Regex(
+                """(?i)(?<![-\w])$name\s*=\s*["']([^"']+)["']""",
+            ).find(tag) ?: continue
+            val first = match.groupValues[1].trim().split(',')
+                .firstOrNull()?.trim()?.substringBefore(' ')?.trim().orEmpty()
+            if (first.isNotEmpty() && !first.startsWith("data:")) {
+                if (first.startsWith("//")) return "https:$first"
+                return first
+            }
+        }
+        return ""
     }
 
     private fun looksLikeChromeImage(url: String): Boolean {

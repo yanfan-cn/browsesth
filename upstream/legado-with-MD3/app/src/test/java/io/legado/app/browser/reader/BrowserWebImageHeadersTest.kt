@@ -2,7 +2,9 @@ package io.legado.app.browser.reader
 
 import io.legado.app.browser.engine.BrowserUa
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BrowserWebImageHeadersTest {
@@ -17,7 +19,10 @@ class BrowserWebImageHeadersTest {
         )
         assertEquals("https://view.inews.qq.com/a/CH2", headers?.get("Referer"))
         assertEquals(BrowserUa.MOBILE, headers?.get("User-Agent"))
-        assertEquals("image/avif,image/webp,image/apng,image/*,*/*;q=0.8", headers?.get("Accept"))
+        val accept = headers?.get("Accept").orEmpty()
+        assertEquals(BrowserWebImageHeaders.ACCEPT, accept)
+        assertFalse(accept.contains("avif"))
+        assertTrue(accept.contains("image/jpeg"))
     }
 
     @Test

@@ -1,6 +1,7 @@
 package io.legado.app.browser.reader
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -28,5 +29,19 @@ class WebChapterHttpFetcherTest {
         val urls = WebChapterHttpFetcher.extractImageUrls(html, "https://ex.com/c/1")
         assertTrue(urls.any { it.endsWith("/a.jpg") })
         assertTrue(urls.contains("https://cdn.example/b.jpg"))
+    }
+
+    @Test
+    fun articleHtmlKeepsLazySrcWhenPlaceholderIsDataUri() {
+        val html = """
+            <p>正文足够长，用来通过长度检查，这里再写几个字。</p>
+            <img class="image-lazy image-reload" src="data:image/gif;base64,AAAA" data-src="//dingyue.ws.126.net/2024/a.jpg">
+        """.trimIndent()
+        val out = WebChapterHttpFetcher.extractArticleHtml(
+            html,
+            "https://www.163.com/dy/article/X.html",
+        )
+        assertTrue(out.contains("https://dingyue.ws.126.net/2024/a.jpg"))
+        assertFalse(out.contains("data:image"))
     }
 }
