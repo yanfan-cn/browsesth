@@ -3,7 +3,7 @@ package io.legado.app.browser.reader
 import java.net.URI
 
 /**
- * SPEC-123: Tencent Next.js article pages often have no body images until hydration.
+ * SPEC-127: Tencent Next.js article pages often have no body images until hydration.
  * Manual mixed-mode extract waits for those images, or for the article DOM to settle.
  */
 object WebArticleMixedHydration {

@@ -463,6 +463,7 @@ object BookHelp {
                     }
                     if (decoded == null) {
                         AppLog.put("${book.name} ${chapter?.title} 图片 $src 下载失败 解码为空")
+                        logBrowserImageFail(book, src, "decode-null")
                         false
                     } else {
                         decoded.inputStream().use { input ->
@@ -476,8 +477,19 @@ object BookHelp {
             currentCoroutineContext().ensureActive()
             val msg = "${book.name} ${chapter?.title} 图片 $src 下载失败\n${e.localizedMessage}"
             AppLog.put(msg, e)
+            logBrowserImageFail(book, src, e.javaClass.simpleName)
             false
         }
+    }
+
+    private fun logBrowserImageFail(book: Book, src: String, reason: String) {
+        if (book.origin != io.legado.app.browser.reader.WebArticleBookFactory.ORIGIN &&
+            book.origin != io.legado.app.browser.reader.WebMangaBookFactory.ORIGIN
+        ) {
+            return
+        }
+        val host = runCatching { java.net.URI(src.substringBefore(',')).host }.getOrNull()
+        android.util.Log.i("BrowsesthReader", "image fail host=$host $reason")
     }
 
     private suspend fun imageInputStream(analyzeUrl: AnalyzeUrl, src: String, reportProgress: Boolean): InputStream {
@@ -493,7 +505,7 @@ object BookHelp {
     }
 
     /**
-     * SPEC-092 / SPEC-123: browser ephemeral novel/manga books download body images without a
+     * SPEC-092 / SPEC-127: browser ephemeral novel/manga books download body images without a
      * BookSource. News CDNs commonly require Referer matching the article page. Chapter URL wins
      * when the reader passes the chapter being laid out.
      */

@@ -84,6 +84,19 @@ class WebArticleExtractJsTest {
     }
 
     @Test
+    fun protocolRelativeLazySrcBecomesHttps() {
+        val html = decide(
+            cls = "image-lazy image-reload",
+            dataSrc = "//dingyue.ws.126.net/2024/0910/abc123.jpg",
+            src = "data:image/gif;base64,AAAA",
+        )
+        assertEquals(
+            """<img src="https://dingyue.ws.126.net/2024/0910/abc123.jpg">""",
+            html,
+        )
+    }
+
+    @Test
     fun scriptUsesBoundedAdToken() {
         val filter = WebArticleExtractJs.imageFilterJs
         assertFalse(filter.contains("|ads?"))
