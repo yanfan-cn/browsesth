@@ -283,6 +283,8 @@ dependencies {
     implementation("com.google.guava:guava:33.3.1-android")
     // Cimoc A adapters (SPEC-016)
     implementation("com.alibaba:fastjson:1.2.83")
+    // SPEC-123: bypass Android 14 hidden-API blocklist (setHiddenApiExemptions) to enable DrawFn hardware path
+    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
     implementation(libs.protobuf.javalite)
     implementation(libs.glide.glide)
     implementation(libs.glide.okhttp)

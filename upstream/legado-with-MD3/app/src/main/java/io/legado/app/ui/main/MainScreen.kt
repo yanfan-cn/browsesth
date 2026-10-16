@@ -546,6 +546,16 @@ fun MainScreen(
                                         }
                                     }
                                 },
+                                onOpenMy = {
+                                    val index = destinations.indexOfFirst {
+                                        it == MainDestination.My
+                                    }
+                                    if (index >= 0) {
+                                        coroutineScope.launch {
+                                            pagerState.animateScrollToPage(index)
+                                        }
+                                    }
+                                },
                             )
 
                             MainDestination.Bookshelf -> BookshelfRouteScreen(

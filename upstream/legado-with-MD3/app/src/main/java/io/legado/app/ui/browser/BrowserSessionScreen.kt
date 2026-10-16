@@ -52,6 +52,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -212,6 +213,9 @@ fun BrowserSessionScreen(
     onOpenMangaReader: ((bookUrl: String) -> Unit)? = null,
     sessionKey: String? = null,
     initialOmniboxLabel: String? = null,
+    /** SPEC-125: page title for idle omnibox; bumped [navEpoch] forces load after park. */
+    initialTitle: String? = null,
+    navEpoch: Long = 0L,
     onPageMeta: ((url: String, title: String) -> Unit)? = null,
     tabletEmbedded: Boolean = false,
     onBindActions: ((BrowserSessionActions) -> Unit)? = null,
@@ -244,12 +248,20 @@ fun BrowserSessionScreen(
     var mainFrameLoading by remember { mutableStateOf(false) }
     var hostRef by remember { mutableStateOf<AwContentsHostView?>(null) }
     var clientRef by remember { mutableStateOf<BrowserAwContentsClient?>(null) }
-    // SPEC-024: omnibox shows search / typed text, never loaded page URL.
+    // SPEC-125: idle omnibox = page title / host; omniboxLabel keeps last typed draft for edit.
     var omniboxLabel by remember {
         mutableStateOf(BrowserOmniboxLabel.resolve(initialOmniboxLabel, initialUrl))
     }
-    var address by remember { mutableStateOf(omniboxLabel) }
+    var address by remember {
+        mutableStateOf(
+            BrowserTabManager.pageDisplayLabel(initialTitle, initialUrl)
+                .ifBlank { omniboxLabel },
+        )
+    }
     var addressFocused by remember { mutableStateOf(false) }
+    var appliedNavEpoch by remember(sessionKey) { mutableLongStateOf(0L) }
+    /** SPEC-125: URL we already loadUrl'd in onReady; blocks stale lastUrl trust. */
+    var pendingForcedUrl by remember(sessionKey) { mutableStateOf<String?>(null) }
     /** SPEC-022 B: phone floating chrome auto-hide on scroll down. */
     var phoneChromeVisible by remember { mutableStateOf(true) }
     var tabMenu by remember { mutableStateOf(false) }
@@ -288,18 +300,19 @@ fun BrowserSessionScreen(
     fun applyOmniboxLabel(label: String?) {
         val text = label?.trim().orEmpty()
         omniboxLabel = text
-        if (!addressFocused && address != text) address = text
         BrowserTabManager.updateActiveOmniboxLabel(text)
     }
 
-    fun syncOmniboxLabelFromTab(url: String?) {
+    /** SPEC-125: idle address = title / site host. */
+    fun syncIdleAddress(title: String?, url: String?) {
         if (addressFocused) return
-        val next = BrowserOmniboxLabel.resolve(omniboxLabel.takeIf { it.isNotEmpty() }, url)
-        if (omniboxLabel.isEmpty() && next.isNotEmpty()) {
-            applyOmniboxLabel(next)
-        } else if (!addressFocused && address != omniboxLabel) {
-            address = omniboxLabel
-        }
+        val next = BrowserTabManager.pageDisplayLabel(title, url)
+            .ifBlank { omniboxLabel }
+        if (next.isNotEmpty() && address != next) address = next
+    }
+
+    fun syncOmniboxLabelFromTab(url: String?) {
+        syncIdleAddress(clientRef?.lastTitle, url)
     }
     var pendingSelector by remember { mutableStateOf<String?>(null) }
     var showToolbox by remember { mutableStateOf(false) }
@@ -422,6 +435,33 @@ fun BrowserSessionScreen(
         return merged.values.toList() to title
     }
 
+    /**
+     * SPEC-123: poll until article images exist, the article signature stays still
+     * for [WebArticleMixedHydration.SETTLE_MS], or the timeout elapses.
+     */
+    suspend fun awaitMixedArticleImages(host: AwContentsHostView) {
+        val start = SystemClock.elapsedRealtime()
+        var previousSignature: String? = null
+        var stableHits = 0
+        while (true) {
+            val probe = WebArticleMixedHydration.parseProbe(
+                host.evalJs(WebArticleMixedHydration.PROBE_SCRIPT),
+            )
+            val elapsed = SystemClock.elapsedRealtime() - start
+            stableHits = if (previousSignature != null && previousSignature == probe.signature) {
+                stableHits + 1
+            } else {
+                0
+            }
+            previousSignature = probe.signature
+            if (WebArticleMixedHydration.readyToExtract(elapsed, probe.imageCount, stableHits)) {
+                return
+            }
+            delay(WebArticleMixedHydration.POLL_MS)
+        }
+    }
+
+
     suspend fun openNovelReader(
         pageUrl: String,
         titleHint: String? = null,
@@ -479,32 +519,6 @@ fun BrowserSessionScreen(
             created
         }
         open(book.bookUrl)
-    }
-
-    /**
-     * SPEC-123: poll until article images exist, the article signature stays still
-     * for [WebArticleMixedHydration.SETTLE_MS], or the timeout elapses.
-     */
-    suspend fun awaitMixedArticleImages(host: AwContentsHostView) {
-        val start = SystemClock.elapsedRealtime()
-        var previousSignature: String? = null
-        var stableHits = 0
-        while (true) {
-            val probe = WebArticleMixedHydration.parseProbe(
-                host.evalJs(WebArticleMixedHydration.PROBE_SCRIPT),
-            )
-            val elapsed = SystemClock.elapsedRealtime() - start
-            stableHits = if (previousSignature != null && previousSignature == probe.signature) {
-                stableHits + 1
-            } else {
-                0
-            }
-            previousSignature = probe.signature
-            if (WebArticleMixedHydration.readyToExtract(elapsed, probe.imageCount, stableHits)) {
-                return
-            }
-            delay(WebArticleMixedHydration.POLL_MS)
-        }
     }
 
     fun maybeDetectTranslatePrompt(url: String) {
@@ -846,7 +860,9 @@ fun BrowserSessionScreen(
         armHttpsFallback(raw, url)
         hostRef?.loadUrl(url)
         BrowserSessionHolder.markLoaded()
-        onPageMeta?.invoke(url, raw)
+        // SPEC-125: show host until real page title arrives.
+        syncIdleAddress(null, url)
+        onPageMeta?.invoke(url, BrowserTabManager.pageDisplayLabel(null, url, raw))
     }
 
     /** SPEC-121: parse find script JSON `{n,i}` into match label. */
@@ -893,7 +909,8 @@ fun BrowserSessionScreen(
         armHttpsFallback(typed, url)
         hostRef?.loadUrl(url)
         BrowserSessionHolder.markLoaded()
-        onPageMeta?.invoke(url, typed)
+        syncIdleAddress(null, url)
+        onPageMeta?.invoke(url, BrowserTabManager.pageDisplayLabel(null, url, typed))
     }
 
     fun handleSpecialUrl(url: String): Boolean {
@@ -936,35 +953,55 @@ fun BrowserSessionScreen(
         }
     }
 
-    LaunchedEffect(initialOmniboxLabel, initialUrl) {
-        val next = BrowserOmniboxLabel.resolve(initialOmniboxLabel, initialUrl)
-        if (next.isNotEmpty() && next != omniboxLabel) {
-            omniboxLabel = next
-            if (!addressFocused) address = next
+    LaunchedEffect(initialOmniboxLabel, initialUrl, initialTitle) {
+        val draft = BrowserOmniboxLabel.resolve(initialOmniboxLabel, initialUrl)
+        if (draft.isNotEmpty() && draft != omniboxLabel) {
+            omniboxLabel = draft
         }
+        syncIdleAddress(initialTitle ?: clientRef?.lastTitle, initialUrl)
     }
 
-    // SPEC-021/023/094: tab URL change → load.
-    // If live host is ahead (in-page nav) and not in error, trust lastUrl.
-    // If last load failed, always honor newer tab URL so navigation does not stick on the error page.
-    LaunchedEffect(initialUrl, hostRef) {
+    // SPEC-021/125: tab URL / navEpoch change → load.
+    // Explicit openUrlInActive bumps navEpoch (incl. after NTP park) and must load.
+    // Same epoch: if live host is ahead (in-page nav) and not in error, trust lastUrl.
+    LaunchedEffect(initialUrl, hostRef, navEpoch) {
         val host = hostRef ?: return@LaunchedEffect
         if (BrowserSessionHolder.sessionKey != resolvedSessionKey) return@LaunchedEffect
         if (!BrowserSessionHolder.hasLoadedInitialUrl) return@LaunchedEffect
         val last = clientRef?.lastUrl.orEmpty()
         val hadError = clientRef?.lastError != null
         if (initialUrl.isBlank()) return@LaunchedEffect
+        if (navEpoch > appliedNavEpoch) {
+            appliedNavEpoch = navEpoch
+            if (initialUrl != last) {
+                syncIdleAddress(initialTitle, initialUrl)
+                clientRef?.lastError = null
+                pendingForcedUrl = initialUrl
+                host.loadUrl(initialUrl)
+            } else {
+                pendingForcedUrl = null
+                syncIdleAddress(clientRef?.lastTitle ?: initialTitle, last)
+            }
+            return@LaunchedEffect
+        }
+        if (pendingForcedUrl != null && initialUrl == pendingForcedUrl) {
+            // onReady / prior epoch already navigating here; wait for page callbacks.
+            syncIdleAddress(initialTitle, initialUrl)
+            return@LaunchedEffect
+        }
         if (initialUrl == last) {
-            syncOmniboxLabelFromTab(last)
+            pendingForcedUrl = null
+            syncIdleAddress(clientRef?.lastTitle ?: initialTitle, last)
             return@LaunchedEffect
         }
         if (last.isNotBlank() && last != initialUrl && !hadError) {
             // In-page navigation already moved lastUrl; do not reload stale search/tab draft.
-            syncOmniboxLabelFromTab(last)
+            syncIdleAddress(clientRef?.lastTitle, last)
             return@LaunchedEffect
         }
-        syncOmniboxLabelFromTab(initialUrl)
+        syncIdleAddress(initialTitle, initialUrl)
         clientRef?.lastError = null
+        pendingForcedUrl = initialUrl
         host.loadUrl(initialUrl)
     }
 
@@ -1098,9 +1135,17 @@ fun BrowserSessionScreen(
                                 .padding(horizontal = BrowserUiTokens.SpaceMd, vertical = 6.dp)
                                 .onFocusChanged { fs ->
                                     val nowFocused = fs.isFocused
-                                    if (addressFocused && !nowFocused) {
-                                        // SPEC-024: blur without Go → restore search label, not URL.
-                                        address = omniboxLabel
+                                    if (!addressFocused && nowFocused) {
+                                        // SPEC-125: focus → show URL for editing.
+                                        val editUrl = clientRef?.lastUrl.orEmpty()
+                                            .ifBlank { initialUrl }
+                                        if (editUrl.isNotBlank()) address = editUrl
+                                    } else if (addressFocused && !nowFocused) {
+                                        // Blur without Go → restore title / site host.
+                                        syncIdleAddress(
+                                            clientRef?.lastTitle ?: initialTitle,
+                                            clientRef?.lastUrl ?: initialUrl,
+                                        )
                                     }
                                     addressFocused = nowFocused
                                 },
@@ -1242,13 +1287,18 @@ fun BrowserSessionScreen(
                         onMainFrameError = { url, netError, _ ->
                             tryHttpsFallback(url, netError)
                         },
-                        onUrlChanged = { url -> syncOmniboxLabelFromTab(url) },
+                        onUrlChanged = { url ->
+                            pendingForcedUrl = null
+                            syncIdleAddress(clientRef?.lastTitle, url)
+                        },
                         onTitleChanged = { url, title ->
+                            syncIdleAddress(title, url)
                             onPageMeta?.invoke(url, title)
                         },
                         onPageFinishedExtra = { url, title ->
                             mainFrameLoading = false
                             progress = 100
+                            pendingForcedUrl = null
                             // SPEC-106: do not clear HTTPS fallback arm immediately —
                             // Chromium often finishes the failed main frame before
                             // onReceivedError, which raced away agefans.com HTTP retry.
@@ -1257,7 +1307,7 @@ fun BrowserSessionScreen(
                                 delay(500)
                                 armedHttpsFallback = null
                             }
-                            syncOmniboxLabelFromTab(url)
+                            syncIdleAddress(title, url)
                             onPageMeta?.invoke(url, title)
                             if (!incognito) {
                                 store.addHistory(url, title)
@@ -1289,6 +1339,10 @@ fun BrowserSessionScreen(
                                     null,
                                 )
                             }
+                            // SPEC-123 diag: per-page viewport probe.
+                            hostRef?.let {
+                                io.legado.app.browser.engine.BrowserDiagProbe.run(it, url)
+                            }
                             // SPEC-045: non-Simplified-Chinese → ask translate above chrome.
                             if (url != translatePromptUrl) {
                                 showTranslatePrompt = false
@@ -1317,9 +1371,26 @@ fun BrowserSessionScreen(
                             )
                         }
                         BrowserSessionHolder.markLoaded()
+                        appliedNavEpoch = navEpoch
+                        syncIdleAddress(initialTitle, initialUrl)
                     } else {
-                        // Reattach: keep search label in sync without reload.
-                        syncOmniboxLabelFromTab(client.lastUrl)
+                        // SPEC-125: restored after park — if tab URL moved (open from NTP),
+                        // must load; switchTo with same URL keeps parked page.
+                        if (initialUrl.isNotBlank() && initialUrl != client.lastUrl) {
+                            armHttpsFallback(initialOmniboxLabel, initialUrl)
+                            client.lastError = null
+                            pendingForcedUrl = initialUrl
+                            host.loadUrl(initialUrl)
+                            appliedNavEpoch = navEpoch
+                            syncIdleAddress(initialTitle, initialUrl)
+                        } else {
+                            pendingForcedUrl = null
+                            appliedNavEpoch = navEpoch
+                            syncIdleAddress(
+                                client.lastTitle.ifBlank { initialTitle.orEmpty() },
+                                client.lastUrl.ifBlank { initialUrl },
+                            )
+                        }
                     }
                 },
                 onDestroyed = {

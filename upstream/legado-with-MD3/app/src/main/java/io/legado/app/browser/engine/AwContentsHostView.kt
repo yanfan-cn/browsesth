@@ -1,17 +1,24 @@
 package io.legado.app.browser.engine
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Rect
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.AttributeSet
 import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.PixelCopy
 import android.view.View
+import android.view.Window
 import android.view.WindowInsets
 import android.view.accessibility.AccessibilityNodeProvider
 import android.view.inputmethod.EditorInfo
@@ -37,6 +44,13 @@ class AwContentsHostView @JvmOverloads constructor(
     private var awSettings: AwSettings? = null
     private val internalAccessDelegate = InternalAccessAdapter()
 
+    // SPEC-123 diag: last logged sizes to throttle logs.
+    private var diagLastMeasuredW = -1
+    private var diagLastMeasuredH = -1
+    private var diagLastCanvasW = -1
+    private var diagLastCanvasH = -1
+    private var diagLastInsets = ""
+
     init {
         applyLayerForDrawMode()
         overScrollMode = OVER_SCROLL_ALWAYS
@@ -53,6 +67,8 @@ class AwContentsHostView @JvmOverloads constructor(
     }
 
     fun attach(client: AwContentsClient, incognito: Boolean = false): AwContents {
+        // SPEC-124 diag: stage timing inside composition-frame attach.
+        val t0 = android.os.SystemClock.uptimeMillis()
         destroyContents()
         applyLayerForDrawMode()
         BrowserNtpPrefs.activateCookieJar(incognito)
@@ -130,6 +146,7 @@ class AwContentsHostView @JvmOverloads constructor(
         }.onFailure { Log.w(TAG, "setAllowContentAccess: ${it.message}") }
 
         val drawFnAccess = BrowserDrawMode.createDrawFnAccess(this)
+        val tA = android.os.SystemClock.uptimeMillis()
         val contents = AwContents(
             browserContext,
             this,
@@ -143,6 +160,18 @@ class AwContentsHostView @JvmOverloads constructor(
         awSettings = settings
         val mode = if (BrowserDrawMode.preferHardware()) "hardware DrawFn" else "software"
         Log.i(TAG, "AwContents attached (incognito=$incognito, $mode)")
+        Log.i(
+            TAG,
+            "diag124 attach total=${android.os.SystemClock.uptimeMillis() - t0}ms " +
+                "(settings=${tA - t0}ms, ctor+wire=${android.os.SystemClock.uptimeMillis() - tA}ms)",
+        )
+        // SPEC-123 diag: geometry at attach time.
+        Log.i(
+            TAG,
+            "diag123 attach: densityDpi=${resources.displayMetrics.densityDpi} " +
+                "view=${width}x${height} attachedToWindow=$isAttachedToWindow " +
+                "parent=${parent?.javaClass?.simpleName}",
+        )
         if (isAttachedToWindow) {
             contents.viewMethods.onAttachedToWindow()
             requestApplyInsets()
@@ -275,18 +304,97 @@ class AwContentsHostView @JvmOverloads constructor(
     /**
      * SPEC-053: downscaled still of the current page for the tab grid.
      * Software canvas only — never used as liquid-glass backdrop.
+     *
+     * SPEC-124: sync full-res software raster (draw() on a 1080p ARGB_8888
+     * canvas) blocked the main thread 500ms+ at every tab switch/back exit,
+     * killing the NavDisplay transition and causing the perceived 1–2s delay.
+     * Primary path is now async PixelCopy (render-thread copy, main thread
+     * returns immediately); the software fallback is low-res only (1/9 of
+     * the pixels, tens of ms) and used solely when PixelCopy is unavailable
+     * or fails.
      */
-    fun capturePreview(maxWidthPx: Int = 360): Bitmap? {
+    fun capturePreviewAsync(maxWidthPx: Int = 360, onDone: (Bitmap?) -> Unit) {
+        val w = width
+        val h = height
+        if (w <= 0 || h <= 0) {
+            onDone(null)
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isAttachedToWindow) {
+            val window = resolveHostWindow()
+            if (window != null) {
+                val requested = runCatching {
+                    val full = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                    val loc = IntArray(2)
+                    getLocationInWindow(loc)
+                    val srcRect = Rect(loc[0], loc[1], loc[0] + w, loc[1] + h)
+                    PixelCopy.request(
+                        window,
+                        srcRect,
+                        full,
+                        PixelCopy.OnPixelCopyFinishedListener { result ->
+                            if (result == PixelCopy.SUCCESS) {
+                                val scaled = downscaleOrNull(full, w, h, maxWidthPx)
+                                if (scaled != null) {
+                                    Log.i("Diag124", "thumb pixelcopy ok ${w}x${h} -> ${scaled.width}x${scaled.height}")
+                                    onDone(scaled)
+                                } else {
+                                    full.recycle()
+                                    Log.i("Diag124", "thumb pixelcopy scale failed -> lowres fallback")
+                                    onDone(capturePreviewLowRes(maxWidthPx))
+                                }
+                            } else {
+                                full.recycle()
+                                Log.i("Diag124", "thumb pixelcopy result=$result -> lowres fallback")
+                                onDone(capturePreviewLowRes(maxWidthPx))
+                            }
+                        },
+                        Handler(Looper.getMainLooper()),
+                    )
+                }
+                if (requested.isSuccess) {
+                    return
+                }
+                Log.i("Diag124", "thumb pixelcopy request threw: ${requested.exceptionOrNull()}")
+            } else {
+                Log.i("Diag124", "thumb pixelcopy unavailable (no host window) -> lowres fallback")
+            }
+        }
+        Log.i("Diag124", "thumb sync lowres fallback ${w}x${h} max=$maxWidthPx")
+        onDone(capturePreviewLowRes(maxWidthPx))
+    }
+
+    /** SPEC-124: unwrap ContextWrapper chain to the hosting Activity's Window. */
+    private fun resolveHostWindow(): Window? {
+        var ctx: Context? = context
+        while (ctx != null) {
+            if (ctx is Activity) return ctx.window
+            ctx = (ctx as? ContextWrapper)?.baseContext
+        }
+        return null
+    }
+
+    private fun downscaleOrNull(full: Bitmap, w: Int, h: Int, maxWidthPx: Int): Bitmap? = runCatching {
+        if (w <= maxWidthPx) full
+        else {
+            val nh = (h.toFloat() / w * maxWidthPx).toInt().coerceAtLeast(1)
+            Bitmap.createScaledBitmap(full, maxWidthPx, nh, true)
+        }
+    }.getOrNull()
+
+    /** SPEC-124: never full-res sync raster; draw scaled so pixels ≈ 1/9. */
+    private fun capturePreviewLowRes(maxWidthPx: Int): Bitmap? {
         val w = width
         val h = height
         if (w <= 0 || h <= 0) return null
         return runCatching {
-            val full = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(full)
+            val bw = maxWidthPx.coerceAtMost(w)
+            val bh = (h.toFloat() / w * bw).toInt().coerceAtLeast(1)
+            val bmp = Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bmp)
+            canvas.scale(bw.toFloat() / w, bh.toFloat() / h)
             draw(canvas)
-            if (w <= maxWidthPx) return@runCatching full
-            val nh = (h.toFloat() / w * maxWidthPx).toInt().coerceAtLeast(1)
-            Bitmap.createScaledBitmap(full, maxWidthPx, nh, true)
+            bmp
         }.getOrNull()
     }
 
@@ -333,10 +441,23 @@ class AwContentsHostView @JvmOverloads constructor(
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         awContents?.viewMethods?.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        // SPEC-123 diag
+        if (measuredWidth != diagLastMeasuredW || measuredHeight != diagLastMeasuredH) {
+            Log.i(
+                TAG,
+                "diag123 onMeasure: $measuredWidth x $measuredHeight " +
+                    "(specW=${View.MeasureSpec.toString(widthMeasureSpec)} " +
+                    "specH=${View.MeasureSpec.toString(heightMeasureSpec)})",
+            )
+            diagLastMeasuredW = measuredWidth
+            diagLastMeasuredH = measuredHeight
+        }
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
+        // SPEC-123 diag
+        Log.i(TAG, "diag123 onSizeChanged: $w x $h (old $oldw x $oldh)")
         awContents?.viewMethods?.onSizeChanged(w, h, oldw, oldh)
     }
 
@@ -366,6 +487,14 @@ class AwContentsHostView @JvmOverloads constructor(
 
     override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {
         // SPEC-073: Chromium host must receive system insets (visual viewport / sticky bars).
+        // SPEC-123 diag: log insets once per change.
+        runCatching {
+            val key = insets.toString()
+            if (key != diagLastInsets) {
+                Log.i(TAG, "diag123 insets: $key")
+                diagLastInsets = key
+            }
+        }
         val aw = awContents
         return if (aw != null) {
             aw.onApplyWindowInsets(insets)
@@ -398,6 +527,12 @@ class AwContentsHostView @JvmOverloads constructor(
     }
 
     override fun onDraw(canvas: Canvas) {
+        // SPEC-123 diag: log draw canvas size once per change (software path surface).
+        if (canvas.width != diagLastCanvasW || canvas.height != diagLastCanvasH) {
+            Log.i(TAG, "diag123 onDraw canvas: ${canvas.width} x ${canvas.height} (view $width x $height)")
+            diagLastCanvasW = canvas.width
+            diagLastCanvasH = canvas.height
+        }
         awContents?.viewMethods?.onDraw(canvas)
         super.onDraw(canvas)
     }

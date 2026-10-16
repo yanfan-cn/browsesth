@@ -61,7 +61,6 @@ import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.browser.engine.BrowseStore
-import io.legado.app.browser.engine.BrowserOpenBridge
 import io.legado.app.browser.engine.BrowserShortcut
 import io.legado.app.browser.engine.BrowserShortcutStore
 import io.legado.app.browser.engine.BrowserTabManager
@@ -254,7 +253,8 @@ private fun BrowserBookmarksBody(
                     incognito = incognito,
                     select = true,
                 )
-                BrowserOpenBridge.offer(entry.url)
+                // SPEC-124: openNewTab already set url/showHome; remount loads per
+                // SPEC-122 — no offer (it would re-load the same URL).
                 onBack()
             }
             else -> onOpenUrl(entry.url)

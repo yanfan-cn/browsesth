@@ -13,13 +13,18 @@ data class BrowserTab(
     val url: String?,
     val title: String,
     val incognito: Boolean,
-    /** SPEC-024: text shown in omnibox (search query / typed input), not page URL. */
+    /** Last typed/search text (edit buffer); SPEC-125 idle omnibox shows [title]/host. */
     val omniboxLabel: String? = null,
     /**
      * SPEC-094: when true, show NTP even if [url] is set (user pressed back to home).
      * Keeps url/title so the tabs grid can restore the page.
      */
     val showHome: Boolean = false,
+    /**
+     * SPEC-125: bumped on explicit openUrlInActive navigation so Compose can force
+     * loadUrl after park (must not confuse with in-page lastUrl "ahead of draft").
+     */
+    val navEpoch: Long = 0L,
 )
 
 /**
@@ -69,8 +74,10 @@ object BrowserTabManager {
                     if (it.id == id) {
                         it.copy(
                             omniboxLabel = label ?: it.omniboxLabel,
-                            title = displayTitle(label, url, it.title),
+                            // Prefer host until page title arrives (SPEC-125).
+                            title = displayTitle(null, url, label ?: it.title),
                             showHome = false,
+                            navEpoch = it.navEpoch + 1L,
                         )
                     } else it
                 }
@@ -86,16 +93,17 @@ object BrowserTabManager {
                 if (it.id == id) {
                     it.copy(
                         url = url,
-                        title = displayTitle(label, url, it.title),
+                        title = displayTitle(null, url, label ?: it.title),
                         incognito = incognito ?: it.incognito,
                         omniboxLabel = label ?: it.omniboxLabel,
                         showHome = false,
+                        navEpoch = it.navEpoch + 1L,
                     )
                 } else it
             }
         }
-        // SPEC-021: session retained → must hit live AwContents (state-only update was a no-op load).
-        // SPEC-122: when parked (NTP / other tab), Compose remount + LaunchedEffect loads.
+        // SPEC-021: live session → load now.
+        // SPEC-125: when parked, remount onReady / LaunchedEffect(navEpoch) must load.
         if (BrowserSessionHolder.sessionKey == id) {
             BrowserSessionHolder.loadUrl(url)
         }
@@ -275,6 +283,12 @@ object BrowserTabManager {
 
     /** Label for tabs grid / strip. */
     fun tabDisplayTitle(tab: BrowserTab): String = displayTitle(tab.title, tab.url, "新标签页")
+
+    /**
+     * SPEC-125: idle address bar / chrome label — page title, else host, else fallback.
+     */
+    fun pageDisplayLabel(title: String?, url: String?, fallback: String = ""): String =
+        displayTitle(title, url, fallback)
 
     private fun persist() {
         val ctx = appContext ?: return

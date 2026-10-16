@@ -7,6 +7,7 @@ import android.content.res.Configuration
 import android.os.Bundle
 import android.text.format.DateUtils
 import android.view.InputDevice
+import io.legado.app.browser.engine.BrowserKernelCompat
 import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
@@ -341,6 +342,10 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
         shouldApplyDefaultToRead = savedInstanceState == null
         restoredReadBookRoute = savedInstanceState?.restoreReadBookRoute()
         super.onCreate(savedInstanceState)
+
+        // SPEC-123 diag: capture extra Chromium switches via
+        // `am start ... --es xunye_switches "--switch=a,--switch-b"`, applied next start.
+        runCatching { BrowserKernelCompat.captureSwitchesExtra(this, intent?.getStringExtra("xunye_switches")) }
 
         if (checkStartupRoute()) return
         val shouldAutoCheckUpdate = startupUpdateCheckGate.consume(

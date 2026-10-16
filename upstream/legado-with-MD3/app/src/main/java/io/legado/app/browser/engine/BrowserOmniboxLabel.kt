@@ -4,7 +4,9 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
 /**
- * SPEC-024: omnibox shows the user's search / typed text, never the loaded page URL.
+ * Helpers for search-engine query extraction and resolve.
+ * SPEC-125: when a page is open and the omnibox is idle, the chrome shows page
+ * title / site host (not the raw search draft). Typed text is still used while editing.
  */
 object BrowserOmniboxLabel {
     private val queryKeys = listOf("wd", "q", "query", "keyword", "word", "w", "text", "search")

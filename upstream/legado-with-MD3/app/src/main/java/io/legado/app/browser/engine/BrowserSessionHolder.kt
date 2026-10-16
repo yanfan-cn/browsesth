@@ -40,6 +40,8 @@ object BrowserSessionHolder {
         clientFactory: () -> BrowserAwContentsClient,
         sessionKey: String,
     ): Pair<AwContentsHostView, BrowserAwContentsClient> {
+        // SPEC-124 diag: attachTo branch timing.
+        val t0 = android.os.SystemClock.uptimeMillis()
         val current = active
         if (current != null && this.sessionKey == sessionKey) {
             (current.host.parent as? ViewGroup)?.removeView(current.host)
@@ -52,23 +54,27 @@ object BrowserSessionHolder {
             )
             resumeHost(current.host)
             Log.i(TAG, "reattach existing session host key=$sessionKey")
+            Log.i(TAG, "diag124 reattach took=${android.os.SystemClock.uptimeMillis() - t0}ms")
             return current.host to current.client
         }
 
         // SPEC-120: park previous tab instead of destroying (no reload on switch).
         if (current != null) {
+            val tPark = android.os.SystemClock.uptimeMillis()
             val oldKey = this.sessionKey
             if (!oldKey.isNullOrBlank()) {
                 parkSlot(oldKey, current)
             } else {
                 destroySlot(current)
             }
+            Log.i(TAG, "diag124 park-old took=${android.os.SystemClock.uptimeMillis() - tPark}ms")
             active = null
             this.sessionKey = null
         }
 
         val restored = parked.remove(sessionKey)
         if (restored != null) {
+            val tR = android.os.SystemClock.uptimeMillis()
             (restored.host.parent as? ViewGroup)?.removeView(restored.host)
             container.addView(
                 restored.host,
@@ -81,9 +87,11 @@ object BrowserSessionHolder {
             active = restored
             this.sessionKey = sessionKey
             Log.i(TAG, "restored parked session key=$sessionKey")
+            Log.i(TAG, "diag124 restore took=${android.os.SystemClock.uptimeMillis() - tR}ms")
             return restored.host to restored.client
         }
 
+        val tC = android.os.SystemClock.uptimeMillis()
         val newHost = AwContentsHostView(container.context).apply {
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -96,6 +104,11 @@ object BrowserSessionHolder {
         active = SessionSlot(newHost, newClient, hasLoadedInitialUrl = false)
         this.sessionKey = sessionKey
         Log.i(TAG, "created session host key=$sessionKey")
+        Log.i(
+            TAG,
+            "diag124 create+attach took=${android.os.SystemClock.uptimeMillis() - tC}ms " +
+                "(attachTo total=${android.os.SystemClock.uptimeMillis() - t0}ms)",
+        )
         return newHost to newClient
     }
 
@@ -112,11 +125,17 @@ object BrowserSessionHolder {
         return true
     }
 
+    /**
+     * SPEC-124: async PixelCopy on the render thread; the tabs grid picks the
+     * update up via [BrowserTabThumbnailStore.revision]. Callers must invoke
+     * this **before** [parkActive] so the copy still sees the attached page.
+     */
     fun captureActiveThumbnail() {
         val id = sessionKey ?: return
         val h = active?.host ?: return
-        val bmp = h.capturePreview() ?: return
-        BrowserTabThumbnailStore.put(id, bmp)
+        h.capturePreviewAsync { bmp ->
+            if (bmp != null) BrowserTabThumbnailStore.put(id, bmp)
+        }
     }
 
     /**
@@ -185,7 +204,8 @@ object BrowserSessionHolder {
         keys.forEach { k ->
             parked.remove(k)?.let { destroySlot(it) }
         }
-        Log.i(TAG, "all session hosts destroyed")
+        // runCatching: JVM unit tests have no android.util.Log mock.
+        runCatching { Log.i(TAG, "all session hosts destroyed") }
     }
 
     private fun destroyActiveOnly() {

@@ -31,7 +31,6 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.browser.engine.BrowserChromePrefs
 import io.legado.app.browser.engine.BrowserFormFactor
-import io.legado.app.browser.engine.BrowserOmniboxLabel
 import io.legado.app.browser.engine.BrowserOpenBridge
 import io.legado.app.browser.engine.BrowserTabManager
 import io.legado.app.data.entities.Book
@@ -67,6 +66,7 @@ fun BrowserHomeTabScreen(
     onOpenReader: (bookUrl: String) -> Unit = {},
     onOpenMangaReader: (bookUrl: String) -> Unit = {},
     onOpenBookshelf: () -> Unit = {},
+    onOpenMy: () -> Unit = {},
 ) {
     BrowserTheme {
         BrowserHomeTabBody(
@@ -81,6 +81,7 @@ fun BrowserHomeTabScreen(
             onOpenReader = onOpenReader,
             onOpenMangaReader = onOpenMangaReader,
             onOpenBookshelf = onOpenBookshelf,
+            onOpenMy = onOpenMy,
         )
     }
 }
@@ -98,6 +99,7 @@ private fun BrowserHomeTabBody(
     onOpenReader: (bookUrl: String) -> Unit,
     onOpenMangaReader: (bookUrl: String) -> Unit,
     onOpenBookshelf: () -> Unit,
+    onOpenMy: () -> Unit,
 ) {
     val context = LocalContext.current
     // SPEC-108: react to fold/unfold (do not remember forever).
@@ -147,7 +149,7 @@ private fun BrowserHomeTabBody(
     var sidePanel by remember { mutableStateOf(TabletSidePanel.None) }
     var chromeVisible by remember { mutableStateOf(true) }
     var address by remember {
-        mutableStateOf(BrowserOmniboxLabel.resolve(active?.omniboxLabel, active?.url))
+        mutableStateOf(active?.let { BrowserTabManager.tabDisplayTitle(it) }.orEmpty())
     }
     var addressFocused by remember { mutableStateOf(false) }
     var submittingAddress by remember { mutableStateOf(false) }
@@ -172,14 +174,14 @@ private fun BrowserHomeTabBody(
         embeddedReaderUrl = null
     }
 
-    // SPEC-024: sync omnibox from search label, not page URL.
+    // SPEC-125: idle address = page title / host (not search draft).
     LaunchedEffect(active?.id) {
         addressFocused = false
-        address = BrowserOmniboxLabel.resolve(active?.omniboxLabel, active?.url)
+        address = active?.let { BrowserTabManager.tabDisplayTitle(it) }.orEmpty()
     }
-    LaunchedEffect(active?.omniboxLabel, active?.url) {
+    LaunchedEffect(active?.title, active?.url, active?.showHome) {
         if (!addressFocused) {
-            address = BrowserOmniboxLabel.resolve(active?.omniboxLabel, active?.url)
+            address = active?.let { BrowserTabManager.tabDisplayTitle(it) }.orEmpty()
         }
     }
 
@@ -201,6 +203,8 @@ private fun BrowserHomeTabBody(
             showNtp = showNtp,
             activeUrl = active?.url,
             omniboxLabel = active?.omniboxLabel,
+            initialTitle = active?.title,
+            navEpoch = active?.navEpoch ?: 0L,
             incognito = active?.incognito == true,
             onOpenBook = onOpenBook,
             onOpenBrowserSettings = onOpenBrowserSettings,
@@ -218,14 +222,18 @@ private fun BrowserHomeTabBody(
         address = address,
         onAddressChange = { address = it },
         onAddressFocusChange = { focused ->
-            if (
+            if (!addressFocused && focused) {
+                // SPEC-125: focus → URL for editing.
+                val editUrl = active?.url.orEmpty()
+                if (editUrl.isNotBlank()) address = editUrl
+            } else if (
                 TabletBrowserLayout.omniboxShouldRestoreOnFocusLost(
                     wasFocused = addressFocused,
                     nowFocused = focused,
                     submitting = submittingAddress,
                 )
             ) {
-                address = BrowserOmniboxLabel.resolve(active?.omniboxLabel, active?.url)
+                address = active?.let { BrowserTabManager.tabDisplayTitle(it) }.orEmpty()
             }
             addressFocused = focused
             if (focused) submittingAddress = false
@@ -255,6 +263,7 @@ private fun BrowserHomeTabBody(
         onRefresh = { sessionActions?.reload() },
         onReader = { sessionActions?.openReader() },
         onOpenBookshelf = onOpenBookshelf,
+        onOpenMy = onOpenMy,
         chromeVisible = chromeVisible || !logicalSessionActive || embeddedKind != null,
         sidePanel = sidePanel,
         onSidePanelChange = { sidePanel = it },
@@ -294,6 +303,8 @@ private fun BrowserHomeTabBody(
                     incognito = tab.incognito,
                     sessionKey = tab.id,
                     initialOmniboxLabel = tab.omniboxLabel,
+                    initialTitle = tab.title,
+                    navEpoch = tab.navEpoch,
                     onOpenBrowserSettings = onOpenBrowserSettings,
                     onOpenBookmarks = { sidePanel = TabletSidePanel.Bookmarks },
                     onOpenDownloads = onOpenDownloads,
@@ -303,7 +314,7 @@ private fun BrowserHomeTabBody(
                     onOpenMangaReader = { openEmbeddedReader(TabletEmbeddedReaderKind.Manga, it) },
                     onPageMeta = { pageUrl, title ->
                         if (!addressFocused) {
-                            address = BrowserOmniboxLabel.resolve(tab.omniboxLabel, pageUrl)
+                            address = BrowserTabManager.pageDisplayLabel(title, pageUrl)
                         }
                         BrowserTabManager.updateActiveMeta(pageUrl, title)
                     },
@@ -384,14 +395,18 @@ private fun BrowserNtpSessionSwitch(
                 ntpState = MutableTransitionState(false)
             }
         } else {
-            // Pop: NTP ready underneath; session slides out to the right on top.
+            // Pop: session slides out to the right on top first; NTP (re)composition
+            // is deferred until the slide finishes — SPEC-124: composing the NTP
+            // during the slide landed 100–360ms frames that ate the whole
+            // animation. Brief container background during the slide is accepted.
+            sessionState.targetState = false
+            snapshotFlow { sessionState.isIdle && !sessionState.currentState }.first { it }
+            // Instant in-place (re)compose after the slide; no enter animation.
             if (!ntpState.currentState && !ntpState.targetState) {
                 ntpState = MutableTransitionState(true)
             } else {
                 ntpState.targetState = true
             }
-            sessionState.targetState = false
-            snapshotFlow { sessionState.isIdle && !sessionState.currentState }.first { it }
             exitFinished()
         }
     }
@@ -429,6 +444,8 @@ private fun PhoneBrowserHome(
     showNtp: Boolean,
     activeUrl: String?,
     omniboxLabel: String?,
+    initialTitle: String?,
+    navEpoch: Long,
     incognito: Boolean,
     onOpenBook: (Book) -> Unit,
     onOpenBrowserSettings: () -> Unit,
@@ -469,6 +486,8 @@ private fun PhoneBrowserHome(
                 incognito = incognito,
                 sessionKey = sessionKey,
                 initialOmniboxLabel = omniboxLabel,
+                initialTitle = initialTitle,
+                navEpoch = navEpoch,
                 onOpenBrowserSettings = onOpenBrowserSettings,
                 onOpenBookmarks = onOpenBookmarks,
                 onOpenDownloads = onOpenDownloads,

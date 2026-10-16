@@ -549,26 +549,20 @@ fun BrowserNtpScreen(
             }
         }
 
+        // SPEC-126: tablet — full-width scroll so left/right blank areas also scroll;
+        // content column stays 75%/55% centered; no large bottom placeholder.
+        val tabletPortrait = LocalConfiguration.current.orientation ==
+            android.content.res.Configuration.ORIENTATION_PORTRAIT
         Column(
             modifier = Modifier
+                .fillMaxSize()
+                .align(Alignment.TopCenter)
                 .then(
                     if (tabletLayout) {
-                        // SPEC-060/110: portrait 75% / landscape 55%; shell already owns
-                        // statusBars + tab strip + function bar — no statusBars/85dp again.
-                        val portrait = LocalConfiguration.current.orientation ==
-                            android.content.res.Configuration.ORIENTATION_PORTRAIT
-                        Modifier
-                            .fillMaxWidth(if (portrait) 0.75f else 0.55f)
-                            .align(Alignment.TopCenter)
-                            .padding(
-                                top = BrowserUiTokens.NtpTopBarHeight,
-                                bottom = 24.dp,
-                            )
+                        Modifier.padding(top = BrowserUiTokens.NtpTopBarHeight)
                     } else {
                         // Top/bottom chrome float (no TopBarHeight/BottomBarHeight reserve).
-                        // Content = statusBars + 85dp (previous 80dp-from-screen-top looked like no shift).
                         Modifier
-                            .fillMaxSize()
                             .padding(horizontal = BrowserUiTokens.PagePaddingH)
                             .statusBarsPadding()
                             .navigationBarsPadding()
@@ -578,6 +572,18 @@ fun BrowserNtpScreen(
                 .verticalScroll(ntpScrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth(
+                        if (tabletLayout) {
+                            if (tabletPortrait) 0.75f else 0.55f
+                        } else {
+                            1f
+                        },
+                    )
+                    .padding(bottom = if (tabletLayout) 16.dp else 0.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
             val showLogo = incognito || !dailyWallpaper
             if (showLogo) {
                 Image(
@@ -1035,6 +1041,7 @@ fun BrowserNtpScreen(
                     }
                 }
             }
+            } // inner content width column (SPEC-126)
         }
 
         if (newsSourceMenu && !incognito) {

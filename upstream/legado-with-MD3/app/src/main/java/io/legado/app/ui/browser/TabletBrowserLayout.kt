@@ -12,12 +12,17 @@ object TabletBrowserLayout {
     @Suppress("UNUSED_PARAMETER")
     fun sidePanelWidthFraction(portrait: Boolean): Float = 0.5f
 
+    /**
+     * SPEC-126: tablet never finger-swipes between bookshelf / browser home / My
+     * (chrome entry buttons still animateScrollToPage).
+     */
+    @Suppress("UNUSED_PARAMETER")
     fun pagerUserScrollEnabled(
         isTablet: Boolean,
         onBrowserHome: Boolean,
         sessionActive: Boolean,
     ): Boolean = when {
-        isTablet && onBrowserHome -> false
+        isTablet -> false
         sessionActive -> false
         else -> true
     }

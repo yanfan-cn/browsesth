@@ -92,4 +92,44 @@ class BrowserTabManagerTest {
         BrowserTabManager.releaseSessionHostIfParked()
         assertTrue(BrowserTabManager.isWebSessionShowing(BrowserTabManager.activeTab()))
     }
+
+    @Test
+    fun openUrlInActiveBumpsNavEpochClearHomeDoesNot() {
+        BrowserTabManager.openUrlInActive("https://a.example/", omniboxLabel = "a")
+        val e1 = BrowserTabManager.activeTab()!!.navEpoch
+        assertTrue(e1 >= 1L)
+        BrowserTabManager.clearActiveToNtp()
+        assertEquals(e1, BrowserTabManager.activeTab()!!.navEpoch)
+        BrowserTabManager.openUrlInActive("https://b.example/", omniboxLabel = "b")
+        val after = BrowserTabManager.activeTab()!!
+        assertEquals("https://b.example/", after.url)
+        assertTrue(!after.showHome)
+        assertEquals(e1 + 1L, after.navEpoch)
+        // Idle label prefers host until real page title arrives.
+        assertEquals("b.example", BrowserTabManager.tabDisplayTitle(after))
+    }
+
+    @Test
+    fun switchToClearsShowHomeWithoutBumpingNavEpoch() {
+        BrowserTabManager.openUrlInActive("https://a.example/")
+        val e1 = BrowserTabManager.activeTab()!!.navEpoch
+        BrowserTabManager.clearActiveToNtp()
+        BrowserTabManager.switchTo(BrowserTabManager.activeTab()!!.id)
+        val t = BrowserTabManager.activeTab()!!
+        assertTrue(!t.showHome)
+        assertEquals(e1, t.navEpoch)
+        assertEquals("https://a.example/", t.url)
+    }
+
+    @Test
+    fun pageDisplayLabelPrefersTitleThenHost() {
+        assertEquals(
+            "Example Domain",
+            BrowserTabManager.pageDisplayLabel("Example Domain", "https://example.com/x"),
+        )
+        assertEquals(
+            "example.com",
+            BrowserTabManager.pageDisplayLabel(null, "https://www.example.com/x"),
+        )
+    }
 }

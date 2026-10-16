@@ -26,11 +26,19 @@ class TabletBrowserLayoutTest {
     }
 
     @Test
-    fun tabletHomeDisablesPagerSwipe() {
+    fun tabletDisablesPagerSwipeEverywhere() {
+        // SPEC-126: no finger swipe among bookshelf / home / My on tablet.
         assertFalse(
             TabletBrowserLayout.pagerUserScrollEnabled(
                 isTablet = true,
                 onBrowserHome = true,
+                sessionActive = false,
+            ),
+        )
+        assertFalse(
+            TabletBrowserLayout.pagerUserScrollEnabled(
+                isTablet = true,
+                onBrowserHome = false,
                 sessionActive = false,
             ),
         )
@@ -46,13 +54,6 @@ class TabletBrowserLayoutTest {
                 isTablet = false,
                 onBrowserHome = true,
                 sessionActive = true,
-            ),
-        )
-        assertTrue(
-            TabletBrowserLayout.pagerUserScrollEnabled(
-                isTablet = true,
-                onBrowserHome = false,
-                sessionActive = false,
             ),
         )
     }

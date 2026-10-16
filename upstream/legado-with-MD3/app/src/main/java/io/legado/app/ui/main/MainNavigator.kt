@@ -2,6 +2,9 @@ package io.legado.app.ui.main
 
 import android.app.Activity
 import android.content.Intent
+import android.os.SystemClock
+import android.util.Log
+import android.view.Choreographer
 import androidx.navigation3.runtime.NavKey
 import io.legado.app.feature.reader.platform.ReaderPerfTrace
 import io.legado.app.model.ReadBook
@@ -382,6 +385,12 @@ object MainNavigator {
             return
         }
         if (backStack.size > 1) {
+            // SPEC-124 diag: back press → next rendered frame latency.
+            val t0 = SystemClock.uptimeMillis()
+            Log.i("Diag124", "back pressed (stack=${backStack.size})")
+            Choreographer.getInstance().postFrameCallback {
+                Log.i("Diag124", "first frame after back: +${SystemClock.uptimeMillis() - t0}ms")
+            }
             backNavigationInProgress = true
             backStack.removeLastOrNull()
             tracker?.onBackStackChanged(backStack)

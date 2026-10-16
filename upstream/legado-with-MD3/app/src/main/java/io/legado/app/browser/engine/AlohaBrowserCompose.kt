@@ -1,5 +1,6 @@
 package io.legado.app.browser.engine
 
+import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.runtime.Composable
@@ -55,6 +56,9 @@ private fun AlohaBrowserComposeInner(
     AndroidView(
         modifier = modifier,
         factory = { context ->
+            // SPEC-124 diag: factory runs inside the composition frame.
+            val t0 = android.os.SystemClock.uptimeMillis()
+            val diagKey = sessionKey ?: "ephemeral"
             FrameLayout(context).apply {
                 clipChildren = false
                 clipToPadding = false
@@ -67,6 +71,10 @@ private fun AlohaBrowserComposeInner(
                     )
                     holder.host = host
                     holder.client = client
+                    Log.i(
+                        "Diag124",
+                        "factory attachTo key=$diagKey total=${android.os.SystemClock.uptimeMillis() - t0}ms",
+                    )
                     onReady(host, client)
                 } else {
                     val host = AwContentsHostView(context).apply {
@@ -80,6 +88,10 @@ private fun AlohaBrowserComposeInner(
                     host.attach(client, incognito = incognito)
                     holder.host = host
                     holder.client = client
+                    Log.i(
+                        "Diag124",
+                        "factory attach key=$diagKey total=${android.os.SystemClock.uptimeMillis() - t0}ms",
+                    )
                     onReady(host, client)
                 }
             }
