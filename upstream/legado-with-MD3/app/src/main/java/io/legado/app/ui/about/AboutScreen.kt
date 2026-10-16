@@ -1,10 +1,8 @@
 package io.legado.app.ui.about
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,9 +21,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -99,23 +97,17 @@ private fun MaterialAboutScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            // SPEC-118: cream plate so adaptive foreground (black 巡页 on transparent) stays readable.
-            Box(
+            // Logo already includes navy rounded plate; no cream backing.
+            Image(
+                painter = painterResource(R.drawable.ic_launcher),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .padding(top = 8.dp)
                     .size(120.dp)
                     .align(Alignment.CenterHorizontally)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color(0xFFF6F1EA)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_launcher_foreground),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
+                    .clip(RoundedCornerShape(24.dp)),
+            )
             TextCard(
                 text = versionName,
                 cornerRadius = 8.dp,
@@ -128,9 +120,10 @@ private fun MaterialAboutScreen(
                 text = stringResource(R.string.about_description),
                 style = LegadoTheme.typography.bodyLarge,
                 fontSize = 16.sp,
+                textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .wrapContentWidth(Alignment.CenterHorizontally)
+                    .padding(horizontal = 24.dp, vertical = 0.dp)
                     .padding(bottom = 12.dp),
             )
 

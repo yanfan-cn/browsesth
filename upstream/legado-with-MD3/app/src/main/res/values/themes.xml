@@ -17,11 +17,13 @@
 
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_screen_background</item>
-        <!-- SPEC-120: rounded-rect plate+logo (24dp corners in drawable). -->
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo_rounded</item>
-        <item name="windowSplashScreenIconBackgroundColor">@color/splash_screen_background</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_screen_background</item>
+        <!-- Plate baked at ~53% canvas so after SplashScreen ~66% zoom, rounded rect ~80% viewport. -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
         <item name="postSplashScreenTheme">@style/Base.AppTheme</item>
     </style>
+
 
     <style name="ThemeOverlay.WhiteBackground" parent="">
         <item name="colorOnPrimary">@color/wh_theme_onPrimary</item>

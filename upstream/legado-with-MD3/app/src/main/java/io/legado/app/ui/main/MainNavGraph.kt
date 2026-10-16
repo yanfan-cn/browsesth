@@ -668,7 +668,9 @@ fun MainActivity.mainEntryProvider(
         io.legado.app.ui.browser.BrowserBookmarksScreen(
             onBack = { onNavigateBack() },
             onOpenUrl = { url ->
-                io.legado.app.browser.engine.BrowserOpenBridge.offer(url)
+                // SPEC-124: open synchronously so Home remounts straight into the
+                // session — no NTP flash, no offer/consume hop (double compose).
+                io.legado.app.browser.engine.BrowserTabManager.openUrlInActive(url)
                 onNavigateBack()
             },
             onOpenBook = { book ->
@@ -718,7 +720,9 @@ fun MainActivity.mainEntryProvider(
         io.legado.app.ui.browser.BrowserHistoryScreen(
             onBack = { onNavigateBack() },
             onOpenUrl = { url ->
-                io.legado.app.browser.engine.BrowserOpenBridge.offer(url)
+                // SPEC-124: open synchronously so Home remounts straight into the
+                // session — no NTP flash, no offer/consume hop (double compose).
+                io.legado.app.browser.engine.BrowserTabManager.openUrlInActive(url)
                 onNavigateBack()
             },
             onOpenClearData = { onNavigateToRoute(MainRouteBrowserClearData) },
@@ -1642,9 +1646,9 @@ fun MainActivity.mainEntryProvider(
         LaunchedEffect(viewModel) {
             viewModel.effects.collectLatest { effect ->
                 when (effect) {
-                    // SPEC-121: offer URL then go Home so browser tab consumes it (not stuck on 我的).
+                    // SPEC-124: open in active Browsesth tab then go Home (same as bookmarks/history).
                     is AboutEffect.OpenUrl -> {
-                        io.legado.app.browser.engine.BrowserOpenBridge.offer(effect.url)
+                        io.legado.app.browser.engine.BrowserTabManager.openUrlInActive(effect.url)
                         onNavigateToRoute(MainRouteHome)
                     }
                     is AboutEffect.ShowToast -> context.toastOnUi(effect.message)
