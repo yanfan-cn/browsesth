@@ -7,6 +7,7 @@ import androidx.collection.LruCache
 import io.legado.app.R
 import io.legado.app.constant.AppLog.putDebug
 import io.legado.app.data.entities.Book
+import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookSource
 import io.legado.app.domain.gateway.DownloadCacheSettingsGateway
 import io.legado.app.domain.gateway.OtherSettingsGateway
@@ -133,7 +134,8 @@ object ImageProvider {
     suspend fun cacheImage(
         book: Book,
         src: String,
-        bookSource: BookSource?
+        bookSource: BookSource?,
+        chapter: BookChapter? = null,
     ): File {
         return withContext(IO) {
             val vFile = BookHelp.getImage(book, src)
@@ -143,7 +145,8 @@ object ImageProvider {
                     book.isPdf -> PdfFile.getImage(book, src)
                     book.isMobi -> MobiFile.getImage(book, src)
                     else -> {
-                        BookHelp.saveImage(bookSource, book, src)
+                        // SPEC-123: chapter URL becomes the image Referer for browser web books.
+                        BookHelp.saveImage(bookSource, book, src, chapter)
                         null
                     }
                 }
@@ -164,9 +167,10 @@ object ImageProvider {
     suspend fun getImageSize(
         book: Book,
         src: String,
-        bookSource: BookSource?
+        bookSource: BookSource?,
+        chapter: BookChapter? = null,
     ): Size {
-        val file = cacheImage(book, src, bookSource)
+        val file = cacheImage(book, src, bookSource, chapter)
         val op = BitmapFactory.Options()
         // inJustDecodeBounds如果设置为true,仅仅返回图片实际的宽和高,宽和高是赋值给opts.outWidth,opts.outHeight;
         op.inJustDecodeBounds = true

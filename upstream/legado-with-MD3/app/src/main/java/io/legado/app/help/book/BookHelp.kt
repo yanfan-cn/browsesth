@@ -493,28 +493,19 @@ object BookHelp {
     }
 
     /**
-     * SPEC-092: browser ephemeral novel/manga books download body images without a BookSource;
-     * news CDNs commonly require Referer matching the article page.
+     * SPEC-092 / SPEC-123: browser ephemeral novel/manga books download body images without a
+     * BookSource. News CDNs commonly require Referer matching the article page. Chapter URL wins
+     * when the reader passes the chapter being laid out.
      */
     private fun browserWebImageHeaders(
         book: Book,
         chapter: BookChapter?,
-    ): Map<String, String>? {
-        val isBrowserWeb = book.origin == io.legado.app.browser.reader.WebArticleBookFactory.ORIGIN ||
-            book.origin == io.legado.app.browser.reader.WebMangaBookFactory.ORIGIN
-        if (!isBrowserWeb) return null
-        val referer = chapter?.url?.takeIf { it.startsWith("http") }
-            ?: book.customIntro?.takeIf { it.startsWith("http") }
-            ?: book.tocUrl.takeIf { it.startsWith("http") }
-        val headers = linkedMapOf(
-            "User-Agent" to io.legado.app.browser.engine.BrowserUa.MOBILE,
-            "Accept" to "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
-        )
-        if (!referer.isNullOrBlank()) {
-            headers["Referer"] = referer
-        }
-        return headers
-    }
+    ): Map<String, String>? = io.legado.app.browser.reader.BrowserWebImageHeaders.build(
+        origin = book.origin,
+        chapterUrl = chapter?.url,
+        pageUrl = book.customIntro,
+        tocUrl = book.tocUrl,
+    )
 
     /** Android 图片适配器使用：先持有租约，再获取文件，避免发布与淘汰之间存在空窗。 */
     suspend fun acquireReadingImage(

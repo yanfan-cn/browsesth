@@ -7,6 +7,7 @@ import io.legado.app.ui.widget.components.icon.Symbols
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -113,6 +114,7 @@ import io.legado.app.browser.manga.cimoc.json.CimocJsonRuleStore
 import io.legado.app.browser.reader.WebArticleBookFactory
 import io.legado.app.browser.reader.WebArticleChromeFilter
 import io.legado.app.browser.reader.WebArticleExtractJs
+import io.legado.app.browser.reader.WebArticleMixedHydration
 import io.legado.app.browser.reader.WebChapterExpandJs
 import io.legado.app.browser.reader.WebChapterHttpFetcher
 import io.legado.app.browser.reader.WebMangaBookFactory
@@ -433,6 +435,10 @@ fun BrowserSessionScreen(
             context.toastOnUi("阅读视图不可用")
             return
         }
+        // SPEC-123: Tencent Next.js articles often have no body <img> until hydration.
+        if (keepImages && WebArticleMixedHydration.needsWait(pageUrl)) {
+            awaitMixedArticleImages(host)
+        }
         val partRaw = host.evalJs(WebArticleExtractJs.SCRIPT)
         val extracted = WebArticleBookFactory.parseExtractResult(partRaw)
         val toc = discoverToc(host)
@@ -473,6 +479,32 @@ fun BrowserSessionScreen(
             created
         }
         open(book.bookUrl)
+    }
+
+    /**
+     * SPEC-123: poll until article images exist, the article signature stays still
+     * for [WebArticleMixedHydration.SETTLE_MS], or the timeout elapses.
+     */
+    suspend fun awaitMixedArticleImages(host: AwContentsHostView) {
+        val start = SystemClock.elapsedRealtime()
+        var previousSignature: String? = null
+        var stableHits = 0
+        while (true) {
+            val probe = WebArticleMixedHydration.parseProbe(
+                host.evalJs(WebArticleMixedHydration.PROBE_SCRIPT),
+            )
+            val elapsed = SystemClock.elapsedRealtime() - start
+            stableHits = if (previousSignature != null && previousSignature == probe.signature) {
+                stableHits + 1
+            } else {
+                0
+            }
+            previousSignature = probe.signature
+            if (WebArticleMixedHydration.readyToExtract(elapsed, probe.imageCount, stableHits)) {
+                return
+            }
+            delay(WebArticleMixedHydration.POLL_MS)
+        }
     }
 
     fun maybeDetectTranslatePrompt(url: String) {

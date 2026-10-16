@@ -6,41 +6,51 @@ package io.legado.app.browser.reader
  * [html] keeps paragraph + in-body images in DOM order for mixed layout.
  *
  * SPEC-044: nested containers recurse; never flatten via innerText (that dropped imgs).
+ * SPEC-123: ad tokens are bounded so `image-reload` is not treated as an ad.
  */
 object WebArticleExtractJs {
+    /**
+     * Image helpers shared by the WebView script and JVM tests.
+     * `ads?` must not match the trailing "ad" inside `reload` / `load` / `upload`.
+     */
+    val imageFilterJs: String =
+        """
+        function abs(u){try{return new URL(u,document.baseURI).href;}catch(e){return u||'';}}
+        function isBadImg(el,src,fromLazy){
+        if(!src||src.indexOf('data:')===0)return true;
+        var low=src.toLowerCase();
+        if(/avatar|icon|logo|banner|pixel|1x1|spacer|blank\.gif|pagead|doubleclick|googlesyndication|adsbygoogle/.test(low))return true;
+        if(/(?:^|[^a-z0-9])ads?(?![a-z0-9])/.test(low))return true;
+        if(/(?:^|[^a-z0-9])advert/.test(low))return true;
+        var cls=((el.className||'')+' '+(el.id||'')).toLowerCase();
+        if(/avatar|icon|logo|emoji|sprite|banner|pixel|track|adsbygoogle/.test(cls))return true;
+        if(/(?:^|[^a-z0-9])ads?(?![a-z0-9])/.test(cls))return true;
+        if(/(?:^|[^a-z0-9])advert/.test(cls))return true;
+        if(!fromLazy){
+        var w=el.naturalWidth||el.width||0,h=el.naturalHeight||el.height||0;
+        if(w>0&&h>0&&(w<80||h<80||w*h<12000))return true;
+        }
+        return false;
+        }
+        function firstSrcset(v){
+        if(!v)return '';var p=(v.split(',')[0]||'').trim().split(/\s+/)[0]||'';return p;
+        }
+        function imgTag(el){
+        var lazy=el.getAttribute('data-src')||el.getAttribute('data-original')||el.getAttribute('data-lazy-src')||el.getAttribute('data-url')||el.getAttribute('data-actualsrc')||el.getAttribute('data-original-src')||'';
+        if(!lazy)lazy=firstSrcset(el.getAttribute('data-srcset'));
+        var src=lazy||el.currentSrc||el.src||'';
+        if((!src||src.indexOf('data:')===0)&&el.srcset){src=firstSrcset(el.srcset);}
+        src=abs(src);
+        if(isBadImg(el,src,!!lazy))return '';
+        return '<img src="'+src.replace(/"/g,'')+'">';
+        }
+        """.trimIndent()
+
     val SCRIPT: String =
         "(function(){" +
-            "function abs(u){try{return new URL(u,document.baseURI).href;}catch(e){return u||'';}}" +
+            imageFilterJs +
             "function meta(sel){var el=document.querySelector(sel);if(!el)return '';return el.getAttribute('content')||'';}" +
             "function textOf(el){if(!el)return '';return (el.innerText||el.textContent||'').replace(/\\s+\\n/g,'\\n').trim();}" +
-            "function isBadImg(el,src,fromLazy){" +
-            "if(!src||src.indexOf('data:')===0)return true;" +
-            "var low=src.toLowerCase();" +
-            "if(/avatar|icon|logo|ads?|banner|pixel|1x1|spacer|blank\\.gif/.test(low))return true;" +
-            "var cls=((el.className||'')+' '+(el.id||'')).toLowerCase();" +
-            "if(/avatar|icon|logo|emoji|sprite|ads?|banner|pixel|track/.test(cls))return true;" +
-            // Skip size check when URL came from lazy attr (placeholder dims are misleading).
-            "if(!fromLazy){" +
-            "var w=el.naturalWidth||el.width||0,h=el.naturalHeight||el.height||0;" +
-            "if(w>0&&h>0&&(w<80||h<80||w*h<12000))return true;" +
-            "}" +
-            "return false;" +
-            "}" +
-            // SPEC-092: prefer lazy attrs over placeholder src (news sites often use 1x1 + data-src).
-            "function firstSrcset(v){" +
-            "if(!v)return '';var p=(v.split(',')[0]||'').trim().split(/\\s+/)[0]||'';return p;" +
-            "}" +
-            "function imgTag(el){" +
-            "var lazy=el.getAttribute('data-src')||el.getAttribute('data-original')" +
-            "||el.getAttribute('data-lazy-src')||el.getAttribute('data-url')" +
-            "||el.getAttribute('data-actualsrc')||el.getAttribute('data-original-src')||'';" +
-            "if(!lazy)lazy=firstSrcset(el.getAttribute('data-srcset'));" +
-            "var src=lazy||el.currentSrc||el.src||'';" +
-            "if((!src||src.indexOf('data:')===0)&&el.srcset){src=firstSrcset(el.srcset);}" +
-            "src=abs(src);" +
-            "if(isBadImg(el,src,!!lazy))return '';" +
-            "return '<img src=\"'+src.replace(/\"/g,'')+'\">';" +
-            "}" +
             "function isSkip(tag){" +
             "return tag==='script'||tag==='style'||tag==='noscript'||tag==='svg'||tag==='button'" +
             "||tag==='nav'||tag==='footer'||tag==='header'||tag==='aside'||tag==='form'||tag==='iframe';" +
