@@ -65,6 +65,27 @@ class TabletBrowserLayoutTest {
     }
 
     @Test
+    fun toolboxWidthPortraitHalfLandscapeForty() {
+        assertEquals(0.5f, TabletBrowserLayout.toolboxWidthFraction(portrait = true))
+        assertEquals(0.4f, TabletBrowserLayout.toolboxWidthFraction(portrait = false))
+    }
+
+    @Test
+    fun phoneNtpLandscapeSixtyFivePercent() {
+        // SPEC-133
+        assertEquals(0.65f, TabletBrowserLayout.phoneNtpContentWidthFraction(landscape = true))
+        assertEquals(1f, TabletBrowserLayout.phoneNtpContentWidthFraction(landscape = false))
+    }
+
+    @Test
+    fun phoneHomeNavAtEndOnlyLandscapePhone() {
+        // SPEC-133
+        assertTrue(TabletBrowserLayout.phoneHomeNavAtEnd(isTablet = false, landscape = true))
+        assertFalse(TabletBrowserLayout.phoneHomeNavAtEnd(isTablet = false, landscape = false))
+        assertFalse(TabletBrowserLayout.phoneHomeNavAtEnd(isTablet = true, landscape = true))
+    }
+
+    @Test
     fun tabletHeaderAlwaysHiddenPhoneUnchanged() {
         assertFalse(
             TabletBrowserLayout.headerVisible(

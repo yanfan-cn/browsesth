@@ -650,6 +650,7 @@ fun MainActivity.mainEntryProvider(
             onBackClick = { onNavigateBack() },
             onOpenClearBrowsingData = { onNavigateToRoute(MainRouteBrowserClearData) },
             onOpenPrivacy = { onNavigateToRoute(MainRouteBrowserPrivacy) },
+            onOpenPickBlock = { onNavigateToRoute(MainRouteBrowserPickBlock) },
         )
     }
 
@@ -659,6 +660,14 @@ fun MainActivity.mainEntryProvider(
         io.legado.app.ui.browser.BrowserPrivacyScreen(
             onBack = { onNavigateBack() },
             onOpenClearBrowsingData = { onNavigateToRoute(MainRouteBrowserClearData) },
+        )
+    }
+
+    entry<MainRouteBrowserPickBlock>(
+        metadata = browserSlideEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
+    ) {
+        io.legado.app.ui.browser.BrowserPickBlockScreen(
+            onBack = { onNavigateBack() },
         )
     }
 

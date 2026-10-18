@@ -253,6 +253,15 @@ class AwContentsHostView @JvmOverloads constructor(
     fun canGoBack(): Boolean = awContents?.canGoBack() == true
     fun canGoForward(): Boolean = awContents?.canGoForward() == true
 
+    /**
+     * SPEC-127: drop in-page back stack after an explicit NTP/omnibox navigation so
+     * system back returns to the browser home feed instead of the previous article.
+     */
+    fun clearHistory() {
+        runCatching { awContents?.clearHistory() }
+            .onFailure { Log.w(TAG, "clearHistory: ${it.message}") }
+    }
+
     /** SPEC-073: mark history nav so session can skip layout-affecting injects / restore scroll. */
     fun goBack() {
         BrowserScrollMemory.markHistoryNavigation()

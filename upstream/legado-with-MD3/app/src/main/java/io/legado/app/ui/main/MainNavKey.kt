@@ -76,6 +76,10 @@ data object MainRouteBrowserClearData : MainRoute
 @Serializable
 data object MainRouteBrowserPrivacy : MainRoute
 
+/** SPEC-134: pick-to-block rules management page. */
+@Serializable
+data object MainRouteBrowserPickBlock : MainRoute
+
 @Serializable
 data object MainRouteBrowserTabs : MainRoute
 

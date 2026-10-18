@@ -130,6 +130,7 @@ object MainNavigator {
                     MainRouteBrowserHistory,
                     MainRouteBrowserClearData,
                     MainRouteBrowserPrivacy,
+                    MainRouteBrowserPickBlock,
                     -> backStack.add(route)
                     MainRouteSettings -> backStack.add(route)
                     else -> {
@@ -170,6 +171,7 @@ object MainNavigator {
             MainRouteBrowserHistory,
             MainRouteBrowserClearData,
             MainRouteBrowserPrivacy,
+            MainRouteBrowserPickBlock,
             MainRouteBrowserTabs,
             is MainRouteReadBook,
             is MainRouteReadManga -> {
@@ -181,6 +183,7 @@ object MainNavigator {
                     currentRoute == MainRouteBrowserHistory ||
                     currentRoute == MainRouteBrowserClearData ||
                     currentRoute == MainRouteBrowserPrivacy ||
+                    currentRoute == MainRouteBrowserPickBlock ||
                     currentRoute == MainRouteBrowserTabs ||
                     currentRoute == MainRouteSettingsBrowser
                 ) {

@@ -95,13 +95,36 @@ object BrowserShieldJs {
         })();
     """.trimIndent()
 
+    /**
+     * SPEC-134: multi-select pick mode. Stays active until [stopPickModeScript].
+     * Blocks default navigation on click / mousedown / auxclick / pointerdown / touchstart.
+     */
     fun startPickModeScript(): String = """
         (function(){
-          if (window.__browsesthPick) return;
+          // Re-bind after navigation: previous document listeners are gone.
+          var prevPick = window.__browsesthPickOnPick;
+          var prevBlock = window.__browsesthPickBlockNav;
+          if (prevPick) {
+            try { document.removeEventListener('click', prevPick, true); } catch (_) {}
+          }
+          if (prevBlock) {
+            try {
+              document.removeEventListener('mousedown', prevBlock, true);
+              document.removeEventListener('auxclick', prevBlock, true);
+              document.removeEventListener('pointerdown', prevBlock, true);
+              document.removeEventListener('touchstart', prevBlock, true);
+            } catch (_) {}
+          }
           window.__browsesthPick = true;
+          window.__browsesthPickMap = window.__browsesthPickMap || {};
+          function esc(s) {
+            try { return CSS.escape(s); } catch (_) {
+              return String(s).replace(/[^a-zA-Z0-9_-]/g, '\\${'$'}&');
+            }
+          }
           function cssPath(el) {
             if (!el || el.nodeType !== 1) return '';
-            if (el.id) return '#' + el.id;
+            if (el.id) return '#' + esc(el.id);
             var parts = [];
             var cur = el;
             while (cur && cur.nodeType === 1 && parts.length < 4) {
@@ -109,7 +132,8 @@ object BrowserShieldJs {
               if (cur.classList && cur.classList.length) {
                 var cls = [];
                 for (var i = 0; i < Math.min(2, cur.classList.length); i++) {
-                  cls.push('.' + cur.classList[i]);
+                  var c = cur.classList[i];
+                  if (c) cls.push('.' + esc(c));
                 }
                 sel += cls.join('');
               }
@@ -118,16 +142,91 @@ object BrowserShieldJs {
             }
             return parts.join(' > ');
           }
-          function handler(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            var sel = cssPath(e.target);
-            try { e.target.style.outline = '2px solid #e53935'; } catch (_) {}
-            console.log('${BrowserAwContentsClient.BLOCK_PICK_PREFIX}' + sel);
-            document.removeEventListener('click', handler, true);
-            window.__browsesthPick = false;
+          function mark(el, on) {
+            try {
+              if (on) {
+                el.setAttribute('data-browsesth-pick', '1');
+                el.style.setProperty('outline', '2px solid #e53935', 'important');
+                el.style.setProperty('outline-offset', '1px', 'important');
+              } else {
+                el.removeAttribute('data-browsesth-pick');
+                el.style.removeProperty('outline');
+                el.style.removeProperty('outline-offset');
+              }
+            } catch (_) {}
           }
-          document.addEventListener('click', handler, true);
+          function blockNav(e) {
+            // Do not preventDefault here — that can suppress the subsequent click on mobile.
+            try {
+              e.stopPropagation();
+              if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            } catch (_) {}
+            return false;
+          }
+          function onPick(e) {
+            try {
+              e.preventDefault();
+              e.stopPropagation();
+              if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            } catch (_) {}
+            var el = e.target;
+            if (!el || el.nodeType !== 1) {
+              el = el && el.parentElement;
+            }
+            if (!el || el.nodeType !== 1) return false;
+            var sel = cssPath(el);
+            if (!sel) return false;
+            var map = window.__browsesthPickMap;
+            if (map[sel]) {
+              mark(map[sel], false);
+              delete map[sel];
+              console.log('${BrowserAwContentsClient.BLOCK_PICK_PREFIX}OFF:' + sel);
+            } else {
+              map[sel] = el;
+              mark(el, true);
+              console.log('${BrowserAwContentsClient.BLOCK_PICK_PREFIX}' + sel);
+            }
+            return false;
+          }
+          window.__browsesthPickOnPick = onPick;
+          window.__browsesthPickBlockNav = blockNav;
+          document.addEventListener('click', onPick, true);
+          document.addEventListener('mousedown', blockNav, true);
+          document.addEventListener('auxclick', blockNav, true);
+          document.addEventListener('pointerdown', blockNav, true);
+          document.addEventListener('touchstart', blockNav, true);
+        })();
+    """.trimIndent()
+
+    /** SPEC-134: tear down pick listeners and clear temporary outlines. */
+    fun stopPickModeScript(): String = """
+        (function(){
+          var onPick = window.__browsesthPickOnPick;
+          var blockNav = window.__browsesthPickBlockNav;
+          if (onPick) {
+            document.removeEventListener('click', onPick, true);
+          }
+          if (blockNav) {
+            document.removeEventListener('mousedown', blockNav, true);
+            document.removeEventListener('auxclick', blockNav, true);
+            document.removeEventListener('pointerdown', blockNav, true);
+            document.removeEventListener('touchstart', blockNav, true);
+          }
+          var map = window.__browsesthPickMap || {};
+          Object.keys(map).forEach(function(k){
+            try {
+              var el = map[k];
+              if (el) {
+                el.removeAttribute('data-browsesth-pick');
+                el.style.removeProperty('outline');
+                el.style.removeProperty('outline-offset');
+              }
+            } catch (_) {}
+          });
+          window.__browsesthPickMap = {};
+          window.__browsesthPick = false;
+          window.__browsesthPickOnPick = null;
+          window.__browsesthPickBlockNav = null;
         })();
     """.trimIndent()
 }

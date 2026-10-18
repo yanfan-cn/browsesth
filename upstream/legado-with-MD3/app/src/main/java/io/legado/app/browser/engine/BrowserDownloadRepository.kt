@@ -60,8 +60,11 @@ class BrowserDownloadRepository private constructor(
         contentDisposition: String? = null,
         mimeType: String? = null,
         cookie: String? = null,
+        /** SPEC-136: override root (e.g. Movies for video). */
+        targetDir: java.io.File? = null,
     ): BrowserDownloadItem {
-        val dir = BrowserDownloadPaths.ensureRoot(app)
+        val dir = targetDir?.also { if (!it.exists()) it.mkdirs() }
+            ?: BrowserDownloadPaths.ensureRoot(app)
         val name = BrowserDownloadHelper.guessFileName(url, contentDisposition, mimeType)
         val dest = BrowserDownloadPaths.uniqueFile(dir, name)
         val item = BrowserDownloadItem(

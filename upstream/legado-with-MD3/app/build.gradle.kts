@@ -260,7 +260,11 @@ dependencies {
     implementation(libs.lifecycle.service)
     implementation(libs.media.media)
     implementation(libs.media3.exoplayer)
+    implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.exoplayer.dash)
     implementation(libs.media3.datasource.okhttp)
+    // SPEC-132: ExoMedia wrapper (Apache 2.0); aligns Media3 via Gradle resolution.
+    implementation(libs.exomedia)
     implementation(libs.splitties.appctx)
     implementation(libs.splitties.systemservices)
     implementation(libs.splitties.views)

@@ -86,6 +86,12 @@ object BrowserTabManager {
             return
         }
         val id = _activeId.value
+        // SPEC-129: leaving NTP — destroy parked host so next load is fresh (no flash A /
+        // blank-after-clearHistory). Remount loads [url] via onReady.
+        val wasHome = _tabs.value.firstOrNull { it.id == id }?.showHome == true
+        if (wasHome) {
+            BrowserSessionHolder.destroyKey(id)
+        }
         val label = omniboxLabel?.trim()?.takeIf { it.isNotEmpty() }
             ?: BrowserOmniboxLabel.fromSearchUrl(url)
         _tabs.update { list ->
@@ -102,8 +108,8 @@ object BrowserTabManager {
                 } else it
             }
         }
-        // SPEC-021: live session → load now.
-        // SPEC-125: when parked, remount onReady / LaunchedEffect(navEpoch) must load.
+        // SPEC-021: live session → load now (only if still attached; NTP path destroyed above).
+        // SPEC-125: when parked/destroyed, remount onReady / LaunchedEffect(navEpoch) must load.
         if (BrowserSessionHolder.sessionKey == id) {
             BrowserSessionHolder.loadUrl(url)
         }

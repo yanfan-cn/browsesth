@@ -15,6 +15,18 @@ object BrowserDownloadPaths {
         return File(downloads, FOLDER_NAME)
     }
 
+    /** SPEC-136: default video download root = public Movies. */
+    fun moviesDir(): File {
+        val movies = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
+        return File(movies, FOLDER_NAME)
+    }
+
+    fun ensureMovies(context: Context): File {
+        val dir = moviesDir()
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
+
     fun rootDir(context: Context? = null): File {
         val custom = context?.let { BrowserChromePrefs(it).downloadDirPath }?.trim().orEmpty()
         if (custom.isNotEmpty()) {

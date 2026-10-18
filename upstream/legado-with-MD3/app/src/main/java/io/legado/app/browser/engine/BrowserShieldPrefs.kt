@@ -22,7 +22,7 @@ class BrowserShieldPrefs(context: Context) {
 
     fun rulesForHost(host: String): List<String> {
         val key = hostKey(host) ?: return emptyList()
-        val raw = prefs.getString(key, "[]") ?: "[]"
+        val raw = prefs.getString(KEY_PREFIX + key, "[]") ?: "[]"
         return try {
             val arr = JSONArray(raw)
             buildList {
@@ -47,6 +47,30 @@ class BrowserShieldPrefs(context: Context) {
     fun removeRule(host: String, selector: String) {
         val h = hostKey(host) ?: return
         writeRules(h, rulesForHost(h).filterNot { it == selector })
+    }
+
+    /** SPEC-134: remove many host+selector pairs (cross-host multi-delete). */
+    fun removeRules(pairs: Collection<Pair<String, String>>) {
+        if (pairs.isEmpty()) return
+        val byHost = pairs.groupBy({ it.first }, { it.second })
+        byHost.forEach { (host, sels) ->
+            val h = hostKey(host) ?: return@forEach
+            val drop = sels.toSet()
+            val next = rulesForHost(h).filterNot { it in drop }
+            if (next.isEmpty()) {
+                prefs.edit().remove(KEY_PREFIX + h).apply()
+            } else {
+                writeRules(h, next)
+            }
+        }
+    }
+
+    fun addRules(host: String, selectors: Collection<String>) {
+        val h = hostKey(host) ?: return
+        val cleaned = selectors.map { it.trim() }.filter { it.isNotEmpty() }
+        if (cleaned.isEmpty()) return
+        val next = (cleaned + rulesForHost(h)).distinct()
+        writeRules(h, next.take(MAX_RULES_PER_HOST))
     }
 
     fun clearHost(host: String) {

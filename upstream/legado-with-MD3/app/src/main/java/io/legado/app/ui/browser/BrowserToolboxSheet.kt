@@ -90,6 +90,9 @@ data class BrowserToolboxActions(
     val onOpenTextZoom: () -> Unit,
     /** SPEC-119: open find-in-page bar on the current webpage. */
     val onFindInPage: () -> Unit = {},
+    /** SPEC-136: video capsule available for current page. */
+    val videoCapsuleAvailable: Boolean = false,
+    val onOpenVideoCapsule: () -> Unit = {},
 )
 
 private data class ToolboxGridDef(
@@ -337,6 +340,7 @@ fun BrowserToolboxBody(
             actions.uaMode,
             actions.eyeProtectionEnabled,
             actions.textZoomPercent,
+            actions.videoCapsuleAvailable,
         ) {
             order.mapNotNull { id -> gridDef(id, actions) }
         }
@@ -392,9 +396,17 @@ fun BrowserToolboxBody(
                         tint = when (def.id) {
                             "eye_protection" ->
                                 if (actions.eyeProtectionEnabled) scheme.primary else scheme.onSurface
+                            // SPEC-136: accent when page has sniffed video.
+                            "video_capsule" ->
+                                if (actions.videoCapsuleAvailable) scheme.primary
+                                else scheme.onSurface.copy(alpha = 0.38f)
                             else -> scheme.onSurface
                         },
-                        iconFilled = def.id == "eye_protection" && actions.eyeProtectionEnabled,
+                        iconFilled = when (def.id) {
+                            "eye_protection" -> actions.eyeProtectionEnabled
+                            "video_capsule" -> actions.videoCapsuleAvailable
+                            else -> false
+                        },
                         onClick = {
                             when (def.id) {
                                 "new_incognito" -> {
@@ -432,6 +444,10 @@ fun BrowserToolboxBody(
                                     onDismiss()
                                     actions.onFindInPage()
                                 }
+                                "video_capsule" -> {
+                                    onDismiss()
+                                    actions.onOpenVideoCapsule()
+                                }
                             }
                         },
                         onLongClick = when (def.id) {
@@ -467,6 +483,11 @@ private fun gridDef(id: String, actions: BrowserToolboxActions): ToolboxGridDef?
     "share" -> ToolboxGridDef(id, "转发网页", Symbols.Share)
     "copy_link" -> ToolboxGridDef(id, "复制链接", Symbols.ContentCopy)
     "pick_block" -> ToolboxGridDef(id, "点选屏蔽", Symbols.Block)
+    "video_capsule" -> ToolboxGridDef(
+        id,
+        "视频胶囊",
+        MaterialSymbol("videocam", autoMirror = false),
+    )
     "ad_block" -> ToolboxGridDef(
         id,
         if (actions.adBlockEnabled) "广告拦截·开" else "广告拦截·关",

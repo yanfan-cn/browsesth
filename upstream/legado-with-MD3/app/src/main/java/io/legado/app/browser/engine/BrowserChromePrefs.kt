@@ -84,6 +84,14 @@ class BrowserChromePrefs(context: Context) {
         get() = prefs.getBoolean(KEY_RESTORE_SESSION, true)
         set(value) = prefs.edit().putBoolean(KEY_RESTORE_SESSION, value).apply()
 
+    /**
+     * SPEC-132: show bottom-chrome prompt 「用播放器打开」 when a playable stream
+     * is detected. Default ON.
+     */
+    var videoPlayerPromptEnabled: Boolean
+        get() = prefs.getBoolean(KEY_VIDEO_PLAYER_PROMPT, true)
+        set(value) = prefs.edit().putBoolean(KEY_VIDEO_PLAYER_PROMPT, value).apply()
+
     companion object {
         private const val PREFS = "browsesth_browser_chrome"
         private const val KEY_UA = "ua_mode"
@@ -100,6 +108,7 @@ class BrowserChromePrefs(context: Context) {
         private const val KEY_ACCEPT_3P_COOKIES = "accept_third_party_cookies"
         private const val KEY_SAFE_BROWSING = "safe_browsing_enabled"
         private const val KEY_RESTORE_SESSION = "restore_session_on_launch"
+        private const val KEY_VIDEO_PLAYER_PROMPT = "video_player_prompt_enabled"
 
         const val WEB_DARK_OFF = "off"
         const val WEB_DARK_AUTO = "auto"

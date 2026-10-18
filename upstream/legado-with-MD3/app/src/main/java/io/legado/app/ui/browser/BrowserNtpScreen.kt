@@ -26,9 +26,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -426,6 +428,28 @@ fun BrowserNtpScreen(
     val wallpaperVisible = wallpaperUrl.isNotBlank() && !incognito && dailyWallpaper
     val shortcutLightText = ntpDark || wallpaperVisible
     val shortcutLabelColor = if (shortcutLightText) Color.White else Color(0xFF1C1B19)
+    // SPEC-129: dark wallpaper / dark NTP → light status-bar icons (readable on dark).
+    val view = androidx.compose.ui.platform.LocalView.current
+    val appIsDark = LegadoTheme.isDark
+    DisposableEffect(wallpaperVisible, ntpDark, appIsDark) {
+        val activity = generateSequence(view.context) { ctx ->
+            (ctx as? android.content.ContextWrapper)?.baseContext
+        }.filterIsInstance<android.app.Activity>().firstOrNull()
+        val window = activity?.window
+        val lightIconsNeeded = wallpaperVisible || ntpDark
+        if (window != null) {
+            androidx.core.view.WindowCompat
+                .getInsetsController(window, view)
+                .isAppearanceLightStatusBars = !lightIconsNeeded
+        }
+        onDispose {
+            if (window != null) {
+                androidx.core.view.WindowCompat
+                    .getInsetsController(window, view)
+                    .isAppearanceLightStatusBars = !appIsDark
+            }
+        }
+    }
     Box(
         modifier = rootModifier
             .fillMaxSize()
@@ -551,8 +575,11 @@ fun BrowserNtpScreen(
 
         // SPEC-126: tablet — full-width scroll so left/right blank areas also scroll;
         // content column stays 75%/55% centered; no large bottom placeholder.
-        val tabletPortrait = LocalConfiguration.current.orientation ==
+        val orientation = LocalConfiguration.current.orientation
+        val tabletPortrait = orientation ==
             android.content.res.Configuration.ORIENTATION_PORTRAIT
+        val phoneLandscape = !tabletLayout &&
+            orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -561,12 +588,18 @@ fun BrowserNtpScreen(
                     if (tabletLayout) {
                         Modifier.padding(top = BrowserUiTokens.NtpTopBarHeight)
                     } else {
-                        // Top/bottom chrome float (no TopBarHeight/BottomBarHeight reserve).
+                        // SPEC-133: phone — smart safeDrawing (cutout/status by rotation);
+                        // portrait keeps top shift; landscape avoids forced bilateral bars.
                         Modifier
+                            .windowInsetsPadding(WindowInsets.safeDrawing)
                             .padding(horizontal = BrowserUiTokens.PagePaddingH)
-                            .statusBarsPadding()
-                            .navigationBarsPadding()
-                            .padding(top = BrowserUiTokens.NtpContentShiftDown)
+                            .then(
+                                if (phoneLandscape) {
+                                    Modifier
+                                } else {
+                                    Modifier.padding(top = BrowserUiTokens.NtpContentShiftDown)
+                                },
+                            )
                     },
                 )
                 .verticalScroll(ntpScrollState),
@@ -578,7 +611,7 @@ fun BrowserNtpScreen(
                         if (tabletLayout) {
                             if (tabletPortrait) 0.75f else 0.55f
                         } else {
-                            1f
+                            TabletBrowserLayout.phoneNtpContentWidthFraction(phoneLandscape)
                         },
                     )
                     .padding(bottom = if (tabletLayout) 16.dp else 0.dp),

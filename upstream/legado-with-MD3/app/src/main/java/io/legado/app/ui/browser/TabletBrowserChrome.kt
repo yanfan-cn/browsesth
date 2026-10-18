@@ -10,7 +10,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,7 +32,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -63,6 +64,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -101,6 +103,11 @@ fun TabletBrowserShell(
     onOpenBookshelf: () -> Unit = {},
     onOpenMy: () -> Unit = {},
     chromeVisible: Boolean,
+    /**
+     * SPEC-130: when true (NTP / reader), chrome stays in layout so content is not covered.
+     * When false (web session + auto-hide), chrome overlays to avoid AwContents resize jank.
+     */
+    pinChromeInLayout: Boolean = true,
     sidePanel: TabletSidePanel,
     onSidePanelChange: (TabletSidePanel) -> Unit,
     onOpenUrl: (String) -> Unit,
@@ -145,19 +152,27 @@ fun TabletBrowserShell(
 
     // SPEC-055/080: full-screen tabs hide tablet browser chrome.
     val showBrowserChrome = chromeVisible && sidePanel != TabletSidePanel.Tabs
+    // Tab strip 40dp + function bar TopBarHeight — for toolbox offset under overlay chrome.
+    val overlayChromeBodyHeight = 40.dp + BrowserUiTokens.TopBarHeight
     // SPEC-080: system back closes any side panel / tabs overlay (stay in app).
     BackHandler(enabled = sidePanel != TabletSidePanel.None) {
         onSidePanelChange(TabletSidePanel.None)
     }
+    val useOverlayChrome = !pinChromeInLayout
     Box(modifier = Modifier.fillMaxSize()) {
     Column(modifier = Modifier.fillMaxSize().background(scheme.surface)) {
-        if (showBrowserChrome) {
-            // SPEC-080: tab strip + function bar share one chrome column (no gap).
+        // SPEC-130: status bar always opaque — web never draws under system icons.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(scheme.surfaceContainer)
+                .statusBarsPadding(),
+        )
+        if (pinChromeInLayout && showBrowserChrome) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(scheme.surfaceContainer)
-                    .statusBarsPadding(),
+                    .background(scheme.surfaceContainer),
             ) {
                 TabletTabStrip(
                     onSelectTab = { id ->
@@ -243,7 +258,15 @@ fun TabletBrowserShell(
                     },
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp)
+                        .padding(
+                            top = 8.dp +
+                                if (useOverlayChrome && showBrowserChrome) {
+                                    overlayChromeBodyHeight
+                                } else {
+                                    0.dp
+                                },
+                        ),
                 )
             }
             // SPEC-025/080/111: dim for side drawers / floating toolbox.
@@ -259,9 +282,14 @@ fun TabletBrowserShell(
                         .clickable { onSidePanelChange(TabletSidePanel.None) },
                 )
             }
-            // SPEC-121/126: toolbox floating card (separate composable avoids ColumnScope AV).
+            // SPEC-121/126/130: toolbox under chrome.
             TabletToolboxFloatingCard(
                 visible = showToolboxCard,
+                extraTopPadding = if (useOverlayChrome && showBrowserChrome) {
+                    overlayChromeBodyHeight
+                } else {
+                    0.dp
+                },
                 sessionActions = sessionActions,
                 onSidePanelChange = onSidePanelChange,
                 onOpenBrowserSettings = onOpenBrowserSettings,
@@ -371,6 +399,102 @@ fun TabletBrowserShell(
                     BrowserTabsScreen(
                         onBack = { onSidePanelChange(TabletSidePanel.None) },
                         onOpenActiveTab = { onSidePanelChange(TabletSidePanel.None) },
+                    )
+                }
+            }
+        }
+    }
+
+    // SPEC-130: session auto-hide → overlay chrome (WebView size stays put).
+    if (useOverlayChrome) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .statusBarsPadding(),
+        ) {
+            AnimatedVisibility(
+                visible = showBrowserChrome,
+                enter = slideInVertically(animationSpec = tween(200)) { -it } +
+                    fadeIn(animationSpec = tween(180)),
+                exit = slideOutVertically(animationSpec = tween(160)) { -it } +
+                    fadeOut(animationSpec = tween(140)),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(scheme.surfaceContainer),
+                ) {
+                    TabletTabStrip(
+                        onSelectTab = { id ->
+                            BrowserTabManager.switchTo(id)
+                            onSidePanelChange(TabletSidePanel.None)
+                        },
+                        onCloseTab = { BrowserTabManager.close(it) },
+                        onOpenTabs = {
+                            onSidePanelChange(
+                                if (sidePanel == TabletSidePanel.Tabs) {
+                                    TabletSidePanel.None
+                                } else {
+                                    TabletSidePanel.Tabs
+                                },
+                            )
+                        },
+                        onNewTab = { BrowserTabManager.openNewTab(url = null, select = true) },
+                        onCloseAll = { BrowserTabManager.closeAll() },
+                        onAddBookmark = {
+                            sessionActions?.addBookmark()
+                                ?: context.toastOnUi("请先打开网页")
+                        },
+                    )
+                    TabletFunctionBar(
+                        address = address,
+                        onAddressChange = onAddressChange,
+                        onAddressFocusChange = onAddressFocusChange,
+                        onSubmitAddress = onSubmitAddress,
+                        onBack = onBack,
+                        onForward = onForward,
+                        onRefresh = onRefresh,
+                        onOpenBookmarks = {
+                            onSidePanelChange(
+                                if (sidePanel == TabletSidePanel.Bookmarks) {
+                                    TabletSidePanel.None
+                                } else {
+                                    TabletSidePanel.Bookmarks
+                                },
+                            )
+                        },
+                        onOpenHistory = {
+                            onSidePanelChange(
+                                if (sidePanel == TabletSidePanel.History) {
+                                    TabletSidePanel.None
+                                } else {
+                                    TabletSidePanel.History
+                                },
+                            )
+                        },
+                        onOpenBookshelf = onOpenBookshelf,
+                        onOpenMy = onOpenMy,
+                        onReader = onReader,
+                        onReaderLongClick = {
+                            readerAutoOpenUi =
+                                sessionActions?.readerAutoOpenEnabled?.invoke() == true
+                            readerModeMenu = true
+                        },
+                        readerModeMenu = readerModeMenu,
+                        readerAutoOpenUi = readerAutoOpenUi,
+                        onReaderAutoOpenUiChange = { readerAutoOpenUi = it },
+                        onReaderModeMenuDismiss = { readerModeMenu = false },
+                        sessionActions = sessionActions,
+                        onOpenToolbox = {
+                            onSidePanelChange(
+                                if (sidePanel == TabletSidePanel.Toolbox) {
+                                    TabletSidePanel.None
+                                } else {
+                                    TabletSidePanel.Toolbox
+                                },
+                            )
+                        },
                     )
                 }
             }
@@ -530,10 +654,14 @@ private fun TabletTabStrip(
     }
 }
 
-/** SPEC-126: wrap-height toolbox card, 16dp from bottom, slide+fade enter. */
+/**
+ * SPEC-129/130: toolbox under chrome; width portrait 50% / landscape 40%;
+ * inner pad 16dp; [extraTopPadding] clears overlay chrome body.
+ */
 @Composable
 private fun TabletToolboxFloatingCard(
     visible: Boolean,
+    extraTopPadding: Dp = 0.dp,
     sessionActions: BrowserSessionActions?,
     onSidePanelChange: (TabletSidePanel) -> Unit,
     onOpenBrowserSettings: () -> Unit,
@@ -555,35 +683,41 @@ private fun TabletToolboxFloatingCard(
     var toolboxOrder by remember { mutableStateOf(toolboxPrefs.orderedIds()) }
     var toolboxEditing by remember { mutableStateOf(false) }
     val panelShape = RoundedCornerShape(24.dp)
-    val maxToolboxHeight = LocalConfiguration.current.screenHeightDp.dp - 32.dp
+    val portrait = LocalConfiguration.current.orientation ==
+        Configuration.ORIENTATION_PORTRAIT
+    val widthFraction = TabletBrowserLayout.toolboxWidthFraction(portrait)
+    // SPEC-133: fixed height like phone sheet — LazyVerticalGrid.weight needs a bounded parent.
+    // Do NOT wrap BrowserToolboxBody in verticalScroll (conflicts with the grid).
+    val toolboxHeight = LocalConfiguration.current.screenHeightDp.dp *
+        TabletBrowserLayout.tabletToolboxHeightFraction()
     AnimatedVisibility(
         visible = visible,
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        enter = slideInHorizontally(
-            animationSpec = tween(220),
-            initialOffsetX = { it / 3 },
-        ) + fadeIn(animationSpec = tween(220)),
-        exit = slideOutHorizontally(
-            animationSpec = tween(180),
-            targetOffsetX = { it / 3 },
-        ) + fadeOut(animationSpec = tween(180)),
+            .padding(top = 16.dp + extraTopPadding, end = 16.dp),
+        enter = fadeIn(animationSpec = tween(220)) +
+            slideInHorizontally(
+                animationSpec = tween(220),
+                initialOffsetX = { it / 4 },
+            ),
+        exit = fadeOut(animationSpec = tween(180)) +
+            slideOutHorizontally(
+                animationSpec = tween(180),
+                targetOffsetX = { it / 4 },
+            ),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.BottomEnd,
+            contentAlignment = Alignment.TopEnd,
         ) {
             Column(
                 Modifier
-                    .fillMaxWidth(0.42f)
-                    .wrapContentHeight()
-                    .heightIn(max = maxToolboxHeight)
+                    .fillMaxWidth(widthFraction)
+                    .height(toolboxHeight)
                     .clip(panelShape)
                     .background(scheme.surface, panelShape)
                     .clickable(enabled = false) {}
-                    .padding(12.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .padding(16.dp),
             ) {
                 if (toolboxEditing) {
                     Row(
@@ -664,9 +798,18 @@ private fun TabletToolboxFloatingCard(
                             onSidePanelChange(TabletSidePanel.None)
                             sessionActions?.openFindInPage()
                         },
+                        videoCapsuleAvailable =
+                            sessionActions?.videoCapsuleAvailable?.invoke() == true,
+                        onOpenVideoCapsule = {
+                            onSidePanelChange(TabletSidePanel.None)
+                            sessionActions?.openVideoCapsule()
+                                ?: context.toastOnUi("请先打开网页")
+                        },
                     ),
                     onDismiss = { onSidePanelChange(TabletSidePanel.None) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                 )
             }
         }
@@ -705,6 +848,8 @@ private fun TabletFunctionBar(
     var engineMenu by remember { mutableStateOf(false) }
     val readerCapsuleShape = RoundedCornerShape(24.dp)
 
+    // SPEC-128: Edge/Chrome-like — omnibox fills leftover width; even icon slots;
+    // equal SpaceSm gaps on both sides of the field; in-bar「加入收藏」.
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -719,15 +864,13 @@ private fun TabletFunctionBar(
         // SPEC-126: My between refresh and omnibox.
         ChromeIcon(Symbols.Person, "我的", onOpenMy)
         Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceSm))
-        // SPEC-126: shorter omnibox — cap width, spare gap for trailing actions.
         Row(
             modifier = Modifier
-                .weight(1f, fill = false)
-                .widthIn(max = 360.dp)
+                .weight(1f)
                 .height(BrowserUiTokens.InputHeightLarge)
                 .clip(RoundedCornerShape(24.dp))
                 .background(scheme.surfaceContainerHighest)
-                .padding(horizontal = 10.dp),
+                .padding(start = 10.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box {
@@ -764,7 +907,6 @@ private fun TabletFunctionBar(
                 value = address,
                 onValueChange = onAddressChange,
                 modifier = Modifier
-                    .widthIn(min = 120.dp)
                     .weight(1f)
                     .onFocusChanged { onAddressFocusChange(it.isFocused) },
                 singleLine = true,
@@ -779,8 +921,22 @@ private fun TabletFunctionBar(
                     }
                 }),
             )
+            IconButton(
+                onClick = {
+                    sessionActions?.addBookmark()
+                        ?: context.toastOnUi("请先打开网页")
+                },
+                modifier = Modifier.size(36.dp),
+            ) {
+                SymbolIcon(
+                    symbol = Symbols.BookmarkAdd,
+                    contentDescription = "加入收藏",
+                    modifier = Modifier.size(22.dp),
+                    tint = scheme.onSurface,
+                )
+            }
         }
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceSm))
         ChromeIcon(Symbols.Bookmark, "收藏", onOpenBookmarks)
         ChromeIcon(Symbols.History, "历史", onOpenHistory)
         ChromeIcon(Symbols.Book, "阅读列表", onOpenBookshelf)

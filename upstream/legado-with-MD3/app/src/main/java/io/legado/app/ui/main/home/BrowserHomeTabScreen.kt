@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -44,7 +45,10 @@ import io.legado.app.ui.browser.TabletEmbeddedReaderHost
 import io.legado.app.ui.browser.TabletEmbeddedReaderKind
 import io.legado.app.ui.browser.TabletSidePanel
 import io.legado.app.ui.theme.LegadoTheme
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 /**
  * Home tab: multi-tab NTP ↔ session (SPEC-012/018/108).
@@ -148,6 +152,8 @@ private fun BrowserHomeTabBody(
 
     var sidePanel by remember { mutableStateOf(TabletSidePanel.None) }
     var chromeVisible by remember { mutableStateOf(true) }
+    val chromeScope = rememberCoroutineScope()
+    var chromeDebounceJob by remember { mutableStateOf<Job?>(null) }
     var address by remember {
         mutableStateOf(active?.let { BrowserTabManager.tabDisplayTitle(it) }.orEmpty())
     }
@@ -265,6 +271,9 @@ private fun BrowserHomeTabBody(
         onOpenBookshelf = onOpenBookshelf,
         onOpenMy = onOpenMy,
         chromeVisible = chromeVisible || !logicalSessionActive || embeddedKind != null,
+        // NTP/reader: pin chrome in layout. Web session: overlay for auto-hide (SPEC-130).
+        pinChromeInLayout = !logicalSessionActive || embeddedKind != null ||
+            !chromePrefs.autoHideTopBar,
         sidePanel = sidePanel,
         onSidePanelChange = { sidePanel = it },
         onOpenUrl = { BrowserTabManager.openUrlInActive(it) },
@@ -322,14 +331,23 @@ private fun BrowserHomeTabBody(
                     onBindActions = { sessionActions = it },
                     onScrollDirection = { dir ->
                         if (embeddedKind != null) {
+                            chromeDebounceJob?.cancel()
                             chromeVisible = true
                             return@BrowserSessionScreen
                         }
                         if (!chromePrefs.autoHideTopBar) {
+                            chromeDebounceJob?.cancel()
                             chromeVisible = true
                             return@BrowserSessionScreen
                         }
-                        chromeVisible = dir != "down"
+                        // SPEC-130: debounce show/hide to avoid thrash + stutter on scroll-up.
+                        val wantVisible = dir != "down"
+                        if (wantVisible == chromeVisible) return@BrowserSessionScreen
+                        chromeDebounceJob?.cancel()
+                        chromeDebounceJob = chromeScope.launch {
+                            delay(if (wantVisible) 48L else 100L)
+                            chromeVisible = wantVisible
+                        }
                     },
                 )
                 }

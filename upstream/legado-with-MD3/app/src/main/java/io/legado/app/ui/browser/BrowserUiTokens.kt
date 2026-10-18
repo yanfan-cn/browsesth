@@ -33,10 +33,10 @@ object BrowserUiTokens {
     val SpaceLg = 16.dp
     val SpaceXl = 24.dp
 
-    /** SPEC-088: NTP content (excl. top/bottom chrome) shift below status bars. */
-    val NtpContentShiftDown = 85.dp
-    /** SPEC-110: phone NTP floating top chrome row (session/tablet bars keep TopBarHeight). */
-    val NtpTopBarHeight = 44.dp
+    /** SPEC-088/127: NTP content (excl. top/bottom chrome) shift below status bars. */
+    val NtpContentShiftDown = 90.dp
+    /** SPEC-129: phone NTP four-icon floating row only (content shift stays NtpContentShiftDown). */
+    val NtpTopBarHeight = 54.dp
     val NtpOverlayBlur = 28.dp
     /** SPEC-088: higher opacity for customize / tab menus (more readable). */
     val NtpOverlaySurfaceLight = 0.96f

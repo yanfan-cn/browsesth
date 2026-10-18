@@ -596,10 +596,11 @@ private fun BookmarksModeTopBar(
             .background(scheme.surface)
             .windowInsetsPadding(WindowInsets.statusBars),
     ) {
+        // SPEC-127: top bar content row = TopBarHeight (54dp); was 32dp in SPEC-121.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(32.dp)
+                .height(BrowserUiTokens.TopBarHeight)
                 .padding(end = BrowserUiTokens.PagePaddingH),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),

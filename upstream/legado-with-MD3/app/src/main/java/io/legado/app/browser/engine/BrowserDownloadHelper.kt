@@ -40,6 +40,7 @@ object BrowserDownloadHelper {
         mimeType: String? = null,
         incognito: Boolean = false,
         title: String = "",
+        toMovies: Boolean = false,
     ): Result {
         val clean = url.trim()
         if (clean.isEmpty()) return Result(false, "没有可下载的链接")
@@ -55,6 +56,7 @@ object BrowserDownloadHelper {
                 contentDisposition = contentDisposition,
                 mimeType = mimeType,
                 cookie = cookie,
+                targetDir = if (toMovies) BrowserDownloadPaths.ensureMovies(context) else null,
             )
             Result(true, "已开始下载 ${item.fileName}", item.fileName)
         } catch (t: Throwable) {

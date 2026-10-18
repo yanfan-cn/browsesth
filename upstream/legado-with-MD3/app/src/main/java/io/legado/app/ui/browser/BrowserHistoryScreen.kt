@@ -93,7 +93,7 @@ private fun BrowserHistoryBody(
 
     AppScaffold(
         topBar = {
-            // SPEC-121: compact 32dp top bar (was M3 Small ~64dp).
+            // SPEC-127: top bar content row = TopBarHeight (54dp); was 32dp in SPEC-121.
             val scheme = LegadoTheme.colorScheme
             Column(
                 Modifier
@@ -104,7 +104,7 @@ private fun BrowserHistoryBody(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .height(32.dp)
+                        .height(BrowserUiTokens.TopBarHeight)
                         .padding(end = BrowserUiTokens.PagePaddingH),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

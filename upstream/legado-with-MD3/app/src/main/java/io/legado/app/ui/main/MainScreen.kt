@@ -3,6 +3,7 @@ package io.legado.app.ui.main
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -14,15 +15,19 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,9 +35,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import com.kyant.capsule.ContinuousCapsule
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -660,7 +671,90 @@ fun MainScreen(
                         ),
                         label = "homePlaybackControls",
                     )
-                    BoxWithConstraints(
+                    val phoneLandscape = LocalConfiguration.current.orientation ==
+                        Configuration.ORIENTATION_LANDSCAPE
+                    val navAtEnd = TabletBrowserLayout.phoneHomeNavAtEnd(
+                        isTablet = false,
+                        landscape = phoneLandscape,
+                    )
+                    // SPEC-133: landscape phone — vertical nav on the end (right in LTR).
+                    if (navAtEnd) {
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .windowInsetsPadding(
+                                    WindowInsets.safeDrawing.only(WindowInsetsSides.End),
+                                )
+                                .padding(end = 12.dp, top = 12.dp, bottom = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .clip(ContinuousCapsule)
+                                    .background(
+                                        LegadoTheme.colorScheme.surfaceContainer.copy(
+                                            alpha = if (useLiquidGlass) 0.85f else 1f,
+                                        ),
+                                    )
+                                    .padding(vertical = 10.dp, horizontal = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                destinations.forEachIndexed { index, destination ->
+                                    val selected = pagerState.targetPage == index
+                                    val customIconPath = mainUiState.customIconPath(destination)
+                                    val selectedCustomIconPath =
+                                        mainUiState.selectedCustomIconPath(destination)
+                                    val destinationLabel = stringResource(destination.labelId)
+                                    Column(
+                                        modifier = Modifier
+                                            .defaultMinSize(minWidth = 56.dp, minHeight = 52.dp)
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .clickable {
+                                                handleMainDestinationClick(index, destination)
+                                            }
+                                            .padding(vertical = 6.dp, horizontal = 4.dp)
+                                            .semantics(mergeDescendants = true) {
+                                                contentDescription = destinationLabel
+                                            },
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                    ) {
+                                        NavigationIcon(
+                                            destination = destination,
+                                            customIconPath = if (selected) {
+                                                selectedCustomIconPath.ifEmpty { customIconPath }
+                                            } else customIconPath,
+                                            selected = selected,
+                                        )
+                                        if (showLabel && (alwaysShowLabel || selected)) {
+                                            AppText(
+                                                text = stringResource(destination.labelId),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            ReadAloudBarCapsuleSlot(
+                                enabled = homePlaybackCapsuleEnabled,
+                                onOpenPlayer = { ReadAloudPlayerOverlayBus.request(it) },
+                                morph = readAloudMorph,
+                                anchorPreview = capsuleAnchorPreview,
+                                backdrop = floatingBarBackdrop,
+                                isBlurEnabled = useLiquidGlass,
+                                controlsExpanded = playbackControlsExpanded,
+                                expansion = expansion,
+                                width = ReadAloudBarCapsuleSize,
+                                expandedWidth = ReadAloudBarCapsuleSize,
+                                onControlsExpandedChange = { playbackControlsExpanded = it },
+                                onOccupiedWidthChanged = { readAloudCapsuleShown = it > 0 },
+                            )
+                        }
+                    }
+                    if (!navAtEnd) BoxWithConstraints(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()

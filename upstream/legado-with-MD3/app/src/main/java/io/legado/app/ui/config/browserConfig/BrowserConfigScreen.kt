@@ -4,10 +4,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,12 +38,14 @@ fun BrowserConfigScreen(
     onBackClick: () -> Unit,
     onOpenClearBrowsingData: () -> Unit = {},
     onOpenPrivacy: () -> Unit = {},
+    onOpenPickBlock: () -> Unit = {},
 ) {
     BrowserTheme {
         BrowserConfigBody(
             onBackClick = onBackClick,
             onOpenClearBrowsingData = onOpenClearBrowsingData,
             onOpenPrivacy = onOpenPrivacy,
+            onOpenPickBlock = onOpenPickBlock,
         )
     }
 }
@@ -57,6 +56,7 @@ private fun BrowserConfigBody(
     onBackClick: () -> Unit,
     onOpenClearBrowsingData: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    onOpenPickBlock: () -> Unit,
 ) {
     val context = LocalContext.current
     val prefs = remember { BrowserShieldPrefs(context) }
@@ -69,8 +69,7 @@ private fun BrowserConfigBody(
     var autoHideTop by remember { mutableStateOf(chromePrefs.autoHideTopBar) }
     var webDarkMode by remember { mutableStateOf(chromePrefs.webContentDarkMode) }
     var uaMode by remember { mutableStateOf(chromePrefs.uaModeOrDefault(isTablet)) }
-    var hosts by remember { mutableStateOf(prefs.listedHosts()) }
-    var expandedHost by remember { mutableStateOf<String?>(null) }
+    val pickRuleCount = remember { prefs.listedHosts().sumOf { prefs.rulesForHost(it).size } }
 
     val scrollBehavior = GlassTopAppBarDefaults.defaultScrollBehavior()
 
@@ -157,6 +156,19 @@ private fun BrowserConfigBody(
                             }
                         },
                     )
+                    // SPEC-132: prompt to open sniffed streams in native player.
+                    var videoPlayerPrompt by remember {
+                        mutableStateOf(chromePrefs.videoPlayerPromptEnabled)
+                    }
+                    SwitchSettingItem(
+                        title = "检测到视频时提示用播放器打开",
+                        description = "网页出现可播放视频流时，在底栏上方显示「用播放器打开」",
+                        checked = videoPlayerPrompt,
+                        onCheckedChange = {
+                            videoPlayerPrompt = it
+                            chromePrefs.videoPlayerPromptEnabled = it
+                        },
+                    )
                 }
             }
             item {
@@ -237,47 +249,17 @@ private fun BrowserConfigBody(
                 }
             }
             item {
-                SplicedColumnGroup(title = "手动屏蔽（按域名）") {
-                    if (hosts.isEmpty()) {
-                        ClickableSettingItem(
-                            title = "暂无自定义规则",
-                            description = "在浏览器工具栏点「屏蔽」后点选页面元素即可添加",
-                            onClick = {},
-                        )
-                    }
-                }
-            }
-            items(hosts, key = { it }) { host ->
-                val rules = prefs.rulesForHost(host)
-                SplicedColumnGroup(title = host) {
+                // SPEC-134: dedicated pick-block rules page.
+                SplicedColumnGroup(title = "点选屏蔽") {
                     ClickableSettingItem(
-                        title = "${rules.size} 条规则",
-                        description = if (expandedHost == host) "点击收起" else "点击查看 / 删除",
-                        onClick = {
-                            expandedHost = if (expandedHost == host) null else host
+                        title = "点选屏蔽",
+                        description = if (pickRuleCount > 0) {
+                            "已有 $pickRuleCount 条规则 · 查看 / 多选删除"
+                        } else {
+                            "按域名管理点选屏蔽规则"
                         },
+                        onClick = onOpenPickBlock,
                     )
-                    if (expandedHost == host) {
-                        rules.forEach { sel ->
-                            ClickableSettingItem(
-                                title = sel,
-                                description = "点击删除此规则",
-                                onClick = {
-                                    prefs.removeRule(host, sel)
-                                    hosts = prefs.listedHosts()
-                                },
-                            )
-                        }
-                        TextButton(
-                            onClick = {
-                                prefs.clearHost(host)
-                                hosts = prefs.listedHosts()
-                                expandedHost = null
-                            },
-                        ) {
-                            Text("清空该域名全部规则")
-                        }
-                    }
                 }
             }
         }

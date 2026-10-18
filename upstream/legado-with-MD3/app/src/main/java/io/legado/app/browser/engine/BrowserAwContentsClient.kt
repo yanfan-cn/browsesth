@@ -49,6 +49,8 @@ class BrowserAwContentsClient(
     private val onExternalBlocked: ((String) -> Unit)? = null,
     private val onPopupBlocked: (() -> Unit)? = null,
     private val onConsoleBlockPick: ((String) -> Unit)? = null,
+    /** SPEC-134: when true, block all URL navigations (pick-to-block mode). */
+    private val isPickModeActive: () -> Boolean = { false },
     /** SPEC-093: long-press link/image context payload (JSON after prefix). */
     private val onContextMenuHit: ((String) -> Unit)? = null,
     private val onScrollDirection: ((String) -> Unit)? = null,
@@ -66,6 +68,16 @@ class BrowserAwContentsClient(
      * (e.g. HTTPS→HTTP fallback) so the default error snack is skipped.
      */
     private val onMainFrameError: ((url: String, netError: Int, description: String) -> Boolean)? = null,
+    /** SPEC-131: HTML5 / Chromium custom fullscreen view. */
+    private val customViewShowHandler: ((View, CustomViewCallback) -> Unit)? = null,
+    private val customViewHideHandler: (() -> Unit)? = null,
+    /** SPEC-132: playable stream sniffed (HLS / media URL). */
+    private val onPlayableMedia: ((
+        url: String,
+        headersRaw: String,
+        documentUrl: String,
+        isHls: Boolean,
+    ) -> Unit)? = null,
 ) : AwContentsClient() {
 
     val interceptHits = AtomicInteger(0)
@@ -93,6 +105,11 @@ class BrowserAwContentsClient(
 
     override fun shouldOverrideUrlLoading(request: AwWebResourceRequest): Boolean {
         val url = request.url ?: return false
+        // SPEC-134: pick mode must not navigate away (e.g. clm.la link clicks).
+        if (isPickModeActive()) {
+            Log.i(TAG, "pick-block-nav $url")
+            return true
+        }
         if (url.contains(MIDPAGE_MARKER)) {
             val n = navOverrideHits.incrementAndGet()
             Log.i(TAG, "nav-override #$n $url")
@@ -161,9 +178,10 @@ class BrowserAwContentsClient(
     override fun onConsoleMessage(consoleMessage: AwConsoleMessage): Boolean {
         val msg = consoleMessage.message() ?: return false
         if (msg.startsWith(BLOCK_PICK_PREFIX)) {
-            val selector = msg.removePrefix(BLOCK_PICK_PREFIX).trim()
-            if (selector.isNotEmpty()) {
-                onConsoleBlockPick?.invoke(selector)
+            // SPEC-134: "OFF:selector" deselects; plain selector selects.
+            val payload = msg.removePrefix(BLOCK_PICK_PREFIX).trim()
+            if (payload.isNotEmpty()) {
+                onConsoleBlockPick?.invoke(payload)
                 return true
             }
         }
@@ -243,8 +261,19 @@ class BrowserAwContentsClient(
     override fun onReceivedIcon(bitmap: Bitmap) {}
     override fun onPageCommitVisible(url: String) {}
     override fun onReceivedHttpError(request: AwWebResourceRequest, response: WebResourceResponseInfo) {}
-    override fun onShowCustomView(view: View, callback: CustomViewCallback) {}
-    override fun onHideCustomView() {}
+    override fun onShowCustomView(view: View, callback: CustomViewCallback) {
+        // SPEC-131: host must attach [view] and later invoke callback / onHideCustomView.
+        customViewShowHandler?.invoke(view, callback)
+            ?: run {
+                Log.w(TAG, "onShowCustomView: no host handler")
+                runCatching { callback.onCustomViewHidden() }
+            }
+    }
+
+    override fun onHideCustomView() {
+        customViewHideHandler?.invoke()
+    }
+
     override fun getDefaultVideoPoster(): Bitmap? = null
     override fun onFindResultReceived(activeMatchOrdinal: Int, numberOfMatches: Int, isDoneCounting: Boolean) {}
     override fun onNewPicture(picture: Picture) {}
@@ -305,7 +334,12 @@ class BrowserAwContentsClient(
         documentUrl: String,
         durationSec: Double,
         isAudioOnly: Boolean,
-    ) {}
+    ) {
+        // SPEC-132: page media started — offer to native player when URL looks playable.
+        if (!isAudioOnly && mediaUrl.isNotBlank()) {
+            onPlayableMedia?.invoke(mediaUrl, "", documentUrl, mediaUrl.contains(".m3u8", true))
+        }
+    }
 
     override fun onMediaPause(
         playerId: BromiumClient.MediaPlayerId,
@@ -352,7 +386,10 @@ class BrowserAwContentsClient(
 
     override fun onRequestedDownloadUrl(url: String) {}
     override fun shouldPlayBackgroundVideo(): Boolean = false
-    override fun onHlsDetected(url: String, requestHeaders: String) {}
+    override fun onHlsDetected(url: String, requestHeaders: String) {
+        // SPEC-132
+        onPlayableMedia?.invoke(url, requestHeaders.orEmpty(), lastUrl, true)
+    }
     override fun getUserAgent(): String =
         // SPEC-018: form-factor default + toolbox override (no Browsesth token).
         userAgentProvider()

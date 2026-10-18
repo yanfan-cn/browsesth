@@ -36,6 +36,7 @@ class BrowserToolboxPrefs(context: Context) {
             "share",
             "copy_link",
             "pick_block",
+            "video_capsule",
             "ad_block",
             "ua_toggle",
             "eye_protection",

@@ -1,13 +1,18 @@
 package io.legado.app.ui.browser
 
 import io.legado.app.R
-import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
+import android.view.View
+import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -50,7 +55,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -73,6 +80,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
+import org.chromium.android_webview.AwContentsClient
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.capsule.ContinuousCapsule
 import io.legado.app.browser.engine.AlohaBrowserCompose
@@ -101,9 +113,16 @@ import io.legado.app.browser.engine.BrowserSiteCssFixes
 import io.legado.app.browser.engine.BrowserTabManager
 import io.legado.app.browser.engine.BrowserUa
 import io.legado.app.browser.engine.BrowserUrlPolicy
+import io.legado.app.browser.engine.BrowserVideoOffer
+import io.legado.app.browser.engine.BrowserVideoOfferBus
 import io.legado.app.browser.engine.evalJs
 import io.legado.app.browser.engine.resolveBrowserNavigationInput
+import io.legado.app.ui.browser.video.BrowserVideoPlaybackService
+import io.legado.app.ui.browser.video.BrowserVideoPlayerActivity
 import io.legado.app.ui.main.MainIntent
+import io.legado.app.ui.main.MainRouteBrowserPickBlock
+import io.legado.app.ui.main.MainRouteRequestBus
+import androidx.compose.ui.platform.LocalConfiguration
 import io.legado.app.utils.GSON
 import io.legado.app.utils.fromJsonObject
 import org.apache.commons.text.StringEscapeUtils
@@ -137,9 +156,11 @@ import io.legado.app.ui.widget.components.FloatingBottomBar
 import io.legado.app.ui.widget.components.FloatingBottomBarItem
 import io.legado.app.ui.widget.components.modalBottomSheet.AppModalBottomSheet
 import io.legado.app.ui.widget.components.progressIndicator.AppLinearProgressIndicator
+import io.legado.app.utils.keepScreenOn
 import io.legado.app.utils.sendToClip
 import io.legado.app.utils.share
 import io.legado.app.ui.widget.components.progressIndicator.AppCircularProgressIndicator
+import io.legado.app.utils.toggleSystemBar
 import io.legado.app.utils.toastOnUi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -180,6 +201,9 @@ data class BrowserSessionActions(
     /** SPEC-119 */
     val applyUserAgentAndReload: (BrowserUa.Mode) -> Unit = {},
     val openFindInPage: () -> Unit = {},
+    /** SPEC-136 */
+    val videoCapsuleAvailable: () -> Boolean = { false },
+    val openVideoCapsule: () -> Unit = {},
     /** SPEC-120 */
     val applyForcePageZoom: (Boolean) -> Unit = {},
     val applyPrivacySettings: () -> Unit = {},
@@ -264,6 +288,11 @@ fun BrowserSessionScreen(
     var pendingForcedUrl by remember(sessionKey) { mutableStateOf<String?>(null) }
     /** SPEC-022 B: phone floating chrome auto-hide on scroll down. */
     var phoneChromeVisible by remember { mutableStateOf(true) }
+    /** SPEC-131: Chromium HTML5 custom fullscreen view. */
+    var videoCustomView by remember { mutableStateOf<View?>(null) }
+    var videoCustomViewCallback by remember {
+        mutableStateOf<AwContentsClient.CustomViewCallback?>(null)
+    }
     var tabMenu by remember { mutableStateOf(false) }
     var readerModeMenu by remember { mutableStateOf(false) }
     var readerAutoOpen by remember {
@@ -271,6 +300,8 @@ fun BrowserSessionScreen(
     }
     val openTabCount by BrowserTabManager.tabs.collectAsStateWithLifecycle()
     var pickMode by remember { mutableStateOf(false) }
+    /** SPEC-134: selectors waiting for Confirm (multi-select). */
+    var pendingSelectors by remember { mutableStateOf(emptySet<String>()) }
     /** SPEC-093: long-press link/image sheet. */
     var linkContextHit by remember { mutableStateOf<BrowserLinkContextHit?>(null) }
     val ntpPrefs = remember { BrowserNtpPrefs(context) }
@@ -287,14 +318,19 @@ fun BrowserSessionScreen(
     val floatingChromeReserve =
         floatingChromeTopGap + phoneChromeBarHeight +
             floatingBottomPad + translatePromptExtra
-    // SPEC-075: fixed chrome — always reserve bottom height (do not overlay web; do not
-    // toggle inset with auto-hide, so viewport stays stable).
-    val webBottomInset = if (!tabletEmbedded) {
-        floatingChromeReserve
-    } else if (showTranslatePrompt) {
-        72.dp
-    } else {
-        0.dp
+    // SPEC-130: auto-hide → bottom chrome overlays (inset 0, no show/hide resize jank).
+    // Off → keep reserve so content is not covered by the bar.
+    val pickBarReserve = floatingChromeTopGap + phoneChromeBarHeight + floatingBottomPad
+    val webBottomInset = when {
+        // SPEC-134: pick bar always reserves space (phone + tablet).
+        pickMode -> pickBarReserve
+        !tabletEmbedded -> if (chromePrefs.autoHideTopBar) {
+            0.dp
+        } else {
+            floatingChromeReserve
+        }
+        showTranslatePrompt -> 72.dp
+        else -> 0.dp
     }
 
     fun applyOmniboxLabel(label: String?) {
@@ -314,7 +350,6 @@ fun BrowserSessionScreen(
     fun syncOmniboxLabelFromTab(url: String?) {
         syncIdleAddress(clientRef?.lastTitle, url)
     }
-    var pendingSelector by remember { mutableStateOf<String?>(null) }
     var showToolbox by remember { mutableStateOf(false) }
     var adBlockEnabled by remember { mutableStateOf(shield.adBlockEnabled) }
     var extracting by remember { mutableStateOf(false) }
@@ -330,6 +365,15 @@ fun BrowserSessionScreen(
     /** SPEC-066: transient download banner above bottom chrome (~5s). */
     var downloadBanner by remember { mutableStateOf<String?>(null) }
     var downloadBannerToken by remember { mutableIntStateOf(0) }
+    /** SPEC-132: hide prompt for this stream URL until a new offer arrives. */
+    var dismissedVideoPromptUrl by remember { mutableStateOf<String?>(null) }
+    val videoOffer by BrowserVideoOfferBus.offer.collectAsStateWithLifecycle()
+    // SPEC-135: only show offer that still belongs to the current page.
+    val currentPageForVideo = clientRef?.lastUrl.orEmpty().ifBlank { address }
+    val showVideoPlayerPrompt = chromePrefs.videoPlayerPromptEnabled &&
+        videoOffer != null &&
+        videoOffer?.url != dismissedVideoPromptUrl &&
+        BrowserVideoOfferBus.belongsToPage(videoOffer, currentPageForVideo)
     /** SPEC-094: short toast above bottom bar (24dp), not Material Snackbar over chrome. */
     var chromeSnack by remember { mutableStateOf<String?>(null) }
     var chromeSnackToken by remember { mutableIntStateOf(0) }
@@ -714,6 +758,39 @@ fun BrowserSessionScreen(
         hostRef?.evaluateJavaScript(BrowserShieldJs.hideSelectorsScript(rules), null)
     }
 
+    /** SPEC-134 */
+    fun enterPickMode() {
+        pickMode = true
+        phoneChromeVisible = true
+        hostRef?.evaluateJavaScript(BrowserShieldJs.startPickModeScript(), null)
+        context.toastOnUi("点选模式：可多选元素，点确认保存")
+    }
+
+    fun exitPickMode() {
+        pickMode = false
+        pendingSelectors = emptySet()
+        hostRef?.evaluateJavaScript(BrowserShieldJs.stopPickModeScript(), null)
+    }
+
+    fun confirmPickMode() {
+        if (pendingSelectors.isEmpty()) {
+            exitPickMode()
+            return
+        }
+        val hostName = BrowserAdRules.hostOf(clientRef?.lastUrl ?: address).orEmpty()
+        if (hostName.isNotEmpty()) {
+            shield.addRules(hostName, pendingSelectors)
+            applyCustomHide(clientRef?.lastUrl ?: address)
+            context.toastOnUi("已保存 ${pendingSelectors.size} 条屏蔽规则")
+        }
+        exitPickMode()
+    }
+
+    fun openPickBlockSettings() {
+        // Keep pickMode (suspend); return continues picking.
+        MainRouteRequestBus.request(MainRouteBrowserPickBlock)
+    }
+
     /** SPEC-107: per-host hide + built-in cosmetic popup filters. */
     fun applyAdShield(url: String) {
         if (!shield.adBlockEnabled) return
@@ -937,11 +1014,47 @@ fun BrowserSessionScreen(
         }
     }
 
+    fun clearVideoCustomViewUi() {
+        val view = videoCustomView
+        videoCustomView = null
+        videoCustomViewCallback = null
+        (view?.parent as? ViewGroup)?.removeView(view)
+        context.findActivityOrNull()?.let { act ->
+            act.keepScreenOn(false)
+            act.toggleSystemBar(true)
+        }
+    }
+
+    /** SPEC-131: user/system exit — notify Chromium, then clear UI. */
+    fun requestExitVideoFullscreen() {
+        val callback = videoCustomViewCallback
+        if (callback != null) {
+            runCatching { callback.onCustomViewHidden() }
+        }
+        clearVideoCustomViewUi()
+    }
+
+    DisposableEffect(sessionKey) {
+        onDispose {
+            val callback = videoCustomViewCallback
+            val view = videoCustomView
+            if (callback != null || view != null) {
+                runCatching { callback?.onCustomViewHidden() }
+                (view?.parent as? ViewGroup)?.removeView(view)
+                context.findActivityOrNull()?.let { act ->
+                    act.keepScreenOn(false)
+                    act.toggleSystemBar(true)
+                }
+            }
+        }
+    }
+
     BackHandler(enabled = true) {
         val host = hostRef
         when {
+            videoCustomView != null -> requestExitVideoFullscreen()
             pickMode -> {
-                pickMode = false
+                exitPickMode()
                 context.toastOnUi("已取消点选屏蔽")
             }
             showToolbox -> showToolbox = false
@@ -1034,11 +1147,7 @@ fun BrowserSessionScreen(
                     val currentUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
                     context.sendToClip(currentUrl)
                 },
-                startPickMode = {
-                    pickMode = true
-                    hostRef?.evaluateJavaScript(BrowserShieldJs.startPickModeScript(), null)
-                    context.toastOnUi("点选模式：点击要屏蔽的元素")
-                },
+                startPickMode = { enterPickMode() },
                 shareCurrentPage = { shareCurrentPage() },
                 saveCurrentPage = { saveCurrentPage() },
                 openDownloads = {
@@ -1058,6 +1167,19 @@ fun BrowserSessionScreen(
                     showFindInPage = true
                     findQuery = ""
                     findMatchLabel = ""
+                },
+                videoCapsuleAvailable = { showVideoPlayerPrompt },
+                openVideoCapsule = {
+                    val offer = videoOffer
+                    if (offer != null &&
+                        BrowserVideoOfferBus.belongsToPage(offer, currentPageForVideo)
+                    ) {
+                        dismissedVideoPromptUrl = null
+                        phoneChromeVisible = true
+                        context.toastOnUi("已显示视频胶囊")
+                    } else {
+                        context.toastOnUi("当前页未检测到可播放视频")
+                    }
                 },
                 applyForcePageZoom = { hostRef?.applyForcePageZoom(it) },
                 applyPrivacySettings = { hostRef?.applyPrivacySettings() },
@@ -1090,11 +1212,19 @@ fun BrowserSessionScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             if (!tabletEmbedded) {
+                // SPEC-130: status bar always opaque; omnibox may collapse under auto-hide.
+                val showPhoneTopChrome =
+                    phoneChromeVisible || !chromePrefs.autoHideTopBar || showFindInPage
                 Column(
                     Modifier
                         .fillMaxWidth()
                         .background(scheme.surface)
                         .padding(WindowInsets.statusBars.asPaddingValues()),
+                ) {
+                AnimatedVisibility(
+                    visible = showPhoneTopChrome,
+                    enter = fadeIn() + slideInVertically { -it },
+                    exit = fadeOut() + slideOutVertically { -it },
                 ) {
                     Row(
                         modifier = Modifier
@@ -1209,6 +1339,7 @@ fun BrowserSessionScreen(
                         )
                     }
                 }
+                }
             }
         },
     ) { paddingValues ->
@@ -1243,6 +1374,9 @@ fun BrowserSessionScreen(
                             progress = 0
                             showTranslatePrompt = false
                             langDetectJob?.cancel()
+                            // SPEC-135: drop previous site's sniffed video so B does not show A's offer.
+                            BrowserVideoOfferBus.clear()
+                            dismissedVideoPromptUrl = null
                         },
                         onOverrideUrl = { handleSpecialUrl(it) },
                         onNavigationOverride = { target -> hostRef?.loadUrl(target) },
@@ -1251,9 +1385,16 @@ fun BrowserSessionScreen(
                         isExternalBlockEnabled = { shield.blockExternalApps },
                         onExternalBlocked = { showSnack("已阻止打开其它应用") },
                         onPopupBlocked = { showSnack("已阻止弹出窗口") },
-                        onConsoleBlockPick = { selector ->
-                            pendingSelector = selector
-                            pickMode = false
+                        isPickModeActive = { pickMode },
+                        onConsoleBlockPick = { payload ->
+                            if (payload.startsWith("OFF:")) {
+                                val sel = payload.removePrefix("OFF:")
+                                if (sel.isNotEmpty()) {
+                                    pendingSelectors = pendingSelectors - sel
+                                }
+                            } else if (payload.isNotEmpty()) {
+                                pendingSelectors = pendingSelectors + payload
+                            }
                         },
                         onContextMenuHit = { json ->
                             val parsed = GSON.fromJsonObject<BrowserContextMenuPayload>(json)
@@ -1286,6 +1427,33 @@ fun BrowserSessionScreen(
                         },
                         onMainFrameError = { url, netError, _ ->
                             tryHttpsFallback(url, netError)
+                        },
+                        customViewShowHandler = { view, callback ->
+                            if (videoCustomView != null) {
+                                runCatching { callback.onCustomViewHidden() }
+                            } else {
+                                videoCustomView = view
+                                videoCustomViewCallback = callback
+                                context.findActivityOrNull()?.let { act ->
+                                    act.keepScreenOn(true)
+                                    act.toggleSystemBar(false)
+                                }
+                            }
+                        },
+                        customViewHideHandler = {
+                            clearVideoCustomViewUi()
+                        },
+                        onPlayableMedia = { mediaUrl, headersRaw, documentUrl, isHls ->
+                            // SPEC-132: publish offer; UI shows prompt when switch is on.
+                            BrowserVideoOfferBus.publish(
+                                BrowserVideoOffer(
+                                    url = mediaUrl,
+                                    headers = BrowserVideoOfferBus.parseHeaders(headersRaw),
+                                    pageUrl = documentUrl.ifBlank { clientRef?.lastUrl.orEmpty() },
+                                    title = clientRef?.lastTitle.orEmpty(),
+                                    isHls = isHls,
+                                ),
+                            )
                         },
                         onUrlChanged = { url ->
                             pendingForcedUrl = null
@@ -1330,6 +1498,13 @@ fun BrowserSessionScreen(
                                 }
                                 applyAdShield(url)
                                 maybeAutoOpenReader(url)
+                            }
+                            // SPEC-134: keep pick listeners after any load while still in pick mode.
+                            if (pickMode) {
+                                hostRef?.evaluateJavaScript(
+                                    BrowserShieldJs.startPickModeScript(),
+                                    null,
+                                )
                             }
                             // SPEC-120: force page zoom viewport override when enabled.
                             if (chromePrefs.forcePageZoom) {
@@ -1416,10 +1591,67 @@ fun BrowserSessionScreen(
                 )
             }
 
-            // Floating chrome — phone only (SPEC-011 2A); tablet uses top chrome (SPEC-018).
-            // SPEC-022 B: auto-hide on scroll down.
-            // SPEC-045: translate prompt sits above the bottom chrome (phone) / content bottom (tablet).
-            if (!tabletEmbedded) {
+            // SPEC-134: pick-block bar replaces normal bottom chrome (phone + tablet).
+            if (pickMode) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = BrowserUiTokens.PagePaddingH)
+                        .padding(bottom = floatingBottomPad)
+                        .padding(top = floatingChromeTopGap),
+                ) {
+                    val blurOn = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                    val barBackdrop = LocalTopBarBackdrop.current ?: chromeBackdrop
+                    FloatingBottomBar(
+                        modifier = Modifier.fillMaxWidth(),
+                        selectedIndex = { 0 },
+                        onSelected = {},
+                        onReselected = {},
+                        backdrop = barBackdrop,
+                        tabsCount = 3,
+                        isBlurEnabled = blurOn,
+                        enableDragSwitch = false,
+                        persistentSelection = false,
+                        barHeight = phoneChromeBarHeight,
+                        indicatorHeight = phoneChromeBarHeight,
+                    ) {
+                        FloatingBottomBarItem(
+                            onClick = {
+                                exitPickMode()
+                                context.toastOnUi("已关闭点选屏蔽")
+                            },
+                        ) {
+                            SymbolIcon(
+                                Symbols.Close,
+                                contentDescription = "关闭",
+                                tint = scheme.onSurface,
+                            )
+                        }
+                        FloatingBottomBarItem(
+                            onClick = { openPickBlockSettings() },
+                        ) {
+                            SymbolIcon(
+                                Symbols.Settings,
+                                contentDescription = "设置",
+                                tint = scheme.onSurface,
+                            )
+                        }
+                        FloatingBottomBarItem(
+                            onClick = { confirmPickMode() },
+                        ) {
+                            SymbolIcon(
+                                Symbols.Check,
+                                contentDescription = "确认",
+                                tint = scheme.onSurface,
+                            )
+                        }
+                    }
+                }
+            } else if (!tabletEmbedded) {
+                // Floating chrome — phone only (SPEC-011 2A); tablet uses top chrome (SPEC-018).
+                // SPEC-022 B: auto-hide on scroll down.
+                // SPEC-045: translate prompt sits above the bottom chrome (phone) / content bottom (tablet).
                 AnimatedVisibility(
                     visible = phoneChromeVisible,
                     modifier = Modifier.align(Alignment.BottomCenter),
@@ -1456,6 +1688,42 @@ fun BrowserSessionScreen(
                                 },
                             )
                             Spacer(modifier = Modifier.height(8.dp))
+                        }
+                        if (showVideoPlayerPrompt) {
+                            val offer = videoOffer
+                            if (offer != null) {
+                                VideoPlayerPromptCapsule(
+                                    onPlay = {
+                                        BrowserVideoPlaybackService.stop(context)
+                                        context.startActivity(
+                                            BrowserVideoPlayerActivity.intent(context, offer),
+                                        )
+                                    },
+                                    onAudioOnly = {
+                                        BrowserVideoPlaybackService.startAudio(context, offer)
+                                        dismissedVideoPromptUrl = offer.url
+                                        context.toastOnUi("已开始听音频")
+                                    },
+                                    onPip = {
+                                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                                            context.toastOnUi("当前系统不支持画中画")
+                                        } else {
+                                            BrowserVideoPlaybackService.stop(context)
+                                            context.startActivity(
+                                                BrowserVideoPlayerActivity.intent(
+                                                    context,
+                                                    offer,
+                                                    autoPip = true,
+                                                ),
+                                            )
+                                        }
+                                    },
+                                    onDismiss = { dismissedVideoPromptUrl = offer.url },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                // SPEC-136: 16dp gap above bottom chrome.
+                                Spacer(modifier = Modifier.height(16.dp))
+                            }
                         }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1606,7 +1874,45 @@ fun BrowserSessionScreen(
                     }
                 }
             } else {
-                // SPEC-045/066 tablet: prompts near bottom of content (shell has top chrome only).
+                // SPEC-136: tablet video capsule — below top chrome, top-end.
+                if (showVideoPlayerPrompt) {
+                    val offer = videoOffer
+                    if (offer != null) {
+                        VideoPlayerPromptCapsule(
+                            onPlay = {
+                                BrowserVideoPlaybackService.stop(context)
+                                context.startActivity(
+                                    BrowserVideoPlayerActivity.intent(context, offer),
+                                )
+                            },
+                            onAudioOnly = {
+                                BrowserVideoPlaybackService.startAudio(context, offer)
+                                dismissedVideoPromptUrl = offer.url
+                                context.toastOnUi("已开始听音频")
+                            },
+                            onPip = {
+                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                                    context.toastOnUi("当前系统不支持画中画")
+                                } else {
+                                    BrowserVideoPlaybackService.stop(context)
+                                    context.startActivity(
+                                        BrowserVideoPlayerActivity.intent(
+                                            context,
+                                            offer,
+                                            autoPip = true,
+                                        ),
+                                    )
+                                }
+                            },
+                            onDismiss = { dismissedVideoPromptUrl = offer.url },
+                            widthFraction = 0.45f,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 12.dp, end = 16.dp),
+                        )
+                    }
+                }
+                // SPEC-045/066/132 tablet: prompts near bottom of content (shell has top chrome only).
                 val tabletBanner = downloadBanner
                 val tabletSnack = chromeSnack
                 if (showTranslatePrompt || tabletBanner != null || tabletSnack != null) {
@@ -1709,6 +2015,32 @@ fun BrowserSessionScreen(
         }
     }
 
+    // SPEC-131: fullscreen video above phone/tablet chrome (Dialog covers shell).
+    videoCustomView?.let { fsView ->
+        Dialog(
+            onDismissRequest = { requestExitVideoFullscreen() },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false,
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false,
+            ),
+        ) {
+            key(fsView) {
+                AndroidView(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                        .zIndex(1f),
+                    factory = {
+                        (fsView.parent as? ViewGroup)?.removeView(fsView)
+                        fsView
+                    },
+                )
+            }
+        }
+    }
+
     // SPEC-070: Edge-style toolbox grid (half screen).
     BrowserLinkContextMenu(
         hit = linkContextHit,
@@ -1793,11 +2125,7 @@ fun BrowserSessionScreen(
                 val currentUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
                 context.sendToClip(currentUrl)
             },
-            onPickBlock = {
-                pickMode = true
-                hostRef?.evaluateJavaScript(BrowserShieldJs.startPickModeScript(), null)
-                context.toastOnUi("点选模式：点击要屏蔽的元素")
-            },
+            onPickBlock = { enterPickMode() },
             adBlockEnabled = adBlockEnabled,
             onToggleAdBlock = {
                 val enabled = !adBlockEnabled
@@ -1850,6 +2178,19 @@ fun BrowserSessionScreen(
                 showFindInPage = true
                 findQuery = ""
                 findMatchLabel = ""
+            },
+            videoCapsuleAvailable = showVideoPlayerPrompt,
+            onOpenVideoCapsule = {
+                val offer = videoOffer
+                if (offer != null &&
+                    BrowserVideoOfferBus.belongsToPage(offer, currentPageForVideo)
+                ) {
+                    dismissedVideoPromptUrl = null
+                    phoneChromeVisible = true
+                    context.toastOnUi("已显示视频胶囊")
+                } else {
+                    context.toastOnUi("当前页未检测到可播放视频")
+                }
             },
         ),
     )
@@ -1951,32 +2292,6 @@ fun BrowserSessionScreen(
         )
     }
 
-    val selector = pendingSelector
-    if (selector != null) {
-        val hostName = BrowserAdRules.hostOf(clientRef?.lastUrl ?: address) ?: ""
-        AlertDialog(
-            onDismissRequest = { pendingSelector = null },
-            title = { Text("确认屏蔽") },
-            text = {
-                Text("域名：$hostName\n选择器：$selector\n将按该域名保存，仅影响本站。")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (hostName.isNotEmpty()) {
-                            shield.addRule(hostName, selector)
-                            applyCustomHide(clientRef?.lastUrl ?: address)
-                            context.toastOnUi("已保存屏蔽规则")
-                        }
-                        pendingSelector = null
-                    },
-                ) { Text("保存") }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingSelector = null }) { Text("取消") }
-            },
-        )
-    }
 }
 
 @Composable
@@ -2029,6 +2344,73 @@ private fun ChromeSnackBar(message: String) {
         maxLines = 3,
         overflow = TextOverflow.Ellipsis,
     )
+}
+
+/**
+ * SPEC-135/136: mini capsule (~75% width) — Play / Audio / PiP / Close.
+ * Icons enlarged (32/28); capsule width unchanged.
+ */
+@Composable
+private fun VideoPlayerPromptCapsule(
+    onPlay: () -> Unit,
+    onAudioOnly: () -> Unit,
+    onPip: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    /** SPEC-136: phone ~0.75; tablet corner can be narrower. */
+    widthFraction: Float = 0.75f,
+) {
+    val scheme = LegadoTheme.colorScheme
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val capsuleWidth = screenWidth * widthFraction
+    val pipSymbol = remember { MaterialSymbol("picture_in_picture_alt", autoMirror = false) }
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            modifier = Modifier
+                .width(capsuleWidth)
+                .clip(ContinuousCapsule)
+                .background(scheme.surfaceContainerHigh)
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            IconButton(onClick = onPlay) {
+                SymbolIcon(
+                    Symbols.PlayArrow,
+                    contentDescription = "播放",
+                    tint = scheme.primary,
+                    modifier = Modifier.size(32.dp),
+                )
+            }
+            IconButton(onClick = onAudioOnly) {
+                SymbolIcon(
+                    Symbols.Headphones,
+                    contentDescription = "听音频",
+                    tint = scheme.onSurface,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
+            IconButton(onClick = onPip) {
+                SymbolIcon(
+                    pipSymbol,
+                    contentDescription = "画中画",
+                    tint = scheme.onSurface,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
+            IconButton(onClick = onDismiss) {
+                SymbolIcon(
+                    Symbols.Close,
+                    contentDescription = "关闭",
+                    tint = scheme.onSurfaceVariant,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
+        }
+    }
 }
 
 /** SPEC-066: bottom-chrome download notice (~5s), right action opens downloads. */
@@ -2147,5 +2529,12 @@ private fun BrowserFindInPageBar(
             SymbolIcon(Symbols.Close, contentDescription = "关闭")
         }
     }
+}
+
+/** SPEC-131: resolve Activity from Compose LocalContext (may be wrapped). */
+private tailrec fun Context.findActivityOrNull(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivityOrNull()
+    else -> null
 }
 
