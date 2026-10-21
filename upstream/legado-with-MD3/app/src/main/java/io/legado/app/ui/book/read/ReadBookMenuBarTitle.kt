@@ -303,13 +303,13 @@ internal fun MenuTitleBar(
                             backdrop = backdrop,
                         )
                     }
-                    // SPEC-121: 右上角 = 原设置「更多菜单」→ ReaderMoreActionsSheet（禁止旧 Overflow）。
+                    // SPEC-155: 右上角 → MoreConfigSheet「更多设置」（不再开 MoreActions）。
                     MenuTitleGlassButton(
                         onClick = {
-                            onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreActions))
+                            onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreConfig))
                         },
                         icon = Symbols.MoreVert,
-                        contentDescription = stringResource(R.string.more_menu),
+                        contentDescription = stringResource(R.string.more_setting),
                         state = state,
                         colors = colors,
                         backdrop = backdrop,
@@ -885,12 +885,12 @@ private fun MenuTitleBarMergedGlassButton(
                 )
                 MergedGlassDivider(tint)
             }
-            // SPEC-121: 右上角 = 原设置「更多菜单」→ ReaderMoreActionsSheet。
+            // SPEC-155: 右上角 → MoreConfigSheet「更多设置」。
             MergedGlassIconButton(
                 icon = Symbols.MoreVert,
                 tint = tint,
-                contentDescription = stringResource(R.string.more_menu),
-                onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreActions)) },
+                contentDescription = stringResource(R.string.more_setting),
+                onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreConfig)) },
             )
         }
 

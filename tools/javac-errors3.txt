@@ -1,0 +1,165 @@
+﻿Calculating task graph as no cached configuration is available for tasks: :app:compileAppDebugJavaWithJavac :app:compileAppDebugKotlin
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preAppDebugBuild UP-TO-DATE
+> Task :app:dataBindingMergeDependencyArtifactsAppDebug UP-TO-DATE
+> Task :app:generateAppDebugResources UP-TO-DATE
+> Task :app:processAppDebugGoogleServices UP-TO-DATE
+> Task :modules:book:preBuild UP-TO-DATE
+> Task :modules:book:preDebugBuild UP-TO-DATE
+> Task :modules:book:generateDebugResources UP-TO-DATE
+> Task :modules:book:packageDebugResources UP-TO-DATE
+> Task :modules:rhino:preBuild UP-TO-DATE
+> Task :modules:rhino:preDebugBuild UP-TO-DATE
+> Task :modules:rhino:generateDebugResources UP-TO-DATE
+> Task :modules:rhino:packageDebugResources UP-TO-DATE
+> Task :app:mergeAppDebugResources UP-TO-DATE
+> Task :app:packageAppDebugResources UP-TO-DATE
+> Task :modules:book:processDebugNavigationResources UP-TO-DATE
+> Task :modules:rhino:processDebugNavigationResources UP-TO-DATE
+> Task :app:processAppDebugNavigationResources UP-TO-DATE
+> Task :app:parseAppDebugLocalResources UP-TO-DATE
+> Task :modules:book:parseDebugLocalResources UP-TO-DATE
+> Task :modules:book:generateDebugRFile UP-TO-DATE
+> Task :modules:rhino:parseDebugLocalResources UP-TO-DATE
+> Task :modules:rhino:generateDebugRFile UP-TO-DATE
+> Task :app:dataBindingGenBaseClassesAppDebug UP-TO-DATE
+> Task :app:generateAppDebugBuildConfig UP-TO-DATE
+> Task :app:generateAppDebugRFile UP-TO-DATE
+> Task :modules:book:javaPreCompileDebug UP-TO-DATE
+> Task :modules:rhino:javaPreCompileDebug UP-TO-DATE
+> Task :app:javaPreCompileAppDebug UP-TO-DATE
+> Task :verifyConfigArchitecture
+> Task :modules:rhino:compileDebugKotlin UP-TO-DATE
+> Task :modules:rhino:compileDebugJavaWithJavac NO-SOURCE
+> Task :modules:rhino:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :modules:book:compileDebugKotlin NO-SOURCE
+> Task :modules:book:compileDebugJavaWithJavac UP-TO-DATE
+> Task :modules:book:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :app:kspAppDebugKotlin
+> Task :app:compileAppDebugKotlin
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/browser/reader/WebChapterHttpFetcher.kt:169:31 Unnecessary safe call on a non-null receiver of type 'String'.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/data/repository/ReadRecordRepository.kt:42:9 'class Instant : Comparable<Instant>' is deprecated. Use kotlin.time.Instant instead.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/data/repository/ReadRecordRepository.kt:42:45 'fun Instant.toLocalDateTime(timeZone: TimeZone): LocalDateTime' is deprecated. kotlinx.datetime.Instant is superseded by kotlin.time.Instant.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:15:40 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:16:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:17:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:18:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:19:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:20:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:21:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:22:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:23:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:24:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:25:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:26:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:27:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:28:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:29:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:30:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:31:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:32:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:33:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:34:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:35:16 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:39:8 'class AudioFocusRequestCompat : Any' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:40:35 'class AudioAttributesCompat : Any, VersionedParcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:40:57 'constructor(): AudioAttributesCompat.Builder' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:41:23 'class AudioAttributesCompat : Any, VersionedParcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:42:29 'class AudioAttributesCompat : Any, VersionedParcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:44:16 'class AudioFocusRequestCompat : Any' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:44:40 'constructor(p0: Int): AudioFocusRequestCompat.Builder' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:44:48 'class AudioManagerCompat : Any' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:54:36 'class AudioFocusRequestCompat : Any' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/MediaHelp.kt:55:23 'class AudioManagerCompat : Any' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/help/webView/WebViewDataCleaner.kt:44:13 'fun clearFormData(): Unit' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:93:52 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:94:20 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:95:20 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:96:20 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:97:20 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:98:20 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:119:32 'class AudioFocusRequestCompat : Any' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:125:37 'class MediaSessionCompat : Any' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:149:37 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:233:37 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:296:41 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:324:41 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:398:24 'class MediaMetadataCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:398:44 'constructor(): MediaMetadataCompat.Builder' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:399:24 'class MediaMetadataCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:400:22 'class MediaMetadataCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:401:22 'class MediaMetadataCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:402:22 'class MediaMetadataCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:403:22 'class MediaMetadataCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:472:45 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:515:13 'class PlaybackStateCompat : Any, Parcelable' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:515:33 'constructor(): PlaybackStateCompat.Builder' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:538:30 'constructor(p0: Context, p1: String): MediaSessionCompat' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:540:73 'class Callback : Any' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:575:73 'class Callback : Any' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:701:75 'class MediaStyle : NotificationCompat.Style' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:702:45 'class NotificationCompat : Any' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/service/AudioPlayService.kt:702:64 'constructor(): NotificationCompat.MediaStyle' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1725:26 'static field SYSTEM_UI_FLAG_LAYOUT_STABLE: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1726:25 'static field SYSTEM_UI_FLAG_IMMERSIVE: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1727:25 'static field SYSTEM_UI_FLAG_IMMERSIVE_STICKY: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1729:33 'static field SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1732:33 'static field SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1734:37 'static field SYSTEM_UI_FLAG_HIDE_NAVIGATION: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1738:33 'static field SYSTEM_UI_FLAG_FULLSCREEN: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1740:26 'var systemUiVisibility: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/main/home/BrowserHomeTabScreen.kt:63:36 Unnecessary non-null assertion (!!) on a non-null receiver of type 'String'.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/widget/components/AppSlider.kt:40:9 'fun Slider(value: Float, onValueChange: (Float) -> Unit, modifier: Modifier = ..., enabled: Boolean = ..., valueRange: ClosedFloatingPointRange<Float> = ..., steps: Int = ..., onValueChangeFinished: (() -> Unit)? = ..., colors: SliderColors = ..., interactionSource: MutableInteractionSource = ...): Unit' is deprecated. Use the Slider overload that accepts SliderState, onValueChange, and onValueChangeFinished instead.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/widget/components/AppVerticalSlider.kt:63:13 'fun Slider(value: Float, onValueChange: (Float) -> Unit, modifier: Modifier = ..., enabled: Boolean = ..., valueRange: ClosedFloatingPointRange<Float> = ..., steps: Int = ..., onValueChangeFinished: (() -> Unit)? = ..., colors: SliderColors = ..., interactionSource: MutableInteractionSource = ...): Unit' is deprecated. Use the Slider overload that accepts SliderState, onValueChange, and onValueChangeFinished instead.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/widget/components/settingItem/CompactSettingItems.kt:202:17 'fun Slider(value: Float, onValueChange: (Float) -> Unit, modifier: Modifier = ..., enabled: Boolean = ..., valueRange: ClosedFloatingPointRange<Float> = ..., steps: Int = ..., onValueChangeFinished: (() -> Unit)? = ..., colors: SliderColors = ..., interactionSource: MutableInteractionSource = ...): Unit' is deprecated. Use the Slider overload that accepts SliderState, onValueChange, and onValueChangeFinished instead.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/widget/components/settingItem/SliderSettingItem.kt:228:29 'fun Slider(value: Float, onValueChange: (Float) -> Unit, modifier: Modifier = ..., enabled: Boolean = ..., valueRange: ClosedFloatingPointRange<Float> = ..., steps: Int = ..., onValueChangeFinished: (() -> Unit)? = ..., colors: SliderColors = ..., interactionSource: MutableInteractionSource = ...): Unit' is deprecated. Use the Slider overload that accepts SliderState, onValueChange, and onValueChangeFinished instead.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/widget/components/text/MarkdownBlock.kt:87:5 'constructor(flavour: MarkdownFlavourDescriptor): MarkdownParser' is deprecated. Use constructor with CancellationToken.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/widget/components/text/MarkdownBlock.kt:104:48 'fun buildMarkdownTreeFromString(text: String): ASTNode' is deprecated. Use the CharSequence overload.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/utils/ToastUtils.kt:80:29 'var view: View?' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/web/KtorServer.kt:45:21 'fun setLenient(): GsonBuilder!' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/web/KtorServer.kt:90:34 'val dispose: () -> Unit' is deprecated. Use release instead.
+
+> Task :app:compileAppDebugJavaWithJavac FAILED
+.\gradlew.bat : D:\cursor\browsesth\upstream\legado-with-MD3\app\src\main\java\com\haleydu\cimoc\manager\SourceManager.
+java:76: 閿欒: 鏃犳硶璁块棶鐨勮鍙?                    break;
+所在位置 C:\Users\32082\AppData\Local\Temp\ps-script-d5f21a98-fbb1-4640-a664-490a0f5bc331.ps1:77 字符: 1
++ .\gradlew.bat :app:compileAppDebugJavaWithJavac :app:compileAppDebugK ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (D:\cursor\brows...         break;:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+                    ^
+娉? 鏌愪簺杈撳叆鏂囦欢浣跨敤鎴栬鐩栦簡宸茶繃鏃剁殑 API銆?
+娉? 鏈夊叧璇︾粏淇℃伅, 璇蜂娇鐢?-Xlint:deprecation 閲嶆柊缂栬瘧銆?
+1 涓敊璇?
+
+> Task :app:copyRoomSchemas NO-SOURCE
+
+[Incubating] Problems report is available at: file:///D:/cursor/browsesth/upstream/legado-with-MD3/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileAppDebugJavaWithJavac' (registered by plugin 'com.android.internal.application')
+.
+> Compilation failed; see the compiler output below.
+  D:\cursor\browsesth\upstream\legado-with-MD3\app\src\main\java\com\haleydu\cimoc\manager\SourceManager.java:76: 閿欒: 
+鏃犳硶璁块棶鐨勮鍙?                      break;
+                      ^
+  娉? 鏌愪簺杈撳叆鏂囦欢浣跨敤鎴栬鐩栦簡宸茶繃鏃剁殑 API銆?
+  娉? 鏈夊叧璇︾粏淇℃伅, 璇蜂娇鐢?-Xlint:deprecation 閲嶆柊缂栬瘧銆?
+  1 涓敊璇?
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.8.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 3m 38s
+31 actionable tasks: 4 executed, 27 up-to-date
+Configuration cache entry stored.

@@ -1,0 +1,155 @@
+﻿Calculating task graph as configuration cache cannot be reused because file 'app\version.properties' has changed.
+
+> Configure project :app
+Browsesth version -> 4.4 (code 44)
+
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preAppDebugBuild UP-TO-DATE
+> Task :app:dataBindingMergeDependencyArtifactsAppDebug UP-TO-DATE
+> Task :app:generateAppDebugResources UP-TO-DATE
+> Task :app:processAppDebugGoogleServices UP-TO-DATE
+> Task :modules:book:preBuild UP-TO-DATE
+> Task :modules:book:preDebugBuild UP-TO-DATE
+> Task :modules:book:generateDebugResources UP-TO-DATE
+> Task :modules:book:packageDebugResources UP-TO-DATE
+> Task :modules:rhino:preBuild UP-TO-DATE
+> Task :modules:rhino:preDebugBuild UP-TO-DATE
+> Task :modules:rhino:generateDebugResources UP-TO-DATE
+> Task :modules:rhino:packageDebugResources UP-TO-DATE
+> Task :app:mergeAppDebugResources UP-TO-DATE
+> Task :app:packageAppDebugResources UP-TO-DATE
+> Task :modules:book:processDebugNavigationResources UP-TO-DATE
+> Task :modules:rhino:processDebugNavigationResources UP-TO-DATE
+> Task :app:processAppDebugNavigationResources UP-TO-DATE
+> Task :app:parseAppDebugLocalResources UP-TO-DATE
+> Task :modules:book:parseDebugLocalResources UP-TO-DATE
+> Task :modules:book:generateDebugRFile UP-TO-DATE
+> Task :modules:rhino:parseDebugLocalResources UP-TO-DATE
+> Task :modules:rhino:generateDebugRFile UP-TO-DATE
+> Task :app:dataBindingGenBaseClassesAppDebug UP-TO-DATE
+> Task :app:generateAppDebugBuildConfig
+> Task :app:generateAppDebugRFile UP-TO-DATE
+> Task :modules:book:javaPreCompileDebug UP-TO-DATE
+> Task :modules:rhino:javaPreCompileDebug UP-TO-DATE
+> Task :app:javaPreCompileAppDebug UP-TO-DATE
+> Task :modules:book:writeDebugAarMetadata UP-TO-DATE
+> Task :modules:rhino:writeDebugAarMetadata UP-TO-DATE
+> Task :app:checkAppDebugAarMetadata UP-TO-DATE
+> Task :app:mapAppDebugSourceSetPaths UP-TO-DATE
+> Task :app:createAppDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksAppDebug UP-TO-DATE
+> Task :modules:book:extractDeepLinksDebug UP-TO-DATE
+> Task :modules:book:processDebugManifest UP-TO-DATE
+> Task :modules:rhino:extractDeepLinksDebug UP-TO-DATE
+> Task :modules:rhino:processDebugManifest UP-TO-DATE
+> Task :verifyConfigArchitecture
+> Task :modules:book:compileDebugKotlin NO-SOURCE
+> Task :modules:book:compileDebugJavaWithJavac UP-TO-DATE
+> Task :modules:book:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :modules:rhino:compileDebugKotlin UP-TO-DATE
+> Task :modules:rhino:compileDebugJavaWithJavac NO-SOURCE
+> Task :modules:rhino:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :app:processAppDebugMainManifest
+> Task :app:compileAppDebugNavigationResources UP-TO-DATE
+> Task :app:processAppDebugManifest
+> Task :app:processAppDebugManifestForPackage
+> Task :modules:book:mapDebugSourceSetPaths UP-TO-DATE
+> Task :modules:book:compileDebugLibraryResources UP-TO-DATE
+> Task :modules:rhino:mapDebugSourceSetPaths UP-TO-DATE
+> Task :modules:rhino:compileDebugLibraryResources UP-TO-DATE
+> Task :app:processAppDebugResources
+> Task :app:preAppDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileAppDebugUnitTest UP-TO-DATE
+> Task :app:generateAppDebugAssets UP-TO-DATE
+> Task :modules:book:generateDebugAssets UP-TO-DATE
+> Task :modules:book:mergeDebugAssets UP-TO-DATE
+> Task :modules:rhino:generateDebugAssets UP-TO-DATE
+> Task :modules:rhino:mergeDebugAssets UP-TO-DATE
+> Task :app:mergeAppDebugAssets UP-TO-DATE
+> Task :app:packageAppDebugUnitTestForUnitTest
+
+> Task :app:mergeAppDebugUnitTestManifest
+D:\cursor\browsesth\upstream\legado-with-MD3\app\src\debug\AndroidManifest.xml Warning:
+	meta-data#androidx.emoji2.text.EmojiCompatInitializer was tagged at AndroidManifest.xml:0 to remove other declarations but no other declaration present
+D:\cursor\browsesth\upstream\legado-with-MD3\app\src\debug\AndroidManifest.xml Warning:
+	provider#com.google.firebase.provider.FirebaseInitProvider was tagged at AndroidManifest.xml:0 to remove other declarations but no other declaration present
+
+> Task :app:processAppDebugUnitTestManifest UP-TO-DATE
+> Task :app:generateAppDebugUnitTestConfig
+> Task :modules:book:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :modules:book:processDebugJavaRes UP-TO-DATE
+> Task :modules:rhino:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :modules:rhino:processDebugJavaRes UP-TO-DATE
+> Task :app:mergeAppDebugNativeDebugMetadata NO-SOURCE
+> Task :app:compressAppDebugAssets UP-TO-DATE
+> Task :app:generateAppDebugGlobalSynthetics UP-TO-DATE
+> Task :app:l8DexDesugarLibAppDebug UP-TO-DATE
+> Task :app:checkAppDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarAppDebugFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexAppDebug UP-TO-DATE
+> Task :modules:book:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :modules:rhino:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :app:mergeLibDexAppDebug UP-TO-DATE
+> Task :app:mergeAppDebugJniLibFolders UP-TO-DATE
+> Task :modules:book:mergeDebugJniLibFolders UP-TO-DATE
+> Task :modules:book:mergeDebugNativeLibs NO-SOURCE
+> Task :modules:book:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :modules:rhino:mergeDebugJniLibFolders UP-TO-DATE
+> Task :modules:rhino:mergeDebugNativeLibs NO-SOURCE
+> Task :modules:rhino:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :app:mergeAppDebugNativeLibs UP-TO-DATE
+> Task :app:stripAppDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningAppDebug UP-TO-DATE
+> Task :app:writeAppDebugAppMetadata UP-TO-DATE
+> Task :app:writeAppDebugSigningConfigVersions UP-TO-DATE
+> Task :app:kspAppDebugKotlin
+
+> Task :app:compileAppDebugKotlin
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1725:26 'static field SYSTEM_UI_FLAG_LAYOUT_STABLE: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1726:25 'static field SYSTEM_UI_FLAG_IMMERSIVE: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1727:25 'static field SYSTEM_UI_FLAG_IMMERSIVE_STICKY: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1729:33 'static field SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1732:33 'static field SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1734:37 'static field SYSTEM_UI_FLAG_HIDE_NAVIGATION: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1738:33 'static field SYSTEM_UI_FLAG_FULLSCREEN: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt:1740:26 'var systemUiVisibility: Int' is deprecated. Deprecated in Java.
+w: file:///D:/cursor/browsesth/upstream/legado-with-MD3/app/src/main/java/io/legado/app/utils/ToastUtils.kt:80:29 'var view: View?' is deprecated. Deprecated in Java.
+
+> Task :app:processAppDebugJavaRes
+
+> Task :app:compileAppDebugJavaWithJavac
+.\gradlew.bat : 娉? 鏌愪簺杈撳叆鏂囦欢浣跨敤鎴栬鐩栦簡宸茶繃鏃剁殑 API銆?
+所在位置 C:\Users\32082\AppData\Local\Temp\ps-script-dbbe86fa-0f5f-4e7f-81e5-572304b903cb.ps1:75 字符: 1
++ .\gradlew.bat :app:testAppDebugUnitTest --tests "io.legado.app.browse ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (娉? 鏌愪簺杈撳叆鏂囦欢浣跨敤鎴栬鐩栦簡宸茶繃鏃剁殑 API銆?:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+娉? 鏈夊叧璇︾粏淇℃伅, 璇蜂娇鐢?-Xlint:deprecation 閲嶆柊缂栬瘧銆?
+
+> Task :app:bundleAppDebugClassesToRuntimeJar
+> Task :app:bundleAppDebugClassesToCompileJar
+> Task :app:kspAppDebugUnitTestKotlin
+> Task :app:compileAppDebugUnitTestKotlin
+> Task :app:compileAppDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:copyRoomSchemas NO-SOURCE
+> Task :app:processAppDebugUnitTestJavaRes
+> Task :app:mergeAppDebugJavaResource
+> Task :app:testAppDebugUnitTest
+> Task :app:dexBuilderAppDebug
+> Task :app:mergeProjectDexAppDebug
+> Task :app:packageAppDebug
+> Task :app:assembleAppDebug
+> Task :app:createAppDebugApkListingFileRedirect
+
+[Incubating] Problems report is available at: file:///D:/cursor/browsesth/upstream/legado-with-MD3/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.8.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 4m 46s
+93 actionable tasks: 25 executed, 68 up-to-date
+Configuration cache entry stored.

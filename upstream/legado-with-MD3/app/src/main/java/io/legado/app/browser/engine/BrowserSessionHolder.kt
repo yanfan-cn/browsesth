@@ -116,6 +116,20 @@ object BrowserSessionHolder {
         active?.hasLoadedInitialUrl = true
     }
 
+    /** SPEC-149: 只读查询——活跃槽位属于 [key] 时返回其宿主；key 为 null 不校验。 */
+    fun activeHostFor(key: String?): AwContentsHostView? {
+        val slot = active ?: return null
+        if (key != null && sessionKey != key) return null
+        return slot.host
+    }
+
+    /** SPEC-149: 只读查询——活跃槽位属于 [key] 时返回其客户端。 */
+    fun activeClientFor(key: String?): BrowserAwContentsClient? {
+        val slot = active ?: return null
+        if (key != null && sessionKey != key) return null
+        return slot.client
+    }
+
     /** SPEC-021: navigate the retained host without requiring Compose remount. */
     fun loadUrl(url: String): Boolean {
         val h = active?.host ?: return false

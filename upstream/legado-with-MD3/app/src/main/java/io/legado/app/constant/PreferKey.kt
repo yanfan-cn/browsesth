@@ -199,14 +199,11 @@ object PreferKey {
     const val mouseWheelPage = "mouseWheelPage"
     const val recordHeapDump = "recordHeapDump"
     const val optimizeRender = "optimizeRender"
-    const val updateToVariant = "updateToVariant"
-    const val autoCheckUpdateOnStart = "autoCheckUpdateOnStart"
     const val streamReadAloudAudio = "streamReadAloudAudio"
     const val pauseReadAloudWhilePhoneCalls = "pauseReadAloudWhilePhoneCalls"
     const val readAloudByMediaButton = "readAloudByMediaButton"
     const val showMangaUi = "showMangaUi"
     const val disableMangaScale = "disableMangaScale"
-    const val firebaseEnable = "firebaseEnable"
     const val cPrimary = "colorPrimary"
     const val customContrast = "customContrast"
     const val cAccent = "colorAccent"
@@ -462,9 +459,7 @@ object PreferKey {
     const val navIconHome = "navIconHome"
 
     // Lab
-    const val labEnabled = "labEnabled"
     const val labEInkDisplay = "labEInkDisplay"
-    const val labEyeProtection = "labEyeProtection"
 
     // Eye Protection
     const val eyeProtectionEnabled = "eyeProtectionEnabled"

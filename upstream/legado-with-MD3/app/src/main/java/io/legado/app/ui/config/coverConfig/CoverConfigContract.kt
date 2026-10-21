@@ -32,7 +32,6 @@ enum class CoverColorField {
 }
 
 sealed interface CoverConfigIntent {
-    data class SetLoadOnlyOnWifi(val value: Boolean) : CoverConfigIntent
     data class SetUseDefaultCover(val value: Boolean) : CoverConfigIntent
     data class SetShowShadow(val value: Boolean) : CoverConfigIntent
     data class SetShowStroke(val value: Boolean) : CoverConfigIntent

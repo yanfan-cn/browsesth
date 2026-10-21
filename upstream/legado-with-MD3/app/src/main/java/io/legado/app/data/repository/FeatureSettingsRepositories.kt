@@ -7,7 +7,6 @@ import io.legado.app.domain.gateway.AppShellSettingsGateway
 import io.legado.app.domain.gateway.BackupSettingsGateway
 import io.legado.app.domain.gateway.CoverSettingsGateway
 import io.legado.app.domain.gateway.DownloadCacheSettingsGateway
-import io.legado.app.domain.gateway.LabSettingsGateway
 import io.legado.app.domain.gateway.OtherSettingsGateway
 import io.legado.app.domain.gateway.ThemeSettingsGateway
 import io.legado.app.domain.gateway.TranslationSettingsGateway
@@ -16,7 +15,6 @@ import io.legado.app.domain.model.settings.AppShellSettings
 import io.legado.app.domain.model.settings.BackupSettings
 import io.legado.app.domain.model.settings.CoverSettings
 import io.legado.app.domain.model.settings.DownloadCacheSettings
-import io.legado.app.domain.model.settings.LabSettings
 import io.legado.app.domain.model.settings.OtherSettings
 import io.legado.app.domain.model.settings.ThemeSettings
 import io.legado.app.domain.model.settings.TranslationSettings
@@ -97,23 +95,6 @@ class CoverSettingsRepository : CoverSettingsGateway {
     }
 }
 
-class LabSettingsRepository : LabSettingsGateway {
-    override val currentSettings: LabSettings
-        get() = AppConfigStore.preferences.toLabSettings()
-
-    override val settings: Flow<LabSettings> = AppConfigStore.preferencesFlow
-        .map { it.toLabSettings() }
-        .distinctUntilChanged()
-
-    override suspend fun update(transform: (LabSettings) -> LabSettings) {
-        AppConfigStore.atomicUpdate(
-            read = Preferences::toLabSettings,
-            toPrefMap = LabSettings::toPrefMap,
-            transform = transform,
-        )
-    }
-}
-
 class TranslationSettingsRepository : TranslationSettingsGateway {
     override val currentSettings: TranslationSettings
         get() = AppConfigStore.preferences.toTranslationSettings()
@@ -174,10 +155,9 @@ internal fun DownloadCacheSettings.toPrefMap(): Map<String, Any?> = mapOf(
 )
 
 internal fun Preferences.toCoverSettings(): CoverSettings = CoverSettings(
-    loadOnlyOnWifi = compatDsBoolean(PreferKey.loadCoverOnlyWifi) ?: false,
     useDefaultCover = compatDsBoolean(PreferKey.useDefaultCover) ?: false,
     showShadow = compatDsBoolean(PreferKey.coverShowShadow) ?: false,
-    showStroke = compatDsBoolean(PreferKey.coverShowStroke) ?: true,
+    showStroke = compatDsBoolean(PreferKey.coverShowStroke) ?: false,
     useDefaultColor = compatDsBoolean(PreferKey.coverDefaultColor) ?: true,
     textColor = compatDsInt(PreferKey.coverTextColor) ?: -16777216,
     shadowColor = compatDsInt(PreferKey.coverShadowColor) ?: -16777216,
@@ -187,14 +167,13 @@ internal fun Preferences.toCoverSettings(): CoverSettings = CoverSettings(
     shadowColorDark = compatDsInt(PreferKey.coverShadowColorN) ?: -1,
     showNameDark = compatDsBoolean(PreferKey.coverShowNameN) ?: true,
     showAuthorDark = compatDsBoolean(PreferKey.coverShowAuthorN) ?: true,
-    infoOrientation = compatDsString(PreferKey.coverInfoOrientation) ?: "0",
+    infoOrientation = compatDsString(PreferKey.coverInfoOrientation) ?: "1",
     exploreFilterState = compatDsInt(PreferKey.exploreFilterState) ?: 0,
     defaultCover = compatDsString(PreferKey.defaultCover).orEmpty(),
     defaultCoverDark = compatDsString(PreferKey.defaultCoverDark).orEmpty(),
 )
 
 internal fun CoverSettings.toPrefMap(): Map<String, Any?> = mapOf(
-    PreferKey.loadCoverOnlyWifi to loadOnlyOnWifi,
     PreferKey.useDefaultCover to useDefaultCover,
     PreferKey.coverShowShadow to showShadow,
     PreferKey.coverShowStroke to showStroke,
@@ -211,18 +190,6 @@ internal fun CoverSettings.toPrefMap(): Map<String, Any?> = mapOf(
     PreferKey.exploreFilterState to exploreFilterState,
     PreferKey.defaultCover to defaultCover,
     PreferKey.defaultCoverDark to defaultCoverDark,
-)
-
-internal fun Preferences.toLabSettings(): LabSettings = LabSettings(
-    enabled = compatDsBoolean(PreferKey.labEnabled) ?: false,
-    eInkDisplay = compatDsBoolean(PreferKey.labEInkDisplay) ?: false,
-    eyeProtection = compatDsBoolean(PreferKey.labEyeProtection) ?: false,
-)
-
-internal fun LabSettings.toPrefMap(): Map<String, Any?> = mapOf(
-    PreferKey.labEnabled to enabled,
-    PreferKey.labEInkDisplay to eInkDisplay,
-    PreferKey.labEyeProtection to eyeProtection,
 )
 
 internal fun Preferences.toTranslationSettings(): TranslationSettings {
@@ -289,7 +256,9 @@ internal fun Preferences.toAppShellSettings(): AppShellSettings = AppShellSettin
     showRss = compatDsBoolean(PreferKey.showRss) ?: false,
     showStatusBar = compatDsBoolean(PreferKey.showStatusBar) ?: true,
     swipeAnimation = compatDsBoolean(PreferKey.swipeAnimation) ?: true,
-    predictiveBackEnabled = compatDsBoolean(PreferKey.isPredictiveBackEnabled) ?: true,
+    // SPEC-088: 预测性返回强制关闭（effectivePredictiveBackEnabled 恒 false），
+    // 缺省回退必须与模型默认 false 对齐，保证「空快照 == 模型默认值」不变式（SPEC-148）。
+    predictiveBackEnabled = compatDsBoolean(PreferKey.isPredictiveBackEnabled) ?: false,
     showBottomView = compatDsBoolean(PreferKey.showBottomView) ?: true,
     useFloatingBottomBar = compatDsBoolean(PreferKey.useFloatingBottomBar) ?: true,
     useFloatingBottomBarLiquidGlass =
@@ -424,6 +393,7 @@ internal fun Preferences.toThemeSettings(): ThemeSettings = ThemeSettings(
     ) ?: true,
     enableCustomTagColors = compatDsBoolean(PreferKey.enableCustomTagColors) ?: false,
     customTagColorsJson = compatDsString(PreferKey.customTagColors),
+    eInkDisplay = compatDsBoolean(PreferKey.labEInkDisplay) ?: true,
 )
 
 /**
@@ -502,19 +472,17 @@ internal fun ThemeSettings.toGatewayPrefMap(): Map<String, Any?> = mapOf(
         showRefactorTip,
     PreferKey.enableCustomTagColors to enableCustomTagColors,
     PreferKey.customTagColors to customTagColorsJson,
+    PreferKey.labEInkDisplay to eInkDisplay,
 )
 
 internal fun Preferences.toOtherSettings(): OtherSettings {
     val rawSourceEditMaxLine = compatDsInt(PreferKey.sourceEditMaxLine) ?: Int.MAX_VALUE
     return OtherSettings(
-        updateToVariant = compatDsString(PreferKey.updateToVariant) ?: "official_version",
-        autoCheckUpdateOnStart = compatDsBoolean(PreferKey.autoCheckUpdateOnStart) ?: false,
         webServiceAutoStart = compatDsBoolean(PreferKey.webServiceAutoStart) ?: false,
         autoRefresh = compatDsBoolean(PreferKey.autoRefresh) ?: false,
         defaultToRead = compatDsBoolean(PreferKey.defaultToRead) ?: false,
         notificationsPost = compatDsBoolean(PreferKey.notificationsPost) ?: true,
         ignoreBatteryPermission = compatDsBoolean(PreferKey.ignoreBatteryPermission) ?: true,
-        firebaseEnable = compatDsBoolean(PreferKey.firebaseEnable) ?: true,
         defaultBookTreeUri = compatDsString(PreferKey.defaultBookTreeUri),
         antiAlias = compatDsBoolean(PreferKey.antiAlias) ?: false,
         replaceEnableDefault = compatDsBoolean(PreferKey.replaceEnableDefault) ?: true,
@@ -536,14 +504,11 @@ internal fun Preferences.toOtherSettings(): OtherSettings {
 }
 
 internal fun OtherSettings.toPrefMap(): Map<String, Any?> = mapOf(
-    PreferKey.updateToVariant to updateToVariant,
-    PreferKey.autoCheckUpdateOnStart to autoCheckUpdateOnStart,
     PreferKey.webServiceAutoStart to webServiceAutoStart,
     PreferKey.autoRefresh to autoRefresh,
     PreferKey.defaultToRead to defaultToRead,
     PreferKey.notificationsPost to notificationsPost,
     PreferKey.ignoreBatteryPermission to ignoreBatteryPermission,
-    PreferKey.firebaseEnable to firebaseEnable,
     PreferKey.defaultBookTreeUri to defaultBookTreeUri,
     PreferKey.antiAlias to antiAlias,
     PreferKey.replaceEnableDefault to replaceEnableDefault,

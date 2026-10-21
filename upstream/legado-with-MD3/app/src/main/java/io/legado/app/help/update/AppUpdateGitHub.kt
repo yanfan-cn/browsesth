@@ -20,21 +20,15 @@ import java.time.format.DateTimeFormatter
 
 object AppUpdateGitHub : AppUpdate.AppUpdateInterface {
 
-    private val otherSettingsGateway get() = org.koin.core.context.GlobalContext.get().get<io.legado.app.domain.gateway.OtherSettingsGateway>()
-
     private const val repoPath = "HapeLee/legado-with-MD3"
     private const val githubApiBaseUrl = "https://api.github.com/repos/$repoPath/releases"
     private const val updateManifestBaseUrl =
         "https://raw.githubusercontent.com/$repoPath/update-manifests"
     private const val manifestTimeoutMillis = 2500L
 
+    // SPEC-144 TC-4：更新渠道选择（updateToVariant）已移除，恒用当前包体变体。
     private val checkVariant: AppVariant
-        get() = when (otherSettingsGateway.currentSettings.updateToVariant) {
-            "official_version" -> AppVariant.OFFICIAL
-            "beta_release_version" -> AppVariant.BETA_RELEASE
-            "all_version" -> AppVariant.ALL
-            else -> AppConst.appInfo.appVariant
-        }
+        get() = AppConst.appInfo.appVariant
 
     private suspend fun getLatestRelease(variant: AppVariant): List<AppReleaseInfo> {
         val releases = getManifestReleases(variant) ?: getApiReleases(variant)

@@ -1,5 +1,7 @@
 package io.legado.app.ui.browser
 
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -9,8 +11,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +25,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,6 +35,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
@@ -68,6 +75,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shadow
@@ -99,9 +107,12 @@ import io.legado.app.R
 import io.legado.app.browser.engine.BingWallpaperClient
 import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.browser.engine.BrowserChromePrefs
+import io.legado.app.browser.engine.NtpWallpaperIds
+import io.legado.app.browser.engine.NtpWallpaperStore
 import io.legado.app.browser.engine.BrowserNtpNews
 import io.legado.app.browser.engine.BrowserNtpPrefs
 import io.legado.app.browser.engine.BrowserNtpScrollMemory
+import io.legado.app.browser.engine.BrowserClipboardUrl
 import io.legado.app.browser.engine.BrowserOmniboxSuggest
 import io.legado.app.browser.engine.BrowserSearchEngine
 import io.legado.app.browser.engine.BrowserShortcut
@@ -114,6 +125,7 @@ import io.legado.app.ui.book.info.ChangeCoverSheet
 import io.legado.app.ui.config.themeConfig.ThemeModeSelector
 import io.legado.app.ui.qrcode.QrCodeResult
 import io.legado.app.ui.theme.LegadoTheme
+import java.io.File
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
@@ -184,12 +196,20 @@ fun BrowserNtpScreen(
     val focusManager = LocalFocusManager.current
     val ntpPrefs = remember { BrowserNtpPrefs(context) }
     val chromePrefs = remember { BrowserChromePrefs(context) }
+    val wallpaperStore = remember { NtpWallpaperStore(context) }
     val shortcutStore = remember { BrowserShortcutStore(context) }
     val browseStore = remember { BrowseStore(context) }
     var engine by remember { mutableStateOf(ntpPrefs.searchEngine()) }
     var query by remember { mutableStateOf("") }
     var queryFocused by remember { mutableStateOf(false) }
+    /** SPEC-146 R2: clipboard link candidate while the NTP search is focused. */
+    var clipboardUrl by remember { mutableStateOf<String?>(null) }
     var shortcuts by remember { mutableStateOf(shortcutStore.list()) }
+    // SPEC-152: 订阅 store 版本号，书签/收藏「添加至主页」后立即反映，无需重启。
+    val shortcutVersion by BrowserShortcutStore.version.collectAsState()
+    LaunchedEffect(shortcutVersion) {
+        shortcuts = shortcutStore.list()
+    }
     var engineMenu by remember { mutableStateOf(false) }
     var customizeMenu by remember { mutableStateOf(false) }
     var editShortcut by remember { mutableStateOf<BrowserShortcut?>(null) }
@@ -197,6 +217,8 @@ fun BrowserNtpScreen(
     var coverBook by remember { mutableStateOf<Book?>(null) }
     var wallpaperUrl by remember { mutableStateOf(chromePrefs.wallpaperUrl) }
     var dailyWallpaper by remember { mutableStateOf(chromePrefs.dailyWallpaperEnabled) }
+    var wallpaperId by remember { mutableStateOf(wallpaperStore.selectedId) }
+    var userWallpaperIds by remember { mutableStateOf(wallpaperStore.userIds()) }
     var showBookshelf by remember { mutableStateOf(ntpPrefs.showBookshelfCard) }
     var showShortcuts by remember { mutableStateOf(ntpPrefs.showShortcutGrid) }
     // SPEC-088: news feed prefs (default all on); sources toggled in card menu.
@@ -228,6 +250,17 @@ fun BrowserNtpScreen(
     val tabCount by BrowserTabManager.tabs.collectAsStateWithLifecycle()
     val hasQuery = query.isNotBlank()
     val shortcutColumns = if (tabletLayout) 6 else 4
+
+    val wallpaperPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        newsScope.launch {
+            val id = withContext(Dispatchers.IO) { wallpaperStore.import(uri) } ?: return@launch
+            wallpaperId = id
+            userWallpaperIds = wallpaperStore.userIds()
+        }
+    }
 
     val qrLauncher = rememberLauncherForActivityResult(QrCodeResult()) { result ->
         val raw = result?.trim().orEmpty()
@@ -410,6 +443,16 @@ fun BrowserNtpScreen(
         onOpenUrl(item.url, incognito, item.title.ifBlank { item.url })
     }
 
+    /** SPEC-146 R2: open the clipboard link candidate. */
+    fun openClipboardLink(url: String) {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+        queryFocused = false
+        clipboardUrl = null
+        query = url
+        onOpenUrl(url, incognito, url)
+    }
+
     val querySuggestions = remember(query, queryFocused) {
         if (!queryFocused || query.isBlank()) {
             emptyList()
@@ -425,29 +468,29 @@ fun BrowserNtpScreen(
     )
     // SPEC-059: follow app theme (rememberNtpColors already uses LegadoTheme when forceDark=null)
     val ntpDark = incognito || LegadoTheme.isDark || isSystemInDarkTheme()
-    val wallpaperVisible = wallpaperUrl.isNotBlank() && !incognito && dailyWallpaper
-    val shortcutLightText = ntpDark || wallpaperVisible
+    // SPEC-158: daily Bing when the switch is on; otherwise the selected preset / photo.
+    val dailyWallpaperVisible = wallpaperUrl.isNotBlank() && !incognito && dailyWallpaper
+    val presetWallpaperVisible = !incognito && !dailyWallpaper
+    val userWallpaperVisible = presetWallpaperVisible && !NtpWallpaperIds.isBuiltin(wallpaperId)
+    val wallpaperScrim = when {
+        dailyWallpaperVisible -> 0.35f
+        userWallpaperVisible && ntpDark -> 0.40f
+        ntpDark && presetWallpaperVisible -> 0.28f
+        userWallpaperVisible -> 0.32f
+        else -> 0f
+    }
+    val shortcutLightText = ntpDark || wallpaperScrim > 0f
     val shortcutLabelColor = if (shortcutLightText) Color.White else Color(0xFF1C1B19)
     // SPEC-129: dark wallpaper / dark NTP → light status-bar icons (readable on dark).
-    val view = androidx.compose.ui.platform.LocalView.current
+    // SPEC-147 R12: 改走 StatusBarAppearance 仲裁器——nav3 重锚页面时 effect 会在
+    // 同一帧销毁重建，仲裁器延迟一帧恢复默认，可被重新登记取消，避免图标翻转。
+    // SPEC-158: light built-in presets keep dark icons; scrim (Bing, photo, dark theme) uses light icons.
     val appIsDark = LegadoTheme.isDark
-    DisposableEffect(wallpaperVisible, ntpDark, appIsDark) {
-        val activity = generateSequence(view.context) { ctx ->
-            (ctx as? android.content.ContextWrapper)?.baseContext
-        }.filterIsInstance<android.app.Activity>().firstOrNull()
-        val window = activity?.window
-        val lightIconsNeeded = wallpaperVisible || ntpDark
-        if (window != null) {
-            androidx.core.view.WindowCompat
-                .getInsetsController(window, view)
-                .isAppearanceLightStatusBars = !lightIconsNeeded
-        }
+    val lightStatusIcons = ntpDark || wallpaperScrim > 0f
+    DisposableEffect(lightStatusIcons, appIsDark) {
+        io.legado.app.base.StatusBarAppearance.request("ntp", lightStatusIcons)
         onDispose {
-            if (window != null) {
-                androidx.core.view.WindowCompat
-                    .getInsetsController(window, view)
-                    .isAppearanceLightStatusBars = !appIsDark
-            }
+            io.legado.app.base.StatusBarAppearance.release("ntp")
         }
     }
     Box(
@@ -458,7 +501,7 @@ fun BrowserNtpScreen(
         // SPEC-049: sample source must NOT contain glass descendants — nested
         // layerBackdrop + browserControlLiquidGlass caused RenderThread SIGSEGV.
         val ntpBackdrop = rememberLayerBackdrop()
-        val sampleWallpaper = firstFrameDone && wallpaperUrl.isNotBlank() && !incognito && dailyWallpaper
+        val sampleWallpaper = firstFrameDone && (dailyWallpaperVisible || presetWallpaperVisible)
         CompositionLocalProvider(
             LocalTopBarBackdrop provides if (sampleWallpaper) ntpBackdrop else null,
         ) {
@@ -469,22 +512,31 @@ fun BrowserNtpScreen(
                 .background(pageBg),
         ) {
                 AnimatedVisibility(
-                    visible = wallpaperVisible,
+                    visible = dailyWallpaperVisible || presetWallpaperVisible,
                     enter = fadeIn(animationSpec = tween(400)),
                     exit = fadeOut(animationSpec = tween(400)),
                 ) {
                     Box(Modifier.fillMaxSize()) {
-                        SubcomposeAsyncImage(
-                            model = wallpaperUrl,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.35f)),
-                        )
+                        if (dailyWallpaperVisible) {
+                            SubcomposeAsyncImage(
+                                model = wallpaperUrl,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                            )
+                        } else {
+                            NtpWallpaperLayer(
+                                wallpaperId = wallpaperId,
+                                userFile = wallpaperStore.fileFor(wallpaperId),
+                            )
+                        }
+                        if (wallpaperScrim > 0f) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = wallpaperScrim)),
+                            )
+                        }
                     }
                 }
         }
@@ -523,11 +575,30 @@ fun BrowserNtpScreen(
                         showBookshelf = showBookshelf,
                         showShortcuts = showShortcuts,
                         newsFeedEnabled = newsFeedEnabled,
+                        wallpaperId = wallpaperId,
+                        userWallpaperIds = userWallpaperIds,
+                        userFile = wallpaperStore::fileFor,
                         textColor = chromeTint,
                         onDismiss = { customizeMenu = false },
                         onDailyWallpaper = {
                             dailyWallpaper = it
                             chromePrefs.dailyWallpaperEnabled = it
+                        },
+                        onSelectWallpaper = { id ->
+                            wallpaperStore.selectedId = id
+                            wallpaperId = id
+                        },
+                        onAddWallpaper = {
+                            wallpaperPicker.launch(
+                                PickVisualMediaRequest(
+                                    ActivityResultContracts.PickVisualMedia.ImageOnly,
+                                ),
+                            )
+                        },
+                        onDeleteWallpaper = { id ->
+                            wallpaperStore.delete(id)
+                            wallpaperId = wallpaperStore.selectedId
+                            userWallpaperIds = wallpaperStore.userIds()
                         },
                         onShowBookshelf = {
                             showBookshelf = it
@@ -588,23 +659,43 @@ fun BrowserNtpScreen(
                     if (tabletLayout) {
                         Modifier.padding(top = BrowserUiTokens.NtpTopBarHeight)
                     } else {
-                        // SPEC-133: phone — smart safeDrawing (cutout/status by rotation);
-                        // portrait keeps top shift; landscape avoids forced bilateral bars.
+                        // SPEC-140-R5: horizontal/bottom insets stay fixed on the
+                        // scroll container; the TOP shift moved INSIDE the scroll
+                        // (spacer below) so scrolled content tucks under the glass
+                        // chrome row — no permanent blank band while scrolling.
                         Modifier
-                            .windowInsetsPadding(WindowInsets.safeDrawing)
-                            .padding(horizontal = BrowserUiTokens.PagePaddingH)
-                            .then(
-                                if (phoneLandscape) {
-                                    Modifier
-                                } else {
-                                    Modifier.padding(top = BrowserUiTokens.NtpContentShiftDown)
-                                },
+                            .windowInsetsPadding(
+                                WindowInsets.safeDrawing.only(
+                                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
+                                ),
                             )
+                            .padding(horizontal = BrowserUiTokens.PagePaddingH)
                     },
                 )
                 .verticalScroll(ntpScrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            if (!tabletLayout) {
+                // SPEC-140-R5: scrollable top spacing — at rest the search capsule
+                // sits NtpContentShiftDown below the status bar (135dp below the
+                // chrome row per operator directive) and scrolls away with the
+                // content instead of clipping at a fixed viewport top.
+                val topInset = WindowInsets.safeDrawing
+                    .only(WindowInsetsSides.Top)
+                    .asPaddingValues()
+                    .calculateTopPadding()
+                Spacer(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(
+                            topInset + if (phoneLandscape) {
+                                0.dp
+                            } else {
+                                BrowserUiTokens.NtpContentShiftDown
+                            },
+                        ),
+                )
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth(
@@ -694,7 +785,16 @@ fun BrowserNtpScreen(
                         onValueChange = { query = it },
                         modifier = Modifier
                             .weight(1f)
-                            .onFocusChanged { queryFocused = it.isFocused },
+                            .onFocusChanged { fs ->
+                                val wasFocused = queryFocused
+                                queryFocused = fs.isFocused
+                                if (!wasFocused && fs.isFocused) {
+                                    // SPEC-146 R2: read clipboard only on focus gained.
+                                    clipboardUrl = BrowserClipboardUrl.latest(context)
+                                } else if (wasFocused && !fs.isFocused) {
+                                    clipboardUrl = null
+                                }
+                            },
                         singleLine = true,
                         textStyle = TextStyle(color = textColor, fontSize = 16.sp),
                         cursorBrush = SolidColor(colors.cta),
@@ -787,11 +887,13 @@ fun BrowserNtpScreen(
                 }
             }
 
-            if (querySuggestions.isNotEmpty()) {
+            if (querySuggestions.isNotEmpty() || clipboardUrl != null) {
                 Spacer(modifier = Modifier.height(10.dp))
                 BrowserOmniboxSuggestPanel(
                     items = querySuggestions,
                     onSelect = { openSuggest(it) },
+                    clipboardUrl = clipboardUrl,
+                    onClipboardSelect = { openClipboardLink(it) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -812,7 +914,9 @@ fun BrowserNtpScreen(
                 ) {
                     val iconSize = BrowserUiTokens.NtpShortcutIconSize
                     val rowGap = if (shortcutColumns > 1) {
-                        ((maxWidth - iconSize * shortcutColumns) / (shortcutColumns - 1))
+                        // SPEC-152: 扣 2dp 余量——恰好填满时 dp 取整的亚像素溢出
+                        // 会让最后一个图标被挤到下一行（一行六个最右空一格）。
+                        (((maxWidth - iconSize * shortcutColumns) / (shortcutColumns - 1)) - 2.dp)
                             .coerceAtLeast(0.dp)
                     } else {
                         0.dp
@@ -874,7 +978,7 @@ fun BrowserNtpScreen(
                 ) {
                     Column(modifier = Modifier.padding(BrowserUiTokens.SpaceLg)) {
                         Text(
-                            "阅读列表",
+                            "净读列表",
                             color = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Medium,
@@ -885,7 +989,7 @@ fun BrowserNtpScreen(
                         )
                         if (books.isEmpty()) {
                             Text(
-                                "阅读列表暂无内容，可在「阅读列表」页添加",
+                                "净读列表暂无内容，可在「净读列表」页添加",
                                 color = colors.secondaryText,
                                 fontSize = 12.sp,
                                 modifier = Modifier
@@ -1354,14 +1458,105 @@ private fun NtpNewsSourceMenu(
 }
 
 @Composable
+private fun NtpWallpaperLayer(
+    wallpaperId: String,
+    userFile: File?,
+) {
+    val drawable = ntpBuiltinDrawable(wallpaperId)
+    when {
+        drawable != null -> Image(
+            painter = painterResource(drawable),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+        userFile != null && userFile.isFile -> AsyncImage(
+            model = userFile,
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+        else -> Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(listOf(ntpGradientTop(wallpaperId), Color.White)),
+                ),
+        )
+    }
+}
+
+@Composable
+private fun NtpWallpaperThumb(
+    selected: Boolean,
+    borderColor: Color,
+    onClick: () -> Unit,
+    onDelete: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    Box(Modifier.size(width = 56.dp, height = 56.dp)) {
+        Box(
+            Modifier
+                .size(52.dp)
+                .align(Alignment.BottomStart)
+                .clip(RoundedCornerShape(10.dp))
+                .clickable(onClick = onClick),
+        ) {
+            content()
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .border(
+                        width = if (selected) 2.dp else 1.dp,
+                        color = if (selected) borderColor else borderColor.copy(alpha = 0.25f),
+                        shape = RoundedCornerShape(10.dp),
+                    ),
+            )
+        }
+        if (onDelete != null) {
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .clickable(onClick = onDelete),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("×", color = Color.White, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+private fun ntpBuiltinDrawable(id: String): Int? = when (id) {
+    NtpWallpaperIds.MORNING -> R.drawable.ntp_wall_morning
+    NtpWallpaperIds.MIST -> R.drawable.ntp_wall_mist
+    NtpWallpaperIds.LINEN -> R.drawable.ntp_wall_linen
+    else -> null
+}
+
+private fun ntpGradientTop(id: String): Color = when (id) {
+    NtpWallpaperIds.GRAD_GREEN -> Color(0xFFC9E6D2)
+    NtpWallpaperIds.GRAD_PINK -> Color(0xFFF6D5DE)
+    else -> Color(0xFFB7D6F2)
+}
+
+@Composable
 private fun NtpCustomizePanel(
     dailyWallpaper: Boolean,
     showBookshelf: Boolean,
     showShortcuts: Boolean,
     newsFeedEnabled: Boolean,
+    wallpaperId: String,
+    userWallpaperIds: List<String>,
+    userFile: (String) -> File,
     textColor: Color,
     onDismiss: () -> Unit,
     onDailyWallpaper: (Boolean) -> Unit,
+    onSelectWallpaper: (String) -> Unit,
+    onAddWallpaper: () -> Unit,
+    onDeleteWallpaper: (String) -> Unit,
     onShowBookshelf: (Boolean) -> Unit,
     onShowShortcuts: (Boolean) -> Unit,
     onNewsFeedEnabled: (Boolean) -> Unit,
@@ -1415,7 +1610,61 @@ private fun NtpCustomizePanel(
             Spacer(modifier = Modifier.height(12.dp))
             Text("主页", color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             NtpCustomizeRow("每日壁纸", dailyWallpaper, textColor, onDailyWallpaper)
-            NtpCustomizeRow("阅读列表卡", showBookshelf, textColor, onShowBookshelf)
+            Text("背景", color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                NtpWallpaperIds.builtins.forEach { id ->
+                    NtpWallpaperThumb(
+                        selected = wallpaperId == id,
+                        borderColor = textColor,
+                        onClick = { onSelectWallpaper(id) },
+                    ) {
+                        NtpWallpaperLayer(wallpaperId = id, userFile = null)
+                    }
+                }
+                userWallpaperIds.forEach { id ->
+                    NtpWallpaperThumb(
+                        selected = wallpaperId == id,
+                        borderColor = textColor,
+                        onClick = { onSelectWallpaper(id) },
+                        onDelete = { onDeleteWallpaper(id) },
+                    ) {
+                        AsyncImage(
+                            model = userFile(id),
+                            contentDescription = "相册",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier.height(56.dp),
+                    contentAlignment = Alignment.BottomCenter,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(textColor.copy(alpha = 0.08f))
+                            .clickable(onClick = onAddWallpaper),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("+", color = textColor, fontSize = 22.sp)
+                    }
+                }
+            }
+            Text(
+                NtpWallpaperIds.label(wallpaperId),
+                color = textColor.copy(alpha = 0.7f),
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+            )
+            NtpCustomizeRow("净读列表卡", showBookshelf, textColor, onShowBookshelf)
             NtpCustomizeRow("快捷书签", showShortcuts, textColor, onShowShortcuts)
             // SPEC-087: master switch only; per-source toggles live in the news card.
             NtpCustomizeRow("资讯信息流", newsFeedEnabled, textColor, onNewsFeedEnabled)

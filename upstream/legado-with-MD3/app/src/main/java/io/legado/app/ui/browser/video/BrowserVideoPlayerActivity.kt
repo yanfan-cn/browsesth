@@ -8,6 +8,7 @@ import android.content.pm.ActivityInfo
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Rational
 import android.widget.Toast
 import androidx.compose.runtime.Composable
@@ -32,6 +33,9 @@ class BrowserVideoPlayerActivity : BaseComposeActivity() {
     private var enteredAutoPip: Boolean = false
     private var inPipMode by mutableStateOf(false)
     private var pipPlaying by mutableStateOf(true)
+    // SPEC-147 R8: 实际视频宽高（onPrepared 后由 Screen 回传），用于画中画窗口比例。
+    internal var videoAspectRatio: Rational? = null
+        private set
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,8 +48,29 @@ class BrowserVideoPlayerActivity : BaseComposeActivity() {
         }
         BrowserVideoPlaybackService.stop(this)
         keepScreenOn(true)
-        // SPEC-137: keep status bar so top chrome statusBarsPadding works.
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        applyRotationPolicy()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // SPEC-143: honor the system auto-rotate toggle every time we come back.
+        applyRotationPolicy()
+    }
+
+    /** SPEC-143: follow the system "auto-rotate" setting instead of always spinning. */
+    private fun applyRotationPolicy() {
+        val systemAutoRotate = runCatching {
+            Settings.System.getInt(
+                contentResolver,
+                Settings.System.ACCELEROMETER_ROTATION,
+                0,
+            ) == 1
+        }.getOrDefault(true)
+        requestedOrientation = if (systemAutoRotate) {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_LOCKED
+        }
     }
 
     @Composable
@@ -121,13 +146,23 @@ class BrowserVideoPlayerActivity : BaseComposeActivity() {
         }
     }
 
-    private fun enterPipMode() {
+    /** SPEC-147 R8: Screen 在 onPrepared 后回传视频轨尺寸（0/0 表示未知，保持 16:9）。 */
+    internal fun setVideoSize(width: Int, height: Int) {
+        videoAspectRatio = if (width > 0 && height > 0) {
+            Rational(width, height)
+        } else {
+            null
+        }
+    }
+
+    // SPEC-145 R4: 播放器 Screen 需要触发 PIP。
+    internal fun enterPipMode() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             Toast.makeText(this, "??????????", Toast.LENGTH_SHORT).show()
             return
         }
         runCatching {
-            enterPictureInPictureMode(buildPipParams(videoView?.isPlaying == true))
+            enterPictureInPictureMode(buildPipParams(videoView?.isPlaying == true, videoAspectRatio))
         }.onFailure {
             Toast.makeText(this, "???????", Toast.LENGTH_SHORT).show()
         }
@@ -137,13 +172,21 @@ class BrowserVideoPlayerActivity : BaseComposeActivity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         if (!inPipMode && !isInPictureInPictureMode) return
         runCatching {
-            setPictureInPictureParams(buildPipParams(playing))
+            setPictureInPictureParams(buildPipParams(playing, videoAspectRatio))
         }
     }
 
-    private fun buildPipParams(playing: Boolean): PictureInPictureParams {
+    private fun buildPipParams(playing: Boolean, aspect: Rational? = null): PictureInPictureParams {
+        // SPEC-147 R8: 按视频实际宽高比自适应画中画窗口；未知回退 16:9。
+        // 系统限制：宽高比须在约 0.418410~2.39 之间，越界参数会被系统忽略。
+        val rational = aspect ?: Rational(16, 9)
+        val safe = when {
+            rational.toDouble() > 2.39 -> Rational(239, 100)
+            rational.toDouble() < 0.418410 -> Rational(41841, 100000)
+            else -> rational
+        }
         val builder = PictureInPictureParams.Builder()
-            .setAspectRatio(Rational(16, 9))
+            .setAspectRatio(safe)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // SPEC-137: only play/pause; expand uses Android default (tap PiP window).
             val actionIntent = Intent(this, BrowserVideoPlaybackService::class.java)

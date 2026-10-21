@@ -137,7 +137,6 @@ class Phase2SettingsMappingTest {
         assertRoundTrips(
             samples = listOf(
                 base,
-                base.copy(loadOnlyOnWifi = true),
                 base.copy(useDefaultCover = true),
                 base.copy(showShadow = true),
                 base.copy(showStroke = false),

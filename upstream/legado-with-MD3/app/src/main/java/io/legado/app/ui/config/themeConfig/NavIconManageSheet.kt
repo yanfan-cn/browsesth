@@ -71,7 +71,6 @@ fun NavIconManageSheet(
             settings.navIconExplore,
             settings.navIconExploreSelected,
         ),
-        NavIconDestination("rss", R.string.rss, settings.navIconRss, settings.navIconRssSelected),
         NavIconDestination("my", R.string.my, settings.navIconMy, settings.navIconMySelected),
     )
 

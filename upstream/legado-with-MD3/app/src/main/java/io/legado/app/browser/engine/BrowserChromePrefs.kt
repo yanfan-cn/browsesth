@@ -92,6 +92,23 @@ class BrowserChromePrefs(context: Context) {
         get() = prefs.getBoolean(KEY_VIDEO_PLAYER_PROMPT, true)
         set(value) = prefs.edit().putBoolean(KEY_VIDEO_PLAYER_PROMPT, value).apply()
 
+    /** SPEC-158: selected homepage background. Default is the light-blue gradient. */
+    var ntpWallpaperId: String
+        get() = prefs.getString(KEY_NTP_WALLPAPER_ID, NtpWallpaperIds.DEFAULT)
+            ?.takeIf { it.isNotBlank() }
+            ?: NtpWallpaperIds.DEFAULT
+        set(value) = prefs.edit().putString(KEY_NTP_WALLPAPER_ID, value).apply()
+
+    /** SPEC-158: user-imported wallpaper ids, one per line. */
+    var ntpUserWallpaperIds: List<String>
+        get() = prefs.getString(KEY_NTP_USER_WALLS, "").orEmpty()
+            .split('\n')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        set(value) = prefs.edit()
+            .putString(KEY_NTP_USER_WALLS, value.joinToString("\n"))
+            .apply()
+
     companion object {
         private const val PREFS = "browsesth_browser_chrome"
         private const val KEY_UA = "ua_mode"
@@ -109,6 +126,8 @@ class BrowserChromePrefs(context: Context) {
         private const val KEY_SAFE_BROWSING = "safe_browsing_enabled"
         private const val KEY_RESTORE_SESSION = "restore_session_on_launch"
         private const val KEY_VIDEO_PLAYER_PROMPT = "video_player_prompt_enabled"
+        private const val KEY_NTP_WALLPAPER_ID = "ntp_wallpaper_id"
+        private const val KEY_NTP_USER_WALLS = "ntp_user_wallpapers"
 
         const val WEB_DARK_OFF = "off"
         const val WEB_DARK_AUTO = "auto"

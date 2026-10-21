@@ -95,6 +95,8 @@ class BrowserShortcutStore(context: Context) {
             )
         }
         prefs.edit().putString(KEY, arr.toString()).apply()
+        // SPEC-152: 通知在组合中的 NTP 立即重载（书签/收藏「添加至主页」无需重启可见）。
+        version.value = System.currentTimeMillis()
     }
 
     fun upsert(item: BrowserShortcut) {
@@ -118,6 +120,9 @@ class BrowserShortcutStore(context: Context) {
         private const val PREFS = "browsesth_ntp_shortcuts"
         private const val KEY = "shortcuts"
         private const val KEY_SPEC117 = "shortcuts_spec117_v1"
+
+        /** SPEC-152: 快捷书签变更版本号；NTP 订阅此流实现跨界面即时刷新。 */
+        val version = kotlinx.coroutines.flow.MutableStateFlow(0L)
 
         fun defaultShortcuts(): List<BrowserShortcut> = listOf(
             BrowserShortcut("baidu", "百度", "https://www.baidu.com/"),

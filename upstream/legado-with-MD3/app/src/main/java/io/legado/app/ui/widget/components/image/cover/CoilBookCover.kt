@@ -195,7 +195,7 @@ fun BookCoverImage(
                     context = context,
                     data = finalPath,
                     sourceOrigin = sourceOrigin,
-                    loadOnlyWifi = coverSettings.loadOnlyOnWifi,
+                    loadOnlyWifi = false,
                     crossfade = showLoadingPlaceholder,
                     memoryCacheKey = coverMemoryCacheKey(
                         sharedCoverKey = sharedCoverKey,

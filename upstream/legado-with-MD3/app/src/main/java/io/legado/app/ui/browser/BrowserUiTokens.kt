@@ -33,9 +33,14 @@ object BrowserUiTokens {
     val SpaceLg = 16.dp
     val SpaceXl = 24.dp
 
-    /** SPEC-088/127: NTP content (excl. top/bottom chrome) shift below status bars. */
-    val NtpContentShiftDown = 90.dp
-    /** SPEC-129: phone NTP four-icon floating row only (content shift stays NtpContentShiftDown). */
+    /** SPEC-088/127/140-R5: NTP content downshift — spacing between the chrome row
+     *  bottom (status 32 + bar 54 = 86dp) and the search capsule top: 32 + 187 + 2
+     *  card inset = 221dp = 86 + 135dp gap (operator directive). Applied INSIDE the
+     *  scroll (scrolls away with content — no fixed blank band). Independent of
+     *  [NtpTopBarHeight] — no coupling. */
+    val NtpContentShiftDown = 187.dp
+    /** SPEC-129: phone NTP four-icon floating row only. FIXED at 54dp by operator
+     *  directive (SPEC-140-R2); must never be coupled to [NtpContentShiftDown]. */
     val NtpTopBarHeight = 54.dp
     val NtpOverlayBlur = 28.dp
     /** SPEC-088: higher opacity for customize / tab menus (more readable). */

@@ -72,7 +72,7 @@ fun BrowserReaderModeMenu(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "自动开启阅读模式",
+                    "自动开启净读模式",
                     color = scheme.onSurface,
                     fontSize = 15.sp,
                     modifier = Modifier.weight(1f),

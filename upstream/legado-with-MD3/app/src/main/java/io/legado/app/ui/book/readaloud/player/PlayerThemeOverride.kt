@@ -49,9 +49,8 @@ internal fun rememberPlayerThemeOverride(
         }
     }
     val resolvedSourceOrigin = if (useDefaultCover) null else sourceOrigin
-    val loadOnlyWifi = !useDefaultCover && coverSettings.loadOnlyOnWifi
-    val requestKey = remember(resolvedCoverPath, resolvedSourceOrigin, loadOnlyWifi) {
-        listOf(resolvedCoverPath, resolvedSourceOrigin, loadOnlyWifi)
+    val requestKey = remember(resolvedCoverPath, resolvedSourceOrigin) {
+        listOf(resolvedCoverPath, resolvedSourceOrigin)
     }
     val seedColor = rememberImageSeedColor(
         imageLoader = imageLoader,
@@ -59,7 +58,7 @@ internal fun rememberPlayerThemeOverride(
         requestKey = requestKey,
     ) {
         extras[CoverExtras.SourceOrigin] = resolvedSourceOrigin
-        extras[CoverExtras.LoadOnlyWifi] = loadOnlyWifi
+        extras[CoverExtras.LoadOnlyWifi] = false
     }
     rememberThemeOverride(seedColor)
 }

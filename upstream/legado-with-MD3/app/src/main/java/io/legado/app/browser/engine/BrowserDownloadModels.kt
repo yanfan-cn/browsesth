@@ -26,6 +26,12 @@ data class BrowserDownloadItem(
     val updatedAt: Long = System.currentTimeMillis(),
     /** SPEC-119: live download speed in bytes/sec while RUNNING. */
     val speedBps: Long = 0L,
+    /** SPEC-146: request headers kept for pause/resume retries. */
+    val requestUserAgent: String? = null,
+    val requestCookie: String? = null,
+    val requestReferer: String? = null,
+    /** SPEC-152: 完整请求头 JSON（offer 捕获的 UA/Referer/令牌头等），重试/续传时原样套用。 */
+    val requestHeadersJson: String? = null,
 ) {
     val progressPercent: Int
         get() = if (totalBytes > 0L) {

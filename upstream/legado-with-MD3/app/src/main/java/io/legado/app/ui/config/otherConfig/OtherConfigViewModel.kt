@@ -79,10 +79,6 @@ class OtherConfigViewModel(
     fun onIntent(intent: OtherConfigIntent) {
         when (intent) {
             is OtherConfigIntent.LanguageChanged -> appLocaleGateway.setLanguage(intent.value)
-            is OtherConfigIntent.UpdateToVariantChanged ->
-                updateOtherSetting { it.copy(updateToVariant = intent.value) }
-            is OtherConfigIntent.AutoCheckUpdateOnStartChanged ->
-                updateOtherSetting { it.copy(autoCheckUpdateOnStart = intent.value) }
             is OtherConfigIntent.WebServiceAutoStartChanged ->
                 updateOtherSetting { it.copy(webServiceAutoStart = intent.value) }
             is OtherConfigIntent.AutoRefreshChanged ->
@@ -338,8 +334,6 @@ private fun DirectLinkRule.toUi() = DirectLinkRuleUi(
 
 private fun OtherSettings.toUiState(current: OtherConfigUiState): OtherConfigUiState =
     current.copy(
-        updateToVariant = updateToVariant,
-        autoCheckUpdateOnStart = autoCheckUpdateOnStart,
         webServiceAutoStart = webServiceAutoStart,
         autoRefresh = autoRefresh,
         defaultToRead = defaultToRead,

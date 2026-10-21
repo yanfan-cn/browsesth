@@ -13,6 +13,7 @@ import io.legado.app.utils.fromJsonObject
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.google.gson.annotations.SerializedName
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
@@ -34,11 +35,12 @@ object WebMangaBookFactory {
 
     enum class Kind { Novel, Manga, Unknown }
 
+    // SPEC-151: GSON 反射解析 JS 结果，字段名即 JSON key，R8 混淆需显式注解。
     private data class AnalyzeDto(
-        val kind: String? = null,
-        val title: String? = null,
-        val textLen: Int? = null,
-        val imgCount: Int? = null,
+        @SerializedName("kind") val kind: String? = null,
+        @SerializedName("title") val title: String? = null,
+        @SerializedName("textLen") val textLen: Int? = null,
+        @SerializedName("imgCount") val imgCount: Int? = null,
     )
 
     fun parseAnalyzeResult(raw: String?): AnalyzeResult? {

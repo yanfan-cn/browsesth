@@ -58,7 +58,8 @@ object MainNavigator {
             backStack.add(MainRouteHome)
         }
         val currentRoute = backStack.lastOrNull()
-        if (currentRoute == route) return
+        // SPEC-156: Settings 允许「已在栈顶」时走重挂分支，不能在此提前 return。
+        if (currentRoute == route && route !is MainRouteSettings) return
 
         if (route is MainRouteReadManga) {
             val existingReaderIndex = backStack.indexOfLast { it is MainRouteReadManga }
@@ -99,13 +100,29 @@ object MainNavigator {
             }
 
             MainRouteSettings -> {
-                if (currentRoute == MainRouteHome) {
-                    backStack.add(MainRouteSettings)
-                } else {
+                // SPEC-156/157: 进过设置子页再回「我的」后，栈上常残留 Settings/
+                // SettingsBrowser/子页，或返回防抖吞掉出栈 → 再点设置被挡住。
+                // 打开设置前剥光所有设置相关路由，再在 Home 上压入全新 Settings。
+                resetBackNavigationGuard()
+                while (backStack.size > 1) {
+                    val top = backStack.lastOrNull() ?: break
+                    if (top == MainRouteHome) break
+                    if (
+                        top == MainRouteSettings ||
+                        top == MainRouteSettingsBrowser ||
+                        isSettingsSubPage(top)
+                    ) {
+                        backStack.removeLastOrNull()
+                        continue
+                    }
+                    break
+                }
+                if (backStack.isEmpty() || backStack.lastOrNull() != MainRouteHome) {
                     backStack.clear()
                     backStack.add(MainRouteHome)
-                    backStack.add(MainRouteSettings)
                 }
+                backStack.add(MainRouteSettings)
+                Log.i("Diag145", "open Settings -> ${diagStackSnapshot(backStack)}")
             }
 
             MainRouteAiChat -> {
@@ -144,6 +161,7 @@ object MainNavigator {
             MainRouteSettingsOther,
             MainRouteSettingsRead,
             MainRouteSettingsCover,
+            MainRouteSettingsCoverAlbums,
             MainRouteSettingsTheme,
             MainRouteSettingsBackup,
             MainRouteSettingsAi,
@@ -156,10 +174,20 @@ object MainNavigator {
             MainRouteSettingsDownloadCache,
             MainRouteSettingsTranslation,
             MainRouteSettingsPrivate -> {
-                backStack.clear()
-                backStack.add(MainRouteHome)
-                backStack.add(MainRouteSettings)
-                backStack.add(route)
+                // SPEC-144 TC-5：从设置根或其它设置子页进入时保留既有返回语境，
+                // 仅在游离态（栈顶非设置语境）才清栈重建，避免「我的」页切换卡顿与返回错页。
+                if (
+                    currentRoute == MainRouteSettings ||
+                    currentRoute == MainRouteSettingsBrowser ||
+                    isSettingsSubPage(currentRoute ?: MainRouteHome)
+                ) {
+                    backStack.add(route)
+                } else {
+                    backStack.clear()
+                    backStack.add(MainRouteHome)
+                    backStack.add(MainRouteSettings)
+                    backStack.add(route)
+                }
             }
 
             MainRouteImportLocal,
@@ -371,7 +399,35 @@ object MainNavigator {
             }
         }
         // 同步栈快照：Activity 级叠层（全局朗读胶囊）据此立刻重算显隐，不必等 back stack 回灌
+        Log.i("Diag145", "push ${route::class.java.simpleName} -> ${diagStackSnapshot(backStack)}")
         tracker?.onBackStackChanged(backStack)
+    }
+
+    private fun isSettingsSubPage(route: NavKey): Boolean = when (route) {
+        MainRouteSettingsOther,
+        MainRouteSettingsRead,
+        MainRouteSettingsCover,
+        MainRouteSettingsCoverAlbums,
+        MainRouteSettingsTheme,
+        MainRouteSettingsBackup,
+        MainRouteSettingsAi,
+        is MainRouteSettingsAiProviderEdit,
+        is MainRouteSettingsAiModelEdit,
+        MainRouteSettingsAiSummary,
+        MainRouteSettingsAiPrompt,
+        MainRouteSettingsCustomTheme,
+        MainRouteSettingsThemeManage,
+        MainRouteSettingsDownloadCache,
+        MainRouteSettingsTranslation,
+        MainRouteSettingsPrivate -> true
+        else -> false
+    }
+
+    /** SPEC-144 TC-5 diag：栈大小 + 栈顶 3 个路由类名，用于定位页面错乱/闪退。 */
+    private fun diagStackSnapshot(backStack: List<NavKey>): String {
+        val top = backStack.asReversed().take(3)
+            .joinToString("|") { it::class.java.simpleName }
+        return "size=${backStack.size} top3=$top"
     }
 
     fun navigateBack(activity: Activity, backStack: MutableList<NavKey>) {
@@ -396,6 +452,7 @@ object MainNavigator {
             }
             backNavigationInProgress = true
             backStack.removeLastOrNull()
+            Log.i("Diag145", "pop -> ${diagStackSnapshot(backStack)}")
             tracker?.onBackStackChanged(backStack)
         } else {
             activity.finish()
@@ -405,9 +462,20 @@ object MainNavigator {
     fun onBackStackChanged() {
         backNavigationResetJob?.cancel()
         backNavigationResetJob = navigationScope.launch {
-            delay(500)
+            // SPEC-147 R10: 500ms 曾吞掉快速连续的返回手势（页面已被手势滑出屏幕
+            // 却未出栈，需再滑一次）。收紧到 300ms——恰好覆盖滑入过渡时长；
+            // 预测性手势 commit 路径另有 resetBackNavigationGuard() 旁路。
+            delay(300)
             backNavigationInProgress = false
         }
+    }
+
+    /** SPEC-147 R10: 预测性返回手势 commit 是明确的用户意图，pop 前复位防抖，
+     * 避免上一页导航遗留的防抖窗口吞掉本次 commit（页面已滑出屏幕却不 pop）。 */
+    fun resetBackNavigationGuard() {
+        backNavigationResetJob?.cancel()
+        backNavigationResetJob = null
+        backNavigationInProgress = false
     }
 
     fun resolveStartRoute(intent: Intent?): NavKey {
@@ -514,7 +582,6 @@ object MainNavigator {
             MainRouteConst.ROUTE_AI_CHAT -> MainRouteAiChat
             MainRouteConst.ROUTE_SETTINGS_CUSTOM_THEME -> MainRouteSettingsCustomTheme
             MainRouteConst.ROUTE_SETTINGS_PRIVATE -> MainRouteSettingsPrivate
-            MainRouteConst.ROUTE_SETTINGS_LAB_CONFIG -> MainRouteSettingsLabConfig
             MainRouteConst.ROUTE_SETTINGS_DOWNLOAD_CACHE -> MainRouteSettingsDownloadCache
             MainRouteConst.ROUTE_SETTINGS_TRANSLATION -> MainRouteSettingsTranslation
             MainRouteConst.ROUTE_IMPORT_LOCAL -> MainRouteImportLocal

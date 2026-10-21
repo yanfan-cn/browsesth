@@ -93,15 +93,6 @@ fun CoverConfigScreen(
         ) {
             item {
                 SplicedColumnGroup {
-                SwitchSettingItem(
-                    title = stringResource(R.string.only_wifi),
-                    description = stringResource(R.string.only_wifi_summary),
-                    checked = settings.loadOnlyOnWifi,
-                    onCheckedChange = { value ->
-                        onIntent(CoverConfigIntent.SetLoadOnlyOnWifi(value))
-                    }
-                )
-
                 ClickableSettingItem(
                     title = stringResource(R.string.cover_rule),
                     description = stringResource(R.string.cover_rule_summary),

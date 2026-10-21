@@ -47,6 +47,11 @@ class BrowserAwContentsClient(
     private val isPopupBlockEnabled: () -> Boolean = { true },
     private val isExternalBlockEnabled: () -> Boolean = { true },
     private val onExternalBlocked: ((String) -> Unit)? = null,
+    /**
+     * SPEC-156: open a custom-scheme / intent:// URL in another app (host shows
+     * chooser only when resolvable). Called only for user gestures.
+     */
+    private val onExternalAppOpen: ((String) -> Unit)? = null,
     private val onPopupBlocked: (() -> Unit)? = null,
     private val onConsoleBlockPick: ((String) -> Unit)? = null,
     /** SPEC-134: when true, block all URL navigations (pick-to-block mode). */
@@ -118,10 +123,20 @@ class BrowserAwContentsClient(
             onNavigationOverride?.invoke(target)
             return true
         }
-        if (isExternalBlockEnabled() && BrowserUrlPolicy.isExternalAppLaunch(url)) {
-            Log.i(TAG, "external-block $url")
-            onExternalBlocked?.invoke(url)
-            onStatus("已阻止打开其它应用")
+        if (BrowserUrlPolicy.isExternalAppLaunch(url)) {
+            if (isExternalBlockEnabled()) {
+                Log.i(TAG, "external-block $url")
+                onExternalBlocked?.invoke(url)
+                onStatus("已阻止打开其它应用")
+                return true
+            }
+            // SPEC-156: 仅用户手势才尝试打开；自动跳转静默消费，避免空 Chooser 刷屏。
+            if (request.hasUserGesture()) {
+                Log.i(TAG, "external-open (gesture) $url")
+                onExternalAppOpen?.invoke(url)
+            } else {
+                Log.i(TAG, "external-skip (no gesture) $url")
+            }
             return true
         }
         if (onOverrideUrl?.invoke(url) == true) return true
@@ -336,6 +351,8 @@ class BrowserAwContentsClient(
         isAudioOnly: Boolean,
     ) {
         // SPEC-132: page media started — offer to native player when URL looks playable.
+        // SPEC-145 R9 diag: 页面媒体起播即记录，用于排查「网页自带播放器失效」。
+        Log.i(TAG, "Diag146 mediaPlay url=$mediaUrl doc=$documentUrl audioOnly=$isAudioOnly dur=$durationSec")
         if (!isAudioOnly && mediaUrl.isNotBlank()) {
             onPlayableMedia?.invoke(mediaUrl, "", documentUrl, mediaUrl.contains(".m3u8", true))
         }
@@ -358,7 +375,14 @@ class BrowserAwContentsClient(
         documentUrl: String,
         currentTimeSec: Double,
         durationSec: Double,
-    ) {}
+    ) {
+        // SPEC-145 R9 diag: 页面媒体错误全量记录，装机复测定位「网页自带播放器失效」。
+        Log.i(
+            TAG,
+            "Diag146 mediaError pipeline=$pipelineStatus url=$mediaUrl doc=$documentUrl " +
+                "t=$currentTimeSec/$durationSec player=$playerId",
+        )
+    }
 
     override fun shouldHideControlsInFullscreen(
         playerId: BromiumClient.MediaPlayerId,
@@ -367,10 +391,23 @@ class BrowserAwContentsClient(
         playerClass: String,
     ): Boolean = false
 
-    override fun onVideoEnterFullscreen(playerId: BromiumClient.MediaPlayerId, url: String, mediaControlsIsHidden: Boolean) {}
-    override fun onVideoExitFullscreen(playerId: BromiumClient.MediaPlayerId, url: String) {}
-    override fun onEnterFullscreen() {}
-    override fun onExitFullscreen() {}
+    // SPEC-145 R9 diag: HTML5 全屏事件记录；宿主当前不接管全屏（内核 AwContents 自带
+    // custom view 全屏走 onShowCustomView 路径），先留观察点，装机复测再决定是否接线。
+    override fun onVideoEnterFullscreen(playerId: BromiumClient.MediaPlayerId, url: String, mediaControlsIsHidden: Boolean) {
+        Log.i(TAG, "Diag146 videoEnterFullscreen url=$url controlsHidden=$mediaControlsIsHidden")
+    }
+
+    override fun onVideoExitFullscreen(playerId: BromiumClient.MediaPlayerId, url: String) {
+        Log.i(TAG, "Diag146 videoExitFullscreen url=$url")
+    }
+
+    override fun onEnterFullscreen() {
+        Log.i(TAG, "Diag146 enterFullscreen")
+    }
+
+    override fun onExitFullscreen() {
+        Log.i(TAG, "Diag146 exitFullscreen")
+    }
     override fun onPageLoaded(url: String, isError: Boolean) {}
     override fun onInternalDownloadStarted(httpMethod: String, sizeInBytes: Int) {}
 

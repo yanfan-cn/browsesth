@@ -12,7 +12,6 @@ data class ThemeConfigUiState(
     val fontFolder: String = "",
     val activeSheet: ThemeConfigSheet? = null,
     val activeDialog: ThemeConfigDialog? = null,
-    val showEInkTheme: Boolean = false,
 )
 
 sealed interface ThemeConfigSheet {
@@ -65,6 +64,7 @@ sealed interface ThemeConfigIntent {
     data class SetTabletInterface(val value: String) : ThemeConfigIntent
     data class SetLabelVisibilityMode(val value: String) : ThemeConfigIntent
     data class SetMiuixMonet(val enabled: Boolean) : ThemeConfigIntent
+    data class SetEInkDisplay(val enabled: Boolean) : ThemeConfigIntent
     data class SetDynamicColors(val enabled: Boolean) : ThemeConfigIntent
     data class SetBlurEnabled(val enabled: Boolean) : ThemeConfigIntent
     data class SetMainDestinationVisible(
@@ -94,7 +94,6 @@ sealed interface ThemeConfigIntent {
         val currentValue: String,
     ) : ThemeConfigIntent
     data class SetTime(val field: ThemeTimeField, val value: String) : ThemeConfigIntent
-    data object DismissRefactorTip : ThemeConfigIntent
 }
 
 sealed interface ThemeConfigEffect {

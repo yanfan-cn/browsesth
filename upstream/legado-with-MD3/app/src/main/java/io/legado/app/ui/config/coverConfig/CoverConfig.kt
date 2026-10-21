@@ -6,7 +6,7 @@ import org.koin.core.context.GlobalContext
 @Deprecated("使用 CoverSettingsGateway.currentSettings")
 object CoverConfig {
     private val settings get() = GlobalContext.get().get<CoverSettingsGateway>().currentSettings
-    val loadCoverOnlyWifi get() = settings.loadOnlyOnWifi
+    val loadCoverOnlyWifi get() = false // SPEC-144 TC-2：仅 WiFi 加载封面已移除（恒不限 WiFi）
     val useDefaultCover get() = settings.useDefaultCover
     val coverShowShadow get() = settings.showShadow
     val coverShowStroke get() = settings.showStroke

@@ -40,7 +40,6 @@ import io.legado.app.data.repository.ReadPreferences
 import io.legado.app.ui.book.read.ConfigUpdate
 import io.legado.app.ui.book.read.ReadBookButtonConfigItem
 import io.legado.app.ui.book.read.ReadBookIntent
-import io.legado.app.ui.book.read.ReadBookSheet
 import io.legado.app.ui.widget.components.pager.pagerHeight
 import io.legado.app.ui.widget.components.pager.rememberPagerAnimatedHeight
 import io.legado.app.ui.widget.components.pager.rememberPagerFlingPassThroughConnection
@@ -87,20 +86,7 @@ internal fun SystemMenuPage(
     Column(
         modifier = modifier.fillMaxWidth(),
     ) {
-        // SPEC-121 fix: 恢复设置「菜单」页入口（SPEC-112 原样）。
-        // 「更多菜单」= ReaderMoreActionsSheet；「更多设置」= MoreConfigSheet。
-        // 右上角 MoreVert 打开同一 MoreActions Sheet。
-        TinyClickableSettingItem(
-            title = stringResource(R.string.more_menu),
-            description = stringResource(R.string.more_actions),
-            onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreActions)) },
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
-        TinyClickableSettingItem(
-            title = stringResource(R.string.more_setting),
-            onClick = { onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreConfig)) },
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        )
+        // SPEC-155: 删除设置内「更多菜单」「更多设置」入口；仅右上角开 MoreConfig。
         val tabTitles = listOf(
             stringResource(R.string.title_bar_layout),
             stringResource(R.string.read_menu_bottom_bar_layout),

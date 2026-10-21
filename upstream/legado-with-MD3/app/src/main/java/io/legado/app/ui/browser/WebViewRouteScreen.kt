@@ -23,6 +23,9 @@ fun WebViewRouteScreen(
     viewModel: WebViewModel,
     onFinish: () -> Unit,
     onImportBookSource: (String) -> Unit,
+    /** SPEC-149: 阅读视图入口——书源验证/深链浏览器内同样可开小说/漫画阅读。 */
+    onOpenReader: (bookUrl: String) -> Unit = {},
+    onOpenMangaReader: (bookUrl: String) -> Unit = {},
 ) {
     var ready by remember { mutableStateOf(false) }
 
@@ -48,5 +51,7 @@ fun WebViewRouteScreen(
         },
         onImportBookSource = onImportBookSource,
         initialHtml = viewModel.html,
+        onOpenReader = onOpenReader,
+        onOpenMangaReader = onOpenMangaReader,
     )
 }

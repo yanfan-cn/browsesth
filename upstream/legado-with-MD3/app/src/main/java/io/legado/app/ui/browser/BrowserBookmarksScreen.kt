@@ -987,11 +987,11 @@ private fun Bookmark.toSyntheticEntry(folderId: String = ""): BrowseStore.Entry 
 
 private fun BrowseStore.Entry.readingSubtitle(bookmarks: List<Bookmark>): String {
     val time = url.readingBookmarkTime() ?: return ""
-    val bm = bookmarks.firstOrNull { it.time == time } ?: return "阅读书签"
+    val bm = bookmarks.firstOrNull { it.time == time } ?: return "净读书签"
     val snippet = bm.content.ifBlank { bm.bookText }.trim()
         .replace('\n', ' ')
         .take(80)
-    return snippet.ifBlank { "阅读书签" }
+    return snippet.ifBlank { "净读书签" }
 }
 
 private fun sortMergedEntries(

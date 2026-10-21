@@ -3,6 +3,7 @@ package io.legado.app.browser.reader
 import io.legado.app.utils.ChineseUtils
 import io.legado.app.utils.GSON
 import io.legado.app.utils.fromJsonObject
+import com.google.gson.annotations.SerializedName
 
 /**
  * SPEC-045: decide whether to show "translate this page?" for non-Simplified-Chinese pages.
@@ -61,7 +62,11 @@ object WebPageLangDetect {
     fun shouldPrompt(lang: String, sample: String): Boolean =
         !isSimplifiedChinese(lang, sample)
 
-    private data class Dto(val lang: String? = null, val sample: String? = null)
+    // SPEC-151: GSON 反射解析 JS 结果，字段名即 JSON key，R8 混淆需显式注解。
+    private data class Dto(
+        @SerializedName("lang") val lang: String? = null,
+        @SerializedName("sample") val sample: String? = null,
+    )
 
     private fun unwrap(raw: String): String? {
         val s = raw.trim()

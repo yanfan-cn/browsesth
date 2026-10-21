@@ -32,7 +32,6 @@ import io.legado.app.ui.config.backupConfig.BackupConfigRouteScreen
 import io.legado.app.ui.config.browserConfig.BrowserConfigScreen
 import io.legado.app.ui.config.coverConfig.CoverConfigRouteScreen
 import io.legado.app.ui.config.downloadCacheConfig.DownloadCacheConfigRouteScreen
-import io.legado.app.ui.config.labConfig.LabConfigRouteScreen
 import io.legado.app.ui.config.otherConfig.OtherConfigRouteScreen
 import io.legado.app.ui.config.privateConfig.PrivateConfigRouteScreen
 import io.legado.app.ui.config.readConfig.ReadConfigRouteScreen
@@ -59,7 +58,6 @@ enum class TabletSettingsPane {
     Ai,
     Translation,
     Private,
-    Lab,
 }
 
 @Composable
@@ -184,7 +182,6 @@ fun TabletSettingsScreen(
                         TabletSettingsPane.Private -> PrivateVerifyGate(onCancel = onBackClick) {
                             PrivateConfigRouteScreen(onBackClick = onBackClick)
                         }
-                        TabletSettingsPane.Lab -> LabConfigRouteScreen(onBackClick = onBackClick)
                     }
                 }
             }
@@ -204,5 +201,4 @@ private fun paneLabel(pane: TabletSettingsPane): String = when (pane) {
     TabletSettingsPane.Ai -> stringResource(R.string.ai_config)
     TabletSettingsPane.Translation -> stringResource(R.string.translation_config)
     TabletSettingsPane.Private -> stringResource(R.string.privacy)
-    TabletSettingsPane.Lab -> stringResource(R.string.lab_setting)
 }

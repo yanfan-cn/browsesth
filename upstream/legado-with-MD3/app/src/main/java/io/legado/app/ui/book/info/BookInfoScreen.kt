@@ -215,7 +215,6 @@ fun BookInfoScreen(
         followCoverColor = state.bookInfoFollowCoverColor,
         defaultCover = state.defaultCover,
         defaultCoverDark = state.defaultCoverDark,
-        loadCoverOnlyOnWifi = state.loadCoverOnlyOnWifi,
     )
 
     BookInfoColorTheme(theme = bookColorTheme.takeIf {
@@ -752,7 +751,6 @@ private fun rememberBookInfoColorTheme(
     followCoverColor: Boolean,
     defaultCover: String,
     defaultCoverDark: String,
-    loadCoverOnlyOnWifi: Boolean,
 ): ThemeOverrideState? {
     if (
         book == null ||
@@ -784,9 +782,9 @@ private fun rememberBookInfoColorTheme(
         }
     } ?: return null
     val sourceOrigin = if (usesDefaultCover) null else book.origin
-    val loadOnlyWifi = !usesDefaultCover && loadCoverOnlyOnWifi
-    val requestKey = remember(coverPath, sourceOrigin, loadOnlyWifi) {
-        listOf(coverPath, sourceOrigin, loadOnlyWifi)
+    // SPEC-144 TC-2：仅 WiFi 加载封面已移除，恒不限 WiFi。
+    val requestKey = remember(coverPath, sourceOrigin) {
+        listOf(coverPath, sourceOrigin)
     }
 
     val seedColor = rememberImageSeedColor(
@@ -795,7 +793,7 @@ private fun rememberBookInfoColorTheme(
         requestKey = requestKey,
     ) {
         extras[CoverExtras.SourceOrigin] = sourceOrigin
-        extras[CoverExtras.LoadOnlyWifi] = loadOnlyWifi
+        extras[CoverExtras.LoadOnlyWifi] = false
     }
 
     return rememberThemeOverride(seedColor)

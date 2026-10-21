@@ -180,7 +180,7 @@ class BookshelfCoverPreloader(
                     launch {
                         semaphore.withPermit {
                             try {
-                                enqueueTarget(target, coverSettings.loadOnlyOnWifi)
+                                enqueueTarget(target)
                             } catch (e: CancellationException) {
                                 throw e
                             } catch (e: Exception) {
@@ -235,12 +235,13 @@ class BookshelfCoverPreloader(
     private fun isAlreadyCached(memoryCacheKey: String): Boolean =
         imageLoader.memoryCache?.get(MemoryCache.Key(memoryCacheKey))?.image != null
 
-    private suspend fun enqueueTarget(target: CoverPreloadTarget, loadOnlyOnWifi: Boolean) {
+    private suspend fun enqueueTarget(target: CoverPreloadTarget) {
         val request = buildCoverImageRequest(
             context = application,
             data = target.coverPath,
             sourceOrigin = target.sourceOrigin,
-            loadOnlyWifi = loadOnlyOnWifi,
+            // SPEC-144 TC-2：仅 WiFi 加载封面已移除，恒不限 WiFi。
+            loadOnlyWifi = false,
             // 预热结果只进内存缓存，不经过任何 target，过渡动画没有意义
             crossfade = false,
             memoryCacheKey = target.memoryCacheKey,

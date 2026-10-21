@@ -30,15 +30,52 @@ fun BrowserOmniboxSuggestPanel(
     items: List<BrowserOmniboxSuggest.Item>,
     onSelect: (BrowserOmniboxSuggest.Item) -> Unit,
     modifier: Modifier = Modifier,
+    /** SPEC-146: clipboard-detected link shown as the first candidate row. */
+    clipboardUrl: String? = null,
+    onClipboardSelect: (String) -> Unit = {},
 ) {
-    if (items.isEmpty()) return
     val scheme = LegadoTheme.colorScheme
+    if (items.isEmpty() && clipboardUrl.isNullOrBlank()) return
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(BrowserUiTokens.CardCorner))
             .background(scheme.surfaceContainerHigh),
     ) {
+        if (!clipboardUrl.isNullOrBlank()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onClipboardSelect(clipboardUrl) }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SymbolIcon(
+                    Symbols.Link,
+                    contentDescription = null,
+                    tint = scheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "剪贴板链接",
+                        color = scheme.onSurface,
+                        fontSize = 15.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = clipboardUrl,
+                        color = scheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (items.isNotEmpty()) HorizontalDivider()
+        }
         items.forEachIndexed { index, item ->
             if (index > 0) HorizontalDivider()
             Row(

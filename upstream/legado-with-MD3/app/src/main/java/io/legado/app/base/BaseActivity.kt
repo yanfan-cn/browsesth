@@ -107,21 +107,18 @@ abstract class BaseActivity<VB : ViewBinding>(
         initTheme()
         window.decorView.disableAutoFill()
         AppContextWrapper.applyFont(this)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val enable = !shellGateway.currentSettings.predictiveBackEnabled
-            if (enable) {
-                onBackInvokedDispatcher.registerOnBackInvokedCallback(
-                    OnBackInvokedDispatcher.PRIORITY_DEFAULT
-                ) {
-                    onBackPressedDispatcher.onBackPressed()
-                }
-            } else {
-                //不注册才是启用
-            }
-        }
+        // SPEC-142: the legacy non-predictive OnBackInvokedCallback shim is
+        // removed. It forced the system to dispatch back on gesture commit
+        // only (no progress events), so back never followed the finger.
+        // androidx.activity 1.13's OnBackPressedDispatcher registers the
+        // system callback itself (OnBackAnimationCallback on API 33+), which
+        // both preserves the dispatcher path and streams gesture progress to
+        // nav3 / PredictiveBackHandler.
 
         super.onCreate(savedInstanceState)
         lastPlatformConfiguration = Configuration(resources.configuration)
+        // SPEC-147 R12: 状态栏外观仲裁器登记窗口。
+        StatusBarAppearance.attachWindow(window)
         lastUiConfiguration = appUiConfigurationGateway.currentConfiguration
         WindowCompat.setDecorFitsSystemWindows(window, false)
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.S)
@@ -164,7 +161,9 @@ abstract class BaseActivity<VB : ViewBinding>(
             "2" -> true
             else -> sysConfiguration.isNightMode
         }
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !isDarkTheme
+        // SPEC-147 R12: 不再直接写状态栏外观，推送主题默认值给仲裁器
+        // （无屏幕登记时立即应用，行为等同旧实现；NTP 等登记方优先）。
+        StatusBarAppearance.updateFallback(!isDarkTheme)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

@@ -41,6 +41,9 @@ object BrowserDownloadHelper {
         incognito: Boolean = false,
         title: String = "",
         toMovies: Boolean = false,
+        headers: Map<String, String> = emptyMap(),
+        /** SPEC-147 R3: headers 无 Referer 时的回退（通常为视频来源页 pageUrl）。 */
+        referer: String? = null,
     ): Result {
         val clean = url.trim()
         if (clean.isEmpty()) return Result(false, "没有可下载的链接")
@@ -49,15 +52,38 @@ object BrowserDownloadHelper {
         }
         return try {
             val cookie = cookieFor(clean, incognito)
-            val item = BrowserDownloadRepository.get(context).enqueueFile(
-                url = clean,
-                title = title,
-                userAgent = userAgent,
-                contentDisposition = contentDisposition,
-                mimeType = mimeType,
-                cookie = cookie,
-                targetDir = if (toMovies) BrowserDownloadPaths.ensureMovies(context) else null,
-            )
+            // SPEC-146 R5: HLS playlist links must be downloaded as merged
+            // segment files, not as the tiny .m3u8 text itself.
+            val isHls = clean.contains(".m3u8", ignoreCase = true) ||
+                mimeType?.contains("mpegurl", ignoreCase = true) == true
+            val effReferer = headers["Referer"] ?: referer?.takeIf { it.isNotBlank() }
+            // SPEC-152: offer 的完整请求头序列化持久化，重试/续传时原样套用（防盗链令牌头不丢）。
+            val headersJson = if (headers.isEmpty()) null else runCatching {
+                org.json.JSONObject(headers).toString()
+            }.getOrNull()
+            val item = if (isHls) {
+                BrowserDownloadRepository.get(context).enqueueHls(
+                    url = clean,
+                    title = title,
+                    userAgent = userAgent,
+                    cookie = cookie,
+                    referer = effReferer,
+                    targetDir = if (toMovies) BrowserDownloadPaths.ensureMovies(context) else null,
+                    requestHeadersJson = headersJson,
+                )
+            } else {
+                BrowserDownloadRepository.get(context).enqueueFile(
+                    url = clean,
+                    title = title,
+                    userAgent = userAgent,
+                    contentDisposition = contentDisposition,
+                    mimeType = mimeType,
+                    cookie = cookie,
+                    referer = effReferer,
+                    targetDir = if (toMovies) BrowserDownloadPaths.ensureMovies(context) else null,
+                    requestHeadersJson = headersJson,
+                )
+            }
             Result(true, "已开始下载 ${item.fileName}", item.fileName)
         } catch (t: Throwable) {
             Result(false, "下载失败：${t.message ?: "未知错误"}")

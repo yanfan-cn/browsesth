@@ -80,3 +80,13 @@ spikes/chromium-sdk/apk-check/
 spikes/chromium-sdk/apk-check*/
 spikes/chromium-sdk/_apkcheck*/
 spikes/chromium-sdk/webview-extract/
+
+# 会话临时产物（SPEC-148 R2）：AI 体检日志、编译输出、截图、临时代码副本，勿提交
+/_*
+/compile*
+/tmp-*
+/tmp_*
+**/tmp-*
+**/tmp_*
+/spikes/_tmp-*
+/specs/_wip_backup_before_pr1/

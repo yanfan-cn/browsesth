@@ -18,12 +18,20 @@ import java.io.FileOutputStream
 /** SPEC-136: capture a frame from the player view into public Pictures. */
 object BrowserVideoCapture {
 
-    fun captureToPictures(root: View, titleHint: String, onDone: (Result<File>) -> Unit) {
+    // SPEC-147 R9: 已知视频宽高比时按比例中心裁剪（黑边消除）；null 不裁。
+    fun captureToPictures(
+        root: View,
+        titleHint: String,
+        videoAspect: Pair<Int, Int>? = null,
+        onDone: (Result<File>) -> Unit,
+    ) {
         fun finish(result: Result<File>) {
             Handler(Looper.getMainLooper()).post { onDone(result) }
         }
         tryCapture(root) { bitmap ->
-            if (bitmap == null) {
+            val cropped = bitmap?.let { cropToVideoAspect(it, videoAspect) }
+            if (cropped == null) {
+                bitmap?.recycle()
                 finish(Result.failure(IllegalStateException("无法截取画面")))
                 return@tryCapture
             }
@@ -36,12 +44,39 @@ object BrowserVideoCapture {
                 val name = "shot_${System.currentTimeMillis()}.jpg"
                 val dest = BrowserDownloadPaths.uniqueFile(dir, name)
                 FileOutputStream(dest).use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+                    cropped.compress(Bitmap.CompressFormat.JPEG, 92, out)
                 }
-                bitmap.recycle()
+                cropped.recycle()
                 dest
             }.also { finish(it) }
         }
+    }
+
+    /** SPEC-147 R9: 抓帧是整个视图（含黑边）；已知视频比例时中心裁出视频画面。 */
+    private fun cropToVideoAspect(bitmap: Bitmap, videoAspect: Pair<Int, Int>?): Bitmap {
+        if (videoAspect == null) return bitmap
+        val (vw, vh) = videoAspect
+        if (vw <= 0 || vh <= 0) return bitmap
+        val targetRatio = vw.toDouble() / vh
+        val bw = bitmap.width
+        val bh = bitmap.height
+        if (bw <= 0 || bh <= 0) return bitmap
+        val bitmapRatio = bw.toDouble() / bh
+        var cropW = bw
+        var cropH = bh
+        if (bitmapRatio > targetRatio) {
+            // 视图比视频更宽（左右黑边）→ 裁宽。
+            cropW = (bh * targetRatio).toInt().coerceIn(1, bw)
+        } else if (bitmapRatio < targetRatio) {
+            // 视图比视频更高（上下黑边）→ 裁高。
+            cropH = (bw / targetRatio).toInt().coerceIn(1, bh)
+        }
+        if (cropW == bw && cropH == bh) return bitmap
+        val x = (bw - cropW) / 2
+        val y = (bh - cropH) / 2
+        val cropped = Bitmap.createBitmap(bitmap, x, y, cropW, cropH)
+        if (cropped != bitmap) bitmap.recycle()
+        return cropped
     }
 
     private fun tryCapture(root: View, done: (Bitmap?) -> Unit) {

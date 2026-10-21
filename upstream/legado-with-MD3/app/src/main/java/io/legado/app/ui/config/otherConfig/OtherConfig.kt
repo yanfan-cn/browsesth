@@ -10,14 +10,11 @@ object OtherConfig {
     private val settings get() = GlobalContext.get().get<OtherSettingsGateway>().currentSettings
     private val cache get() = GlobalContext.get().get<DownloadCacheSettingsGateway>().currentSettings
     val language get() = GlobalContext.get().get<AppLocaleGateway>().currentLanguage
-    val updateToVariant get() = settings.updateToVariant
-    val autoCheckUpdateOnStart get() = settings.autoCheckUpdateOnStart
     val webServiceAutoStart get() = settings.webServiceAutoStart
     val autoRefresh get() = settings.autoRefresh
     val defaultToRead get() = settings.defaultToRead
     val notificationsPost get() = settings.notificationsPost
     val ignoreBatteryPermission get() = settings.ignoreBatteryPermission
-    val firebaseEnable get() = settings.firebaseEnable
     val defaultBookTreeUri get() = settings.defaultBookTreeUri
     val antiAlias get() = settings.antiAlias
     val replaceEnableDefault get() = settings.replaceEnableDefault

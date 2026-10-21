@@ -9,7 +9,6 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.room)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.google.services)
 }
 
 apply(from = "download.gradle")
@@ -125,7 +124,12 @@ android {
             }
             manifestPlaceholders["app_name"] = "@string/app_name"
             isMinifyEnabled = true
-            isShrinkResources = true
+            // SPEC-153: Bromium resolves its resources by name at runtime
+            // (BromiumResources reads res/xml/bromium_res_index.xml); the static
+            // resource shrinker cannot trace those lookups and stripped the
+            // index + aw_context_menu_* / text_edit_suggestion_* etc., crashing
+            // on long-press. Keep all resources; R8 minification stays on.
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -210,6 +214,10 @@ android {
             // Robolectric 下取任何 R.string 都是 Resources$NotFoundException，
             // 整条阅读器测试线（Track D·D1c）就起不来。
             isIncludeAndroidResources = true
+            // SPEC-148 R1a: MainNavigator（SPEC-124/145）与 BrowserVideoOfferBus
+            // （SPEC-145/147）的 Diag Log.i 走 JVM 纯单测路径时 android.util.Log 未
+            // mock 直接崩（7 个用例）。返回默认值后 Log 调用静默通过，产品代码不动。
+            isReturnDefaultValues = true
         }
     }
 }
@@ -315,9 +323,6 @@ dependencies {
     // 书源 JS 通过 Packages.cn.hutool.* 调用，保留在 classpath（应用代码不依赖，见 AGENTS.md）
     implementation(libs.hutool.crypto)
     //noinspection GradleDependency
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.analytics)
-    implementation(libs.firebase.perf)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.palette)
     implementation(libs.androidx.biometric)

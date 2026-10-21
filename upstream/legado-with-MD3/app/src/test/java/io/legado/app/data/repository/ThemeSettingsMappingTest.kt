@@ -27,18 +27,20 @@ class ThemeSettingsMappingTest {
     }
 
     @Test
-    fun `Theme gateway 持久化边界固定为 69 键`() {
+    fun `Theme gateway 持久化边界固定为 71 键`() {
         val actualKeys = ThemeSettings().toGatewayPrefMap().keys
         val expectedKeys = ThemeSettings().expectedGatewayPrefMap().keys
 
-        assertEquals(69, actualKeys.size)
+        // SPEC-148: SPEC-056 chromeSurfaceStyle 与 SPEC-144 墨水屏开关（labEInkDisplay
+        // 自实验室迁入主题设置）先后迁入后，边界实测为 71 键。
+        assertEquals(71, actualKeys.size)
         assertEquals(expectedKeys, actualKeys)
         assertFalse(PreferKey.customMode in actualKeys)
         assertFalse(PreferKey.bookInfoInputColor in actualKeys)
     }
 
     @Test
-    fun `Theme gateway 69 键写读映射逐字段对应`() {
+    fun `Theme gateway 71 键写读映射逐字段对应`() {
         themeMappingSamples().forEach { expected ->
             assertEquals(expected.expectedGatewayPrefMap(), expected.toGatewayPrefMap())
             assertEquals(
@@ -235,6 +237,7 @@ private fun themeMappingSamples(): List<ThemeSettings> {
         base.copy(eyeProtectionSchedule = true),
         base.copy(showRefactorTip = true),
         base.copy(enableCustomTagColors = true),
+        base.copy(eInkDisplay = true),
     )
 }
 
@@ -309,4 +312,6 @@ private fun ThemeSettings.expectedGatewayPrefMap(): Map<String, Any?> = mapOf(
     LocalPreferencesKeys.SHOW_THEME_REFACTOR_TIP.name to showRefactorTip,
     PreferKey.enableCustomTagColors to enableCustomTagColors,
     PreferKey.customTagColors to customTagColorsJson,
+    // SPEC-144：墨水屏开关自实验室迁入主题设置，沿用 labEInkDisplay 键
+    PreferKey.labEInkDisplay to eInkDisplay,
 )

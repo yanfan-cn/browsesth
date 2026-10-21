@@ -63,6 +63,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -91,10 +92,12 @@ private val TabletChromeIconSlot = 40.dp
 
 @Composable
 fun TabletBrowserShell(
-    address: String,
-    onAddressChange: (String) -> Unit,
+    address: TextFieldValue,
+    onAddressChange: (TextFieldValue) -> Unit,
     onAddressFocusChange: (Boolean) -> Unit = {},
     addressFocused: Boolean = false,
+    /** SPEC-146 R2: clipboard link candidate while the omnibox is focused. */
+    clipboardUrl: String? = null,
     onSubmitAddress: () -> Unit,
     onBack: () -> Unit,
     onForward: () -> Unit,
@@ -139,11 +142,11 @@ fun TabletBrowserShell(
         themeSettingsGateway.currentSettings,
     )
     val addressSuggestions = remember(address, addressFocused) {
-        if (!addressFocused || address.isBlank()) {
+        if (!addressFocused || address.text.isBlank()) {
             emptyList()
         } else {
             io.legado.app.browser.engine.BrowserOmniboxSuggest.match(
-                address,
+                address.text,
                 store.bookmarks(),
                 store.history(),
             )
@@ -249,12 +252,17 @@ fun TabletBrowserShell(
         }
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             content()
-            if (addressSuggestions.isNotEmpty()) {
+            if (addressSuggestions.isNotEmpty() || clipboardUrl != null) {
                 BrowserOmniboxSuggestPanel(
                     items = addressSuggestions,
                     onSelect = { item ->
                         onSidePanelChange(TabletSidePanel.None)
                         onOpenUrl(item.url)
+                    },
+                    clipboardUrl = clipboardUrl,
+                    onClipboardSelect = { url ->
+                        onSidePanelChange(TabletSidePanel.None)
+                        onOpenUrl(url)
                     },
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -819,8 +827,8 @@ private fun TabletToolboxFloatingCard(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TabletFunctionBar(
-    address: String,
-    onAddressChange: (String) -> Unit,
+    address: TextFieldValue,
+    onAddressChange: (TextFieldValue) -> Unit,
     onAddressFocusChange: (Boolean) -> Unit = {},
     onSubmitAddress: () -> Unit,
     onBack: () -> Unit,
@@ -914,12 +922,27 @@ private fun TabletFunctionBar(
                 cursorBrush = SolidColor(BrowserUiTokens.Primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                 keyboardActions = KeyboardActions(onGo = {
-                    if (address.isNotBlank()) {
+                    if (address.text.isNotBlank()) {
                         onSubmitAddress()
                         keyboardController?.hide()
                         focusManager.clearFocus(force = true)
                     }
                 }),
+                // SPEC-146 R3: fresh search box hint while idle at NTP/home.
+                decorationBox = { inner ->
+                    Box {
+                        if (address.text.isEmpty()) {
+                            Text(
+                                "搜索或输入网址",
+                                color = scheme.onSurfaceVariant,
+                                fontSize = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        inner()
+                    }
+                },
             )
             IconButton(
                 onClick = {
@@ -939,7 +962,7 @@ private fun TabletFunctionBar(
         Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceSm))
         ChromeIcon(Symbols.Bookmark, "收藏", onOpenBookmarks)
         ChromeIcon(Symbols.History, "历史", onOpenHistory)
-        ChromeIcon(Symbols.Book, "阅读列表", onOpenBookshelf)
+        ChromeIcon(Symbols.Book, "净读列表", onOpenBookshelf)
         ChromeIcon(Symbols.Box, "工具箱", onOpenToolbox)
         // SPEC-126: 「阅读」capsule at far right (icon + label, 24dp radius fill).
         Box {
@@ -963,7 +986,7 @@ private fun TabletFunctionBar(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    "阅读",
+                    "净读",
                     color = scheme.onSurface,
                     fontSize = 14.sp,
                     maxLines = 1,
@@ -982,7 +1005,7 @@ private fun TabletFunctionBar(
                     onReaderAutoOpenUiChange(enabled)
                     actions.setReaderAutoOpen(enabled)
                     context.toastOnUi(
-                        if (enabled) "已开启自动阅读模式" else "已关闭自动阅读模式",
+                        if (enabled) "已开启自动净读模式" else "已关闭自动净读模式",
                     )
                 },
                 onTextMode = {

@@ -11,6 +11,7 @@ import io.legado.app.help.book.addType
 import io.legado.app.utils.GSON
 import io.legado.app.utils.HtmlFormatter
 import io.legado.app.utils.fromJsonObject
+import com.google.gson.annotations.SerializedName
 import java.net.URL
 import java.security.MessageDigest
 
@@ -24,11 +25,12 @@ object WebArticleBookFactory {
 
     data class Extracted(val title: String, val text: String, val coverUrl: String? = null)
 
+    // SPEC-151: JS 结果经 GSON 反射按字段名解析，R8 混淆会重命名字段导致键失配（1.5.3/1.5.4 归根因），故全部显式注解。
     private data class ExtractDto(
-        val title: String? = null,
-        val html: String? = null,
-        val text: String? = null,
-        val cover: String? = null,
+        @SerializedName("title") val title: String? = null,
+        @SerializedName("html") val html: String? = null,
+        @SerializedName("text") val text: String? = null,
+        @SerializedName("cover") val cover: String? = null,
     )
 
     fun parseExtractResult(raw: String?): Extracted? {

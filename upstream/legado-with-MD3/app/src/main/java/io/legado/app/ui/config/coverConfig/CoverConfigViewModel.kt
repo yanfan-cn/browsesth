@@ -52,8 +52,6 @@ class CoverConfigViewModel(
 
     fun onIntent(intent: CoverConfigIntent) {
         when (intent) {
-            is CoverConfigIntent.SetLoadOnlyOnWifi ->
-                updateSettings { it.copy(loadOnlyOnWifi = intent.value) }
             is CoverConfigIntent.SetUseDefaultCover ->
                 updateSettings { it.copy(useDefaultCover = intent.value) }
             is CoverConfigIntent.SetShowShadow ->

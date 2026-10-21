@@ -137,7 +137,7 @@ class ThemePackageSettingsRepository : ThemePackageSettingsGateway {
         coverShadowColorN = int(PreferKey.coverShadowColorN, -1),
         coverShowNameN = boolean(PreferKey.coverShowNameN, true),
         coverShowAuthorN = boolean(PreferKey.coverShowAuthorN, true),
-        coverInfoOrientation = string(PreferKey.coverInfoOrientation, "0"),
+        coverInfoOrientation = string(PreferKey.coverInfoOrientation, "1"),
     )
 
     override suspend fun applyAndAwait(data: ThemeExportData) {

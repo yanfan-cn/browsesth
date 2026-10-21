@@ -111,22 +111,16 @@ class AwContentsHostView @JvmOverloads constructor(
         BrowserPrivacyControls.applyToSettings(context, settings)
         BrowserPrivacyControls.applyForceZoom(context, settings)
         // SPEC-013: keep images on for SERP thumbnails / faster perceived load.
-        runCatching {
-            val m = settings.javaClass.getMethod("setImagesEnabled", Boolean::class.javaPrimitiveType)
-            m.invoke(settings, true)
-        }
-        runCatching {
-            val m = settings.javaClass.getMethod(
-                "setLoadsImagesAutomatically",
-                Boolean::class.javaPrimitiveType,
-            )
-            m.invoke(settings, true)
-        }
+        // SPEC-153: direct calls — by-name reflection broke under R8 (methods
+        // renamed/removed in release, NoSuchMethodException swallowed silently).
+        runCatching { settings.setImagesEnabled(true) }
+            .onFailure { Log.w(TAG, "setImagesEnabled: ${it.message}") }
+        runCatching { settings.setLoadsImagesAutomatically(true) }
+            .onFailure { Log.w(TAG, "setLoadsImagesAutomatically: ${it.message}") }
         runCatching {
             // WebSettings.LOAD_DEFAULT = -1
-            val m = settings.javaClass.getMethod("setCacheMode", Int::class.javaPrimitiveType)
-            m.invoke(settings, -1)
-        }
+            settings.cacheMode = -1
+        }.onFailure { Log.w(TAG, "setCacheMode: ${it.message}") }
         // SPEC-043: Chromium Force Dark / algorithmic darkening (Edge-like).
         applyWebContentDarkMode(settings, chromePrefs.webContentDarkMode)
         // SPEC-107: Chrome/Edge-style accessibility text zoom for webpage fonts only.
@@ -134,16 +128,11 @@ class AwContentsHostView @JvmOverloads constructor(
             settings.textZoom = chromePrefs.textZoomPercent
         }.onFailure { Log.w(TAG, "setTextZoom: ${it.message}") }
         // SPEC-066: allow local file / content loads for saved pages.
-        runCatching {
-            settings.javaClass
-                .getMethod("setAllowFileAccess", Boolean::class.javaPrimitiveType)
-                .invoke(settings, true)
-        }.onFailure { Log.w(TAG, "setAllowFileAccess: ${it.message}") }
-        runCatching {
-            settings.javaClass
-                .getMethod("setAllowContentAccess", Boolean::class.javaPrimitiveType)
-                .invoke(settings, true)
-        }.onFailure { Log.w(TAG, "setAllowContentAccess: ${it.message}") }
+        // SPEC-153: direct calls (see setImagesEnabled note).
+        runCatching { settings.setAllowFileAccess(true) }
+            .onFailure { Log.w(TAG, "setAllowFileAccess: ${it.message}") }
+        runCatching { settings.setAllowContentAccess(true) }
+            .onFailure { Log.w(TAG, "setAllowContentAccess: ${it.message}") }
 
         val drawFnAccess = BrowserDrawMode.createDrawFnAccess(this)
         val tA = android.os.SystemClock.uptimeMillis()
@@ -633,6 +622,9 @@ class AwContentsHostView @JvmOverloads constructor(
          * SPEC-043: map pref → AwSettings Force Dark.
          * Constants match Chromium AwSettings: OFF=0, AUTO=1, ON=2;
          * behavior PREFER_MEDIA_QUERY_OVER_FORCE_DARK=2.
+         * SPEC-153: direct calls — by-name reflection broke under R8 (release
+         * renamed/stripped the members, NoSuchMethodException was swallowed and
+         * the 网页背景 toggle silently did nothing).
          */
         fun applyWebContentDarkMode(settings: AwSettings, mode: String) {
             val forceMode = when (mode) {
@@ -640,25 +632,13 @@ class AwContentsHostView @JvmOverloads constructor(
                 BrowserChromePrefs.WEB_DARK_ON -> 2
                 else -> 1 // auto
             }
-            runCatching {
-                settings.javaClass
-                    .getMethod("setForceDarkMode", Int::class.javaPrimitiveType)
-                    .invoke(settings, forceMode)
-            }.onFailure { Log.w(TAG, "setForceDarkMode: ${it.message}") }
+            runCatching { settings.setForceDarkMode(forceMode) }
+                .onFailure { Log.w(TAG, "setForceDarkMode: ${it.message}") }
             if (forceMode != 0) {
-                runCatching {
-                    settings.javaClass
-                        .getMethod("setForceDarkBehavior", Int::class.javaPrimitiveType)
-                        .invoke(settings, 2)
-                }.onFailure { Log.w(TAG, "setForceDarkBehavior: ${it.message}") }
-                runCatching {
-                    settings.javaClass
-                        .getMethod(
-                            "setAlgorithmicDarkeningAllowed",
-                            Boolean::class.javaPrimitiveType,
-                        )
-                        .invoke(settings, true)
-                }.onFailure { Log.w(TAG, "setAlgorithmicDarkeningAllowed: ${it.message}") }
+                runCatching { settings.setForceDarkBehavior(2) }
+                    .onFailure { Log.w(TAG, "setForceDarkBehavior: ${it.message}") }
+                runCatching { settings.setAlgorithmicDarkeningAllowed(true) }
+                    .onFailure { Log.w(TAG, "setAlgorithmicDarkeningAllowed: ${it.message}") }
             }
         }
     }

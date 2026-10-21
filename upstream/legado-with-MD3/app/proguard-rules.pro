@@ -146,3 +146,116 @@
 -dontwarn java.lang.management.**
 -dontwarn io.ktor.util.debug.IntellijIdeaDebugDetector
 -keep,allowobfuscation class io.ktor.util.debug.** { *; }
+
+## ==== SPEC-148 build-fix: R8 missing classes ====
+## Firebase/google-services removal (working tree) took play-services-tasks & co
+## off the classpath; the bundled Chromium AAR (webview chromium, cronet,
+## sms/webauthn wrappers) still references them at compile time. Runtime paths
+## guard these optional deps; suppress the compile-time warnings only.
+# Please add these rules to your existing keep rules in order to suppress warnings.
+# This is generated automatically by the Android Gradle plugin.
+-dontwarn android.webkit.WebViewFactoryProvider
+-dontwarn com.google.android.gms.auth.api.phone.SmsCodeBrowserClient
+-dontwarn com.google.android.gms.auth.api.phone.SmsCodeRetriever
+-dontwarn com.google.android.gms.auth.api.phone.SmsRetriever
+-dontwarn com.google.android.gms.auth.api.phone.SmsRetrieverClient
+-dontwarn com.google.android.gms.common.GoogleApiAvailability
+-dontwarn com.google.android.gms.common.api.Api$AbstractClientBuilder
+-dontwarn com.google.android.gms.common.api.Api$ApiOptions$NoOptions
+-dontwarn com.google.android.gms.common.api.Api$ApiOptions
+-dontwarn com.google.android.gms.common.api.Api$ClientKey
+-dontwarn com.google.android.gms.common.api.Api
+-dontwarn com.google.android.gms.common.api.ApiException
+-dontwarn com.google.android.gms.common.api.GoogleApi
+-dontwarn com.google.android.gms.common.api.Status
+-dontwarn com.google.android.gms.common.api.internal.ApiExceptionMapper
+-dontwarn com.google.android.gms.common.api.internal.RemoteCall
+-dontwarn com.google.android.gms.common.api.internal.StatusExceptionMapper
+-dontwarn com.google.android.gms.common.api.internal.TaskApiCall$Builder
+-dontwarn com.google.android.gms.common.api.internal.TaskApiCall
+-dontwarn com.google.android.gms.identitycredentials.CreateCredentialRequest
+-dontwarn com.google.android.gms.identitycredentials.IdentityCredentialClient
+-dontwarn com.google.android.gms.identitycredentials.IdentityCredentialManager$Companion
+-dontwarn com.google.android.gms.identitycredentials.IdentityCredentialManager
+-dontwarn com.google.android.gms.identitycredentials.SignalCredentialStateRequest
+-dontwarn com.google.android.gms.location.FusedLocationProviderClient
+-dontwarn com.google.android.gms.location.LocationCallback
+-dontwarn com.google.android.gms.location.LocationRequest$Builder
+-dontwarn com.google.android.gms.location.LocationRequest
+-dontwarn com.google.android.gms.location.LocationServices
+-dontwarn com.google.android.gms.tasks.OnFailureListener
+-dontwarn com.google.android.gms.tasks.OnSuccessListener
+-dontwarn com.google.android.gms.tasks.Task
+-dontwarn com.google.android.gms.tasks.TaskCompletionSource
+-dontwarn com.google.errorprone.BugPattern
+-dontwarn com.google.errorprone.bugpatterns.BugChecker$AnnotationTreeMatcher
+-dontwarn com.google.errorprone.bugpatterns.BugChecker$IdentifierTreeMatcher
+-dontwarn com.google.errorprone.bugpatterns.BugChecker$MemberSelectTreeMatcher
+-dontwarn com.google.errorprone.bugpatterns.BugChecker$MethodInvocationTreeMatcher
+-dontwarn com.google.errorprone.bugpatterns.BugChecker$MethodTreeMatcher
+-dontwarn com.google.errorprone.bugpatterns.BugChecker$SynchronizedTreeMatcher
+-dontwarn com.google.errorprone.bugpatterns.BugChecker$VariableTreeMatcher
+-dontwarn com.google.errorprone.bugpatterns.BugChecker
+-dontwarn com.google.errorprone.matchers.Matcher
+-dontwarn com.google.errorprone.matchers.Matchers
+-dontwarn com.google.errorprone.matchers.method.MethodMatchers$InstanceMethodMatcher
+-dontwarn com.google.errorprone.matchers.method.MethodMatchers$MethodClassMatcher
+-dontwarn com.google.errorprone.matchers.method.MethodMatchers$MethodNameMatcher
+-dontwarn com.google.errorprone.matchers.method.MethodMatchers$ParameterMatcher
+-dontwarn com.google.errorprone.predicates.TypePredicate
+-dontwarn com.google.errorprone.predicates.TypePredicates
+-dontwarn com.google.errorprone.suppliers.Supplier
+-dontwarn com.google.errorprone.suppliers.Suppliers
+-dontwarn com.sun.source.util.SimpleTreeVisitor
+-dontwarn com.uber.nullaway.LibraryModels
+-dontwarn java.awt.Color
+-dontwarn java.awt.Font
+-dontwarn java.awt.Point
+-dontwarn java.awt.Rectangle
+-dontwarn javax.money.CurrencyUnit
+-dontwarn javax.money.Monetary
+-dontwarn javax.ws.rs.Consumes
+-dontwarn javax.ws.rs.Produces
+-dontwarn javax.ws.rs.core.Response
+-dontwarn javax.ws.rs.core.StreamingOutput
+-dontwarn javax.ws.rs.ext.MessageBodyReader
+-dontwarn javax.ws.rs.ext.MessageBodyWriter
+-dontwarn javax.ws.rs.ext.Provider
+-dontwarn org.chromium.net.impl.CronetLogger$CronetEngineBuilderInitializedInfo$Author
+-dontwarn org.chromium.net.impl.CronetLogger$CronetEngineBuilderInitializedInfo
+-dontwarn org.chromium.net.impl.CronetLogger$CronetSource
+-dontwarn org.chromium.net.impl.CronetLogger$CronetVersion
+-dontwarn org.chromium.net.impl.CronetLogger
+-dontwarn org.chromium.net.impl.CronetLoggerFactory
+-dontwarn org.glassfish.jersey.internal.spi.AutoDiscoverable
+-dontwarn org.javamoney.moneta.Money
+-dontwarn org.joda.time.DateTime
+-dontwarn org.joda.time.DateTimeZone
+-dontwarn org.joda.time.Duration
+-dontwarn org.joda.time.Instant
+-dontwarn org.joda.time.LocalDate
+-dontwarn org.joda.time.LocalDateTime
+-dontwarn org.joda.time.LocalTime
+-dontwarn org.joda.time.Period
+-dontwarn org.joda.time.ReadablePartial
+-dontwarn org.joda.time.format.DateTimeFormat
+-dontwarn org.joda.time.format.DateTimeFormatter
+-dontwarn springfox.documentation.spring.web.json.Json
+
+## ==== SPEC-151: WebView JS 结果 DTO 的 GSON 反射保护 ====
+## 这些 DTO 由 WebView JS 返回的 JSON 经 GSON 按字段名反射解析（无 @SerializedName 时），
+## R8 混淆重命名字段会导致 JSON 键失配、解析全 null（1.5.3/1.5.4「未能提取正文」归根因）。
+## 注解化（@SerializedName）是主修复；此规则兜底覆盖后续新增的同类 DTO。
+-keepclassmembernames class io.legado.app.browser.reader.** { <fields>; }
+-keepclassmembernames class io.legado.app.ui.browser.BrowserContextMenuPayload { <fields>; }
+
+## ==== SPEC-153: Bromium AwSettings 反射兜底 ====
+## 主修复是反射改直调（AwContentsHostView/BrowserPrivacyControls）；若后续再引入
+## 按名反射调用 AwSettings 成员，R8 重命名会让 getMethod 静默失败（网页背景
+## Force Dark 失效归根因），此规则保持成员名与未删除。
+-keepclassmembers class org.chromium.android_webview.AwSettings {
+    public void setForceDarkMode(int);
+    public void setForceDarkBehavior(int);
+    public void setAlgorithmicDarkeningAllowed(boolean);
+    public void setSafeBrowsingEnabled(boolean);
+}

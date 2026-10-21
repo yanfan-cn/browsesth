@@ -7,7 +7,6 @@ import io.legado.app.R
 import io.legado.app.constant.PreferKey
 import io.legado.app.domain.gateway.AppShellSettingsGateway
 import io.legado.app.domain.gateway.CoverSettingsGateway
-import io.legado.app.domain.gateway.LabSettingsGateway
 import io.legado.app.domain.gateway.ReadSettingsGateway
 import io.legado.app.domain.gateway.ThemeSettingsGateway
 import io.legado.app.domain.model.settings.AppShellSettings
@@ -42,7 +41,6 @@ class ThemeConfigViewModel(
     private val coverSettingsGateway: CoverSettingsGateway,
     private val readSettingsGateway: ReadSettingsGateway,
     private val themeSettingsGateway: ThemeSettingsGateway,
-    private val labSettingsGateway: LabSettingsGateway,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -72,13 +70,6 @@ class ThemeConfigViewModel(
         viewModelScope.launch {
             readSettingsGateway.settings.collect { settings ->
                 _uiState.update { it.copy(fontFolder = settings.fontFolder) }
-            }
-        }
-        viewModelScope.launch {
-            labSettingsGateway.settings.collect { settings ->
-                _uiState.update {
-                    it.copy(showEInkTheme = settings.enabled && settings.eInkDisplay)
-                }
             }
         }
     }
@@ -132,6 +123,8 @@ class ThemeConfigViewModel(
                 it.copy(labelVisibilityMode = intent.value)
             }
             is ThemeConfigIntent.SetMiuixMonet -> setMiuixMonet(intent.enabled)
+            is ThemeConfigIntent.SetEInkDisplay ->
+                updateTheme { it.copy(eInkDisplay = intent.enabled) }
             is ThemeConfigIntent.SetDynamicColors -> setDynamicColors(intent.enabled)
             is ThemeConfigIntent.SetBlurEnabled -> setBlurEnabled(intent.enabled)
             is ThemeConfigIntent.SetMainDestinationVisible -> setMainDestinationVisible(intent)
@@ -176,9 +169,6 @@ class ThemeConfigViewModel(
                 )
             }
             is ThemeConfigIntent.SetTime -> setTime(intent.field, intent.value)
-            ThemeConfigIntent.DismissRefactorTip -> updateTheme {
-                it.copy(showRefactorTip = false)
-            }
         }
     }
 

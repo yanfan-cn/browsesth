@@ -55,6 +55,10 @@ class BrowserDownloadStore(context: Context) {
                             error = o.optString("error").ifBlank { null },
                             createdAt = o.optLong("createdAt"),
                             updatedAt = o.optLong("updatedAt"),
+                            requestUserAgent = o.optString("requestUserAgent").ifBlank { null },
+                            requestCookie = o.optString("requestCookie").ifBlank { null },
+                            requestReferer = o.optString("requestReferer").ifBlank { null },
+                            requestHeadersJson = o.optString("requestHeaders").ifBlank { null },
                         ),
                     )
                 }
@@ -81,7 +85,11 @@ class BrowserDownloadStore(context: Context) {
                     .put("mimeType", e.mimeType ?: "")
                     .put("error", e.error ?: "")
                     .put("createdAt", e.createdAt)
-                    .put("updatedAt", e.updatedAt),
+                    .put("updatedAt", e.updatedAt)
+                    .put("requestUserAgent", e.requestUserAgent ?: "")
+                    .put("requestCookie", e.requestCookie ?: "")
+                    .put("requestReferer", e.requestReferer ?: "")
+                    .put("requestHeaders", e.requestHeadersJson ?: ""),
             )
         }
         prefs.edit().putString(KEY, arr.toString()).apply()

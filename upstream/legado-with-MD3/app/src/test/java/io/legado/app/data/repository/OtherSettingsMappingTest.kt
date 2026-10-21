@@ -8,7 +8,7 @@ import org.junit.Test
 class OtherSettingsMappingTest {
 
     @Test
-    fun `其他设置 25 键写读映射逐字段对应`() {
+    fun `其他设置 22 键写读映射逐字段对应`() {
         otherMappingSamples().forEach { expected ->
             assertEquals(expected.expectedPrefMap(), expected.toPrefMap())
             assertEquals(expected, expected.expectedPrefMap().toTestPreferences().toOtherSettings())
@@ -30,7 +30,6 @@ class OtherSettingsMappingTest {
 
 private fun otherMappingSamples(): List<OtherSettings> {
     val base = OtherSettings(
-        updateToVariant = "beta",
         defaultBookTreeUri = "content://books",
         sourceEditMaxLine = 123,
         webPort = 4321,
@@ -38,13 +37,11 @@ private fun otherMappingSamples(): List<OtherSettings> {
     )
     return listOf(
         base,
-        base.copy(autoCheckUpdateOnStart = true),
         base.copy(webServiceAutoStart = true),
         base.copy(autoRefresh = true),
         base.copy(defaultToRead = true),
         base.copy(notificationsPost = false),
         base.copy(ignoreBatteryPermission = false),
-        base.copy(firebaseEnable = false),
         base.copy(antiAlias = true),
         base.copy(replaceEnableDefault = false),
         base.copy(autoClearExpired = false),
@@ -62,14 +59,11 @@ private fun otherMappingSamples(): List<OtherSettings> {
 }
 
 private fun OtherSettings.expectedPrefMap(): Map<String, Any?> = mapOf(
-    PreferKey.updateToVariant to updateToVariant,
-    PreferKey.autoCheckUpdateOnStart to autoCheckUpdateOnStart,
     PreferKey.webServiceAutoStart to webServiceAutoStart,
     PreferKey.autoRefresh to autoRefresh,
     PreferKey.defaultToRead to defaultToRead,
     PreferKey.notificationsPost to notificationsPost,
     PreferKey.ignoreBatteryPermission to ignoreBatteryPermission,
-    PreferKey.firebaseEnable to firebaseEnable,
     PreferKey.defaultBookTreeUri to defaultBookTreeUri,
     PreferKey.antiAlias to antiAlias,
     PreferKey.replaceEnableDefault to replaceEnableDefault,

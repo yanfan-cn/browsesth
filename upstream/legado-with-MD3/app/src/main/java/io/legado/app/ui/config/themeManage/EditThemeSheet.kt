@@ -193,11 +193,7 @@ fun EditThemeSheet(
                 checked = data.showDiscovery,
                 onCheckedChange = { data = data.copy(showDiscovery = it) }
             )
-            CompactSwitchSettingItem(
-                title = "RSS",
-                checked = data.showRss,
-                onCheckedChange = { data = data.copy(showRss = it) }
-            )
+            // SPEC-150: 「订阅」页删除，主题编辑不再提供 RSS 底栏开关
             CompactSwitchSettingItem(
                 title = stringResource(R.string.show_bottom_nav),
                 checked = data.showBottomView,

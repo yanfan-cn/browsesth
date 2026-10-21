@@ -16,11 +16,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.currentStateAsState
 import io.legado.app.R
 import io.legado.app.domain.gateway.PrivateAccessGateway
 import io.legado.app.domain.model.PrivateAccessState
@@ -51,6 +54,10 @@ fun PrivateVerifyGate(
     val access by gateway.state.collectAsStateWithLifecycle(PrivateAccessState())
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // SPEC-144 TC-5：退场/被覆盖期间不拦截返回键，避免残留的高优先级 BackHandler
+    // 抢走手势把返回落到错误的页面（同 LOG-139 会话 BackHandler 修法）。
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val backHandlerEnabled = lifecycleState.isAtLeast(Lifecycle.State.RESUMED)
 
     var verified by rememberSaveable { mutableStateOf(false) }
     var autoLaunched by rememberSaveable { mutableStateOf(false) }
@@ -107,7 +114,7 @@ fun PrivateVerifyGate(
             launchVerify()
         }
 
-        BackHandler { onCancel() }
+        BackHandler(enabled = backHandlerEnabled) { onCancel() }
 
         PrivateLockedPage(
             title = title,

@@ -51,7 +51,6 @@ data class BookInfoUiState(
     val bookInfoFollowCoverColor: Boolean = true,
     val bookInfoNetworkCoverBackground: String = "on",
     val bookInfoDefaultCoverBackground: String = "on",
-    val loadCoverOnlyOnWifi: Boolean = false,
     val defaultCover: String = "",
     val defaultCoverDark: String = "",
     val showMangaUi: Boolean = true,

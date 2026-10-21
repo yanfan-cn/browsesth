@@ -205,7 +205,6 @@
     <string name="copy_source">拷貝源</string>
     <string name="paste_source">粘帖源</string>
     <string name="source_rule_s">源規則説明</string>
-    <string name="check_update">檢查更新</string>
     <string name="camera_scan">掃描 QR Code</string>
     <string name="scan_image">掃描本地圖片</string>
     <string name="rule_summary">規則説明</string>
@@ -262,7 +261,6 @@
     <string name="origin_show">%s</string>
     <string name="import_replace_rule">導入替換規則</string>
     <string name="import_replace_rule_on_line">導入在線規則</string>
-    <string name="check_update_interval">檢查更新間隔</string>
     <string name="bookshelf_px_0">按閲讀時間</string>
     <string name="bookshelf_px_1">按更新時間</string>
     <string name="bookshelf_px_2">按書名</string>
@@ -1113,8 +1111,6 @@
     <string name="cache_export">缓存/导出</string>
     <string name="assists_key_config">辅助按键配置</string>
     <string name="url_option">Url参数</string>
-    <string name="only_wifi">仅WIFI</string>
-    <string name="only_wifi_summary">仅在wifi下加载网络封面</string>
     <string name="cover_rule">封面规则</string>
     <string name="search_via_url">搜索URL</string>
 	<string name="cover_rule_edit">封面规则</string>
@@ -1358,10 +1354,6 @@
     <string name="start_from">起始日期</string>
     <string name="daily_chapters">日更章數</string>
     <string name="start_chapter">開始篇章</string>
-    <string name="update_to_variant_title">检查更新查找版本</string>
-    <string name="update_to_variant_summary">检查更新时查找其他签名版本</string>
-    <string name="auto_check_update_on_start_title">啟動時自動檢查更新</string>
-    <string name="auto_check_update_on_start_summary">僅在應用程式程序完全重新啟動時檢查，從背景返回不會觸發</string>
     <string name="default_version">当前</string>
     <string name="official_version">正式版</string>
     <string name="beta_release_version">测试版</string>
@@ -1903,8 +1895,6 @@
     <string name="filter_hide_same_name_author">隱藏閱讀列表中不同源書籍</string>
     <string name="filter_show_all">顯示全部</string>
     <string name="filter_show_not_in_shelf_only">僅顯示不在閱讀列表中的書籍</string>
-    <string name="firebase_enable_summary">允許應用使用 Google Firebase 進行崩潰和效能報告</string>
-    <string name="firebase_enable_title">匿名統計</string>
     <string name="first_read">請先閱讀服務條款和用戶協議</string>
     <string name="fixed_book_type">鎖定書籍類型</string>
     <string name="fixed_book_type_summary">書籍更新時不覆蓋書籍類型</string>
@@ -1988,13 +1978,6 @@
     <string name="is_unread">未讀</string>
     <string name="js_disabled">JS 已禁用</string>
     <string name="jump_to_volume">跳轉到卷</string>
-    <string name="lab_display">顯示</string>
-    <string name="lab_eink_display_hint">可在主題 → 顯示選項中調整 E-Ink 顯示設定</string>
-    <string name="lab_eink_display_summary">在平板介面中顯示 E-Ink 顯示選項</string>
-    <string name="lab_eink_display_title">E-Ink 顯示</string>
-    <string name="lab_enabled_summary">開啟以顯示實驗性功能。這些功能可能不穩定。</string>
-    <string name="lab_enabled_title">啟用實驗室</string>
-    <string name="lab_setting">實驗室</string>
     <string name="less_count">較少（</string>
     <string name="light_mode">淺色模式</string>
     <string name="list">列表</string>
@@ -2896,11 +2879,6 @@
     <string name="character_deleted">已刪除人物</string>
     <string name="whole_book_page_format">全書 %1$d / %2$d</string>
     <string name="whole_book_page_estimated_format">全書 %1$s / %2$s</string>
-    <string name="lab_diagnostics">診斷</string>
-    <string name="lab_page_estimate_diagnostics_title">匯出全文頁碼診斷</string>
-    <string name="lab_page_estimate_diagnostics_summary">分享本機最近的估算與校正記錄，不會自動上傳。</string>
-    <string name="lab_page_estimate_diagnostics_count">%1$d 條</string>
-    <string name="lab_page_estimate_diagnostics_share_title">分享全文頁碼診斷</string>
     <string name="whole_book_page_unavailable">全書 - / -</string>
     <string name="translation_model_thinking">模型思考中</string>
     <string name="ai_prompt_task_bookshelf_auto_group">閱讀列表自動分組</string>
@@ -2990,4 +2968,5 @@
     <string name="home_capsule_restore_navigation">恢復導覽列</string>
     <string name="home_capsule_expand_controls">展開播放控制</string>
     <string name="home_capsule_chapter">第 %d 章</string>
+    <string name="theme_eink_display">電子墨水屏顯示</string>
 </resources>

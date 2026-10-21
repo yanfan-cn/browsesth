@@ -1,14 +1,11 @@
 package io.legado.app.domain.model.settings
 
 data class OtherSettings(
-    val updateToVariant: String = "official_version",
-    val autoCheckUpdateOnStart: Boolean = false,
     val webServiceAutoStart: Boolean = false,
     val autoRefresh: Boolean = false,
     val defaultToRead: Boolean = false,
     val notificationsPost: Boolean = true,
     val ignoreBatteryPermission: Boolean = true,
-    val firebaseEnable: Boolean = true,
     val defaultBookTreeUri: String? = null,
     val antiAlias: Boolean = false,
     val replaceEnableDefault: Boolean = true,

@@ -27,6 +27,8 @@ import kotlin.math.tanh
 internal fun Modifier.topBarLiquidGlass(shape: Shape): Modifier {
     val backdrop = LocalTopBarBackdrop.current ?: return this
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return this
+    // SPEC-148 R3: 就绪门闸——ready 前不建玻璃层（调用方已按 enabled 走纯色背景）
+    if (!io.legado.app.ui.theme.GlassReadiness.ready) return this
     val containerColor = LegadoTheme.colorScheme.surface.copy(
         alpha = 0.5f
     )
@@ -79,6 +81,7 @@ internal fun Modifier.topBarLiquidGlass(shape: Shape): Modifier {
 @Composable
 internal fun topBarLiquidGlassEnabled(): Boolean =
     LocalTopBarBackdrop.current != null &&
+        io.legado.app.ui.theme.GlassReadiness.ready &&
         io.legado.app.ui.theme.ChromeSurfaceStylePolicy.isLiquidGlassActive(
             io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle,
         )

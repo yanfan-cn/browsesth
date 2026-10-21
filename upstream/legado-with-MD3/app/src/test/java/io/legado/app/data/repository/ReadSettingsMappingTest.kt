@@ -92,7 +92,9 @@ class ReadSettingsMappingTest {
 
         assertEquals("0", settings.showBrightnessView)
         assertEquals(1, settings.readBarStyle)
-        assertFalse(settings.readMenuIconShowText)
+        // 精简菜单默认值随模型默认校准（SPEC-148）：ReadSettings.readMenuIconShowText= true、
+        // titleBarCompact = true（ReadSettings.kt 构造默认），映射缺省同为 true。
+        assertTrue(settings.readMenuIconShowText)
         assertTrue(settings.readMenuFloatingBottomBar)
         assertEquals(ReadMenuBlurStyle.Solid, settings.readMenuTopBarBlurStyle)
         assertEquals(85, settings.readMenuBlurAlpha)
@@ -101,7 +103,7 @@ class ReadSettingsMappingTest {
         assertFalse(settings.showTitleBarIcons)
         assertFalse(settings.readMenuFloatingIconLiquidGlass)
         assertFalse(settings.showMenuIcon)
-        assertFalse(settings.titleBarCompact)
+        assertTrue(settings.titleBarCompact)
     }
 }
 

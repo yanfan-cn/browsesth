@@ -74,6 +74,8 @@ data class ThemeSettings(
     val showRefactorTip: Boolean = true,
     val enableCustomTagColors: Boolean = false,
     val customTagColorsJson: String? = null,
+    /** SPEC-144：墨水屏显示开关自实验室迁入主题设置；沿用 labEInkDisplay 键，老用户状态不丢。SPEC-150：默认开启。 */
+    val eInkDisplay: Boolean = true,
 )
 
 val ThemeSettings.isEyeProtectionConfigured: Boolean

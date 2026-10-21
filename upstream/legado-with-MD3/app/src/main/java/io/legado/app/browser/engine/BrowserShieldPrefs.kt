@@ -16,8 +16,9 @@ class BrowserShieldPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_BLOCK_POPUPS, true)
         set(value) = prefs.edit().putBoolean(KEY_BLOCK_POPUPS, value).apply()
 
+    /** SPEC-155: default OFF so custom-scheme links open the system app chooser. */
     var blockExternalApps: Boolean
-        get() = prefs.getBoolean(KEY_BLOCK_EXTERNAL, true)
+        get() = prefs.getBoolean(KEY_BLOCK_EXTERNAL, false)
         set(value) = prefs.edit().putBoolean(KEY_BLOCK_EXTERNAL, value).apply()
 
     fun rulesForHost(host: String): List<String> {

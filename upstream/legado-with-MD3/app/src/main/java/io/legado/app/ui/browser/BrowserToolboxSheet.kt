@@ -485,7 +485,7 @@ private fun gridDef(id: String, actions: BrowserToolboxActions): ToolboxGridDef?
     "pick_block" -> ToolboxGridDef(id, "点选屏蔽", Symbols.Block)
     "video_capsule" -> ToolboxGridDef(
         id,
-        "视频胶囊",
+        "净视胶囊",
         MaterialSymbol("videocam", autoMirror = false),
     )
     "ad_block" -> ToolboxGridDef(

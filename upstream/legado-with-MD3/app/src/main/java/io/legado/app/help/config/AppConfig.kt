@@ -114,12 +114,10 @@ object AppConfig {
     val webDavDeviceName get() = backup.webDavDeviceName
     val onlyLatestBackup get() = backup.onlyLatestBackup
     val autoCheckNewBackup get() = backup.autoCheckNewBackup
-    val updateToVariant get() = other.updateToVariant
     val bookshelfSort get() = bookshelf.bookshelfSort
     val bitmapCacheSize get() = cache.bitmapCacheSize
     val sourceEditMaxLine get() = other.sourceEditMaxLine
     val audioPlayUseWakeLock get() = other.audioPlayUseWakeLock
-    val firebaseEnable get() = other.firebaseEnable
     val pureBlack get() = theme.isPureBlack
     val systemMediaControlCompatibilityChange get() = aloud.systemMediaControlCompatibilityChange
     /** SPEC-086: gated to API 35+. */

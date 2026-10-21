@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.gson.annotations.SerializedName
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.modalBottomSheet.AppModalBottomSheet
 
@@ -34,12 +35,13 @@ data class BrowserLinkContextHit(
 }
 
 /** Console JSON from BrowserContextMenuJs. */
+// SPEC-151: GSON 反射解析 JS 载荷，字段名即 JSON key，R8 混淆需显式注解。
 data class BrowserContextMenuPayload(
-    val href: String = "",
-    val text: String = "",
-    val img: String = "",
-    val title: String = "",
-    val page: String = "",
+    @SerializedName("href") val href: String = "",
+    @SerializedName("text") val text: String = "",
+    @SerializedName("img") val img: String = "",
+    @SerializedName("title") val title: String = "",
+    @SerializedName("page") val page: String = "",
 )
 
 @Composable

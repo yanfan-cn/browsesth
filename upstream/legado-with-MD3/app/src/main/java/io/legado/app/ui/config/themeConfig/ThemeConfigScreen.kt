@@ -152,32 +152,6 @@ fun ThemeConfigScreen(
                     themeItems.zip(themeValues).toList()
                 }
 
-                AnimatedVisibility(visible = theme.showRefactorTip) {
-                    GlassCard(
-                        cornerRadius = 16.dp,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            AppText(
-                                text = "仍有部分界面未用Compose重构，这些界面会与大部分界面有较大差异。",
-                                style = LegadoTheme.typography.labelLargeEmphasized,
-                                modifier = Modifier.weight(1f)
-                            )
-                            SmallPlainButton(
-                                icon = AppIcons.Close,
-                                contentDescription = stringResource(R.string.close),
-                                onClick = {
-                                    onIntent(ThemeConfigIntent.DismissRefactorTip)
-                                }
-                            )
-                        }
-                    }
-                }
-
-
                 SplicedColumnGroup(title = stringResource(R.string.theme)) {
                     if (isMiuixEngine) {
                         DropdownListSettingItem(
@@ -203,7 +177,7 @@ fun ThemeConfigScreen(
 
                         if (theme.useMiuixMonet) {
                             val visibleThemes = themes.filter { (_, value) ->
-                                value != "4" || state.showEInkTheme
+                                value != "4" || theme.eInkDisplay
                             }
                             DropdownListSettingItem(
                                 title = stringResource(R.string.theme),
@@ -228,7 +202,7 @@ fun ThemeConfigScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         val visibleThemes = themes.filter { (_, value) ->
-                            value != "4" || state.showEInkTheme
+                            value != "4" || theme.eInkDisplay
                         }
                         ThemeColorSelector(
                             context = context,
@@ -254,6 +228,44 @@ fun ThemeConfigScreen(
                             onCheckedChange = { value ->
                                 updateTheme { it.copy(isPureBlack = value) }
                             }
+                        )
+                    }
+                    // SPEC-150 R4: 表面样式上移到纯黑深色模式下方。
+                    run {
+                        val available = remember {
+                            io.legado.app.ui.theme.ChromeSurfaceStylePolicy.availableStyles()
+                        }
+                        val resolved = io.legado.app.ui.theme.ChromeSurfaceStylePolicy.resolve(
+                            theme.chromeSurfaceStyle,
+                        )
+                        val labels = available.map { style ->
+                            when (style) {
+                                io.legado.app.ui.theme.ChromeSurfaceStyle.Translucent ->
+                                    stringResource(R.string.chrome_surface_style_translucent)
+                                io.legado.app.ui.theme.ChromeSurfaceStyle.Filled ->
+                                    stringResource(R.string.chrome_surface_style_filled)
+                                io.legado.app.ui.theme.ChromeSurfaceStyle.LiquidGlass ->
+                                    stringResource(R.string.chrome_surface_style_liquid)
+                            }
+                        }.toTypedArray()
+                        val values = available.map { it.storageValue }.toTypedArray()
+                        DropdownListSettingItem(
+                            title = stringResource(R.string.chrome_surface_style),
+                            description = stringResource(R.string.chrome_surface_style_summary),
+                            selectedValue = resolved.storageValue,
+                            displayEntries = labels,
+                            entryValues = values,
+                            onValueChange = { value ->
+                                // SPEC-061: surface style drives top-bar button style.
+                                updateTheme {
+                                    it.copy(
+                                        chromeSurfaceStyle = value,
+                                        topBarButtonStyle =
+                                            io.legado.app.ui.theme.ChromeSurfaceStylePolicy
+                                                .effectiveTopBarButtonStyle(value),
+                                    )
+                                }
+                            },
                         )
                     }
                     ClickableSettingItem(
@@ -330,44 +342,6 @@ fun ThemeConfigScreen(
                             )
                         }
                     )
-                    // SPEC-056: global chrome surface style (半透明 / 填充 / 液态玻璃).
-                    run {
-                        val available = remember {
-                            io.legado.app.ui.theme.ChromeSurfaceStylePolicy.availableStyles()
-                        }
-                        val resolved = io.legado.app.ui.theme.ChromeSurfaceStylePolicy.resolve(
-                            theme.chromeSurfaceStyle,
-                        )
-                        val labels = available.map { style ->
-                            when (style) {
-                                io.legado.app.ui.theme.ChromeSurfaceStyle.Translucent ->
-                                    stringResource(R.string.chrome_surface_style_translucent)
-                                io.legado.app.ui.theme.ChromeSurfaceStyle.Filled ->
-                                    stringResource(R.string.chrome_surface_style_filled)
-                                io.legado.app.ui.theme.ChromeSurfaceStyle.LiquidGlass ->
-                                    stringResource(R.string.chrome_surface_style_liquid)
-                            }
-                        }.toTypedArray()
-                        val values = available.map { it.storageValue }.toTypedArray()
-                        DropdownListSettingItem(
-                            title = stringResource(R.string.chrome_surface_style),
-                            description = stringResource(R.string.chrome_surface_style_summary),
-                            selectedValue = resolved.storageValue,
-                            displayEntries = labels,
-                            entryValues = values,
-                            onValueChange = { value ->
-                                // SPEC-061: surface style drives top-bar button style.
-                                updateTheme {
-                                    it.copy(
-                                        chromeSurfaceStyle = value,
-                                        topBarButtonStyle =
-                                            io.legado.app.ui.theme.ChromeSurfaceStylePolicy
-                                                .effectiveTopBarButtonStyle(value),
-                                    )
-                                }
-                            },
-                        )
-                    }
                     ClickableSettingItem(
                         title = stringResource(R.string.top_bottom_bar_settings),
                         description = stringResource(R.string.top_bottom_bar_settings_summary),
@@ -495,211 +469,6 @@ fun ThemeConfigScreen(
 
                 // SPEC-063: blur-effects settings group hidden.
 
-            }
-
-            // Container settings
-            item {
-                SplicedColumnGroup(title = stringResource(R.string.theme_manage_section_container)) {
-                    SwitchSettingItem(
-                        title = "容器背景图",
-                        description = "大容器和项目分别使用独立的日间/夜间图片",
-                        checked = theme.enableContainerBackgroundImage,
-                        onCheckedChange = { value ->
-                            updateTheme { it.copy(enableContainerBackgroundImage = value) }
-                        }
-                    )
-                    AnimatedVisibility(visible = theme.enableContainerBackgroundImage) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            ClickableSettingItem(
-                                title = "大容器背景图片",
-                                description = if (theme.largeContainerBackgroundImageLight.isNullOrBlank() &&
-                                    theme.largeContainerBackgroundImageDark.isNullOrBlank()
-                                ) {
-                                    stringResource(R.string.select_image)
-                                } else {
-                                    "已选择"
-                                },
-                                onClick = {
-                                    onIntent(
-                                        ThemeConfigIntent.ShowSheet(
-                                            ThemeConfigSheet.BackgroundImage(
-                                                BackgroundImageTarget.LargeContainer
-                                            )
-                                        )
-                                    )
-                                }
-                            )
-                            ClickableSettingItem(
-                                title = "项目背景图片",
-                                description = if (theme.itemBackgroundImageLight.isNullOrBlank() &&
-                                    theme.itemBackgroundImageDark.isNullOrBlank()
-                                ) {
-                                    stringResource(R.string.select_image)
-                                } else {
-                                    "已选择"
-                                },
-                                onClick = {
-                                    onIntent(
-                                        ThemeConfigIntent.ShowSheet(
-                                            ThemeConfigSheet.BackgroundImage(
-                                                BackgroundImageTarget.Item
-                                            )
-                                        )
-                                    )
-                                }
-                            )
-                        }
-                    }
-                    SliderSettingItem(
-                            title = stringResource(R.string.container_opacity),
-                            description = stringResource(
-                                R.string.container_opacity_summary,
-                                theme.containerOpacity
-                            ),
-                            value = theme.containerOpacity.toFloat(),
-                            defaultValue = 100f,
-                            valueRange = 0f..100f,
-                            onValueChange = { value ->
-                                updateTheme { it.copy(containerOpacity = value.toInt()) }
-                            }
-                    )
-                    SwitchSettingItem(
-                        title = stringResource(R.string.disable_spliced_group_corner_radius),
-                        description = stringResource(R.string.disable_spliced_group_corner_radius_summary),
-                        checked = theme.disableSplicedColumnGroupCornerRadius,
-                        onCheckedChange = { value ->
-                            updateTheme {
-                                it.copy(disableSplicedColumnGroupCornerRadius = value)
-                            }
-                        }
-                    )
-                    SwitchSettingItem(
-                        title = stringResource(R.string.base_card_corner_radius_override),
-                        description = stringResource(R.string.base_card_override_summary),
-                        checked = theme.overrideBaseCardCornerRadius,
-                        onCheckedChange = { value ->
-                            updateTheme { it.copy(overrideBaseCardCornerRadius = value) }
-                        }
-                    )
-                    AnimatedVisibility(visible = theme.overrideBaseCardCornerRadius) {
-                        SliderSettingItem(
-                            title = stringResource(R.string.base_card_corner_radius),
-                            description = "${theme.baseCardCornerRadius}dp",
-                            value = theme.baseCardCornerRadius,
-                            defaultValue = 16f,
-                            valueRange = 0f..40f,
-                            steps = 79,
-                            decimal = true,
-                            onValueChange = { value ->
-                                updateTheme { it.copy(baseCardCornerRadius = value) }
-                            }
-                        )
-                    }
-                    SwitchSettingItem(
-                        title = stringResource(R.string.base_card_border_override),
-                        description = stringResource(R.string.base_card_override_summary),
-                        checked = theme.overrideBaseCardBorder,
-                        onCheckedChange = { value ->
-                            updateTheme { it.copy(overrideBaseCardBorder = value) }
-                        }
-                    )
-                    AnimatedVisibility(visible = theme.overrideBaseCardBorder) {
-                        Column {
-                            SliderSettingItem(
-                                title = stringResource(R.string.border_width),
-                                description = "${theme.baseCardBorderWidth}dp",
-                                value = theme.baseCardBorderWidth,
-                                defaultValue = 1f,
-                                valueRange = 0f..5f,
-                                steps = 49,
-                                decimal = true,
-                                onValueChange = { value ->
-                                    updateTheme { it.copy(baseCardBorderWidth = value) }
-                                }
-                            )
-                            BaseCardBorderColorSettingItem(
-                                title = stringResource(R.string.base_card_border_color_day),
-                                color = theme.baseCardBorderColor,
-                                onClick = {
-                                    onIntent(
-                                        ThemeConfigIntent.ShowSheet(
-                                            ThemeConfigSheet.BaseCardBorderColor(false)
-                                        )
-                                    )
-                                }
-                            )
-                            BaseCardBorderColorSettingItem(
-                                title = stringResource(R.string.base_card_border_color_night),
-                                color = theme.baseCardBorderColorNight,
-                                onClick = {
-                                    onIntent(
-                                        ThemeConfigIntent.ShowSheet(
-                                            ThemeConfigSheet.BaseCardBorderColor(true)
-                                        )
-                                    )
-                                }
-                            )
-                        }
-                    }
-                    SwitchSettingItem(
-                        title = stringResource(R.string.show_divider_line),
-                        checked = theme.enableItemDivider,
-                        onCheckedChange = { value ->
-                            updateTheme { it.copy(enableItemDivider = value) }
-                        }
-                    )
-                    if (theme.enableItemDivider) {
-                        SliderSettingItem(
-                            title = stringResource(R.string.theme_config_divider_width),
-                            description = "${theme.itemDividerWidth}dp",
-                            value = theme.itemDividerWidth,
-                            defaultValue = 1f,
-                            valueRange = 0f..5f,
-                            steps = 49,
-                            decimal = true,
-                            onValueChange = { value ->
-                                updateTheme { it.copy(itemDividerWidth = value) }
-                            }
-                        )
-                        SliderSettingItem(
-                            title = stringResource(R.string.theme_config_divider_length),
-                            description = "${theme.itemDividerLength.toInt()}%",
-                            value = theme.itemDividerLength,
-                            defaultValue = 80f,
-                            valueRange = 30f..100f,
-                            steps = 14,
-                            onValueChange = { value ->
-                                updateTheme { it.copy(itemDividerLength = value) }
-                            }
-                        )
-                        ClickableSettingItem(
-                            title = stringResource(R.string.tip_divider_color),
-                            option = if (theme.itemDividerColor != 0) "#${Integer.toHexString(theme.itemDividerColor).uppercase()}" else stringResource(R.string.click_to_select),
-                            onClick = {
-                                onIntent(
-                                    ThemeConfigIntent.ShowSheet(ThemeConfigSheet.DividerColor)
-                                )
-                            },
-                            trailingContent = {
-                                if (theme.itemDividerColor != 0) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(28.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(theme.itemDividerColor))
-                                            .border(
-                                                1.dp,
-                                                MaterialTheme.colorScheme.outlineVariant,
-                                                CircleShape
-                                            )
-                                    )
-                                }
-                            }
-                        )
-                    }
-                }
             }
 
             item {
@@ -938,35 +707,6 @@ fun ThemeConfigScreen(
         emptyText = stringResource(R.string.theme_config_no_font_files),
     )
 
-}
-
-@Composable
-private fun BaseCardBorderColorSettingItem(
-    title: String,
-    color: Int,
-    onClick: () -> Unit,
-) {
-    ClickableSettingItem(
-        title = title,
-        option = if (color != 0) {
-            "#${Integer.toHexString(color).uppercase()}"
-        } else {
-            stringResource(R.string.base_card_border_color_default)
-        },
-        onClick = onClick,
-        trailingContent = {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(
-                        color.takeIf { it != 0 }?.let(::Color)
-                            ?: LegadoTheme.colorScheme.outlineVariant
-                    )
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-            )
-        }
-    )
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

@@ -36,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -83,6 +84,7 @@ import io.legado.app.ui.book.readaloud.morph.LocalReadAloudMorph
 import io.legado.app.ui.book.readaloud.morph.rememberReadAloudMorphState
 import io.legado.app.ui.book.readaloud.player.ReadAloudPlayerViewModel
 import io.legado.app.ui.main.bookshelf.BookshelfCoverPreloader
+import io.legado.app.ui.theme.GlassReadiness
 import io.legado.app.ui.theme.LocalAppUiConfiguration
 import io.legado.app.ui.welcome.WelcomeActivity
 import io.legado.app.ui.widget.components.privacy.PrivateAppStartGate
@@ -132,7 +134,6 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
         private const val KEY_RESTORE_READ_ALOUD = "restoreReadAloud"
         private const val KEY_RESTORE_READ_IN_BOOKSHELF = "restoreReadInBookshelf"
         private const val KEY_RESTORE_READ_CHAPTER_CHANGED = "restoreReadChapterChanged"
-        private val startupUpdateCheckGate = ProcessStartupUpdateCheckGate()
 
         @Volatile
         var hasActiveReadBookRoute: Boolean = false
@@ -348,9 +349,6 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
         runCatching { BrowserKernelCompat.captureSwitchesExtra(this, intent?.getStringExtra("xunye_switches")) }
 
         if (checkStartupRoute()) return
-        val shouldAutoCheckUpdate = startupUpdateCheckGate.consume(
-            otherSettingsGateway.currentSettings.autoCheckUpdateOnStart
-        )
 
         // 智能自启：如果上次是手动开启状态（web_service_auto 为 true），则自启；
         // 本地网络权限缺失时先申请，磁贴等入口也通过该 extra 转发到这里。
@@ -369,9 +367,6 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
             val isAutoRefreshedBook = savedInstanceState?.getBoolean("isAutoRefreshedBook") ?: false
             if (otherSettingsGateway.currentSettings.autoRefresh && !isAutoRefreshedBook) {
                 viewModel.upAllBookToc()
-            }
-            if (shouldAutoCheckUpdate) {
-                checkUpdateOnStart()
             }
         }
 
@@ -481,6 +476,14 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
         }
         val backStack = rememberNavBackStack(*startRoutes)
         SideEffect { navRouteTracker.onBackStackChanged(backStack) }
+
+        // SPEC-148 R3: 首帧渲染完成后再过两帧才放行液态玻璃，把玻璃特效层
+        // 建立/着色器编译从冷启动首帧关键路径移走（此前走 fallback 半透明纯色）。
+        LaunchedEffect(Unit) {
+            withFrameNanos {}
+            withFrameNanos {}
+            GlassReadiness.markReady()
+        }
 
         // 悬浮胶囊是全局叠层：数据来自全局朗读会话与设置，不依赖阅读器是否在栈上。
         val pageShellPlayerViewModel: ReadAloudPlayerViewModel =
@@ -640,6 +643,9 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                     MainNavigator.onBackStackChanged()
                 }
         }
+        // SPEC-152: 根标签页返回拦截器（平板「我的」页按返回 → 回主页而非退出）。
+        // MainScreen 在页面组合时注册，离组时注销。
+        var rootTabBackHandler by remember { mutableStateOf<(() -> Boolean)?>(null) }
         SharedTransitionLayout {
             // 启动验证做成单独的 screen：门槛未过时完全不组合应用界面，
             // 因此验证页背后看不到书架/阅读界面，也没有可交互的入口
@@ -658,6 +664,9 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                             ),
                             sceneStrategies = listOf(
                                 ModalOverlaySceneStrategy(),
+                                // SPEC-139: history/bookmarks/tabs/clear-data
+                                // self-slide over a composed Home underlay.
+                                SlideOverlaySceneStrategy(),
                                 SinglePaneSceneStrategy(),
                             ),
                             // SPEC-101: Keep underneath on push; pop = top slides right only.
@@ -695,6 +704,7 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                                 showMangaUi = mangaSettings.showMangaUi,
                                 useRail = useRail,
                                 sharedTransitionScope = this@SharedTransitionLayout,
+                                onRegisterRootTabBack = { rootTabBackHandler = it },
                                 onNavigateToRoute = { route ->
                                     if (route is MainRouteAudioPlay) {
                                         pageShellCapsuleScope.launch {
@@ -787,9 +797,16 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                     enabled = shouldHandleActivityBack(
                         configuration.appShell.effectivePredictiveBackEnabled(),
                         playerVisible || morphPresent,
-                    )
+                    ) || (rootTabBackHandler != null && backStack.size <= 1)
                 ) {
-                    MainNavigator.navigateBack(this@MainActivity, backStack)
+                    // SPEC-152: 主栈只剩根页面时，优先交给根标签页拦截器
+                    // （如「我的」页返回 → 切回主页标签），拦截失败再走全局返回。
+                    val intercepted = rootTabBackHandler
+                        ?.takeIf { backStack.size <= 1 }
+                        ?.invoke() == true
+                    if (!intercepted) {
+                        MainNavigator.navigateBack(this@MainActivity, backStack)
+                    }
                 }
             }
         }
@@ -823,13 +840,6 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
         }
     }
 
-    private fun checkUpdateOnStart() {
-        AppUpdateGitHub.check(lifecycleScope)
-            .onSuccess { updateInfo ->
-                showDialogFragment(UpdateDialog(updateInfo))
-            }
-    }
-
     /**
      * 版本更新日志
      */
@@ -844,7 +854,7 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                 try {
                     val info = AppUpdateGitHub.getReleaseByTag(BuildConfig.VERSION_NAME)
                     if (info != null) {
-                        val dialog = UpdateDialog(info, UpdateDialog.Mode.VIEW_LOG)
+                        val dialog = UpdateDialog(info)
                         dialog.setOnDismissListener { block.resume(null) }
                         showDialogFragment(dialog)
                     } else {

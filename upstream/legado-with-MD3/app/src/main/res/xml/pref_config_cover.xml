@@ -2,12 +2,6 @@
 <androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <io.legado.app.lib.prefs.SwitchPreference
-        android:key="loadCoverOnlyWifi"
-        android:defaultValue="false"
-        android:title="@string/only_wifi"
-        android:summary="@string/only_wifi_summary" />
-
     <io.legado.app.lib.prefs.Preference
         android:key="coverRule"
         android:title="@string/cover_rule"

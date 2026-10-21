@@ -835,7 +835,7 @@ class BookInfoViewModel(
                 context = context,
                 data = path,
                 sourceOrigin = sourceOrigin,
-                loadOnlyWifi = coverSettingsGateway.currentSettings.loadOnlyOnWifi,
+                loadOnlyWifi = false,
                 crossfade = false
             )
             val result = imageLoader.execute(request)
@@ -2124,7 +2124,6 @@ internal fun BookInfoUiState.withSettings(
     bookInfoFollowCoverColor = theme.bookInfoFollowCoverColor,
     bookInfoNetworkCoverBackground = theme.bookInfoNetworkCoverBackground,
     bookInfoDefaultCoverBackground = theme.bookInfoDefaultCoverBackground,
-    loadCoverOnlyOnWifi = cover.loadOnlyOnWifi,
     defaultCover = cover.defaultCover,
     defaultCoverDark = cover.defaultCoverDark,
     showMangaUi = other.showMangaUi,

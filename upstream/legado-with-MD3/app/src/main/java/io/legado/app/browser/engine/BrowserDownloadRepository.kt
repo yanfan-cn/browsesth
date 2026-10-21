@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import io.legado.app.R
 import io.legado.app.constant.AppConst
@@ -60,8 +61,12 @@ class BrowserDownloadRepository private constructor(
         contentDisposition: String? = null,
         mimeType: String? = null,
         cookie: String? = null,
+        /** SPEC-147 R3: 防盗链来源页。 */
+        referer: String? = null,
         /** SPEC-136: override root (e.g. Movies for video). */
         targetDir: java.io.File? = null,
+        /** SPEC-152: 完整请求头 JSON，重试/续传原样套用。 */
+        requestHeadersJson: String? = null,
     ): BrowserDownloadItem {
         val dir = targetDir?.also { if (!it.exists()) it.mkdirs() }
             ?: BrowserDownloadPaths.ensureRoot(app)
@@ -76,9 +81,52 @@ class BrowserDownloadRepository private constructor(
             kind = BrowserDownloadKind.FILE,
             status = BrowserDownloadStatus.QUEUED,
             mimeType = mimeType,
+            requestUserAgent = userAgent,
+            requestCookie = cookie,
+            requestReferer = referer,
+            requestHeadersJson = requestHeadersJson,
         )
         persist(item)
-        startJob(item.id, userAgent, cookie)
+        startJob(item.id, userAgent, cookie, referer)
+        return item
+    }
+
+    fun enqueueHls(
+        url: String,
+        title: String = "",
+        userAgent: String? = null,
+        cookie: String? = null,
+        referer: String? = null,
+        targetDir: java.io.File? = null,
+        /** SPEC-152: 完整请求头 JSON，重试/续传原样套用。 */
+        requestHeadersJson: String? = null,
+    ): BrowserDownloadItem {
+        val dir = targetDir?.also { if (!it.exists()) it.mkdirs() }
+            ?: BrowserDownloadPaths.ensureRoot(app)
+        // Extension decided after the playlist probe in hlsLoop; .ts is the
+        // common default and gets rewritten (file not yet created) on .mp4.
+        val stripped = title.trim().replace(
+            Regex("""\.(mp4|m3u8|ts|m4s|mkv|webm)$""", RegexOption.IGNORE_CASE),
+            "",
+        )
+        val baseName = sanitizeTitle(stripped).ifBlank { "video_${System.currentTimeMillis()}" }
+        val dest = BrowserDownloadPaths.uniqueFile(dir, "$baseName.ts")
+        val item = BrowserDownloadItem(
+            id = UUID.randomUUID().toString(),
+            url = url.trim(),
+            title = title.ifBlank { dest.name },
+            fileName = dest.name,
+            absolutePath = dest.absolutePath,
+            kind = BrowserDownloadKind.FILE,
+            status = BrowserDownloadStatus.QUEUED,
+            mimeType = "application/vnd.apple.mpegurl",
+            requestUserAgent = userAgent,
+            requestCookie = cookie,
+            requestReferer = referer,
+            requestHeadersJson = requestHeadersJson,
+        )
+        persist(item)
+        startJob(item.id, userAgent, cookie, referer)
         return item
     }
 
@@ -185,12 +233,12 @@ class BrowserDownloadRepository private constructor(
         Result.success(done)
     }
 
-    private fun startJob(id: String, userAgent: String?, cookie: String?) {
+    private fun startJob(id: String, userAgent: String?, cookie: String?, referer: String? = null) {
         jobs.remove(id)?.cancel()
         pauseFlags[id] = false
         jobs[id] = scope.launch {
             mutex.withLock { /* serialize heavy starts lightly */ }
-            runCatching { downloadLoop(id, userAgent, cookie) }
+            runCatching { downloadLoop(id, userAgent, cookie, referer) }
                 .onFailure { err ->
                     store.update(id) {
                         it.copy(
@@ -205,9 +253,21 @@ class BrowserDownloadRepository private constructor(
         }
     }
 
-    private suspend fun downloadLoop(id: String, userAgent: String?, cookie: String?) {
+    private suspend fun downloadLoop(id: String, userAgent: String?, cookie: String?, referer: String? = null) {
         var item = store.get(id) ?: return
         val dest = File(item.absolutePath)
+        // SPEC-152: resume()/重试路径传 null 参数，必须回退到 item 上持久化的请求头，
+        // 否则防盗链站（无 UA/Referer/Cookie）一律 HTTP 403。
+        val effUserAgent = userAgent ?: item.requestUserAgent
+        val effCookie = cookie ?: item.requestCookie
+        val effReferer = referer ?: item.requestReferer
+        val effExtraHeaders = parseExtraHeaders(item.requestHeadersJson)
+        if (item.isHlsItem) {
+            // SPEC-146 R5: segment-merge download; resume restarts from 0.
+            if (dest.exists() && item.status == BrowserDownloadStatus.COMPLETED) return
+            hlsLoop(item, effUserAgent, effCookie, effReferer, effExtraHeaders)
+            return
+        }
         val partial = File(item.absolutePath + ".partial")
         var downloaded = when {
             partial.exists() -> partial.length()
@@ -230,13 +290,14 @@ class BrowserDownloadRepository private constructor(
             connectTimeout = 20_000
             readTimeout = 30_000
             requestMethod = "GET"
-            if (!userAgent.isNullOrBlank()) setRequestProperty("User-Agent", userAgent)
-            if (!cookie.isNullOrBlank()) setRequestProperty("Cookie", cookie)
+            applyRequestHeaders(this, effUserAgent, effCookie, effReferer, effExtraHeaders)
             if (downloaded > 0L) setRequestProperty("Range", "bytes=$downloaded-")
         }
         conn.connect()
         val code = conn.responseCode
         if (code !in 200..299 && code != HttpURLConnection.HTTP_PARTIAL) {
+            // SPEC-147 R3: 直链下载失败记录 HTTP 码，定位防盗链 403。
+            Log.w("Diag146", "file download failed code=$code url=${item.url} referer=$effReferer")
             throw IllegalStateException("HTTP $code")
         }
         val totalFromHeader = conn.contentLengthLong.takeIf { it >= 0 }
@@ -331,6 +392,238 @@ class BrowserDownloadRepository private constructor(
         cancelNotify(id)
     }
 
+    /**
+     * SPEC-146 R5: HLS segment-merge download.
+     * Fetches the (master→variant) playlist, then downloads every segment
+     * sequentially, appending bytes into the .partial file. Progress is
+     * estimated from the average segment size once at least one segment is
+     * done. Pause is honored between segments; resume restarts from zero.
+     */
+    private suspend fun hlsLoop(
+        item: BrowserDownloadItem,
+        userAgent: String?,
+        cookie: String?,
+        referer: String?,
+        extraHeaders: Map<String, String> = emptyMap(),
+    ) {
+        val id = item.id
+        store.update(id) {
+            it.copy(
+                status = BrowserDownloadStatus.RUNNING,
+                bytesDownloaded = 0L,
+                totalBytes = -1L,
+                error = null,
+                updatedAt = System.currentTimeMillis(),
+            )
+        }
+        refresh()
+
+        // 1) fetch playlist text (master -> highest-bandwidth variant).
+        var playlistUrl = item.url
+        var text = fetchText(playlistUrl, userAgent, cookie, referer)
+        if (BrowserHlsPlaylist.isMaster(text)) {
+            val variant = BrowserHlsPlaylist.parseMaster(text, playlistUrl)
+                ?: throw IllegalStateException("无法解析视频列表")
+            playlistUrl = variant
+            text = fetchText(playlistUrl, userAgent, cookie, referer)
+        }
+        val parsed = BrowserHlsPlaylist.parseMedia(text, playlistUrl)
+        if (parsed.segments.isEmpty()) throw IllegalStateException("视频列表中没有分片")
+
+        // 2) decide the output extension now that the playlist is known; the
+        //    destination file has not been created yet, renaming is safe.
+        val ext = BrowserHlsPlaylist.extensionFor(parsed)
+        val current = store.get(id) ?: return
+        var absPath = current.absolutePath
+        var fileName = current.fileName
+        if (!fileName.endsWith(".$ext", ignoreCase = true)) {
+            val base = fileName.substringBeforeLast('.', missingDelimiterValue = fileName)
+            val dir = File(absPath).parentFile ?: BrowserDownloadPaths.ensureRoot(app)
+            val newDest = BrowserDownloadPaths.uniqueFile(dir, "$base.$ext")
+            absPath = newDest.absolutePath
+            fileName = newDest.name
+        }
+        val dest = File(absPath)
+        val partial = File("$absPath.partial")
+        if (partial.exists()) partial.delete()
+        if (dest.exists()) dest.delete()
+
+        val totalSegments = parsed.segments.size
+        var done = 0L
+        var downloaded = 0L
+        var lastNotify = 0L
+
+        for (segmentUrl in parsed.segments) {
+            currentCoroutineContext().ensureActive()
+            if (pauseFlags[id] == true) {
+                store.update(id) {
+                    it.copy(
+                        status = BrowserDownloadStatus.PAUSED,
+                        fileName = fileName,
+                        absolutePath = absPath,
+                        updatedAt = System.currentTimeMillis(),
+                        speedBps = 0L,
+                    )
+                }
+                refresh()
+                cancelNotify(id)
+                return
+            }
+            val conn = openRequest(segmentUrl, userAgent, cookie, referer, extraHeaders)
+            try {
+                val code = conn.responseCode
+                if (code !in 200..299) {
+                    Log.w(
+                        "Diag146",
+                        "hls segment failed code=$code seg=$segmentUrl referer=$referer",
+                    )
+                    throw IllegalStateException("分片下载失败 HTTP $code")
+                }
+                val buf = ByteArray(64 * 1024)
+                conn.inputStream.use { input ->
+                    dest.parentFile?.mkdirs()
+                    java.io.FileOutputStream(partial, true).use { out ->
+                        while (true) {
+                            currentCoroutineContext().ensureActive()
+                            if (pauseFlags[id] == true) break
+                            val n = input.read(buf)
+                            if (n < 0) break
+                            out.write(buf, 0, n)
+                            downloaded += n
+                        }
+                    }
+                }
+            } finally {
+                conn.disconnect()
+            }
+            if (pauseFlags[id] == true) {
+                // Mid-segment pause: keep partial bytes, mark paused.
+                store.update(id) {
+                    it.copy(
+                        status = BrowserDownloadStatus.PAUSED,
+                        fileName = fileName,
+                        absolutePath = absPath,
+                        bytesDownloaded = downloaded,
+                        updatedAt = System.currentTimeMillis(),
+                        speedBps = 0L,
+                    )
+                }
+                refresh()
+                cancelNotify(id)
+                return
+            }
+            done++
+            // Estimate total from average segment size for a stable percent.
+            val avg = downloaded / done
+            val totalEst = avg * totalSegments
+            val now = System.currentTimeMillis()
+            if (now - lastNotify > 400L || done == totalSegments.toLong()) {
+                lastNotify = now
+                val snap = store.get(id)?.copy(
+                    status = BrowserDownloadStatus.RUNNING,
+                    fileName = fileName,
+                    absolutePath = absPath,
+                    bytesDownloaded = downloaded,
+                    totalBytes = totalEst,
+                    updatedAt = now,
+                ) ?: return
+                store.upsert(snap)
+                _items.value = store.all()
+                notifyProgress(snap, ongoing = true)
+            }
+        }
+
+        if (dest.exists()) dest.delete()
+        if (!partial.renameTo(dest)) {
+            partial.copyTo(dest, overwrite = true)
+            partial.delete()
+        }
+        val finalItem = store.get(id) ?: return
+        val doneItem = finalItem.copy(
+            status = BrowserDownloadStatus.COMPLETED,
+            fileName = fileName,
+            absolutePath = absPath,
+            bytesDownloaded = dest.length(),
+            totalBytes = dest.length(),
+            updatedAt = System.currentTimeMillis(),
+            error = null,
+            speedBps = 0L,
+        )
+        persist(doneItem)
+        cancelNotify(id)
+    }
+
+    private fun openRequest(
+        url: String,
+        userAgent: String?,
+        cookie: String?,
+        referer: String?,
+        extraHeaders: Map<String, String> = emptyMap(),
+    ): HttpURLConnection {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            instanceFollowRedirects = true
+            connectTimeout = 20_000
+            readTimeout = 30_000
+            requestMethod = "GET"
+            applyRequestHeaders(this, userAgent, cookie, referer, extraHeaders)
+        }
+        conn.connect()
+        return conn
+    }
+
+    /** SPEC-152: 统一套用请求头。eff 值优先（参数→item 兜底），额外头只补其余键（如防盗链令牌头）。 */
+    private fun applyRequestHeaders(
+        conn: HttpURLConnection,
+        userAgent: String?,
+        cookie: String?,
+        referer: String?,
+        extraHeaders: Map<String, String>,
+    ) {
+        val reserved = setOf("user-agent", "cookie", "referer", "range", "host", "content-length")
+        extraHeaders.forEach { (key, value) ->
+            if (!reserved.contains(key.lowercase()) && value.isNotBlank()) {
+                runCatching { conn.setRequestProperty(key, value) }
+            }
+        }
+        if (!userAgent.isNullOrBlank()) conn.setRequestProperty("User-Agent", userAgent)
+        if (!cookie.isNullOrBlank()) conn.setRequestProperty("Cookie", cookie)
+        if (!referer.isNullOrBlank()) conn.setRequestProperty("Referer", referer)
+    }
+
+    /** SPEC-152: 解析持久化的完整请求头 JSON；非法/为空返回空映射。 */
+    private fun parseExtraHeaders(json: String?): Map<String, String> {
+        if (json.isNullOrBlank()) return emptyMap()
+        return runCatching {
+            val o = org.json.JSONObject(json)
+            buildMap {
+                for (key in o.keys()) {
+                    val v = o.optString(key)
+                    if (v.isNotBlank()) put(key, v)
+                }
+            }
+        }.getOrDefault(emptyMap())
+    }
+
+    private fun fetchText(
+        url: String,
+        userAgent: String?,
+        cookie: String?,
+        referer: String?,
+    ): String {
+        val conn = openRequest(url, userAgent, cookie, referer)
+        try {
+            val code = conn.responseCode
+            if (code !in 200..299) {
+                // SPEC-147 R3: 记录 HTTP 码与请求头来源，定位防盗链 403。
+                Log.w("Diag146", "hls playlist failed code=$code url=$url referer=$referer")
+                throw IllegalStateException("视频列表获取失败 HTTP $code")
+            }
+            return conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+        } finally {
+            conn.disconnect()
+        }
+    }
+
     private fun persist(item: BrowserDownloadItem) {
         store.upsert(item)
         refresh()
@@ -392,6 +685,11 @@ class BrowserDownloadRepository private constructor(
     companion object {
         @Volatile
         private var instance: BrowserDownloadRepository? = null
+
+        /** SPEC-146: item queued as an HLS segment-merge download. */
+        private val BrowserDownloadItem.isHlsItem: Boolean
+            get() = mimeType?.contains("mpegurl", ignoreCase = true) == true ||
+                url.contains(".m3u8", ignoreCase = true)
 
         fun get(context: Context): BrowserDownloadRepository {
             val existing = instance

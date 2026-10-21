@@ -1,0 +1,101 @@
+﻿Reusing configuration cache.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preAppDebugBuild UP-TO-DATE
+> Task :app:dataBindingMergeDependencyArtifactsAppDebug UP-TO-DATE
+> Task :app:generateAppDebugResources UP-TO-DATE
+> Task :app:processAppDebugGoogleServices UP-TO-DATE
+> Task :modules:book:preBuild UP-TO-DATE
+> Task :modules:book:preDebugBuild UP-TO-DATE
+> Task :modules:book:generateDebugResources UP-TO-DATE
+> Task :modules:book:packageDebugResources UP-TO-DATE
+> Task :modules:rhino:preBuild UP-TO-DATE
+> Task :modules:rhino:preDebugBuild UP-TO-DATE
+> Task :modules:rhino:generateDebugResources UP-TO-DATE
+> Task :modules:rhino:packageDebugResources UP-TO-DATE
+> Task :app:mergeAppDebugResources UP-TO-DATE
+> Task :app:packageAppDebugResources UP-TO-DATE
+> Task :modules:book:processDebugNavigationResources UP-TO-DATE
+> Task :modules:rhino:processDebugNavigationResources UP-TO-DATE
+> Task :app:processAppDebugNavigationResources UP-TO-DATE
+> Task :app:parseAppDebugLocalResources UP-TO-DATE
+> Task :modules:book:parseDebugLocalResources UP-TO-DATE
+> Task :modules:book:generateDebugRFile UP-TO-DATE
+> Task :modules:rhino:parseDebugLocalResources UP-TO-DATE
+> Task :modules:rhino:generateDebugRFile UP-TO-DATE
+> Task :app:dataBindingGenBaseClassesAppDebug UP-TO-DATE
+> Task :app:generateAppDebugBuildConfig UP-TO-DATE
+> Task :app:generateAppDebugRFile UP-TO-DATE
+> Task :modules:book:javaPreCompileDebug UP-TO-DATE
+> Task :modules:rhino:javaPreCompileDebug UP-TO-DATE
+> Task :app:javaPreCompileAppDebug UP-TO-DATE
+> Task :verifyConfigArchitecture
+> Task :modules:rhino:compileDebugKotlin UP-TO-DATE
+> Task :modules:rhino:compileDebugJavaWithJavac NO-SOURCE
+> Task :modules:rhino:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :modules:book:compileDebugKotlin NO-SOURCE
+> Task :modules:book:compileDebugJavaWithJavac UP-TO-DATE
+> Task :modules:book:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :app:kspAppDebugKotlin
+> Task :app:compileAppDebugKotlin
+
+> Task :app:compileAppDebugJavaWithJavac
+.\gradlew.bat : D:\cursor\browsesth\upstream\legado-with-MD3\app\src\main\java\com\haleydu\cimoc\utils\CollectionUtils.
+java:7: 閿欒: 绋嬪簭鍖卹x.functions涓嶅瓨鍦?import rx.functions.Func1;
+所在位置 C:\Users\32082\AppData\Local\Temp\ps-script-d9cf0ab5-a4bb-41c2-a8d4-c1e740d14277.ps1:76 字符: 1
++ .\gradlew.bat :app:compileAppDebugJavaWithJavac 2>&1 | Out-File "D:\c ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (D:\cursor\brows...unctions.Func1;:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+                   ^
+D:\cursor\browsesth\upstream\legado-with-MD3\app\src\main\java\com\haleydu\cimoc\utils\CollectionUtils.java:21: 閿欒: 鎵句
+笉鍒扮鍙?    public static <T, R> List<R> map(Collection<T> origin, Func1<T, R> func) {
+                                                           ^
+  绗﹀彿:   绫?Func1
+  浣嶇疆: 绫?CollectionUtils
+D:\cursor\browsesth\upstream\legado-with-MD3\app\src\main\java\com\haleydu\cimoc\model\ImageUrl.java:193: 閿欒: 鏂规硶涓嶄細瑕嗙
+洊鎴栧疄鐜拌秴绫诲瀷鐨勬柟娉?        @Override
+        ^
+D:\cursor\browsesth\upstream\legado-with-MD3\app\src\main\java\com\haleydu\cimoc\model\ImageUrl.java:202: 閿欒: 鏂规硶涓嶄細瑕嗙
+洊鎴栧疄鐜拌秴绫诲瀷鐨勬柟娉?        @Override
+        ^
+娉? 鏌愪簺杈撳叆鏂囦欢浣跨敤鎴栬鐩栦簡宸茶繃鏃剁殑 API銆?
+娉? 鏈夊叧璇︾粏淇℃伅, 璇蜂娇鐢?-Xlint:deprecation 閲嶆柊缂栬瘧銆?
+4 涓敊璇?
+
+> Task :app:compileAppDebugJavaWithJavac FAILED
+> Task :app:copyRoomSchemas NO-SOURCE
+
+[Incubating] Problems report is available at: file:///D:/cursor/browsesth/upstream/legado-with-MD3/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileAppDebugJavaWithJavac' (registered by plugin 'com.android.internal.application')
+.
+> Compilation failed; see the compiler output below.
+  D:\cursor\browsesth\upstream\legado-with-MD3\app\src\main\java\com\haleydu\cimoc\utils\CollectionUtils.java:7: 閿欒: 绋
+嬪簭鍖卹x.functions涓嶅瓨鍦?  import rx.functions.Func1;
+                     ^
+  D:\cursor\browsesth\upstream\legado-with-MD3\app\src\main\java\com\haleydu\cimoc\utils\CollectionUtils.java:21: 閿欒: 
+鎵句笉鍒扮鍙?      public static <T, R> List<R> map(Collection<T> origin, Func1<T, R> func) {
+                                                             ^
+    绗﹀彿:   绫?Func1
+    浣嶇疆: 绫?CollectionUtils
+  D:\cursor\browsesth\upstream\legado-with-MD3\app\src\main\java\com\haleydu\cimoc\model\ImageUrl.java:193: 閿欒: 鏂规硶涓嶄細
+瑕嗙洊鎴栧疄鐜拌秴绫诲瀷鐨勬柟娉?          @Override
+          ^
+  D:\cursor\browsesth\upstream\legado-with-MD3\app\src\main\java\com\haleydu\cimoc\model\ImageUrl.java:202: 閿欒: 鏂规硶涓嶄細
+瑕嗙洊鎴栧疄鐜拌秴绫诲瀷鐨勬柟娉?          @Override
+          ^
+  娉? 鏌愪簺杈撳叆鏂囦欢浣跨敤鎴栬鐩栦簡宸茶繃鏃剁殑 API銆?
+  娉? 鏈夊叧璇︾粏淇℃伅, 璇蜂娇鐢?-Xlint:deprecation 閲嶆柊缂栬瘧銆?
+  4 涓敊璇?
+
+* Try:
+> Check your code and dependencies to fix the compilation error(s)
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+
+BUILD FAILED in 26s
+31 actionable tasks: 4 executed, 27 up-to-date
+Configuration cache entry reused.

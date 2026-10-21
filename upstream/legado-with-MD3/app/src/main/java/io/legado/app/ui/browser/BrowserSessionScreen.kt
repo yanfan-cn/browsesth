@@ -8,9 +8,11 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
@@ -40,11 +42,14 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
@@ -64,7 +69,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.currentStateAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,8 +82,10 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -93,6 +103,7 @@ import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.browser.engine.BrowserAdRules
 import io.legado.app.browser.engine.BrowserAwContentsClient
 import io.legado.app.browser.engine.BrowserChromePrefs
+import io.legado.app.browser.engine.BrowserClipboardUrl
 import io.legado.app.browser.engine.BrowserContextMenuJs
 import io.legado.app.browser.engine.BrowserDownloadHelper
 import io.legado.app.browser.engine.BrowserDownloadPaths
@@ -276,13 +287,18 @@ fun BrowserSessionScreen(
     var omniboxLabel by remember {
         mutableStateOf(BrowserOmniboxLabel.resolve(initialOmniboxLabel, initialUrl))
     }
+    // SPEC-146 R1: address carries TextFieldValue so focus-gain can select-all.
     var address by remember {
         mutableStateOf(
-            BrowserTabManager.pageDisplayLabel(initialTitle, initialUrl)
-                .ifBlank { omniboxLabel },
+            TextFieldValue(
+                BrowserTabManager.pageDisplayLabel(initialTitle, initialUrl)
+                    .ifBlank { omniboxLabel },
+            ),
         )
     }
     var addressFocused by remember { mutableStateOf(false) }
+    /** SPEC-146 R2: clipboard link candidate shown while the omnibox is focused. */
+    var clipboardUrl by remember { mutableStateOf<String?>(null) }
     var appliedNavEpoch by remember(sessionKey) { mutableLongStateOf(0L) }
     /** SPEC-125: URL we already loadUrl'd in onReady; blocks stale lastUrl trust. */
     var pendingForcedUrl by remember(sessionKey) { mutableStateOf<String?>(null) }
@@ -344,7 +360,7 @@ fun BrowserSessionScreen(
         if (addressFocused) return
         val next = BrowserTabManager.pageDisplayLabel(title, url)
             .ifBlank { omniboxLabel }
-        if (next.isNotEmpty() && address != next) address = next
+        if (next.isNotEmpty() && address.text != next) address = TextFieldValue(next)
     }
 
     fun syncOmniboxLabelFromTab(url: String?) {
@@ -368,8 +384,10 @@ fun BrowserSessionScreen(
     /** SPEC-132: hide prompt for this stream URL until a new offer arrives. */
     var dismissedVideoPromptUrl by remember { mutableStateOf<String?>(null) }
     val videoOffer by BrowserVideoOfferBus.offer.collectAsStateWithLifecycle()
+    // SPEC-145 R6: 页面检测到多个视频时，胶囊展示完整列表。
+    val playlistOffers by BrowserVideoOfferBus.offers.collectAsStateWithLifecycle()
     // SPEC-135: only show offer that still belongs to the current page.
-    val currentPageForVideo = clientRef?.lastUrl.orEmpty().ifBlank { address }
+    val currentPageForVideo = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
     val showVideoPlayerPrompt = chromePrefs.videoPlayerPromptEnabled &&
         videoOffer != null &&
         videoOffer?.url != dismissedVideoPromptUrl &&
@@ -451,7 +469,7 @@ fun BrowserSessionScreen(
             } catch (e: CancellationException) {
                 throw e
             } catch (t: Throwable) {
-                context.toastOnUi(t.message?.takeIf { it.isNotBlank() } ?: "打开阅读失败")
+                context.toastOnUi(t.message?.takeIf { it.isNotBlank() } ?: "打开净读失败")
             } finally {
                 extracting = false
             }
@@ -506,6 +524,17 @@ fun BrowserSessionScreen(
     }
 
 
+    /** SPEC-149: 会话重挂/遮罩时序下 hostRef 可能为空；回退 Holder 活跃宿主并回写自愈。 */
+    fun resolveReaderHost(): AwContentsHostView? {
+        hostRef?.let { return it }
+        val host = BrowserSessionHolder.activeHostFor(resolvedSessionKey) ?: return null
+        val client = BrowserSessionHolder.activeClientFor(resolvedSessionKey) ?: return null
+        Log.i("Diag149", "reader host fallback via holder (hostRef null), key=$resolvedSessionKey")
+        clientRef = client
+        hostRef = host
+        return host
+    }
+
     suspend fun openNovelReader(
         pageUrl: String,
         titleHint: String? = null,
@@ -513,10 +542,10 @@ fun BrowserSessionScreen(
         /** SPEC-109: false = text-only (strip images); true = mixed HTML keeps in-body images. */
         keepImages: Boolean = true,
     ) {
-        val host = hostRef
+        val host = resolveReaderHost()
         val open = onOpenReader
         if (host == null || open == null) {
-            context.toastOnUi("阅读视图不可用")
+            context.toastOnUi("净读视图不可用")
             return
         }
         // SPEC-123: Tencent Next.js articles often have no body <img> until hydration.
@@ -586,7 +615,7 @@ fun BrowserSessionScreen(
         langDetectJob = scope.launch {
             delay(600)
             val host = hostRef ?: return@launch
-            val current = clientRef?.lastUrl.orEmpty().ifBlank { address }
+            val current = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
             if (current != url) return@launch
             val raw = host.evalJs(WebPageLangDetectJs.SCRIPT)
             val sample = WebPageLangDetect.parse(raw) ?: return@launch
@@ -601,7 +630,7 @@ fun BrowserSessionScreen(
     }
 
     fun dismissTranslatePrompt() {
-        val u = translatePromptUrl ?: clientRef?.lastUrl.orEmpty().ifBlank { address }
+        val u = translatePromptUrl ?: clientRef?.lastUrl.orEmpty().ifBlank { address.text }
         if (u.isNotBlank()) {
             dismissedTranslateUrls = dismissedTranslateUrls + u
         }
@@ -611,7 +640,7 @@ fun BrowserSessionScreen(
 
     fun acceptTranslatePrompt() {
         val pageUrl = translatePromptUrl
-            ?: clientRef?.lastUrl.orEmpty().ifBlank { address }
+            ?: clientRef?.lastUrl.orEmpty().ifBlank { address.text }
         dismissTranslatePrompt()
         if (!pageUrl.startsWith("http")) {
             context.toastOnUi("无法翻译当前页")
@@ -636,9 +665,9 @@ fun BrowserSessionScreen(
 
     suspend fun openMangaReader(pageUrl: String, analyze: WebMangaBookFactory.AnalyzeResult) {
         val open = onOpenMangaReader
-        val host = hostRef
+        val host = resolveReaderHost()
         if (open == null || host == null) {
-            context.toastOnUi("漫画阅读不可用")
+            context.toastOnUi("漫画净读不可用")
             return
         }
         withContext(Dispatchers.IO) {
@@ -693,9 +722,9 @@ fun BrowserSessionScreen(
     }
 
     fun openReaderView(forceKind: WebMangaBookFactory.Kind? = null) {
-        val host = hostRef
+        val host = resolveReaderHost()
         if (host == null) {
-            context.toastOnUi("阅读视图不可用")
+            context.toastOnUi("净读视图不可用")
             return
         }
         startExtract {
@@ -708,7 +737,7 @@ fun BrowserSessionScreen(
                 )
             }
             val analyze = WebMangaBookFactory.parseAnalyzeResult(raw)
-            val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+            val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
             if (analyze == null) {
                 context.toastOnUi("页面分析失败，请重试")
                 return@startExtract
@@ -746,7 +775,7 @@ fun BrowserSessionScreen(
         // Slight delay so DOM settles.
         scope.launch {
             delay(700)
-            if (!extracting && clientRef?.lastUrl.orEmpty().ifBlank { address } == url) {
+            if (!extracting && clientRef?.lastUrl.orEmpty().ifBlank { address.text } == url) {
                 openReaderView()
             }
         }
@@ -777,10 +806,10 @@ fun BrowserSessionScreen(
             exitPickMode()
             return
         }
-        val hostName = BrowserAdRules.hostOf(clientRef?.lastUrl ?: address).orEmpty()
+        val hostName = BrowserAdRules.hostOf(clientRef?.lastUrl ?: address.text).orEmpty()
         if (hostName.isNotEmpty()) {
             shield.addRules(hostName, pendingSelectors)
-            applyCustomHide(clientRef?.lastUrl ?: address)
+            applyCustomHide(clientRef?.lastUrl ?: address.text)
             context.toastOnUi("已保存 ${pendingSelectors.size} 条屏蔽规则")
         }
         exitPickMode()
@@ -799,7 +828,7 @@ fun BrowserSessionScreen(
     }
 
     fun shareCurrentPage() {
-        val url = clientRef?.lastUrl.orEmpty().ifBlank { address }.trim()
+        val url = clientRef?.lastUrl.orEmpty().ifBlank { address.text }.trim()
         if (url.isEmpty() || !url.startsWith("http")) {
             context.toastOnUi("当前没有可转发的链接")
             return
@@ -820,7 +849,7 @@ fun BrowserSessionScreen(
             context.toastOnUi("页面未就绪")
             return
         }
-        val url = clientRef?.lastUrl.orEmpty().ifBlank { address }.trim()
+        val url = clientRef?.lastUrl.orEmpty().ifBlank { address.text }.trim()
         val title = clientRef?.lastTitle.orEmpty().ifBlank { url }
         scope.launch {
             val raw = host.evalJs("(function(){try{return document.documentElement.outerHTML;}catch(e){return '';}})()")
@@ -909,7 +938,7 @@ fun BrowserSessionScreen(
                 armed.baseUrl,
             )
             applyOmniboxLabel(armed.title.ifBlank { "已保存网页" })
-            address = armed.title.ifBlank { "已保存网页" }
+            address = TextFieldValue(armed.title.ifBlank { "已保存网页" })
         }
     }
 
@@ -918,7 +947,7 @@ fun BrowserSessionScreen(
         focusManager.clearFocus(force = true)
         addressFocused = false
         applyOmniboxLabel(item.title.ifBlank { item.url })
-        address = item.title.ifBlank { item.url }
+        address = TextFieldValue(item.title.ifBlank { item.url })
         hostRef?.loadUrl(item.url)
         BrowserSessionHolder.markLoaded()
         onPageMeta?.invoke(item.url, item.title)
@@ -926,7 +955,7 @@ fun BrowserSessionScreen(
 
     fun navigateToAddress() {
         // SPEC-022: same search/host rules as NTP — never blind https:// (avoids xn-- junk).
-        val raw = address.trim()
+        val raw = address.text.trim()
         val url = resolveBrowserNavigationInput(raw, ntpPrefs.searchEngine())
         if (url.isEmpty()) return
         keyboardController?.hide()
@@ -970,10 +999,10 @@ fun BrowserSessionScreen(
     }
 
     val addressSuggestions = remember(address, addressFocused) {
-        if (!addressFocused || address.isBlank()) {
+        if (!addressFocused || address.text.isBlank()) {
             emptyList()
         } else {
-            BrowserOmniboxSuggest.match(address, store.bookmarks(), store.history())
+            BrowserOmniboxSuggest.match(address.text, store.bookmarks(), store.history())
         }
     }
 
@@ -990,13 +1019,19 @@ fun BrowserSessionScreen(
         onPageMeta?.invoke(url, BrowserTabManager.pageDisplayLabel(null, url, typed))
     }
 
+    /** SPEC-146 R2: open the clipboard link candidate straight away. */
+    fun openClipboardUrl(url: String) {
+        keyboardController?.hide()
+        focusManager.clearFocus(force = true)
+        addressFocused = false
+        clipboardUrl = null
+        loadExternalUrl(url)
+    }
+
     fun handleSpecialUrl(url: String): Boolean {
         val uri = Uri.parse(url)
         return when {
-            BrowserUrlPolicy.isExternalAppLaunch(url) && shield.blockExternalApps -> {
-                showSnack("已阻止打开其它应用")
-                true
-            }
+            // 外链由 BrowserAwContentsClient（hasUserGesture + onExternalAppOpen）处理。
             BrowserUrlPolicy.isSameAppImport(url) -> {
                 val importUrl = uri.getQueryParameter("src")
                 val isBookSourceImport = uri.path == "/bookSource" ||
@@ -1011,6 +1046,30 @@ fun BrowserSessionScreen(
                 true
             }
             else -> false
+        }
+    }
+
+    /** SPEC-156: 有可处理应用才弹 Chooser；否则不弹空板。 */
+    fun openExternalAppChooser(url: String) {
+        runCatching {
+            val intent = if (url.startsWith("intent:", ignoreCase = true)) {
+                Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+            } else {
+                Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val resolved = context.packageManager.queryIntentActivities(
+                intent,
+                PackageManager.MATCH_DEFAULT_ONLY,
+            )
+            if (resolved.isEmpty()) {
+                showSnack("没有可打开此链接的应用")
+                return
+            }
+            context.startActivity(
+                Intent.createChooser(intent, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }.onFailure {
+            showSnack("无法打开此链接")
         }
     }
 
@@ -1049,7 +1108,12 @@ fun BrowserSessionScreen(
         }
     }
 
-    BackHandler(enabled = true) {
+    // SPEC-139: while a nav overlay (history/bookmarks/tabs) is on top of Home,
+    // nav3 caps this scene's lifecycle to STARTED — gate the handler on RESUMED
+    // so the underlay session cannot steal the system back gesture (which used
+    // to invisibly webView.goBack() and finally clearActiveToNtp → NTP).
+    val sessionLifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    BackHandler(enabled = sessionLifecycleState.isAtLeast(Lifecycle.State.RESUMED)) {
         val host = hostRef
         when {
             videoCustomView != null -> requestExitVideoFullscreen()
@@ -1130,12 +1194,12 @@ fun BrowserSessionScreen(
                 openReader = { openReaderView() },
                 loadUrl = { loadExternalUrl(it) },
                 currentPageUrl = {
-                    clientRef?.lastUrl.orEmpty().ifBlank { address }
+                    clientRef?.lastUrl.orEmpty().ifBlank { address.text }
                 },
                 currentPageTitle = { clientRef?.lastTitle.orEmpty() },
                 addBookmark = {
                     val url = clientRef?.lastUrl?.takeIf { it.startsWith("http") }
-                        ?: address.takeIf { it.startsWith("http") }
+                        ?: address.text.takeIf { it.startsWith("http") }
                     if (url.isNullOrBlank()) {
                         context.toastOnUi("当前没有可收藏的链接")
                     } else {
@@ -1144,7 +1208,7 @@ fun BrowserSessionScreen(
                     }
                 },
                 copyCurrentUrl = {
-                    val currentUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+                    val currentUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
                     context.sendToClip(currentUrl)
                 },
                 startPickMode = { enterPickMode() },
@@ -1157,7 +1221,7 @@ fun BrowserSessionScreen(
                 applyWebContentDarkMode = { hostRef?.applyWebContentDarkMode(it) },
                 applyTextZoom = { hostRef?.applyTextZoom(it) },
                 injectAdShield = {
-                    applyAdShield(clientRef?.lastUrl.orEmpty().ifBlank { address })
+                    applyAdShield(clientRef?.lastUrl.orEmpty().ifBlank { address.text })
                 },
                 applyUserAgentAndReload = { mode ->
                     hostRef?.applyUserAgent(mode)
@@ -1176,7 +1240,7 @@ fun BrowserSessionScreen(
                     ) {
                         dismissedVideoPromptUrl = null
                         phoneChromeVisible = true
-                        context.toastOnUi("已显示视频胶囊")
+                        context.toastOnUi("已显示净视胶囊")
                     } else {
                         context.toastOnUi("当前页未检测到可播放视频")
                     }
@@ -1193,14 +1257,14 @@ fun BrowserSessionScreen(
                     }
                 },
                 openReaderText = {
-                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
                     startExtract { openNovelReader(pageUrl, keepImages = false) }
                 },
                 openReaderImage = {
                     openReaderView(WebMangaBookFactory.Kind.Manga)
                 },
                 openReaderMixed = {
-                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
                     startExtract { openNovelReader(pageUrl, keepImages = true) }
                 },
             ),
@@ -1269,9 +1333,17 @@ fun BrowserSessionScreen(
                                         // SPEC-125: focus → show URL for editing.
                                         val editUrl = clientRef?.lastUrl.orEmpty()
                                             .ifBlank { initialUrl }
-                                        if (editUrl.isNotBlank()) address = editUrl
+                                        // SPEC-146 R1: select all so typing replaces the URL.
+                                        address = if (editUrl.isNotBlank()) {
+                                            TextFieldValue(editUrl, TextRange(0, editUrl.length))
+                                        } else {
+                                            TextFieldValue("")
+                                        }
+                                        // SPEC-146 R2: clipboard link candidate.
+                                        clipboardUrl = BrowserClipboardUrl.latest(context)
                                     } else if (addressFocused && !nowFocused) {
                                         // Blur without Go → restore title / site host.
+                                        clipboardUrl = null
                                         syncIdleAddress(
                                             clientRef?.lastTitle ?: initialTitle,
                                             clientRef?.lastUrl ?: initialUrl,
@@ -1289,7 +1361,7 @@ fun BrowserSessionScreen(
                             keyboardActions = KeyboardActions(onGo = { navigateToAddress() }),
                             decorationBox = { inner ->
                                 Box(contentAlignment = Alignment.CenterStart) {
-                                    if (address.isEmpty()) {
+                                    if (address.text.isEmpty()) {
                                         Text(
                                             "搜索或输入网址",
                                             color = scheme.onSurfaceVariant,
@@ -1384,6 +1456,7 @@ fun BrowserSessionScreen(
                         isPopupBlockEnabled = { shield.blockPopups },
                         isExternalBlockEnabled = { shield.blockExternalApps },
                         onExternalBlocked = { showSnack("已阻止打开其它应用") },
+                        onExternalAppOpen = { openExternalAppChooser(it) },
                         onPopupBlocked = { showSnack("已阻止弹出窗口") },
                         isPickModeActive = { pickMode },
                         onConsoleBlockPick = { payload ->
@@ -1581,10 +1654,12 @@ fun BrowserSessionScreen(
                     progress = (progress / 100f).coerceIn(0f, 1f),
                 )
             }
-            if (!tabletEmbedded && addressSuggestions.isNotEmpty()) {
+            if (!tabletEmbedded && (addressSuggestions.isNotEmpty() || clipboardUrl != null)) {
                 BrowserOmniboxSuggestPanel(
                     items = addressSuggestions,
                     onSelect = { openSuggestItem(it) },
+                    clipboardUrl = clipboardUrl,
+                    onClipboardSelect = { openClipboardUrl(it) },
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(horizontal = 12.dp, vertical = 4.dp),
@@ -1719,6 +1794,14 @@ fun BrowserSessionScreen(
                                         }
                                     },
                                     onDismiss = { dismissedVideoPromptUrl = offer.url },
+                                    showPlaylist = playlistOffers.size > 1,
+                                    playlist = playlistOffers,
+                                    onPlayOffer = { item ->
+                                        BrowserVideoPlaybackService.stop(context)
+                                        context.startActivity(
+                                            BrowserVideoPlayerActivity.intent(context, item),
+                                        )
+                                    },
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                                 // SPEC-136: 16dp gap above bottom chrome.
@@ -1812,7 +1895,7 @@ fun BrowserSessionScreen(
                                             onCloseAll = { BrowserTabManager.closeAll() },
                                             onAddBookmark = {
                                                 val url = clientRef?.lastUrl?.takeIf { it.startsWith("http") }
-                                                    ?: address
+                                                    ?: address.text
                                                 store.addBookmark(url, clientRef?.lastTitle.orEmpty())
                                                 context.toastOnUi(context.getString(R.string.browser_favorite_added))
                                             },
@@ -1834,7 +1917,7 @@ fun BrowserSessionScreen(
                             contentAlignment = Alignment.Center,
                         ) {
                             SymbolIcon(symbol = Symbols.Book2,
-                                contentDescription = "阅读视图",
+                                contentDescription = "净读视图",
                                 tint = Color.White,
                                 modifier = Modifier.size(24.dp),
                             )
@@ -1850,11 +1933,11 @@ fun BrowserSessionScreen(
                                         BrowserReaderPrefs.TriggerMode.Manual
                                     }
                                     showSnack(
-                                        if (enabled) "已开启自动阅读模式" else "已关闭自动阅读模式",
+                                        if (enabled) "已开启自动净读模式" else "已关闭自动净读模式",
                                     )
                                 },
                                 onTextMode = {
-                                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+                                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
                                     startExtract {
                                         openNovelReader(pageUrl, keepImages = false)
                                     }
@@ -1863,7 +1946,7 @@ fun BrowserSessionScreen(
                                     openReaderView(WebMangaBookFactory.Kind.Manga)
                                 },
                                 onMixedMode = {
-                                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+                                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
                                     startExtract {
                                         openNovelReader(pageUrl, keepImages = true)
                                     }
@@ -1905,6 +1988,14 @@ fun BrowserSessionScreen(
                                 }
                             },
                             onDismiss = { dismissedVideoPromptUrl = offer.url },
+                            showPlaylist = playlistOffers.size > 1,
+                            playlist = playlistOffers,
+                            onPlayOffer = { item ->
+                                BrowserVideoPlaybackService.stop(context)
+                                context.startActivity(
+                                    BrowserVideoPlayerActivity.intent(context, item),
+                                )
+                            },
                             widthFraction = 0.45f,
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
@@ -1984,32 +2075,29 @@ fun BrowserSessionScreen(
             }
 
             if (extracting) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.28f))
-                        .clickable(enabled = false) {},
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Card(
-                        shape = RoundedCornerShape(CardCorner),
-                        colors = CardDefaults.cardColors(
-                            containerColor = scheme.surfaceContainerHigh,
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                        modifier = Modifier.padding(horizontal = BrowserUiTokens.SpaceXl),
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 28.dp, vertical = 22.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            AppCircularProgressIndicator()
-                            Spacer(modifier = Modifier.height(16.dp))
-                            TextButton(onClick = { cancelExtract() }) {
-                                Text("取消")
-                            }
-                        }
-                    }
+                // SPEC-149: 胶囊加载态——无遮罩、不拦截整屏，加载期间网页照常显示/滚动/点击。
+                // 宽度 = 屏幕宽 40%；手机在底栏上方 16dp，平板在顶栏下方 16dp。
+                val extractCapsuleWidth = LocalConfiguration.current.screenWidthDp.dp * 0.40f
+                if (tabletEmbedded) {
+                    // 平板顶栏 = 状态栏 + 标签条 40dp + 功能栏 TopBarHeight（同 TabletBrowserChrome）。
+                    ReaderLoadingCapsule(
+                        onCancel = { cancelExtract() },
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(
+                                top = WindowInsets.statusBars.asPaddingValues()
+                                    .calculateTopPadding() + 40.dp + TopBarHeight + 16.dp,
+                            )
+                            .width(extractCapsuleWidth),
+                    )
+                } else {
+                    ReaderLoadingCapsule(
+                        onCancel = { cancelExtract() },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = floatingBottomPad + phoneChromeBarHeight + 16.dp)
+                            .width(extractCapsuleWidth),
+                    )
                 }
             }
         }
@@ -2115,14 +2203,14 @@ fun BrowserSessionScreen(
                 BrowserTabManager.openNewTab(url = null, incognito = true, select = true)
             },
             onAddBookmark = {
-                val url = clientRef?.lastUrl?.takeIf { it.startsWith("http") } ?: address
+                val url = clientRef?.lastUrl?.takeIf { it.startsWith("http") } ?: address.text
                 store.addBookmark(url, clientRef?.lastTitle.orEmpty())
                 context.toastOnUi(context.getString(R.string.browser_favorite_added))
             },
             onSavePage = { saveCurrentPage() },
             onShare = { shareCurrentPage() },
             onCopyLink = {
-                val currentUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+                val currentUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
                 context.sendToClip(currentUrl)
             },
             onPickBlock = { enterPickMode() },
@@ -2132,7 +2220,7 @@ fun BrowserSessionScreen(
                 adBlockEnabled = enabled
                 shield.adBlockEnabled = enabled
                 if (enabled) {
-                    applyAdShield(clientRef?.lastUrl ?: address)
+                    applyAdShield(clientRef?.lastUrl ?: address.text)
                     showSnack("已开启广告拦截")
                 } else {
                     showSnack("已关闭广告拦截（新请求生效）")
@@ -2187,7 +2275,7 @@ fun BrowserSessionScreen(
                 ) {
                     dismissedVideoPromptUrl = null
                     phoneChromeVisible = true
-                    context.toastOnUi("已显示视频胶囊")
+                    context.toastOnUi("已显示净视胶囊")
                 } else {
                     context.toastOnUi("当前页未检测到可播放视频")
                 }
@@ -2256,7 +2344,7 @@ fun BrowserSessionScreen(
         val analyze = pendingAnalyze
         AlertDialog(
             onDismissRequest = { showModePicker = false },
-            title = { Text("选择阅读方式") },
+            title = { Text("选择净读方式") },
             text = {
                 Text(
                     "未能自动判断页面类型" +
@@ -2268,14 +2356,14 @@ fun BrowserSessionScreen(
                 TextButton(
                     onClick = {
                         showModePicker = false
-                        val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+                        val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
                         if (analyze != null) {
                             startExtract { openMangaReader(pageUrl, analyze) }
                         } else {
                             openReaderView(WebMangaBookFactory.Kind.Manga)
                         }
                     },
-                ) { Text("漫画阅读") }
+                ) { Text("漫画净读") }
             },
             dismissButton = {
                 Row {
@@ -2283,10 +2371,10 @@ fun BrowserSessionScreen(
                     TextButton(
                         onClick = {
                             showModePicker = false
-                            val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address }
+                            val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
                             startExtract { openNovelReader(pageUrl, analyze?.title) }
                         },
-                    ) { Text("小说阅读") }
+                    ) { Text("小说净读") }
                 }
             },
         )
@@ -2347,6 +2435,50 @@ private fun ChromeSnackBar(message: String) {
 }
 
 /**
+ * SPEC-149: 阅读提取加载胶囊——无遮罩；胶囊本体吞掉点击（不透传网页），取消键可用。
+ */
+@Composable
+private fun ReaderLoadingCapsule(
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = LegadoTheme.colorScheme
+    Row(
+        modifier = modifier
+            .height(40.dp)
+            .clip(ContinuousCapsule)
+            .background(scheme.surfaceContainerHigh, ContinuousCapsule)
+            .clickable(onClick = {}),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AppCircularProgressIndicator(
+            modifier = Modifier
+                .padding(start = 14.dp)
+                .size(18.dp),
+            strokeWidth = 2.dp,
+        )
+        Text(
+            "正在打开净读视图…",
+            color = scheme.onSurface,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp),
+        )
+        IconButton(onClick = onCancel, modifier = Modifier.size(36.dp)) {
+            SymbolIcon(
+                Symbols.Close,
+                contentDescription = "取消",
+                tint = scheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+/**
  * SPEC-135/136: mini capsule (~75% width) — Play / Audio / PiP / Close.
  * Icons enlarged (32/28); capsule width unchanged.
  */
@@ -2359,11 +2491,20 @@ private fun VideoPlayerPromptCapsule(
     modifier: Modifier = Modifier,
     /** SPEC-136: phone ~0.75; tablet corner can be narrower. */
     widthFraction: Float = 0.75f,
+    /** SPEC-145 R6: 页面检测到多个视频时显示列表键，菜单宽度与胶囊一致。 */
+    showPlaylist: Boolean = false,
+    playlist: List<BrowserVideoOffer> = emptyList(),
+    onPlayOffer: (BrowserVideoOffer) -> Unit = {},
 ) {
     val scheme = LegadoTheme.colorScheme
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
     val capsuleWidth = screenWidth * widthFraction
     val pipSymbol = remember { MaterialSymbol("picture_in_picture_alt", autoMirror = false) }
+    // SPEC-145 R6: 多视频列表菜单。
+    var playlistMenuOpen by remember { mutableStateOf(false) }
+    val playlistSymbol = remember { MaterialSymbol("playlist_play", autoMirror = false) }
+    // SPEC-147 R7: 播放图标换 Motion Play，颜色保持主题 primary。
+    val motionPlaySymbol = remember { MaterialSymbol("motion_play", autoMirror = false) }
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center,
@@ -2379,7 +2520,7 @@ private fun VideoPlayerPromptCapsule(
         ) {
             IconButton(onClick = onPlay) {
                 SymbolIcon(
-                    Symbols.PlayArrow,
+                    motionPlaySymbol,
                     contentDescription = "播放",
                     tint = scheme.primary,
                     modifier = Modifier.size(32.dp),
@@ -2401,6 +2542,17 @@ private fun VideoPlayerPromptCapsule(
                     modifier = Modifier.size(28.dp),
                 )
             }
+            // SPEC-145 R6: 多视频列表键（菜单现锚定胶囊底边中点，见下方）。
+            if (showPlaylist && playlist.size > 1) {
+                IconButton(onClick = { playlistMenuOpen = true }) {
+                    SymbolIcon(
+                        playlistSymbol,
+                        contentDescription = "视频列表",
+                        tint = scheme.onSurface,
+                        modifier = Modifier.size(28.dp),
+                    )
+                }
+            }
             IconButton(onClick = onDismiss) {
                 SymbolIcon(
                     Symbols.Close,
@@ -2408,6 +2560,39 @@ private fun VideoPlayerPromptCapsule(
                     tint = scheme.onSurfaceVariant,
                     modifier = Modifier.size(28.dp),
                 )
+            }
+        }
+        // SPEC-147 R5: 列表菜单锚定胶囊底边中点（隐形零宽 anchor），x 偏移 -半胶囊宽，
+        // 展开后水平居中、左右边缘与胶囊对齐；宽度仍=胶囊宽。
+        if (showPlaylist && playlist.size > 1) {
+            Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+                DropdownMenu(
+                    expanded = playlistMenuOpen,
+                    onDismissRequest = { playlistMenuOpen = false },
+                    offset = DpOffset(-capsuleWidth / 2, 0.dp),
+                    modifier = Modifier.width(capsuleWidth),
+                    // SPEC-147 R4: M3 Expressive 圆角。
+                    shape = RoundedCornerShape(24.dp),
+                ) {
+                    playlist.forEach { item ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = item.title.ifBlank {
+                                        Uri.parse(item.url).host ?: item.url
+                                    },
+                                    color = scheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            },
+                            onClick = {
+                                playlistMenuOpen = false
+                                onPlayOffer(item)
+                            },
+                        )
+                    }
+                }
             }
         }
     }

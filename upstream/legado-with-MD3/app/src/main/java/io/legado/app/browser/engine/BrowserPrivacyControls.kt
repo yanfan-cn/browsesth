@@ -28,9 +28,8 @@ object BrowserPrivacyControls {
             settings.setAcceptThirdPartyCookies(prefs.acceptThirdPartyCookies)
         }.onFailure { Log.w(TAG, "setAcceptThirdPartyCookies: ${it.message}") }
         runCatching {
-            settings.javaClass
-                .getMethod("setSafeBrowsingEnabled", Boolean::class.javaPrimitiveType)
-                .invoke(settings, prefs.safeBrowsingEnabled)
+            // SPEC-153: direct call — reflection by name broke under R8.
+            settings.setSafeBrowsingEnabled(prefs.safeBrowsingEnabled)
         }.onFailure { Log.w(TAG, "setSafeBrowsingEnabled: ${it.message}") }
     }
 

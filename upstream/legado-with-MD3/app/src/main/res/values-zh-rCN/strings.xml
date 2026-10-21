@@ -257,7 +257,6 @@
     <string name="copy_source">拷贝源</string>
     <string name="paste_source">粘贴源</string>
     <string name="source_rule_s">源规则说明</string>
-    <string name="check_update">检查更新</string>
     <string name="camera_scan">扫描二维码</string>
     <string name="scan_image">扫描本地图片</string>
     <string name="rule_summary">规则说明</string>
@@ -319,7 +318,6 @@
     <string name="origin_show">%s</string>
     <string name="import_replace_rule">导入替换规则</string>
     <string name="import_replace_rule_on_line">导入在线规则</string>
-    <string name="check_update_interval">检查更新间隔</string>
     <string name="bookshelf_px_0">按阅读时间</string>
     <string name="bookshelf_px_1">按更新时间</string>
     <string name="bookshelf_px_2">按书名</string>
@@ -1293,8 +1291,6 @@
     <string name="cache_export">书籍缓存</string>
     <string name="assists_key_config">辅助按键配置</string>
     <string name="url_option">URL 参数</string>
-    <string name="only_wifi">仅 WiFi</string>
-    <string name="only_wifi_summary">仅在 WiFi 下加载网络封面</string>
     <string name="cover_rule">封面规则</string>
     <string name="search_via_url">搜索URL</string>
 	<string name="cover_rule_edit">封面规则</string>
@@ -1598,10 +1594,6 @@
     <string name="start_from">开始日</string>
     <string name="daily_chapters">日更数</string>
     <string name="start_chapter">起始章</string>
-    <string name="update_to_variant_title">检查更新查找版本</string>
-    <string name="update_to_variant_summary">检查更新时查找其他签名版本</string>
-    <string name="auto_check_update_on_start_title">启动时自动检测更新</string>
-    <string name="auto_check_update_on_start_summary">仅在应用进程完全重新启动时检测，从后台返回不会触发</string>
     <string name="default_version">当前</string>
     <string name="official_version">正式版</string>
     <string name="beta_release_version">测试版</string>
@@ -1747,8 +1739,6 @@
     <string name="descending_order">降序</string>
     <string name="checking_update">检查更新中…</string>
     <string name="search_empty">没有内容哦</string>
-    <string name="firebase_enable_title">匿名统计</string>
-    <string name="firebase_enable_summary">允许应用使用Google Firebase进行崩溃和性能统计</string>
     <string name="locate_current">定位至当前</string>
     <string name="padding_display_cutouts">填充刘海区域</string>
     <string name="read_aloud_android_media_control">安卓媒体控制</string>
@@ -2451,18 +2441,6 @@
     <string name="read_menu_bar_liquid_glass">液态玻璃背景</string>
 
     <!-- 实验室 -->
-    <string name="lab_setting">实验室</string>
-    <string name="lab_enabled_title">启用实验室</string>
-    <string name="lab_enabled_summary">开启后显示实验性功能，可能不稳定</string>
-    <string name="lab_display">显示</string>
-    <string name="lab_eink_display_title">墨水屏显示</string>
-    <string name="lab_eink_display_summary">在平板界面显示墨水屏选项</string>
-    <string name="lab_eink_display_hint">可在 主题 → 显示 中调整墨水屏设置</string>
-    <string name="lab_diagnostics">诊断</string>
-    <string name="lab_page_estimate_diagnostics_title">导出全文页码诊断</string>
-    <string name="lab_page_estimate_diagnostics_summary">分享本机最近的估算与校正记录，不会自动上传。</string>
-    <string name="lab_page_estimate_diagnostics_count">%1$d 条</string>
-    <string name="lab_page_estimate_diagnostics_share_title">分享全文页码诊断</string>
 
     <!-- 护眼模式 -->
     <string name="eye_protection">护眼模式</string>
@@ -3433,8 +3411,9 @@
     <string name="home_capsule_expand_controls">展开播放控制</string>
     <string name="home_capsule_chapter">第 %d 章</string>
     <string name="chrome_surface_style">表面样式</string>
-    <string name="chrome_surface_style_summary">统一控制半透明、填充或液态玻璃外观</string>
+    <string name="chrome_surface_style_summary">安卓13以上才可使用液态玻璃</string>
     <string name="chrome_surface_style_translucent">半透明</string>
     <string name="chrome_surface_style_filled">填充</string>
     <string name="chrome_surface_style_liquid">液态玻璃</string>
+    <string name="theme_eink_display">墨水屏显示</string>
 </resources>

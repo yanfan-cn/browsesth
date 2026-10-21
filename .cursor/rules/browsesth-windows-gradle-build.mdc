@@ -33,5 +33,13 @@ robocopy "C:\Users\32082\.gradle\caches" "D:\cursor\.gradle-home\caches" /E /J /
 ## 其它
 
 - `assemble*`：本包用当前 `MAJOR.MINOR.PATCH-beta`，结束后 PATCH+1（SPEC-108）；APK 名 `巡页`+versionName；失败已 bump 时按交接处理，勿绕过
+- **默认打 debug 包（操作者 2026-10-21 指定）**：release 全量构建本机约 10–12 分钟（R8 混淆捆绑 Chromium），debug 约 1–3 分钟；**仅当操作者明确要求 release 时才 assembleAppRelease**，勿自行升包
+- **Release 经验（2026-10-21，操作者要求记住）**：
+  1. release 改代码后每次都要付 ~10 分钟 R8 成本，无法优化掉；纯重打包（未改代码）约 1 分钟
+  2. assemble 必须带 `--no-configuration-cache`：`configuration-cache=true` + bump-on-configure 会导致一次构建双 bump（曾误产 巡页1.5.8，见 LOG-153）
+  3. release 曾因 R8/资源压缩引入三类静默 bug（SPEC-148~153）：GSON DTO 字段失配、按名反射 `AwSettings` 失效、资源压缩删 Bromium 按名运行时资源。SPEC-153 已修（`isShrinkResources=false` + 直调 + proguard 兜底），**新增浏览器内核相关代码时勿再引入按名反射**
+  4. **SPEC-154（待实施，操作者 2026-10-21 要求先记住）**：1.5.7 长按仍闪退；根因是 R8 把 `gen.base_module.R$string` 幽灵 ID（如 `actionbar_textselection_title=0x7f110029`）内联进 `AwActionModeCallback`，`BromiumResources` 反射重映射失效。下次打 release 前在 `proguard-rules.pro` 加：`-keep class gen.base_module.R` / `R$* { public static <fields>; }`、`org.chromium.**.R` / `R$*`、`com.alohamobile.bromium.BromiumResources`（详见 `specs/features/SPEC-154.md`）
+  5. release 产物路径/资源名会被 AAPT2 折叠混淆（`res/09.xml` 等），用「res 条目数=1567」对 debug 基线做资源完整性检查
+- **Release 产物只留一个签名包（操作者 2026-10-20 指定）**：assemble 后 apksigner（debug.keystore）直接签出/覆盖 `巡页X.Y.Z-beta.apk`，并删除 `app-app-release-unsigned.apk` 与 `.idsig`；不保留未签名副本，不产 `-signed` 双份
 - adb 安装前先 `adb devices`；无设备则 `adb kill-server` 后再查
 - 教训摘要亦见 `docs/会话状态交接.md` §0.6

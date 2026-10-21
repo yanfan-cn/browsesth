@@ -23,6 +23,7 @@ import com.kyant.capsule.ContinuousCapsule
 import io.legado.app.ui.animation.InteractiveHighlight
 import io.legado.app.ui.theme.ChromeSurfaceStyle
 import io.legado.app.ui.theme.ChromeSurfaceStylePolicy
+import io.legado.app.ui.theme.GlassReadiness
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.LocalAppUiConfiguration
 import io.legado.app.ui.theme.LocalTopBarBackdrop
@@ -73,7 +74,8 @@ fun Modifier.browserFloatingChromeGlass(
     }
     return when (style) {
         ChromeSurfaceStyle.LiquidGlass -> {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // SPEC-148 R3: 就绪门闸——ready 前走 fallback，避免首帧建特效层
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && GlassReadiness.ready) {
                 drawBackdrop(
                     backdrop = scaffoldBackdrop ?: localBackdrop,
                     shape = { shape },
@@ -119,7 +121,8 @@ fun Modifier.browserReaderFabGlass(
     }
     return when (style) {
         ChromeSurfaceStyle.LiquidGlass -> {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // SPEC-148 R3: 就绪门闸——ready 前走 fallback，避免首帧建特效层
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && GlassReadiness.ready) {
                 drawBackdrop(
                     backdrop = scaffoldBackdrop ?: localBackdrop,
                     shape = { CircleShape },
@@ -197,7 +200,8 @@ fun Modifier.browserControlLiquidGlass(
         shape,
     )
     val liquidActive = style == ChromeSurfaceStyle.LiquidGlass &&
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        GlassReadiness.ready
     if (!liquidActive) return fallback
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) { InteractiveHighlight(animationScope) }

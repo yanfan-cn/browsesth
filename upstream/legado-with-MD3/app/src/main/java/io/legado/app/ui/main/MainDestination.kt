@@ -35,7 +35,8 @@ sealed class MainDestination(
 
     companion object {
         // Browsesth: 隐藏「发现/书源」主入口；保留书架等。首页 Home 由 createHomeIntent 进浏览器。
-        val mainDestinations = persistentListOf<MainDestination>(Home, Bookshelf, Rss, My)
+        // SPEC-150: 「订阅」页删除——主入口不再提供；底层订阅源功能与偏好键保留。
+        val mainDestinations = persistentListOf<MainDestination>(Home, Bookshelf, My)
 
         fun ordered(order: String): List<MainDestination> {
             val byRoute = mainDestinations.associateBy { it.route }

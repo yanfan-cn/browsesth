@@ -27,12 +27,15 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.browser.engine.BrowserChromePrefs
 import io.legado.app.browser.engine.BrowserFormFactor
 import io.legado.app.browser.engine.BrowserOpenBridge
+import io.legado.app.browser.engine.BrowserClipboardUrl
 import io.legado.app.browser.engine.BrowserTabManager
 import io.legado.app.data.entities.Book
 import io.legado.app.ui.browser.BrowserNtpScreen
@@ -154,10 +157,17 @@ private fun BrowserHomeTabBody(
     var chromeVisible by remember { mutableStateOf(true) }
     val chromeScope = rememberCoroutineScope()
     var chromeDebounceJob by remember { mutableStateOf<Job?>(null) }
-    var address by remember {
-        mutableStateOf(active?.let { BrowserTabManager.tabDisplayTitle(it) }.orEmpty())
-    }
+    // SPEC-146 R1: address carries TextFieldValue so focus-gain can select-all.
+    // SPEC-146 R3: NTP (showHome) → empty address; idle web → page title.
+    fun idleTabletAddress(tab: io.legado.app.browser.engine.BrowserTab?): TextFieldValue =
+        when {
+            tab == null -> TextFieldValue("")
+            tab.showHome -> TextFieldValue("")
+            else -> TextFieldValue(BrowserTabManager.tabDisplayTitle(tab))
+        }
+    var address by remember { mutableStateOf(idleTabletAddress(active)) }
     var addressFocused by remember { mutableStateOf(false) }
+    var clipboardUrl by remember { mutableStateOf<String?>(null) }
     var submittingAddress by remember { mutableStateOf(false) }
     var sessionActions by remember { mutableStateOf<BrowserSessionActions?>(null) }
     var embeddedReaderKind by rememberSaveable { mutableStateOf<String?>(null) }
@@ -183,11 +193,12 @@ private fun BrowserHomeTabBody(
     // SPEC-125: idle address = page title / host (not search draft).
     LaunchedEffect(active?.id) {
         addressFocused = false
-        address = active?.let { BrowserTabManager.tabDisplayTitle(it) }.orEmpty()
+        clipboardUrl = null
+        address = idleTabletAddress(active)
     }
     LaunchedEffect(active?.title, active?.url, active?.showHome) {
         if (!addressFocused) {
-            address = active?.let { BrowserTabManager.tabDisplayTitle(it) }.orEmpty()
+            address = idleTabletAddress(active)
         }
     }
 
@@ -230,8 +241,15 @@ private fun BrowserHomeTabBody(
         onAddressFocusChange = { focused ->
             if (!addressFocused && focused) {
                 // SPEC-125: focus → URL for editing.
+                // SPEC-146 R1: select all so typing replaces the URL.
                 val editUrl = active?.url.orEmpty()
-                if (editUrl.isNotBlank()) address = editUrl
+                address = if (editUrl.isNotBlank()) {
+                    TextFieldValue(editUrl, TextRange(0, editUrl.length))
+                } else {
+                    TextFieldValue("")
+                }
+                // SPEC-146 R2: clipboard link candidate.
+                clipboardUrl = BrowserClipboardUrl.latest(context)
             } else if (
                 TabletBrowserLayout.omniboxShouldRestoreOnFocusLost(
                     wasFocused = addressFocused,
@@ -239,18 +257,21 @@ private fun BrowserHomeTabBody(
                     submitting = submittingAddress,
                 )
             ) {
-                address = active?.let { BrowserTabManager.tabDisplayTitle(it) }.orEmpty()
+                clipboardUrl = null
+                address = idleTabletAddress(active)
             }
             addressFocused = focused
             if (focused) submittingAddress = false
         },
         addressFocused = addressFocused,
+        clipboardUrl = clipboardUrl,
         onSubmitAddress = {
-            val raw = address.trim()
+            val raw = address.text.trim()
             if (raw.isNotEmpty()) {
                 submittingAddress = true
                 addressFocused = false
-                address = raw
+                clipboardUrl = null
+                address = TextFieldValue(raw)
                 closeEmbeddedReader()
                 BrowserTabManager.updateActiveOmniboxLabel(raw)
                 // SPEC-120: always resolve search/host → URL (fixes net::ERROR on NTP).
@@ -323,7 +344,7 @@ private fun BrowserHomeTabBody(
                     onOpenMangaReader = { openEmbeddedReader(TabletEmbeddedReaderKind.Manga, it) },
                     onPageMeta = { pageUrl, title ->
                         if (!addressFocused) {
-                            address = BrowserTabManager.pageDisplayLabel(title, pageUrl)
+                            address = idleTabletAddress(tab)
                         }
                         BrowserTabManager.updateActiveMeta(pageUrl, title)
                     },
@@ -376,55 +397,31 @@ private fun BrowserNtpSessionSwitch(
     session: @Composable () -> Unit,
 ) {
     // SPEC-100/101: slide-only (no fade/scale over glass / AwContents).
-    // Push: NTP under → session slides in → snap-dispose NTP.
-    // Pop: NTP under → session slides out → then release host + reveal main bottom bar.
+    // SPEC-138: NTP is a permanent composed underlay while the session is on
+    // stage; pop just slides the session out to reveal the live NTP — no blank
+    // frame during the slide and no NTP recomposition (JIT recompile) on exit.
     val scheme = LegadoTheme.colorScheme
     val spec = tween<IntOffset>(durationMillis = 240, easing = FastOutSlowInEasing)
-    var ntpState by remember {
-        mutableStateOf(MutableTransitionState(showNtp).apply { targetState = showNtp })
-    }
     val sessionState = remember {
         MutableTransitionState(!showNtp).apply { targetState = !showNtp }
     }
     val exitFinished by rememberUpdatedState(onSessionExitFinished)
 
     LaunchedEffect(showNtp) {
-        val wantNtp = showNtp
         val wantSession = !showNtp
-        if (ntpState.isIdle && sessionState.isIdle &&
-            ntpState.currentState == wantNtp && ntpState.targetState == wantNtp &&
+        if (sessionState.isIdle &&
             sessionState.currentState == wantSession && sessionState.targetState == wantSession
         ) {
-            // Remount / already settled on NTP: still sync bar + release (idempotent).
+            // Remount / already settled: still sync bar + release (idempotent).
             if (showNtp) exitFinished()
             return@LaunchedEffect
         }
-        if (!showNtp) {
-            // Push: NTP stays as underlay (avoids blank + cold AwContents on empty stage).
-            if (!ntpState.currentState && !ntpState.targetState) {
-                ntpState = MutableTransitionState(true)
-            } else {
-                ntpState.targetState = true
-            }
-            sessionState.targetState = true
-            snapshotFlow { sessionState.isIdle && sessionState.currentState }.first { it }
-            // Drop NTP without exit slide so it does not drag under the page.
-            if (!showNtp) {
-                ntpState = MutableTransitionState(false)
-            }
-        } else {
-            // Pop: session slides out to the right on top first; NTP (re)composition
-            // is deferred until the slide finishes — SPEC-124: composing the NTP
-            // during the slide landed 100–360ms frames that ate the whole
-            // animation. Brief container background during the slide is accepted.
-            sessionState.targetState = false
+        sessionState.targetState = wantSession
+        if (showNtp) {
+            // Pop: session slides out to the right on top; the live NTP is
+            // already composed underneath (SPEC-138), so the reveal needs no
+            // extra composition on the animated frames.
             snapshotFlow { sessionState.isIdle && !sessionState.currentState }.first { it }
-            // Instant in-place (re)compose after the slide; no enter animation.
-            if (!ntpState.currentState && !ntpState.targetState) {
-                ntpState = MutableTransitionState(true)
-            } else {
-                ntpState.targetState = true
-            }
             exitFinished()
         }
     }
@@ -434,16 +431,7 @@ private fun BrowserNtpSessionSwitch(
             .fillMaxSize()
             .background(scheme.surface),
     ) {
-        AnimatedVisibility(
-            visibleState = ntpState,
-            modifier = Modifier
-                .fillMaxSize()
-                .zIndex(0f),
-            enter = slideInHorizontally(animationSpec = spec) { fullWidth -> -fullWidth / 4 },
-            exit = slideOutHorizontally(animationSpec = spec) { fullWidth -> -fullWidth },
-        ) {
-            ntp()
-        }
+        ntp()
         AnimatedVisibility(
             visibleState = sessionState,
             modifier = Modifier

@@ -3,9 +3,13 @@ package io.legado.app.ui.widget.components
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.Scaffold
@@ -123,10 +127,55 @@ fun AppScaffold(
                         contentColor = contentColor,
                         contentWindowInsets = contentWindowInsets
                     ) { paddingValues ->
-                        val scaffoldPadding = if (configuration.appShell.useFloatingBottomBar) {
+                        val useFloating = configuration.appShell.useFloatingBottomBar
+                        val scaffoldPadding = if (useFloating) {
                             PaddingValues(top = paddingValues.calculateTopPadding())
                         } else {
                             paddingValues
+                        }
+                        // SPEC-147 R11: consumeWindowInsets(PaddingValues) 的值随顶栏/底栏
+                        // 高度变化；nav3 场景切换用 movable content 重锚页面时，attach 期
+                        // update 触发 InsetsConsumingModifierNode 遍历未挂载子孙 → 上游
+                        // 断言崩溃（visitSubtreeIf called on an unattached node）。
+                        // 改为消费稳定的系统栏 insets，值在切页/重锚瞬间恒定 → update 不
+                        // 触发 → 崩溃路径拆除。（WindowInsets.systemBars 为 @Composable
+                        // 读取，须在组合期直接求值。）
+                        //
+                        // SPEC-148 R12（1.5.2-beta 实机回归修复）：R11 的「顶栏高度≥状态栏
+                        // 高度 → 子级 inset 补零结果相同」等价性只对**有 topBar 的**
+                        // AppScaffold 成立。MainScreen 外层包裹（无 topBar、contentWindow
+                        // Insets = 0）旧实现消费 0，其内容区子级（NTP chrome 行
+                        // BrowserNtpScreen.statusBarsPadding、平板 chrome TabletBrowser
+                        // Chrome、平板设置 TabletSettingsScreen）依赖剩余状态栏 inset；
+                        // R11 无条件消费 systemBars.only(Top) 使它们全部上移一个状态栏
+                        // 高度、与状态栏重叠。故对 Top 侧按「scaffold 顶部 padding 是否
+                        // 覆盖状态栏高度」门控：无 topBar（padding 0）时消费 0（还原旧
+                        // 布局）；有 topBar 时折叠过程高度在 ≥ 状态栏区间内变化，门控
+                        // 判定结果不变 → 消费值仍恒定 → R11 防崩溃保持成立。
+                        // （topBar 被整体移出组合的极端场景下门控会翻转一次，此时退化为
+                        // 与旧实现等价的可变消费，风险与 R11 之前相同。）
+                        val systemBarsPaddingValues = WindowInsets.systemBars.asPaddingValues()
+                        val topCoveredByScaffold =
+                            scaffoldPadding.calculateTopPadding() >=
+                                systemBarsPaddingValues.calculateTopPadding()
+                        val scaffoldConsumedInsets = if (useFloating) {
+                            if (topCoveredByScaffold) {
+                                WindowInsets.systemBars.only(WindowInsetsSides.Top)
+                            } else {
+                                WindowInsets(0)
+                            }
+                        } else {
+                            if (topCoveredByScaffold) {
+                                WindowInsets.systemBars.only(
+                                    WindowInsetsSides.Horizontal +
+                                        WindowInsetsSides.Top +
+                                        WindowInsetsSides.Bottom,
+                                )
+                            } else {
+                                WindowInsets.systemBars.only(
+                                    WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
+                                )
+                            }
                         }
                         Box(
                             modifier = Modifier
@@ -148,7 +197,7 @@ fun AppScaffold(
                                     if (contentDrawsBehindBars) Modifier
                                     else Modifier
                                         .padding(scaffoldPadding)
-                                        .consumeWindowInsets(scaffoldPadding)
+                                        .consumeWindowInsets(scaffoldConsumedInsets)
                                 )
                         ) {
                             content(

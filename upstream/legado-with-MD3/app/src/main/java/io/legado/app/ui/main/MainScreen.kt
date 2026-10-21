@@ -68,6 +68,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.navigation3.runtime.NavKey
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -185,6 +186,10 @@ fun MainScreen(
     onNavigateToAbout: () -> Unit,
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    /** SPEC-152: 主栈（根标签返回拦截器）；为空时不拦截。 */
+    backStack: MutableList<NavKey>? = null,
+    /** SPEC-152: 向 Activity 注册/注销「根标签页返回 → 回主页」拦截器（返回 true=已拦截）。 */
+    onRegisterRootTabBack: ((() -> Boolean)?) -> Unit = {},
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -261,11 +266,37 @@ fun MainScreen(
         pendingInAppBrowserUrl = null
     }
     BackHandler(
-        enabled = currentDestination == MainDestination.Bookshelf && bookshelfPageIndex >= 0,
+        enabled = (
+            backStack?.let { it.size <= 1 } ?: true
+            ) &&
+            currentDestination != null &&
+            currentDestination != MainDestination.Home,
     ) {
+        // SPEC-060: 书架 → 主页；SPEC-152: 「我的」等根标签页同理（平板反馈：返回直接回桌面）。
         coroutineScope.launch {
             pagerState.animateScrollToPage(homePageIndex)
         }
+    }
+    // SPEC-152: 预测性返回关闭时，Activity 级 BackHandler 会抢先把根标签返回当成退出；
+    // 把拦截器注册给 Activity，让根标签返回在两种预测性返回设置下都回主页。
+    DisposableEffect(destinations, homePageIndex) {
+        onRegisterRootTabBack(
+            if (homePageIndex >= 0) {
+                {
+                    if (pagerState.currentPage != homePageIndex) {
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(homePageIndex)
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+            } else {
+                null
+            },
+        )
+        onDispose { onRegisterRootTabBack(null) }
     }
     // SPEC-008: hide main app bottom bar while a browser session is open on Home.
     var browserSessionActive by rememberSaveable { mutableStateOf(false) }

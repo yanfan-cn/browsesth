@@ -172,12 +172,12 @@ private fun BrowserConfigBody(
                 }
             }
             item {
-                SplicedColumnGroup(title = "阅读模式") {
+                SplicedColumnGroup(title = "净读模式") {
                     val readerPrefs = remember { BrowserReaderPrefs(context) }
                     var trigger by remember { mutableStateOf(readerPrefs.triggerMode) }
                     var autoTranslate by remember { mutableStateOf(readerPrefs.autoTranslateOnOpen) }
                     ClickableSettingItem(
-                        title = "进入阅读模式",
+                        title = "进入净读模式",
                         description = "当前：${trigger.label}（点击切换：手动 / 自动识别 / 站点自动）",
                         onClick = {
                             trigger = when (trigger) {
@@ -192,8 +192,8 @@ private fun BrowserConfigBody(
                         },
                     )
                     SwitchSettingItem(
-                        title = "打开阅读时自动翻译",
-                        description = "从浏览器进入小说阅读时开启章节翻译（需已配置翻译）",
+                        title = "打开净读时自动翻译",
+                        description = "从浏览器进入小说净读时开启章节翻译（需已配置翻译）",
                         checked = autoTranslate,
                         onCheckedChange = {
                             autoTranslate = it
@@ -239,7 +239,7 @@ private fun BrowserConfigBody(
                     )
                     SwitchSettingItem(
                         title = "阻止打开其它应用",
-                        description = "拦截 intent:// 与自定义 scheme 外链（可后续调整策略）",
+                        description = "开启后拦截 intent:// 与自定义 scheme；关闭则弹出系统应用选择器（SPEC-155 默认关）",
                         checked = blockExternal,
                         onCheckedChange = {
                             blockExternal = it

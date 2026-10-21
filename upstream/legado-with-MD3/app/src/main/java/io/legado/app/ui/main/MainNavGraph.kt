@@ -57,7 +57,6 @@ import io.legado.app.help.book.isImage
 import io.legado.app.help.book.isLocal
 import io.legado.app.help.book.isNotShelf
 import io.legado.app.model.AudioPlay
-import io.legado.app.model.Download
 import io.legado.app.model.ReadAloudSessionStore
 import io.legado.app.model.SourceCallBack
 import io.legado.app.service.AudioPlayService
@@ -143,7 +142,6 @@ import io.legado.app.ui.config.coverConfig.CoverAlbumManageRouteScreen
 import io.legado.app.ui.config.coverConfig.CoverConfigRouteScreen
 import io.legado.app.ui.config.customTheme.CustomThemeRouteScreen
 import io.legado.app.ui.config.downloadCacheConfig.DownloadCacheConfigRouteScreen
-import io.legado.app.ui.config.labConfig.LabConfigRouteScreen
 import io.legado.app.ui.config.otherConfig.OtherConfigRouteScreen
 import io.legado.app.ui.config.privateConfig.PrivateConfigRouteScreen
 import io.legado.app.ui.config.readConfig.ReadConfigRouteScreen
@@ -214,13 +212,15 @@ private fun webViewEntryMetadata(@Suppress("UNUSED_PARAMETER") predictiveBackEna
         put(NavDisplay.PredictivePopTransitionKey) { _ -> browserOverlayPop() }
     }
 
-/** SPEC-028/101: bookmarks / history / downloads / clear-data. */
-private fun browserSlideEntryMetadata(predictiveBackEnabled: Boolean) =
-    webViewEntryMetadata(predictiveBackEnabled)
-
-/** SPEC-087/101: tabs — same Keep/None slide overlay (name historical). */
-private fun browserTabsScaleMetadata(@Suppress("UNUSED_PARAMETER") predictiveBackEnabled: Boolean) =
-    webViewEntryMetadata(predictiveBackEnabled)
+/** SPEC-139/142: self-sliding overlay whose underlay (Home) stays composed. */
+private fun browserSlideOverlayMetadata(onBack: () -> Unit): Map<String, Any> =
+    SlideOverlaySceneStrategy.slideOverlay(onBack) + metadata {
+        put(NavDisplay.TransitionKey) { EnterTransition.None togetherWith ExitTransition.None }
+        put(NavDisplay.PopTransitionKey) { EnterTransition.None togetherWith ExitTransition.None }
+        put(NavDisplay.PredictivePopTransitionKey) { _ ->
+            EnterTransition.None togetherWith ExitTransition.None
+        }
+    }
 
 /** Full-screen book destinations share the same scene fade as the text reader. */
 private fun readerEntryMetadata(@Suppress("UNUSED_PARAMETER") predictiveBackEnabled: Boolean) =
@@ -278,6 +278,8 @@ fun MainActivity.mainEntryProvider(
     readAloudMorph: ReadAloudMorphState?,
     homePlaybackCapsuleEnabled: Boolean,
     capsuleAnchorPreview: io.legado.app.domain.model.PlaybackCapsuleState?,
+    /** SPEC-152: 根标签页返回拦截器注册通道（MainScreen → MainActivity）。 */
+    onRegisterRootTabBack: ((() -> Boolean)?) -> Unit,
 ) = entryProvider {
     entry<MainRouteWebView>(
         metadata = webViewEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled())
@@ -304,6 +306,13 @@ fun MainActivity.mainEntryProvider(
             onImportBookSource = { importUrl ->
                 onNavigateToRoute(MainRouteBookSourceManage(importUrl))
             },
+            // SPEC-149: 与主浏览器一致的阅读入口（书源验证/深链会话内）。
+            onOpenReader = { bookUrl ->
+                onNavigateToRoute(MainRouteReadBook(bookUrl = bookUrl, inBookshelf = true))
+            },
+            onOpenMangaReader = { bookUrl ->
+                onNavigateToRoute(MainRouteReadManga(bookUrl = bookUrl, inBookshelf = true))
+            },
         )
     }
     entry<MainRouteSourceLogin>(
@@ -325,7 +334,9 @@ fun MainActivity.mainEntryProvider(
             onBack = onNavigateBack,
         )
     }
-    entry<MainRouteBookSourceManage> { route ->
+    entry<MainRouteBookSourceManage>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         BookSourceRouteScreen(
             initialImportUrl = route.importUrl,
             closeAfterImport = route.importUrl != null,
@@ -345,7 +356,9 @@ fun MainActivity.mainEntryProvider(
             },
         )
     }
-    entry<MainRouteBookSourceEdit> { route ->
+    entry<MainRouteBookSourceEdit>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         val viewModel = koinViewModel<BookSourceEditViewModel>(
             key = "BookSourceEdit:${route.sourceUrl.orEmpty()}",
         )
@@ -370,14 +383,18 @@ fun MainActivity.mainEntryProvider(
             onSearch = { onNavigateToRoute(MainRouteSearch(null, it.toString())) },
         )
     }
-    entry<MainRouteRssSourceManage> {
+    entry<MainRouteRssSourceManage>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         RssSourceRouteScreen(
             onBackClick = onNavigateBack,
             onEditSource = { onNavigateToRoute(MainRouteRssSourceEdit(it.sourceUrl)) },
             onAddSource = { onNavigateToRoute(MainRouteRssSourceEdit()) },
         )
     }
-    entry<MainRouteRssSourceEdit> { route ->
+    entry<MainRouteRssSourceEdit>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         val viewModel = koinViewModel<RssSourceEditViewModel>(
             key = "RssSourceEdit:${route.sourceUrl.orEmpty()}",
         )
@@ -401,13 +418,17 @@ fun MainActivity.mainEntryProvider(
             onDebug = { onNavigateToRoute(MainRouteRssSourceDebug(it)) },
         )
     }
-    entry<MainRouteBookSourceDebug> { route ->
+    entry<MainRouteBookSourceDebug>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         val viewModel = koinViewModel<BookSourceDebugViewModel>(
             key = "BookSourceDebug:${route.sourceUrl.orEmpty()}",
         )
         BookSourceDebugRoute(route.sourceUrl, viewModel, onNavigateBack)
     }
-    entry<MainRouteRssSourceDebug> { route ->
+    entry<MainRouteRssSourceDebug>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         val viewModel = koinViewModel<RssSourceDebugViewModel>(
             key = "RssSourceDebug:${route.sourceUrl.orEmpty()}",
         )
@@ -425,6 +446,8 @@ fun MainActivity.mainEntryProvider(
             readAloudMorph = readAloudMorph,
             homePlaybackCapsuleEnabled = homePlaybackCapsuleEnabled,
             capsuleAnchorPreview = capsuleAnchorPreview,
+            backStack = backStack,
+            onRegisterRootTabBack = onRegisterRootTabBack,
             onOpenSettings = {
                 onNavigateToRoute(MainRouteSettings)
             },
@@ -598,7 +621,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteSettings> {
+    entry<MainRouteSettings>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         val isTablet = BrowserFormFactor.isTablet(LocalConfiguration.current)
         if (isTablet) {
             TabletSettingsScreen(
@@ -637,14 +662,13 @@ fun MainActivity.mainEntryProvider(
                 onNavigateToAi = { backStack.add(MainRouteSettingsAi) },
                 onNavigateToDownloadCache = { backStack.add(MainRouteSettingsDownloadCache) },
                 onNavigateToTranslation = { backStack.add(MainRouteSettingsTranslation) },
-                onNavigateToLab = { backStack.add(MainRouteSettingsLabConfig) },
                 onNavigateToPrivate = { backStack.add(MainRouteSettingsPrivate) },
             )
         }
     }
 
     entry<MainRouteSettingsBrowser>(
-        metadata = browserSlideEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
     ) {
         io.legado.app.ui.config.browserConfig.BrowserConfigScreen(
             onBackClick = { onNavigateBack() },
@@ -655,7 +679,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteBrowserPrivacy>(
-        metadata = browserSlideEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
     ) {
         io.legado.app.ui.browser.BrowserPrivacyScreen(
             onBack = { onNavigateBack() },
@@ -664,7 +688,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteBrowserPickBlock>(
-        metadata = browserSlideEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
     ) {
         io.legado.app.ui.browser.BrowserPickBlockScreen(
             onBack = { onNavigateBack() },
@@ -672,7 +696,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteBrowserBookmarks>(
-        metadata = browserSlideEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
     ) {
         io.legado.app.ui.browser.BrowserBookmarksScreen(
             onBack = { onNavigateBack() },
@@ -708,7 +732,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteBrowserDownloads>(
-        metadata = browserSlideEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
     ) {
         io.legado.app.ui.browser.BrowserDownloadsScreen(
             onBack = { onNavigateBack() },
@@ -724,7 +748,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteBrowserHistory>(
-        metadata = browserSlideEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
     ) {
         io.legado.app.ui.browser.BrowserHistoryScreen(
             onBack = { onNavigateBack() },
@@ -739,7 +763,7 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteBrowserClearData>(
-        metadata = browserSlideEntryMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
     ) {
         io.legado.app.ui.browser.BrowserClearDataScreen(
             onBack = { onNavigateBack() },
@@ -747,22 +771,28 @@ fun MainActivity.mainEntryProvider(
     }
 
     entry<MainRouteBrowserTabs>(
-        metadata = browserTabsScaleMetadata(configuration.appShell.effectivePredictiveBackEnabled()),
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
     ) {
         io.legado.app.ui.browser.BrowserTabsScreen(
             onBack = { onNavigateBack() },
         )
     }
 
-    entry<MainRouteSettingsOther> {
+    entry<MainRouteSettingsOther>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         OtherConfigRouteScreen(onBackClick = { onNavigateBack() })
     }
 
-    entry<MainRouteSettingsRead> {
+    entry<MainRouteSettingsRead>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         ReadConfigRouteScreen(onBackClick = { onNavigateBack() })
     }
 
-    entry<MainRouteSettingsCover> {
+    entry<MainRouteSettingsCover>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         CoverConfigRouteScreen(
             onBackClick = { onNavigateBack() },
             onNavigateToCoverAlbums = {
@@ -771,11 +801,15 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteSettingsCoverAlbums> {
+    entry<MainRouteSettingsCoverAlbums>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         CoverAlbumManageRouteScreen(onBackClick = { onNavigateBack() })
     }
 
-    entry<MainRouteSettingsTheme> {
+    entry<MainRouteSettingsTheme>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         ThemeConfigRouteScreen(
             onBackClick = { onNavigateBack() },
             onNavigateToCustomTheme = { backStack.add(MainRouteSettingsCustomTheme) },
@@ -783,11 +817,15 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteSettingsBackup> {
+    entry<MainRouteSettingsBackup>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         BackupConfigRouteScreen(onBackClick = { onNavigateBack() })
     }
 
-    entry<MainRouteSettingsAi> {
+    entry<MainRouteSettingsAi>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         AiConfigRouteScreen(
             onBackClick = { onNavigateBack() },
             onNavigateToProviderEdit = { providerId ->
@@ -807,22 +845,30 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteSettingsAiSummary> {
+    entry<MainRouteSettingsAiSummary>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         AiSummaryConfigRouteScreen(onBackClick = { onNavigateBack() })
     }
 
-    entry<MainRouteSettingsAiPrompt> {
+    entry<MainRouteSettingsAiPrompt>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         AiPromptConfigRouteScreen(onBackClick = { onNavigateBack() })
     }
 
-    entry<MainRouteSettingsAiProviderEdit> { route ->
+    entry<MainRouteSettingsAiProviderEdit>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         AiProviderEditRouteScreen(
             providerId = route.providerId,
             onBackClick = { onNavigateBack() }
         )
     }
 
-    entry<MainRouteAiChat> {
+    entry<MainRouteAiChat>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         AiChatRouteScreen(
             onBackClick = { onNavigateBack() },
             onOpenBookInfo = { book ->
@@ -839,7 +885,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteSettingsAiModelEdit> { route ->
+    entry<MainRouteSettingsAiModelEdit>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         AiModelEditRouteScreen(
             providerId = route.providerId,
             modelProfileId = route.modelProfileId,
@@ -847,22 +895,24 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteSettingsDownloadCache> {
+    entry<MainRouteSettingsDownloadCache>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         DownloadCacheConfigRouteScreen(onBackClick = { onNavigateBack() })
     }
 
-    entry<MainRouteSettingsTranslation> {
+    entry<MainRouteSettingsTranslation>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         TranslationConfigRouteScreen(
             onBackClick = { onNavigateBack() },
             onNavigateToAi = { backStack.add(MainRouteSettingsAi) }
         )
     }
 
-    entry<MainRouteSettingsLabConfig> {
-        LabConfigRouteScreen(onBackClick = { onNavigateBack() })
-    }
-
-    entry<MainRouteSettingsPrivate> {
+    entry<MainRouteSettingsPrivate>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         // 隐私设置页可以关掉三种验证时机，所以进入前要求确认身份（生物或密码）。
         // 只校验、不授予：进来一次不该顺带解锁私密内容。
         PrivateVerifyGate(onCancel = { onNavigateBack() }) {
@@ -870,29 +920,39 @@ fun MainActivity.mainEntryProvider(
         }
     }
 
-    entry<MainRouteSettingsCustomTheme> {
+    entry<MainRouteSettingsCustomTheme>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         CustomThemeRouteScreen(
             onBackClick = { onNavigateBack() }
         )
     }
 
-    entry<MainRouteSettingsThemeManage> {
+    entry<MainRouteSettingsThemeManage>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         ThemeManageRouteScreen(onBackClick = { onNavigateBack() })
     }
 
-    entry<MainRouteImportLocal> {
+    entry<MainRouteImportLocal>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         ImportBookRouteScreen(
             onBackClick = { onNavigateBack() }
         )
     }
 
-    entry<MainRouteImportRemote> {
+    entry<MainRouteImportRemote>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         RemoteBookRouteScreen(
             onBackClick = { onNavigateBack() }
         )
     }
 
-    entry<MainRouteCache> { route ->
+    entry<MainRouteCache>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         BookshelfManageRouteScreen(
             groupId = route.groupId,
             onBackClick = { onNavigateBack() },
@@ -908,7 +968,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBookCacheManage> {
+    entry<MainRouteBookCacheManage>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         BookCacheManageRouteScreen(
             onBackClick = { onNavigateBack() }
         )
@@ -1247,7 +1309,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteRssFavorites> {
+    entry<MainRouteRssFavorites>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         RssFavoritesRouteScreen(
             onBackClick = { onNavigateBack() },
             onOpenRead = { title, origin, link, openUrl ->
@@ -1263,7 +1327,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteRuleSub> {
+    entry<MainRouteRuleSub>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         RuleSubRouteScreen(
             onBackClick = { onNavigateBack() },
             onImportBookSource = {
@@ -1272,7 +1338,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteReadRecord> {
+    entry<MainRouteReadRecord>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         val context = LocalContext.current
         ReadRecordRouteScreen(
             onBackClick = { onNavigateBack() },
@@ -1294,7 +1362,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteReadRecordOverview> {
+    entry<MainRouteReadRecordOverview>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         val context = LocalContext.current
         ReadRecordOverviewRouteScreen(
             onBackClick = { onNavigateBack() },
@@ -1412,7 +1482,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBookCharacterDetail> { route ->
+    entry<MainRouteBookCharacterDetail>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         var pendingAvatarUri by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1458,7 +1530,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBookCharacterNetwork> { route ->
+    entry<MainRouteBookCharacterNetwork>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         val viewModel = koinViewModel<BookCharacterNetworkViewModel>(
             key = "BookCharacterNetwork:${route.bookUrl}",
             parameters = { parametersOf(route.bookUrl) }
@@ -1475,7 +1549,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBookCharacterList> { route ->
+    entry<MainRouteBookCharacterList>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         val viewModel = koinViewModel<BookCharacterListViewModel>(
             key = "CharacterList:${route.bookUrl}",
             parameters = { parametersOf(route.bookUrl) }
@@ -1553,7 +1629,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBookKnowledgeList> { route ->
+    entry<MainRouteBookKnowledgeList>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         val viewModel = koinViewModel<BookKnowledgeListViewModel>(
             key = "KnowledgeList:${route.bookUrl}",
             parameters = { parametersOf(route.bookUrl) }
@@ -1570,7 +1648,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBookKnowledgeDetail> { route ->
+    entry<MainRouteBookKnowledgeDetail>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         val viewModel = koinViewModel<BookKnowledgeDetailViewModel>(
             key = "KnowledgeDetail:${route.bookUrl}:${route.entryId.orEmpty()}",
             parameters = { parametersOf(route.bookUrl, route.entryId) }
@@ -1583,7 +1663,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBookEventList> { route ->
+    entry<MainRouteBookEventList>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         val viewModel = koinViewModel<BookEventListViewModel>(
             key = "EventList:${route.bookUrl}",
             parameters = { parametersOf(route.bookUrl) }
@@ -1600,7 +1682,9 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteBookEventDetail> { route ->
+    entry<MainRouteBookEventDetail>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) { route ->
         val viewModel = koinViewModel<BookEventDetailViewModel>(
             key = "EventDetail:${route.bookUrl}:${route.eventId.orEmpty()}",
             parameters = { parametersOf(route.bookUrl, route.eventId) }
@@ -1643,13 +1727,17 @@ fun MainActivity.mainEntryProvider(
         )
     }
 
-    entry<MainRouteHighlightTagRule> {
+    entry<MainRouteHighlightTagRule>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         HighlightTagRuleRouteScreen(
             onBackClick = { onNavigateBack() }
         )
     }
 
-    entry<MainRouteAbout> {
+    entry<MainRouteAbout>(
+        metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
+    ) {
         val viewModel = koinViewModel<AboutViewModel>()
         val context = LocalContext.current
         LaunchedEffect(viewModel) {
@@ -1661,11 +1749,6 @@ fun MainActivity.mainEntryProvider(
                         onNavigateToRoute(MainRouteHome)
                     }
                     is AboutEffect.ShowToast -> context.toastOnUi(effect.message)
-                    is AboutEffect.StartDownload -> Download.start(
-                        context,
-                        effect.url,
-                        effect.fileName
-                    )
                 }
             }
         }

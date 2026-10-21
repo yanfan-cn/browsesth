@@ -30,14 +30,15 @@ class MangaPrefetchRequestsTest {
                     closes++
                 }
             }
-            assertEquals(2, starts)
+            // SPEC-014: 后台任务由 2 提升到 4，3 个键全部立即启动
+            assertEquals(3, starts)
             queue.close()
-            assertEquals(2, closes)
-            assertEquals(2, starts)
+            assertEquals(3, closes)
+            assertEquals(3, starts)
         }
 
     @Test
-    fun `whole chapter advances with two background tasks and viewport reprioritizes only pending pages`() =
+    fun `whole chapter advances with four background tasks and viewport reprioritizes only pending pages`() =
         runTest {
             val queue = MangaPrefetchRequests(this)
             val keys = (0..5).map { "p$it" to 0 }
@@ -47,16 +48,23 @@ class MangaPrefetchRequestsTest {
                 { key -> started += key; gates.getValue(key).await() }
             queue.update(keys, prepare)
             runCurrent()
-            assertEquals(keys.take(2), started)
+            // SPEC-014: 并发 4 → 首轮启动前 4 页
+            assertEquals(keys.take(4), started)
             queue.update(keys.reversed(), prepare)
             runCurrent()
-            assertEquals(keys.take(2), started)
+            // 活跃任务不被视口重排打断，只有 pending 重排
+            assertEquals(keys.take(4), started)
             gates.getValue(keys[0]).complete(Unit)
             runCurrent()
-            assertEquals(listOf(keys[0], keys[1], keys[5]), started)
+            // k0 完成腾出槽位；reversed 后 wanted=[k5,k4,k3,k2,k1,k0]，pending 首个是 k5
+            assertEquals(listOf(keys[0], keys[1], keys[2], keys[3], keys[5]), started)
             gates.values.forEach { it.complete(Unit) }
             runCurrent()
-            assertEquals(listOf(keys[0], keys[1], keys[5], keys[4], keys[3], keys[2]), started)
+            // 剩余 pending 只有 k4，在下一个完成回调里启动
+            assertEquals(
+                listOf(keys[0], keys[1], keys[2], keys[3], keys[5], keys[4]),
+                started,
+            )
             queue.update(keys, prepare)
             runCurrent()
             assertEquals(6, started.size)

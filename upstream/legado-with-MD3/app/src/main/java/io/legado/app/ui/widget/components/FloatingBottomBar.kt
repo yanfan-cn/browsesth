@@ -199,7 +199,9 @@ fun FloatingBottomBar(
     )
     val liquidActive = isBlurEnabled &&
         chromeStyle == io.legado.app.ui.theme.ChromeSurfaceStyle.LiquidGlass &&
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        // SPEC-148 R3: 就绪门闸——ready 前整条底栏走半透明 fallback（surfaceAlpha 分支已含 0.42）
+        io.legado.app.ui.theme.GlassReadiness.ready
     val surfaceAlpha = when (chromeStyle) {
         io.legado.app.ui.theme.ChromeSurfaceStyle.LiquidGlass ->
             if (liquidActive) themeSettings.bottomBarBlurAlpha / 100f else 0.42f
