@@ -1,39 +1,67 @@
 package io.legado.app.ui.config.coverConfig
 
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
 import io.legado.app.R
 import io.legado.app.ui.theme.adaptiveContentPadding
 import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.SplicedColumnGroup
 import io.legado.app.ui.widget.components.dialog.ColorPickerSheet
+import io.legado.app.ui.widget.components.image.cover.CoverPaletteStore
+import io.legado.app.ui.widget.components.image.cover.GeneratedCover
+import io.legado.app.ui.widget.components.image.cover.GeneratedCoverFace
 import io.legado.app.ui.widget.components.settingItem.ClickableSettingItem
 import io.legado.app.ui.widget.components.settingItem.DropdownListSettingItem
 import io.legado.app.ui.widget.components.settingItem.SwitchSettingItem
 import io.legado.app.ui.widget.components.topbar.GlassMediumFlexibleTopAppBar
 import io.legado.app.ui.widget.components.topbar.GlassTopAppBarDefaults
 import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
-import org.koin.androidx.compose.koinViewModel
-import androidx.compose.ui.platform.LocalContext
 import io.legado.app.utils.toastOnUi
 import kotlinx.coroutines.flow.collectLatest
+import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun CoverConfigRouteScreen(
@@ -69,8 +97,24 @@ fun CoverConfigScreen(
     val scrollBehavior = GlassTopAppBarDefaults.defaultScrollBehavior()
     val settings = state.settings
     val albumState = state.albumSelection
-    val selectedAlbum = albumState.albums
-        .firstOrNull { it.id == albumState.selectedAlbumId }
+    val context = LocalContext.current
+    var randomMatch by remember { mutableStateOf(CoverPaletteStore.isRandomMatch(context)) }
+    var enabledIds by remember { mutableStateOf(CoverPaletteStore.enabledPresetIds(context)) }
+    var galleryUris by remember { mutableStateOf(CoverPaletteStore.galleryUris(context)) }
+    val pickCoverLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }
+        CoverPaletteStore.addGalleryUri(context, uri.toString())
+        galleryUris = CoverPaletteStore.galleryUris(context)
+        context.toastOnUi("已添加相册封面")
+    }
 
     AppScaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -91,6 +135,16 @@ fun CoverConfigScreen(
                 bottom = 120.dp
             )
         ) {
+            // SPEC-164: palette carousel above cover rule.
+            item {
+                CoverPaletteCarousel(
+                    galleryUris = galleryUris,
+                    onRemoveGallery = { uri ->
+                        CoverPaletteStore.removeGalleryUri(context, uri)
+                        galleryUris = CoverPaletteStore.galleryUris(context)
+                    },
+                )
+            }
             item {
                 SplicedColumnGroup {
                 ClickableSettingItem(
@@ -100,26 +154,61 @@ fun CoverConfigScreen(
                 )
 
                 SwitchSettingItem(
-                    title = stringResource(R.string.use_default_cover),
-                    description = stringResource(R.string.use_default_cover_s),
-                    checked = settings.useDefaultCover,
+                    title = "随机匹配封面",
+                    description = "关闭后可勾选仅使用哪些配色封面",
+                    checked = randomMatch,
                     onCheckedChange = { value ->
-                        onIntent(CoverConfigIntent.SetUseDefaultCover(value))
+                        randomMatch = value
+                        CoverPaletteStore.setRandomMatch(context, value)
+                        if (value) {
+                            enabledIds = emptySet()
+                            CoverPaletteStore.setEnabledPresetIds(context, emptySet())
+                        } else if (enabledIds.isEmpty()) {
+                            val all = GeneratedCover.presets.map { it.id }.toSet()
+                            enabledIds = all
+                            CoverPaletteStore.setEnabledPresetIds(context, all)
+                        }
                     }
                 )
 
-                ClickableSettingItem(
-                    title = stringResource(R.string.default_cover),
-                    description = selectedAlbum?.let {
-                        "${it.name} · ${
-                            stringResource(
-                                R.string.cover_album_day_night_count,
-                                it.lightImages.size,
-                                it.darkImages.size,
+                if (!randomMatch) {
+                    GeneratedCover.presets.forEach { preset ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val next = enabledIds.toMutableSet()
+                                    if (preset.id in next) {
+                                        if (next.size > 1) next.remove(preset.id)
+                                    } else {
+                                        next.add(preset.id)
+                                    }
+                                    enabledIds = next
+                                    CoverPaletteStore.setEnabledPresetIds(context, next)
+                                }
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = preset.id in enabledIds,
+                                onCheckedChange = null,
                             )
-                        }"
-                    } ?: stringResource(R.string.cover_album_none),
-                    onClick = { onIntent(CoverConfigIntent.ShowSheet(CoverConfigSheet.Album)) }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = preset.label)
+                        }
+                    }
+                }
+
+                ClickableSettingItem(
+                    title = "从相册选择封面",
+                    description = "加入可用封面池；点缩略图可移除",
+                    onClick = {
+                        pickCoverLauncher.launch(
+                            androidx.activity.result.PickVisualMediaRequest(
+                                ActivityResultContracts.PickVisualMedia.ImageOnly,
+                            ),
+                        )
+                    },
                 )
 
                 SwitchSettingItem(
@@ -353,3 +442,70 @@ fun CoverConfigScreen(
         )
     }
 }
+
+@Composable
+private fun CoverPaletteCarousel(
+    galleryUris: List<String>,
+    onRemoveGallery: (String) -> Unit,
+) {
+    Column(modifier = Modifier.padding(bottom = 8.dp)) {
+        Text(
+            text = "配色封面",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            GeneratedCover.presets.forEach { preset ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(72.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(72.dp)
+                            .aspectRatio(5f / 7f)
+                            .clip(RoundedCornerShape(6.dp)),
+                    ) {
+                        GeneratedCoverFace(path = preset.uri)
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = preset.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                    )
+                }
+            }
+            galleryUris.forEach { uri ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(72.dp),
+                ) {
+                    AsyncImage(
+                        model = uri,
+                        contentDescription = "相册封面",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .width(72.dp)
+                            .aspectRatio(5f / 7f)
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { onRemoveGallery(uri) },
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "相册",
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+    }
+}
+

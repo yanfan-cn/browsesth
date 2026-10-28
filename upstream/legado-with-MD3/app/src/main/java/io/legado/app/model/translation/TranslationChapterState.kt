@@ -33,3 +33,14 @@ data class TranslationChapterState(
     val translatedContent: String? = null,
     val errorMessage: String? = null
 )
+
+/** Text that should replace the chapter while a translation task is running or done. */
+internal fun translationDisplayContent(state: TranslationChapterState): String? = when (state.status) {
+    TranslationChapterStatus.Translating,
+    TranslationChapterStatus.Thinking -> state.mixedContent
+    TranslationChapterStatus.Translated -> state.translatedContent ?: state.mixedContent
+    else -> null
+}
+
+internal fun isTranslationTerminal(status: TranslationChapterStatus): Boolean =
+    status == TranslationChapterStatus.Translated || status == TranslationChapterStatus.Failed

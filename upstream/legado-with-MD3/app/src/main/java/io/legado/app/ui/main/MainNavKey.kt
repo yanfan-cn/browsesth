@@ -158,25 +158,6 @@ data class MainRouteCache(val groupId: Long) : MainRoute
 data object MainRouteBookCacheManage : MainRoute
 
 @Serializable
-data class MainRouteReadBook(
-    val bookUrl: String? = null,
-    val readAloud: Boolean = false,
-    val inBookshelf: Boolean = true,
-    val chapterChanged: Boolean = false,
-    val sharedCoverKey: String? = null,
-) : MainRoute
-
-@Serializable
-data class MainRouteReadManga(
-    val bookUrl: String? = null,
-    val inBookshelf: Boolean = true,
-    val chapterChanged: Boolean = false,
-    /** Distinguishes repeated open requests for the same book after an external TOC selection. */
-    val openRequestId: Long = 0L,
-    val sharedCoverKey: String? = null,
-) : MainRoute
-
-@Serializable
 data class MainRouteAudioPlay(
     val bookUrl: String? = null,
     val inBookshelf: Boolean = true,
@@ -187,16 +168,6 @@ data class MainRouteAudioPlay(
 data class MainRouteSearch(
     val key: String?,
     val scopeRaw: String? = null
-) : MainRoute
-
-@Serializable
-data class MainRouteBookInfo(
-    val name: String?,
-    val author: String?,
-    val bookUrl: String,
-    val origin: String? = null,
-    val coverPath: String? = null,
-    val sharedCoverKey: String? = null,
 ) : MainRoute
 
 @Serializable
@@ -298,18 +269,23 @@ object MainRouteConst {
     const val ROUTE_AI_CHAT = "ai/chat"
     const val ROUTE_SETTINGS_CUSTOM_THEME = "settings/custom_theme"
     const val ROUTE_SETTINGS_PRIVATE = "settings/private"
+    const val ROUTE_SETTINGS_BROWSER = "settings/browser"
+    const val ROUTE_SETTINGS_THEME_MANAGE = "settings/theme_manage"
+    const val ROUTE_BROWSER_PRIVACY = "browser/privacy"
+    const val ROUTE_BROWSER_PICK_BLOCK = "browser/pick_block"
+    const val ROUTE_BROWSER_CLEAR_DATA = "browser/clear_data"
     const val ROUTE_SETTINGS_DOWNLOAD_CACHE = "settings/download_cache"
     const val ROUTE_SETTINGS_TRANSLATION = "settings/translation"
     const val ROUTE_IMPORT_LOCAL = "import/local"
     const val ROUTE_IMPORT_REMOTE = "import/remote"
     const val ROUTE_CACHE = "cache"
     const val ROUTE_BOOK_CACHE_MANAGE = "book/cache/manage"
-    const val ROUTE_READ_BOOK = "book/read"
-    const val ROUTE_READ_MANGA = "book/read/manga"
     const val ROUTE_AUDIO_PLAY = "book/read/audio"
+    /** SPEC-190: 阅读器 Activity 二级目的地的 start-route 标识。 */
+    const val ROUTE_BOOK_VOICE_CASTING = "book/voice_casting"
+    const val ROUTE_CLOUD_TTS_ENGINES = "cloud/tts/engines"
     const val ROUTE_SEARCH = "search"
     const val ROUTE_SEARCH_CONTENT = "book/searchContent"
-    const val ROUTE_BOOK_INFO = "book/info"
     const val ROUTE_BOOK_CHARACTER_DETAIL = "book/character/detail"
     const val ROUTE_BOOK_CHARACTER_NETWORK = "book/character/network"
     const val ROUTE_BOOK_CHARACTER_LIST = "book/character/list"
@@ -328,4 +304,6 @@ object MainRouteConst {
     const val ROUTE_TTS_CACHE = "tts_cache"
     /** SPEC-064 */
     const val ROUTE_BROWSER_DOWNLOADS = "browser/downloads"
+    /** SPEC-164 */
+    const val ROUTE_BROWSER_BOOKMARKS = "browser/bookmarks"
 }

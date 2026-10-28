@@ -4,16 +4,13 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -25,16 +22,21 @@ import io.legado.app.receiver.NetworkChangedListener
 import io.legado.app.ui.book.read.sheet.ReaderBookSheetRoute
 import io.legado.app.ui.book.read.sheet.ReaderBookSheetTab
 import io.legado.app.ui.book.toc.TocActivityResult
-import io.legado.app.ui.main.AndroidPlatformCapabilities
-import io.legado.app.ui.main.MainActivity
-import io.legado.app.ui.main.readerSharedBounds
 import io.legado.app.utils.NetworkUtils
 import io.legado.app.utils.openUrl
 import io.legado.app.utils.share
 import io.legado.app.utils.toggleSystemBar
 import kotlinx.coroutines.flow.collectLatest
 
-@OptIn(ExperimentalSharedTransitionApi::class)
+/**
+ * SPEC-190: 漫画阅读器的按键宿主能力。
+ * [io.legado.app.ui.main.MainActivity] 与漫画宿主 Activity 都可以实现它；
+ * RouteScreen 不再硬转换到具体 Activity 类型。
+ */
+interface MangaReaderKeyHost {
+    var activeMangaKeyHandler: ((Int) -> Boolean)?
+}
+
 @Composable
 fun MangaReaderRouteScreen(
     bookUrl: String?,
@@ -43,9 +45,6 @@ fun MangaReaderRouteScreen(
     openRequestId: Long,
     viewModel: MangaReaderViewModel,
     restoreSystemBarsVisible: Boolean,
-    sharedTransitionScope: SharedTransitionScope? = null,
-    animatedVisibilityScope: AnimatedVisibilityScope? = null,
-    sharedCoverKey: String? = null,
     onFinish: (bookshelfChanged: Boolean) -> Unit,
     onOpenBookInfo: (name: String, author: String, bookUrl: String) -> Unit,
     onOpenSourceLogin: (sourceUrl: String) -> Unit,
@@ -58,9 +57,8 @@ fun MangaReaderRouteScreen(
         sourceType: Int?,
     ) -> Unit,
 ) {
-    val activity = LocalActivity.current as MainActivity
-    val density = LocalDensity.current.density
-    val platformCapabilities = remember(activity) { AndroidPlatformCapabilities(activity) }
+    val activity = requireNotNull(LocalActivity.current) as AppCompatActivity
+    val keyHost = activity as? MangaReaderKeyHost
     val lifecycleOwner = LocalLifecycleOwner.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val networkChangedListener = remember(activity) { NetworkChangedListener(activity) }
@@ -185,7 +183,7 @@ fun MangaReaderRouteScreen(
 
     DisposableEffect(activity, viewModel, restoreSystemBarsVisible) {
         val originalBrightness = activity.window.attributes.screenBrightness
-        activity.activeMangaKeyHandler = fun(keyCode: Int): Boolean {
+        keyHost?.activeMangaKeyHandler = fun(keyCode: Int): Boolean {
             val settings = viewModel.uiState.value.settings
             return if (!settings.volumeKeyPage) false
             else {
@@ -200,7 +198,7 @@ fun MangaReaderRouteScreen(
         }
         activity.toggleSystemBar(false)
         onDispose {
-            activity.activeMangaKeyHandler = null
+            keyHost?.activeMangaKeyHandler = null
             activity.window.attributes = activity.window.attributes.apply {
                 screenBrightness = originalBrightness
             }
@@ -220,13 +218,6 @@ fun MangaReaderRouteScreen(
         state = state,
         onIntent = viewModel::onIntent,
         hazeState = if (useMenuHaze) menuHazeState else null,
-        modifier = Modifier.readerSharedBounds(
-            sharedTransitionScope,
-            animatedVisibilityScope,
-            sharedCoverKey,
-            platformCapabilities.displayCornerRadiusPx,
-            density,
-        ),
     )
     if (state.activeSheet == MangaReaderSheet.Catalog && state.bookUrl.isNotEmpty()) {
         ReaderBookSheetRoute(

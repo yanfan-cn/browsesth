@@ -238,7 +238,7 @@ object WebChapterHttpFetcher {
                     ).find(tok)
                     val raw = srcM?.groupValues?.getOrNull(1)?.trim().orEmpty()
                     val first = raw.split(',').firstOrNull()?.trim()?.substringBefore(' ')?.trim().orEmpty()
-                    if (!first.startsWith("data:")) {
+                    if (!first.startsWith("data:") && !WebArticleChromeFilter.isTinyImageTag(tok)) {
                         val abs = absUrl(baseUrl, first)
                         if (abs != null && abs.startsWith("http") && !looksLikeChromeImage(abs)) {
                             blocks += """<img src="$abs">"""

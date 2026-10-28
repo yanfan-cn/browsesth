@@ -143,6 +143,7 @@ fun BookInfoEditContent(
         show = showChangeCoverSheet,
         name = uiState.name,
         author = uiState.author,
+        webCoverUrl = uiState.coverUrl,
         onDismissRequest = { showChangeCoverSheet = false },
         onSelect = { coverUrl ->
             viewModel.onCoverUrlChange(coverUrl)

@@ -27,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -38,7 +37,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.legado.app.R
 import io.legado.app.ui.config.themeConfig.ThemeColorSelector
-import io.legado.app.ui.config.themeConfig.ThemeModeSelector
 import io.legado.app.ui.theme.ChromeSurfaceStylePolicy
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.alert.AppAlertDialog
@@ -48,7 +46,6 @@ import io.legado.app.ui.widget.components.progressIndicator.AppCircularProgressI
 import io.legado.app.ui.widget.components.progressIndicator.AppLinearProgressIndicator
 import io.legado.app.ui.widget.components.settingItem.SwitchSettingItem
 import io.legado.app.ui.widget.components.text.AppText
-import io.legado.app.ui.widget.components.text.MarkdownBlock
 
 @Composable
 fun OnboardingScreen(
@@ -80,7 +77,7 @@ fun OnboardingScreen(
                     .width(96.dp)
             )
             AppText(
-                text = pageTitle(state.page),
+                text = pageTitle(),
                 style = LegadoTheme.typography.headlineLargeEmphasized,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
@@ -88,7 +85,7 @@ fun OnboardingScreen(
                     .padding(top = 8.dp)
             )
             AppText(
-                text = pageSummary(state.page),
+                text = pageSummary(),
                 style = LegadoTheme.typography.bodyLargeEmphasized,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
@@ -96,7 +93,7 @@ fun OnboardingScreen(
                     .padding(top = 4.dp, bottom = 12.dp)
             )
             AppLinearProgressIndicator(
-                progress = state.page * 1f / state.pageCount,
+                progress = 1f,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -107,19 +104,15 @@ fun OnboardingScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-        ) { page ->
+        ) { _ ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 GlassCard(modifier = Modifier.fillMaxWidth()) {
-                    // SPEC-091: welcome → book folder → theme (backup page hidden).
-                    when (page) {
-                        0 -> PrivacyPage(state)
-                        1 -> BookFolderPage(state, onIntent)
-                        else -> ThemePage(state, onIntent)
-                    }
+                    // SPEC-165: light theme page only.
+                    ThemePage(state, onIntent)
                 }
             }
         }
@@ -204,75 +197,6 @@ private fun RestoreErrorDialog(state: OnboardingUiState, onIntent: (OnboardingIn
 }
 
 @Composable
-private fun PrivacyPage(state: OnboardingUiState) {
-    Column(
-        modifier = Modifier
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
-    ) {
-        AppText(
-            text = stringResource(R.string.privacy_policy),
-            style = LegadoTheme.typography.titleMedium,
-            color = LegadoTheme.colorScheme.secondary,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        MarkdownBlock(
-            content = state.privacyPolicy,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-        )
-        AppText(
-            text = stringResource(R.string.disclaimer),
-            style = LegadoTheme.typography.titleMedium,
-            color = LegadoTheme.colorScheme.secondary,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        MarkdownBlock(
-            content = state.disclaimer,
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-}
-
-@Composable
-private fun BookFolderPage(state: OnboardingUiState, onIntent: (OnboardingIntent) -> Unit) {
-    Column(
-        modifier = Modifier
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
-    ) {
-        AppText(
-            text = stringResource(R.string.welcome_book_folder_tip),
-            style = LegadoTheme.typography.bodySmall,
-            color = LegadoTheme.colorScheme.onSurfaceVariant
-        )
-        AppText(
-            text = state.bookFolderUri
-                ?: stringResource(R.string.welcome_book_folder_not_selected),
-            style = LegadoTheme.typography.bodySmall,
-            color = LegadoTheme.colorScheme.onSurfaceVariant,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-        // SPEC-091: ~1.5× MediumTonalButton visual size (extra box so scale does not clip).
-        Box(
-            modifier = Modifier
-                .padding(top = 28.dp, bottom = 12.dp)
-                .height(60.dp),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            MediumTonalButton(
-                onClick = { onIntent(OnboardingIntent.SelectFolder) },
-                text = stringResource(R.string.select_folder),
-                modifier = Modifier.scale(1.5f),
-            )
-        }
-    }
-}
-
-@Composable
 private fun ThemePage(state: OnboardingUiState, onIntent: (OnboardingIntent) -> Unit) {
     val context = LocalContext.current
     val isDark = LegadoTheme.isDark
@@ -287,12 +211,6 @@ private fun ThemePage(state: OnboardingUiState, onIntent: (OnboardingIntent) -> 
             .padding(16.dp)
     ) {
         Box {
-            ThemeModeSelector(
-                selectedMode = state.themeMode,
-                onModeSelected = { onIntent(OnboardingIntent.SetThemeMode(it)) }
-            )
-        }
-        Box(modifier = Modifier.padding(top = 16.dp)) {
             ThemeColorSelector(
                 context = context,
                 themes = themes,
@@ -323,28 +241,15 @@ private fun ThemePage(state: OnboardingUiState, onIntent: (OnboardingIntent) -> 
 }
 
 @Composable
-private fun pageTitle(page: Int): String = stringResource(
-    when (page) {
-        0 -> R.string.onboarding_title_welcome
-        1 -> R.string.onboarding_title_book_folder
-        else -> R.string.onboarding_title_theme
-    }
-)
+private fun pageTitle(): String = stringResource(R.string.onboarding_title_theme)
 
 @Composable
-private fun pageSummary(page: Int): String = stringResource(
-    when (page) {
-        0 -> R.string.onboarding_summary_welcome
-        1 -> R.string.onboarding_summary_book_folder
-        else -> R.string.onboarding_summary_theme
-    }
-)
+private fun pageSummary(): String = stringResource(R.string.onboarding_summary_theme)
 
 @Composable
 private fun nextButtonText(page: Int, pageCount: Int): String = stringResource(
     when {
-        page == 0 -> R.string.onboarding_next_agree
-        page == pageCount - 1 -> R.string.onboarding_next_done
+        page >= pageCount - 1 -> R.string.onboarding_next_done
         else -> R.string.onboarding_next_step
     }
 )

@@ -2,6 +2,7 @@ package io.legado.app.ui.main
 
 import android.app.Application
 import android.content.Intent
+import io.legado.app.ui.book.read.ReadBookActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -16,34 +17,37 @@ import org.robolectric.annotation.Config
 class MainIntentTest {
 
     @Test
-    fun `media control reader reuses task and requests home parent`() {
+    fun `media control intent targets the reader activity with read aloud`() {
         val context: Application = RuntimeEnvironment.getApplication()
 
         val intent = MainIntent.createReadBookMediaControlIntent(context)
 
-        val expectedFlags = Intent.FLAG_ACTIVITY_NEW_TASK or
-            Intent.FLAG_ACTIVITY_CLEAR_TOP or
-            Intent.FLAG_ACTIVITY_SINGLE_TOP
-        assertEquals(expectedFlags, intent.flags and expectedFlags)
+        assertEquals(ReadBookActivity::class.java.name, intent.component?.className)
         assertEquals(
-            MainRouteConst.ROUTE_READ_BOOK,
-            intent.getStringExtra(MainIntent.EXTRA_START_ROUTE),
+            Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP,
+            intent.flags and (Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
         )
         assertTrue(intent.getBooleanExtra(MainIntent.EXTRA_READ_ALOUD, false))
-        assertTrue(MainIntent.shouldOpenRouteWithHomeParent(intent))
+        assertFalse(intent.hasExtra(MainIntent.EXTRA_START_ROUTE))
     }
 
     @Test
-    fun `regular reader keeps existing activity and navigation semantics`() {
+    fun `reader intents target dedicated reader activities not MainActivity`() {
         val context: Application = RuntimeEnvironment.getApplication()
 
-        val intent = MainIntent.createReadBookIntent(context, readAloud = true)
+        val readBook = MainIntent.createReadBookIntent(context, readAloud = true)
+        val readManga = MainIntent.createReadMangaIntent(context, bookUrl = "book")
 
-        val mediaControlFlags = Intent.FLAG_ACTIVITY_NEW_TASK or
-            Intent.FLAG_ACTIVITY_CLEAR_TOP or
-            Intent.FLAG_ACTIVITY_SINGLE_TOP
-        assertEquals(0, intent.flags and mediaControlFlags)
-        assertFalse(MainIntent.shouldOpenRouteWithHomeParent(intent))
+        assertEquals(ReadBookActivity::class.java.name, readBook.component?.className)
+        assertTrue(readBook.getBooleanExtra(MainIntent.EXTRA_READ_ALOUD, false))
+        assertEquals(
+            io.legado.app.ui.book.manga.ReadMangaActivity::class.java.name,
+            readManga.component?.className,
+        )
+        assertEquals("book", readManga.getStringExtra(MainIntent.EXTRA_BOOK_URL))
+        // SPEC-190: reader intents never route through MainActivity's start-route plumbing.
+        assertFalse(readBook.hasExtra(MainIntent.EXTRA_START_ROUTE))
+        assertFalse(readManga.hasExtra(MainIntent.EXTRA_START_ROUTE))
     }
 
     @Test
@@ -61,5 +65,24 @@ class MainIntentTest {
         assertTrue(
             intent.getStringExtra(MainIntent.EXTRA_START_ROUTE) != MainRouteConst.ROUTE_WEB_VIEW,
         )
+    }
+
+    @Test
+    fun `search content intent carries reader search parameters`() {
+        val context: Application = RuntimeEnvironment.getApplication()
+
+        val intent = MainIntent.createSearchContentIntent(
+            context,
+            bookUrl = "book",
+            searchWord = "word",
+            searchResultIndex = 3,
+            autoFocus = false,
+        )
+
+        assertEquals(MainRouteConst.ROUTE_SEARCH_CONTENT, intent.getStringExtra(MainIntent.EXTRA_START_ROUTE))
+        assertEquals("book", intent.getStringExtra(MainIntent.EXTRA_BOOK_URL))
+        assertEquals("word", intent.getStringExtra(MainIntent.EXTRA_SEARCH_KEY))
+        assertEquals(3, intent.getIntExtra(MainIntent.EXTRA_SEARCH_RESULT_INDEX, 0))
+        assertFalse(intent.getBooleanExtra(MainIntent.EXTRA_SEARCH_AUTO_FOCUS, true))
     }
 }

@@ -148,8 +148,13 @@ internal fun MenuBottomBar(
             Spacer(Modifier.height(4.dp))
         }
 
-        // Seek bar row: prev + slider + next
-        AnimatedVisibility(visible = state.menuConfig.readSliderMode != "1") {
+        // Seek bar row: prev + slider + next.
+        // SPEC-171: fewer than 6 pages hides the whole row (same as 「不显示」).
+        val showSeekRow = shouldShowReadProgressSeekRow(
+            state.menuConfig.readSliderMode,
+            state.chapterPageCount,
+        )
+        AnimatedVisibility(visible = showSeekRow) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -202,6 +207,7 @@ internal fun MenuBottomBar(
         Spacer(Modifier.height(12.dp))
 
         // Tool buttons
+        val isNightTheme = LegadoTheme.isDark
         val toolButtons = remember(
             context,
             state.menuConfig.bottomBarButtons,
@@ -211,6 +217,7 @@ internal fun MenuBottomBar(
             state.translationMode,
             state.useReplaceRule,
             eyeProtectionEnabled,
+            isNightTheme,
         ) {
             loadToolButtons(
                 context = context,

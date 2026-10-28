@@ -89,6 +89,8 @@ data class BookInfoBookUi(
     val origin: String,
     val originName: String,
     val coverPath: String?,
+    /** SPEC-160: original http(s) webpage cover when present (independent of customCover). */
+    val webCoverUrl: String? = null,
     val group: Long,
     val isLocal: Boolean,
     val type: Int,

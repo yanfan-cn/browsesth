@@ -2,14 +2,27 @@ package io.legado.app.ui.main
 
 import android.content.Context
 import android.content.Intent
+import io.legado.app.ui.book.info.BookInfoActivity
+import io.legado.app.ui.book.manga.ReadMangaActivity
+import io.legado.app.ui.book.read.ReadBookActivity
+import io.legado.app.ui.config.SettingsActivity
 import io.legado.app.ui.config.ConfigTag
 
 object MainIntent {
     const val EXTRA_START_ROUTE = "startRoute"
     internal const val EXTRA_ROUTE_HOME_AS_PARENT = "routeHomeAsParent"
+    /** SPEC-164: desktop shortcut → open a new browser tab on home. */
+    const val EXTRA_BROWSER_NEW_TAB = "browserNewTab"
+    /** SPEC-164: desktop shortcut → switch main pager tab (`bookshelf` / `home`). */
+    const val EXTRA_HOME_TAB = "homeTab"
+    const val HOME_TAB_BOOKSHELF = "bookshelf"
+    const val HOME_TAB_HOME = "home"
     const val EXTRA_CACHE_GROUP_ID = "extra_cache_group_id"
     const val EXTRA_SEARCH_KEY = "extra_search_key"
     const val EXTRA_SEARCH_SCOPE = "extra_search_scope"
+    /** SPEC-190: SearchContent 启动参数（阅读器 Activity 二级目的地）。 */
+    const val EXTRA_SEARCH_RESULT_INDEX = "extra_search_result_index"
+    const val EXTRA_SEARCH_AUTO_FOCUS = "extra_search_auto_focus"
     const val EXTRA_BOOK_NAME = "name"
     const val EXTRA_BOOK_AUTHOR = "author"
     const val EXTRA_BOOK_URL = "bookUrl"
@@ -154,11 +167,9 @@ object MainIntent {
             putExtra(EXTRA_SOURCE_URL, sourceUrl)
         }
 
-    fun createIntent(context: Context, configTag: String? = null): Intent {
-        return createLauncherIntent(context).apply {
-            putExtra(EXTRA_START_ROUTE, routeForConfigTag(configTag))
-        }
-    }
+    /** SPEC-192: 磁贴/快捷方式的设置类入口直接落 SettingsActivity。 */
+    fun createIntent(context: Context, configTag: String? = null): Intent =
+        createSettingsIntent(context, routeForConfigTag(configTag))
 
     fun createRssSortIntent(
         context: Context,
@@ -211,33 +222,40 @@ object MainIntent {
         }
     }
 
+    /**
+     * SPEC-190: 阅读器脱离 MainActivity 的 nav3 栈，改由独立 Activity 承载。
+     * 返回时底页（网页/阅读列表/详情）在 MainActivity 里保持渲染，不重组，转场交给系统窗口动画。
+     * NEW_TASK 兼容 Service/Application 上下文；SINGLE_TOP + singleTask launchMode 复用已有实例走 onNewIntent。
+     */
     fun createReadBookIntent(
         context: Context,
         bookUrl: String? = null,
         readAloud: Boolean = false,
         inBookshelf: Boolean = true,
         chapterChanged: Boolean = false,
-    ): Intent {
-        return createLauncherIntent(context).apply {
-            putExtra(EXTRA_START_ROUTE, MainRouteConst.ROUTE_READ_BOOK)
-            bookUrl?.let { putExtra(EXTRA_BOOK_URL, it) }
-            putExtra(EXTRA_READ_ALOUD, readAloud)
-            putExtra(EXTRA_IN_BOOKSHELF, inBookshelf)
-            putExtra(EXTRA_CHAPTER_CHANGED, chapterChanged)
-        }
+    ): Intent = Intent(context, ReadBookActivity::class.java).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        bookUrl?.let { putExtra(EXTRA_BOOK_URL, it) }
+        putExtra(EXTRA_READ_ALOUD, readAloud)
+        putExtra(EXTRA_IN_BOOKSHELF, inBookshelf)
+        putExtra(EXTRA_CHAPTER_CHANGED, chapterChanged)
     }
 
     fun createReadBookMediaControlIntent(context: Context): Intent =
-        createReadBookIntent(context, readAloud = true).apply {
-            // 复用 launcher Activity 并移除其上层的旧 Activity；Nav3 父栈另行重建，
-            // 让阅读页返回时始终落到主页。
-            addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP
-            )
-            putExtra(EXTRA_ROUTE_HOME_AS_PARENT, true)
-        }
+        createReadBookIntent(context, readAloud = true)
+
+    /**
+     * SPEC-192: 设置族经独立 Activity 承载（与阅读器 Activity 同模式）。
+     * startRoute 传 MainRouteConst.ROUTE_SETTINGS_*；非设置族路由由宿主兜底回落设置根。
+     * NEW_TASK 兼容磁贴/服务上下文；SINGLE_TOP + singleTask 复用实例走 onNewIntent。
+     */
+    fun createSettingsIntent(
+        context: Context,
+        startRoute: String = MainRouteConst.ROUTE_SETTINGS,
+    ): Intent = Intent(context, SettingsActivity::class.java).apply {
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        putExtra(EXTRA_START_ROUTE, startRoute)
+    }
 
     internal fun shouldOpenRouteWithHomeParent(intent: Intent?): Boolean =
         intent?.getBooleanExtra(EXTRA_ROUTE_HOME_AS_PARENT, false) == true
@@ -247,9 +265,8 @@ object MainIntent {
         bookUrl: String? = null,
         inBookshelf: Boolean = true,
         chapterChanged: Boolean = false,
-    ): Intent = createLauncherIntent(context).apply {
+    ): Intent = Intent(context, ReadMangaActivity::class.java).apply {
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        putExtra(EXTRA_START_ROUTE, MainRouteConst.ROUTE_READ_MANGA)
         bookUrl?.let { putExtra(EXTRA_BOOK_URL, it) }
         putExtra(EXTRA_IN_BOOKSHELF, inBookshelf)
         putExtra(EXTRA_CHAPTER_CHANGED, chapterChanged)
@@ -280,16 +297,17 @@ object MainIntent {
         }
     }
 
+    /** SPEC-193: 详情走独立 BookInfoActivity（原版做法），主壳不再被导航场景拆建。 */
     fun createBookInfoIntent(
         context: Context,
         name: String? = null,
         author: String? = null,
         bookUrl: String,
         origin: String? = null,
-        coverPath: String? = null
+        coverPath: String? = null,
     ): Intent {
-        return createLauncherIntent(context).apply {
-            putExtra(EXTRA_START_ROUTE, MainRouteConst.ROUTE_BOOK_INFO)
+        return Intent(context, BookInfoActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             putExtra(EXTRA_BOOK_NAME, name)
             putExtra(EXTRA_BOOK_AUTHOR, author)
             putExtra(EXTRA_BOOK_URL, bookUrl)
@@ -317,6 +335,46 @@ object MainIntent {
         return createLauncherIntent(context).apply {
             putExtra(EXTRA_START_ROUTE, MainRouteConst.ROUTE_BOOK_CHARACTER_NETWORK)
             putExtra(EXTRA_BOOK_URL, bookUrl)
+        }
+    }
+
+    /** SPEC-190: 阅读器 Activity 二级目的地——搜索正文（独立 MainActivity 实例承载）。 */
+    fun createSearchContentIntent(
+        context: Context,
+        bookUrl: String,
+        searchWord: String? = null,
+        searchResultIndex: Int = 0,
+        autoFocus: Boolean = true,
+    ): Intent {
+        return createLauncherIntent(context).apply {
+            putExtra(EXTRA_START_ROUTE, MainRouteConst.ROUTE_SEARCH_CONTENT)
+            putExtra(EXTRA_BOOK_URL, bookUrl)
+            putExtra(EXTRA_SEARCH_KEY, searchWord)
+            putExtra(EXTRA_SEARCH_RESULT_INDEX, searchResultIndex)
+            putExtra(EXTRA_SEARCH_AUTO_FOCUS, autoFocus)
+        }
+    }
+
+    /** SPEC-190: 阅读器 Activity 二级目的地——听书投播。 */
+    fun createBookVoiceCastingIntent(context: Context, bookUrl: String): Intent {
+        return createLauncherIntent(context).apply {
+            putExtra(EXTRA_START_ROUTE, MainRouteConst.ROUTE_BOOK_VOICE_CASTING)
+            putExtra(EXTRA_BOOK_URL, bookUrl)
+        }
+    }
+
+    /** SPEC-190: 阅读器 Activity 二级目的地——TTS 引擎与音色。 */
+    fun createCloudTtsEnginesIntent(context: Context, bookUrl: String? = null): Intent {
+        return createLauncherIntent(context).apply {
+            putExtra(EXTRA_START_ROUTE, MainRouteConst.ROUTE_CLOUD_TTS_ENGINES)
+            putExtra(EXTRA_BOOK_URL, bookUrl)
+        }
+    }
+
+    /** SPEC-190: 阅读器 Activity 二级目的地——TTS 缓存管理。 */
+    fun createTtsCacheIntent(context: Context): Intent {
+        return createLauncherIntent(context).apply {
+            putExtra(EXTRA_START_ROUTE, MainRouteConst.ROUTE_TTS_CACHE)
         }
     }
 

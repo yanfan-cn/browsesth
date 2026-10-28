@@ -128,6 +128,7 @@ private fun ThemeReminderCapsule(
                 onIntent(ReadBookIntent.DismissReminder)
                 reminder.actionIntent?.let { onIntent(it) }
             },
+            // SPEC-171: reminder proposes switching *to* this mode.
             icon = if (isDark) Symbols.DarkMode else Symbols.LightMode,
             text = actionText,
             contentDescription = actionText,

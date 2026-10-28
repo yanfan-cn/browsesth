@@ -7,14 +7,12 @@ import org.junit.Test
 class MainNavigatorReadAloudTest {
 
     @Test
-    fun `opens cloud TTS manager on top of reader`() {
-        val reader = MainRouteReadBook(bookUrl = "book")
-        val cloudTts = MainRouteCloudTtsEngines(bookUrl = "book")
-        val backStack = mutableListOf<NavKey>(MainRouteHome, reader)
+    fun `opens cloud TTS manager on top of the tts family`() {
+        val backStack = mutableListOf<NavKey>(MainRouteHome, MainRouteTtsCache)
 
         MainNavigator.navigateToRoute(backStack, MainRouteCloudTtsEngines())
 
-        assertEquals(listOf(MainRouteHome, reader, MainRouteCloudTtsEngines()), backStack)
+        assertEquals(listOf(MainRouteHome, MainRouteTtsCache, MainRouteCloudTtsEngines()), backStack)
     }
 
     @Test
@@ -28,5 +26,20 @@ class MainNavigatorReadAloudTest {
         MainNavigator.navigateToRoute(backStack, MainRouteCloudTtsEngines())
 
         assertEquals(listOf(MainRouteHome, MainRouteCloudTtsEngines()), backStack)
+    }
+
+    @Test
+    fun `opening search content from anywhere stacks it directly`() {
+        val backStack = mutableListOf<NavKey>(MainRouteHome)
+
+        MainNavigator.navigateToRoute(
+            backStack,
+            MainRouteSearchContent(bookUrl = "book"),
+        )
+
+        assertEquals(
+            listOf(MainRouteHome, MainRouteSearchContent(bookUrl = "book")),
+            backStack,
+        )
     }
 }

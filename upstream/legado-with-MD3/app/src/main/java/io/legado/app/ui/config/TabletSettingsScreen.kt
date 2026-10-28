@@ -3,10 +3,12 @@ package io.legado.app.ui.config
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -95,29 +97,35 @@ fun TabletSettingsScreen(
                     .fillMaxHeight()
                     .statusBarsPadding(),
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                // SPEC-168: expressive medium bar — title sits on the lower edge.
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 8.dp),
+                        .height(112.dp)
+                        .padding(horizontal = 4.dp),
                 ) {
                     // SPEC-081: force Tonal — no liquid-glass back on tablet settings L1.
                     TopBarNavigationButton(
                         onClick = onBackClick,
                         style = TopBarButtonStyle.Tonal,
                     )
+                    Spacer(modifier = Modifier.weight(1f))
                     Text(
                         text = stringResource(R.string.setting),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
-                        // SPEC-080: dark mode uses onSurface (light glyph on dark).
                         color = LegadoTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(start = 4.dp),
+                        modifier = Modifier.padding(start = 12.dp, bottom = 12.dp),
                     )
                 }
-                Column(
+                Box(
                     modifier = Modifier
                         .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                Column(
+                    modifier = Modifier
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 12.dp, vertical = 4.dp),
                 ) {
@@ -137,6 +145,7 @@ fun TabletSettingsScreen(
                             onClick = { selected = pane.name },
                         )
                     }
+                }
                 }
             }
             VerticalDivider()

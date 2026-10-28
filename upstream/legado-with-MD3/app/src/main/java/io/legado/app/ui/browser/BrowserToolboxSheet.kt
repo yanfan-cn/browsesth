@@ -1,22 +1,33 @@
 package io.legado.app.ui.browser
 
+import android.content.res.Configuration
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -47,6 +58,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.legado.app.browser.engine.BrowserChromePrefs
 import io.legado.app.browser.engine.BrowserToolboxPrefs
 import io.legado.app.browser.engine.BrowserUa
@@ -180,6 +193,31 @@ fun BrowserToolboxSheet(
     var order by remember { mutableStateOf(prefs.orderedIds()) }
     var editing by remember { mutableStateOf(false) }
     val scheme = LegadoTheme.colorScheme
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // SPEC-170: phone landscape matches tablet side floating card.
+    if (TabletBrowserLayout.phoneUsesTabletLikePanels(landscape)) {
+        BrowserToolboxSideCard(
+            show = show,
+            onDismiss = {
+                if (editing) {
+                    prefs.saveOrder(order)
+                    editing = false
+                }
+                onDismiss()
+            },
+            order = order,
+            onOrderChange = { order = it },
+            editing = editing,
+            onEditingChange = { editing = it },
+            onFinishEditing = {
+                prefs.saveOrder(order)
+                editing = false
+            },
+            actions = actions,
+        )
+        return
+    }
+
     val screenH = LocalConfiguration.current.screenHeightDp.dp
     val sheetHeight = screenH * 0.55f
 
@@ -235,6 +273,92 @@ fun BrowserToolboxSheet(
                     .fillMaxWidth()
                     .weight(1f),
             )
+        }
+    }
+}
+
+/** SPEC-170: landscape toolbox — tablet-like floating card (right). */
+@Composable
+private fun BrowserToolboxSideCard(
+    show: Boolean,
+    onDismiss: () -> Unit,
+    order: List<String>,
+    onOrderChange: (List<String>) -> Unit,
+    editing: Boolean,
+    onEditingChange: (Boolean) -> Unit,
+    onFinishEditing: () -> Unit,
+    actions: BrowserToolboxActions,
+) {
+    if (!show) return
+    val scheme = LegadoTheme.colorScheme
+    val panelShape = RoundedCornerShape(24.dp)
+    // SPEC-182 R2: operator set width to half the screen.
+    val widthFraction = TabletBrowserLayout.PhoneLandscapeToolboxWidthFraction
+    BackHandler(onBack = onDismiss)
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Transparent)
+                .clickable(onClick = onDismiss),
+            contentAlignment = Alignment.TopEnd,
+        ) {
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(animationSpec = tween(220)) +
+                    slideInHorizontally(animationSpec = tween(220)) { it / 4 },
+                exit = fadeOut(animationSpec = tween(180)) +
+                    slideOutHorizontally(animationSpec = tween(180)) { it / 4 },
+            ) {
+                Column(
+                    Modifier
+                        // SPEC-182 R2: card must sit below the system status bar (the Dialog
+                        // is decorFitsSystemWindows=false) and above the nav bar; fill the
+                        // remaining height so the menu always shows completely.
+                        .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.navigationBars))
+                        .padding(top = 8.dp, end = 16.dp, bottom = 16.dp)
+                        .fillMaxWidth(widthFraction)
+                        .fillMaxHeight()
+                        .clip(panelShape)
+                        .background(scheme.surface, panelShape)
+                        .clickable(enabled = false) {}
+                        // SPEC-182 R2: inner padding 12dp (was 16dp).
+                        .padding(12.dp),
+                ) {
+                    if (editing) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "调整顺序",
+                                Modifier.weight(1f),
+                                fontSize = 16.sp,
+                                color = scheme.onSurface,
+                            )
+                            TextButton(onClick = onFinishEditing) { Text("完成") }
+                        }
+                    }
+                    BrowserToolboxBody(
+                        order = order,
+                        onOrderChange = onOrderChange,
+                        editing = editing,
+                        onEditingChange = onEditingChange,
+                        solidSurfaces = true,
+                        actions = actions,
+                        onDismiss = onDismiss,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                    )
+                }
+            }
         }
     }
 }

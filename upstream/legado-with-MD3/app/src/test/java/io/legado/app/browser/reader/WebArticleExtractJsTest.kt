@@ -69,6 +69,26 @@ class WebArticleExtractJsTest {
     }
 
     @Test
+    fun smallThumbnailIsDropped() {
+        assertEquals(
+            "",
+            decide(cls = "photo", dataSrc = "", src = "https://cdn.example.com/pics/t.jpg", width = 48, height = 48),
+        )
+        assertEquals(
+            "",
+            decide(
+                cls = "photo",
+                dataSrc = "https://cdn.example.com/pics/lazy-thumb.jpg",
+                src = "https://cdn.example.com/pics/lazy-thumb.jpg",
+                width = 400,
+                height = 300,
+                attrWidth = "64",
+                attrHeight = "64",
+            ),
+        )
+    }
+
+    @Test
     fun lazyPlaceholderSizeDoesNotDropTheImage() {
         val html = decide(
             cls = "content",
@@ -98,16 +118,20 @@ class WebArticleExtractJsTest {
         src: String,
         width: Int = 0,
         height: Int = 0,
+        attrWidth: String = "",
+        attrHeight: String = "",
     ): String {
         val js = """
             var document = { baseURI: 'https://www.163.com/news/article/ABC.html' };
             ${WebArticleExtractJs.imageFilterJs}
-            function decide(cls, dataSrc, src, w, h) {
+            function decide(cls, dataSrc, src, w, h, attrW, attrH) {
               var el = {
                 className: cls,
                 id: '',
                 getAttribute: function(n) {
                   if (n === 'data-src') return dataSrc || '';
+                  if (n === 'width') return attrW || '';
+                  if (n === 'height') return attrH || '';
                   return '';
                 },
                 currentSrc: src || '',
@@ -120,7 +144,7 @@ class WebArticleExtractJsTest {
               };
               return imgTag(el);
             }
-            decide(${jsString(cls)}, ${jsString(dataSrc)}, ${jsString(src)}, $width, $height);
+            decide(${jsString(cls)}, ${jsString(dataSrc)}, ${jsString(src)}, $width, $height, ${jsString(attrWidth)}, ${jsString(attrHeight)});
         """.trimIndent()
         return RhinoScriptEngine.eval(js).toString()
     }

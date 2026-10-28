@@ -49,10 +49,15 @@ data class BrowserShortcut(
 
     fun faviconUrl(): String = faviconCandidates().firstOrNull().orEmpty()
 
-    /** SPEC-117: bundled high-res icons (avoid blurry remote favicons). */
+    /** SPEC-117/160: bundled high-res icons (avoid blurry remote favicons). */
     @DrawableRes
     fun localIconRes(): Int? = when (id) {
         "baidu" -> R.drawable.ic_engine_baidu
+        "bilibili" -> R.drawable.ic_shortcut_bilibili
+        "rebang" -> R.drawable.ic_shortcut_rebang
+        "ithome" -> R.drawable.ic_shortcut_ithome
+        "thepaper" -> R.drawable.ic_shortcut_thepaper
+        "xunye" -> R.drawable.ic_shortcut_xunye
         else -> null
     }
 }
@@ -111,18 +116,60 @@ class BrowserShortcutStore(context: Context) {
 
     /** SPEC-117 B1: force-replace defaults for installed users once. */
     fun migrateDefaultsIfNeeded() {
-        if (prefs.getBoolean(KEY_SPEC117, false)) return
-        saveAll(defaultShortcuts())
-        prefs.edit().putBoolean(KEY_SPEC117, true).apply()
+        if (!prefs.getBoolean(KEY_SPEC117, false)) {
+            saveAll(defaultShortcuts())
+            prefs.edit().putBoolean(KEY_SPEC117, true).apply()
+        }
+        // SPEC-160: append 巡页 default once without wiping user-edited shortcuts.
+        migrateXunyeIfNeeded()
+    }
+
+    private fun migrateXunyeIfNeeded() {
+        if (prefs.getBoolean(KEY_SPEC160_XUNYE, false)) return
+        val current = listWithoutMigration()
+        if (current.none { it.id == "xunye" }) {
+            saveAll(current + xunyeShortcut())
+        }
+        prefs.edit().putBoolean(KEY_SPEC160_XUNYE, true).apply()
+    }
+
+    /** Read persisted list without running migrations (avoids recursion). */
+    private fun listWithoutMigration(): List<BrowserShortcut> {
+        val raw = prefs.getString(KEY, null)
+        if (raw.isNullOrBlank()) return defaultShortcuts()
+        return try {
+            val arr = JSONArray(raw)
+            buildList {
+                for (i in 0 until arr.length()) {
+                    val o = arr.getJSONObject(i)
+                    add(
+                        BrowserShortcut(
+                            id = o.getString("id"),
+                            title = o.optString("title"),
+                            url = o.getString("url"),
+                        ),
+                    )
+                }
+            }
+        } catch (_: Throwable) {
+            defaultShortcuts()
+        }
     }
 
     companion object {
         private const val PREFS = "browsesth_ntp_shortcuts"
         private const val KEY = "shortcuts"
         private const val KEY_SPEC117 = "shortcuts_spec117_v1"
+        private const val KEY_SPEC160_XUNYE = "shortcuts_spec160_xunye_v1"
 
         /** SPEC-152: 快捷书签变更版本号；NTP 订阅此流实现跨界面即时刷新。 */
         val version = kotlinx.coroutines.flow.MutableStateFlow(0L)
+
+        fun xunyeShortcut(): BrowserShortcut = BrowserShortcut(
+            id = "xunye",
+            title = "巡页",
+            url = "https://share.feijipan.com/u/xcUCqQCUN",
+        )
 
         fun defaultShortcuts(): List<BrowserShortcut> = listOf(
             BrowserShortcut("baidu", "百度", "https://www.baidu.com/"),
@@ -134,6 +181,7 @@ class BrowserShortcutStore(context: Context) {
             BrowserShortcut("rebang", "热榜", "https://rebang.open2hub.com"),
             BrowserShortcut("ithome", "IT之家", "https://www.ithome.com/"),
             BrowserShortcut("thepaper", "澎湃", "https://www.thepaper.cn/"),
+            xunyeShortcut(),
         )
     }
 }

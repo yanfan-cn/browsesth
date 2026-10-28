@@ -179,6 +179,9 @@ fun BookInfoScreen(
                 it.targetState == EnterExitState.Visible &&
                 !it.isRunning
     } == true
+    // SPEC-191: exit runs as a plain whole-page cross-fade; the cover must not
+    // re-attach its shared key when the exit transition starts.
+    val isExiting = transition?.targetState == EnterExitState.PostExit
     val sharedTransitionFinished = !waitForSharedTransition || transitionSettled
     var canApplyCoverTheme by remember(
         sharedCoverKey,
@@ -227,7 +230,12 @@ fun BookInfoScreen(
             onBack = onBack,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope,
-            sharedCoverKey = sharedCoverKey,
+            // Drop the key once the fade has settled so the page underneath can
+            // keep the same key without two holders.
+            // SPEC-191: never re-attach on exit — the operator asked for a whole-page
+            // fade-out instead of the cover flying back (the flight stacked with the
+            // glass backdrop re-sampling and the live blur and visibly stuttered).
+            sharedCoverKey = sharedCoverKey.takeIf { !sharedTransitionFinished && !isExiting },
             backdropStyle = backdropStyle,
             usesDefaultCover = usesDefaultCover,
             onNetworkCoverLoadError = { failedCoverPath ->
@@ -503,6 +511,7 @@ private fun BookInfoScreenContent(
             show = currentSheet == BookInfoSheet.CoverPicker,
             name = state.book?.name.orEmpty(),
             author = state.book?.author.orEmpty(),
+            webCoverUrl = state.book?.webCoverUrl,
             onDismissRequest = { onIntent(BookInfoIntent.DismissSheet) },
             onSelect = { onIntent(BookInfoIntent.SelectCover(it)) },
         )

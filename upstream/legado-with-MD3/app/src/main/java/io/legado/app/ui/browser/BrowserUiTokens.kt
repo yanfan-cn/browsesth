@@ -49,6 +49,14 @@ object BrowserUiTokens {
     /** SPEC-072/088: liquid-glass NTP tint — light 0.4 / dark 0.35. */
     val NtpGlassOverlayLight = 0.4f
     val NtpGlassOverlayDark = 0.35f
+    /** SPEC-160: NTP top/bottom gradient scrim (no blur) — edge alpha. */
+    val NtpScrimEdgeLight = 0.52f
+    val NtpScrimEdgeDark = 0.62f
+    val NtpScrimHeightTop = 96.dp
+    val NtpScrimHeightBottom = 88.dp
+
+    fun ntpScrimEdgeAlpha(isDark: Boolean): Float =
+        if (isDark) NtpScrimEdgeDark else NtpScrimEdgeLight
     val NtpEngineMenuWidth = 140.dp
     val NtpEngineIconSize = 32.dp
     val NtpShortcutIconSize = 52.dp

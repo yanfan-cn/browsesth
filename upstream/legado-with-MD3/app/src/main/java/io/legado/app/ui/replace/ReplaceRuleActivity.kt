@@ -22,6 +22,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import io.legado.app.base.BaseComposeActivity
+import io.legado.app.ui.main.NavMotion
 import io.legado.app.domain.model.settings.effectivePredictiveBackEnabled
 import io.legado.app.ui.replace.edit.ReplaceEditRouteScreen
 import io.legado.app.ui.replace.edit.ReplaceEditViewModel
@@ -76,25 +77,25 @@ class ReplaceRuleActivity : BaseComposeActivity() {
                     (slideIntoContainer(
                         towards = AnimatedContentTransitionScope.SlideDirection.Start,
                         animationSpec = tween(
-                            durationMillis = 480,
+                            durationMillis = NavMotion.SettingsAxisSlideMs,
                             easing = FastOutSlowInEasing
                         ),
                         initialOffset = { fullWidth -> fullWidth }
                     ) + fadeIn(
                         animationSpec = tween(
-                            durationMillis = 360,
+                            durationMillis = NavMotion.SettingsAxisFadeMs,
                             easing = LinearOutSlowInEasing
                         )
                     )) togetherWith (slideOutOfContainer(
                         towards = AnimatedContentTransitionScope.SlideDirection.Start,
                         animationSpec = tween(
-                            durationMillis = 480,
+                            durationMillis = NavMotion.SettingsAxisSlideMs,
                             easing = FastOutSlowInEasing
                         ),
                         targetOffset = { fullWidth -> fullWidth / 4 }
                     ) + fadeOut(
                         animationSpec = tween(
-                            durationMillis = 360,
+                            durationMillis = NavMotion.SettingsAxisFadeMs,
                             easing = LinearOutSlowInEasing
                         )
                     ))
@@ -103,23 +104,23 @@ class ReplaceRuleActivity : BaseComposeActivity() {
                     (slideIntoContainer(
                         towards = AnimatedContentTransitionScope.SlideDirection.Start,
                         animationSpec = tween(
-                            durationMillis = 480,
+                            durationMillis = NavMotion.SettingsAxisSlideMs,
                             easing = FastOutSlowInEasing
                         ),
                         initialOffset = { fullWidth -> -fullWidth / 4 }
                     ) + fadeIn(
                         animationSpec = tween(
-                            durationMillis = 360,
+                            durationMillis = NavMotion.SettingsAxisFadeMs,
                             easing = LinearOutSlowInEasing
                         )
                     )) togetherWith (scaleOut(
                         targetScale = 0.8f,
                         animationSpec = tween(
-                            durationMillis = 480,
+                            durationMillis = NavMotion.SettingsAxisSlideMs,
                             easing = FastOutSlowInEasing
                         )
                     ) + fadeOut(
-                        animationSpec = tween(durationMillis = 360)
+                        animationSpec = tween(durationMillis = NavMotion.SettingsAxisFadeMs)
                     ))
                 },
                 predictivePopTransitionSpec = { _ ->

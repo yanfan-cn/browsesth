@@ -90,3 +90,6 @@ spikes/chromium-sdk/webview-extract/
 **/tmp_*
 /spikes/_tmp-*
 /specs/_wip_backup_before_pr1/
+
+# Device debug captures (videos/logs)
+/tmp/

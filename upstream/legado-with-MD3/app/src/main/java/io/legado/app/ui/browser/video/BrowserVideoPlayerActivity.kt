@@ -42,10 +42,12 @@ class BrowserVideoPlayerActivity : BaseComposeActivity() {
         offer = readOffer(intent) ?: BrowserVideoOfferBus.offer.value
         autoPip = intent.getBooleanExtra(EXTRA_AUTO_PIP, false)
         if (offer == null) {
-            Toast.makeText(this, "??????", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "无法打开视频", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
+        activeInstance = this
+        BrowserWebMediaBridge.pauseAll()
         BrowserVideoPlaybackService.stop(this)
         keepScreenOn(true)
         applyRotationPolicy()
@@ -105,23 +107,34 @@ class BrowserVideoPlayerActivity : BaseComposeActivity() {
     }
 
     override fun onUserLeaveHint() {
+        // SPEC-188: do not auto-enter PiP on Home; leave-to-stop handles background.
         super.onUserLeaveHint()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && videoView?.isPlaying == true) {
-            enterPipMode()
-        }
     }
 
     override fun onStop() {
         super.onStop()
-        if (videoView?.isPlaying == true) {
-            BrowserVideoPlaybackService.start(
-                this,
-                offer?.title?.ifBlank { "?????" } ?: "?????",
-            )
+        // SPEC-188: leaving the player (Home / multi-task) stops video unless in PiP.
+        if (isChangingConfigurations) return
+        if (inPipMode || isInPictureInPictureMode) {
+            if (videoView?.isPlaying == true) {
+                BrowserVideoPlaybackService.start(
+                    this,
+                    offer?.title?.ifBlank { "视频播放中" } ?: "视频播放中",
+                )
+            }
+            return
+        }
+        runCatching { videoView?.pause() }
+        BrowserVideoPlaybackService.stop(this)
+        if (!isFinishing) {
+            finish()
         }
     }
 
     override fun onDestroy() {
+        if (activeInstance === this) {
+            activeInstance = null
+        }
         videoView?.let {
             BrowserVideoPlayerBridge.detach(it)
             it.release()
@@ -222,6 +235,20 @@ class BrowserVideoPlayerActivity : BaseComposeActivity() {
         const val EXTRA_HEADERS_JSON = "headers_json"
         const val EXTRA_IS_HLS = "is_hls"
         const val EXTRA_AUTO_PIP = "auto_pip"
+
+        @Volatile
+        private var activeInstance: BrowserVideoPlayerActivity? = null
+
+        /** SPEC-188: leave-to-stop closes the native video player (not audio-only). */
+        fun finishIfShowingVideo() {
+            val act = activeInstance ?: return
+            act.runOnUiThread {
+                runCatching { act.videoView?.pause() }
+                if (!act.isFinishing) {
+                    act.finish()
+                }
+            }
+        }
 
         fun intent(
             context: android.content.Context,

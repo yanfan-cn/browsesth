@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
@@ -32,6 +33,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -91,8 +93,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import org.chromium.android_webview.AwContentsClient
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -128,8 +128,11 @@ import io.legado.app.browser.engine.BrowserVideoOffer
 import io.legado.app.browser.engine.BrowserVideoOfferBus
 import io.legado.app.browser.engine.evalJs
 import io.legado.app.browser.engine.resolveBrowserNavigationInput
+import io.legado.app.ui.browser.video.BrowserVideoLeaveGuard
 import io.legado.app.ui.browser.video.BrowserVideoPlaybackService
 import io.legado.app.ui.browser.video.BrowserVideoPlayerActivity
+import io.legado.app.ui.browser.video.BrowserVideoPlayerBridge
+import io.legado.app.ui.browser.video.BrowserWebMediaBridge
 import io.legado.app.ui.main.MainIntent
 import io.legado.app.ui.main.MainRouteBrowserPickBlock
 import io.legado.app.ui.main.MainRouteRequestBus
@@ -193,6 +196,11 @@ data class BrowserSessionActions(
     val goBack: () -> Unit,
     val goForward: () -> Unit,
     val reload: () -> Unit,
+    /** SPEC-163 */
+    val backHistoryItems: () -> List<io.legado.app.browser.engine.BrowserNavHistory.Item> = { emptyList() },
+    val forwardHistoryItems: () -> List<io.legado.app.browser.engine.BrowserNavHistory.Item> = { emptyList() },
+    val goHistoryOffset: (Int) -> Unit = {},
+    val scrollToTop: () -> Unit = {},
     val openReader: () -> Unit,
     val loadUrl: (String) -> Unit = {},
     /** SPEC-025: tablet toolbox helpers. */
@@ -309,8 +317,18 @@ fun BrowserSessionScreen(
     var videoCustomViewCallback by remember {
         mutableStateOf<AwContentsClient.CustomViewCallback?>(null)
     }
+    var videoFullscreenHost by remember { mutableStateOf<android.widget.FrameLayout?>(null) }
     var tabMenu by remember { mutableStateOf(false) }
     var readerModeMenu by remember { mutableStateOf(false) }
+    // SPEC-163
+    var backHistoryMenu by remember { mutableStateOf(false) }
+    var forwardHistoryMenu by remember { mutableStateOf(false) }
+    var backHistoryItems by remember {
+        mutableStateOf<List<io.legado.app.browser.engine.BrowserNavHistory.Item>>(emptyList())
+    }
+    var forwardHistoryItems by remember {
+        mutableStateOf<List<io.legado.app.browser.engine.BrowserNavHistory.Item>>(emptyList())
+    }
     var readerAutoOpen by remember {
         mutableStateOf(readerPrefs.triggerMode != BrowserReaderPrefs.TriggerMode.Manual)
     }
@@ -337,14 +355,24 @@ fun BrowserSessionScreen(
     // SPEC-130: auto-hide → bottom chrome overlays (inset 0, no show/hide resize jank).
     // Off → keep reserve so content is not covered by the bar.
     val pickBarReserve = floatingChromeTopGap + phoneChromeBarHeight + floatingBottomPad
+    // SPEC-169: portrait = 1.7.0 top+bottom; landscape = SPEC-168 single top bar.
+    val phoneSplitChrome = !tabletEmbedded &&
+        TabletBrowserLayout.phoneUsesSplitWebChrome(
+            portrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT,
+        )
+    val phoneWebIconSlot = TabletBrowserLayout.PhoneWebIconSlotDp.dp
+    val phoneWebFieldHeight = TabletBrowserLayout.PhoneWebOmniboxHeightDp.dp
+    val phoneWebGap = TabletBrowserLayout.ChromeItemGapDp.dp
     val webBottomInset = when {
         // SPEC-134: pick bar always reserves space (phone + tablet).
         pickMode -> pickBarReserve
-        !tabletEmbedded -> if (chromePrefs.autoHideTopBar) {
+        phoneSplitChrome -> if (chromePrefs.autoHideTopBar) {
             0.dp
         } else {
             floatingChromeReserve
         }
+        // SPEC-168: landscape phone chrome is the top bar. Keep only the gesture inset.
+        !tabletEmbedded -> navBottom
         showTranslatePrompt -> 72.dp
         else -> 0.dp
     }
@@ -917,6 +945,18 @@ fun BrowserSessionScreen(
         chromeSnack = null
     }
 
+    // SPEC-188: bind JS evaluator for in-page media notification controls.
+    DisposableEffect(hostRef) {
+        val host = hostRef
+        val evaluator = host?.let { h ->
+            BrowserWebMediaBridge.JsEvaluator { script, callback ->
+                h.evaluateJavaScript(script) { result -> callback?.invoke(result) }
+            }.also { BrowserWebMediaBridge.attachEvaluator(it) }
+        }
+        onDispose {
+            evaluator?.let { BrowserWebMediaBridge.detachEvaluator(it) }
+        }
+    }
     LaunchedEffect(hostRef) {
         val host = hostRef ?: return@LaunchedEffect
         BrowserOpenBridge.armedLocalHtml.collect { armed ->
@@ -1075,10 +1115,18 @@ fun BrowserSessionScreen(
 
     fun clearVideoCustomViewUi() {
         val view = videoCustomView
+        val host = videoFullscreenHost
         videoCustomView = null
         videoCustomViewCallback = null
+        videoFullscreenHost = null
         (view?.parent as? ViewGroup)?.removeView(view)
+        if (host != null) {
+            (host.parent as? ViewGroup)?.removeView(host)
+        }
         context.findActivityOrNull()?.let { act ->
+            act.window?.clearFlags(
+                android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            )
             act.keepScreenOn(false)
             act.toggleSystemBar(true)
         }
@@ -1097,9 +1145,11 @@ fun BrowserSessionScreen(
         onDispose {
             val callback = videoCustomViewCallback
             val view = videoCustomView
-            if (callback != null || view != null) {
+            val host = videoFullscreenHost
+            if (callback != null || view != null || host != null) {
                 runCatching { callback?.onCustomViewHidden() }
                 (view?.parent as? ViewGroup)?.removeView(view)
+                if (host != null) (host.parent as? ViewGroup)?.removeView(host)
                 context.findActivityOrNull()?.let { act ->
                     act.keepScreenOn(false)
                     act.toggleSystemBar(true)
@@ -1191,6 +1241,18 @@ fun BrowserSessionScreen(
                 },
                 goForward = { hostRef?.goForward() },
                 reload = { hostRef?.reload() },
+                backHistoryItems = {
+                    hostRef?.navigationHistoryItems(
+                        io.legado.app.browser.engine.BrowserNavHistory.Direction.Back,
+                    ).orEmpty()
+                },
+                forwardHistoryItems = {
+                    hostRef?.navigationHistoryItems(
+                        io.legado.app.browser.engine.BrowserNavHistory.Direction.Forward,
+                    ).orEmpty()
+                },
+                goHistoryOffset = { steps -> hostRef?.goBackOrForward(steps) },
+                scrollToTop = { hostRef?.scrollToTop() },
                 openReader = { openReaderView() },
                 loadUrl = { loadExternalUrl(it) },
                 currentPageUrl = {
@@ -1290,101 +1352,342 @@ fun BrowserSessionScreen(
                     enter = fadeIn() + slideInVertically { -it },
                     exit = fadeOut() + slideOutVertically { -it },
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(TopBarHeight)
-                            .padding(horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        if (showNavigationBack) {
-                            // SPEC-096: Home glyph (same as main bottom bar); always exit to NTP/host, never WebView goBack.
+                    if (phoneSplitChrome) {
+                        // SPEC-169 / 1.7.0: top = home · omnibox · refresh
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(TopBarHeight)
+                                .padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (showNavigationBack) {
+                                // SPEC-096: Home glyph exits to NTP/host, never WebView goBack.
+                                Box(
+                                    modifier = Modifier
+                                        .padding(horizontal = 4.dp)
+                                        .size(BrowserUiTokens.ControlMedium)
+                                        .browserControlLiquidGlass()
+                                        .clickable(onClick = onNavigateBack),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    SymbolIcon(
+                                        Symbols.Home,
+                                        contentDescription = "主页",
+                                        tint = scheme.onSurface,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+                            } else {
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                            BasicTextField(
+                                value = address,
+                                onValueChange = { address = it },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(BrowserUiTokens.ControlMedium)
+                                    .browserControlLiquidGlass(
+                                        shape = ContinuousCapsule,
+                                        interactive = false,
+                                    )
+                                    .padding(horizontal = BrowserUiTokens.SpaceMd, vertical = 6.dp)
+                                    .onFocusChanged { fs ->
+                                        val nowFocused = fs.isFocused
+                                        if (!addressFocused && nowFocused) {
+                                            val editUrl = clientRef?.lastUrl.orEmpty()
+                                                .ifBlank { initialUrl }
+                                            address = if (editUrl.isNotBlank()) {
+                                                TextFieldValue(editUrl, TextRange(0, editUrl.length))
+                                            } else {
+                                                TextFieldValue("")
+                                            }
+                                            clipboardUrl = BrowserClipboardUrl.latest(context)
+                                        } else if (addressFocused && !nowFocused) {
+                                            clipboardUrl = null
+                                            syncIdleAddress(
+                                                clientRef?.lastTitle ?: initialTitle,
+                                                clientRef?.lastUrl ?: initialUrl,
+                                            )
+                                        }
+                                        addressFocused = nowFocused
+                                    },
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    color = scheme.onSurface,
+                                    fontSize = 14.sp,
+                                ),
+                                cursorBrush = SolidColor(ReaderFabBlue),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                                keyboardActions = KeyboardActions(onGo = { navigateToAddress() }),
+                                decorationBox = { inner ->
+                                    Box(contentAlignment = Alignment.CenterStart) {
+                                        if (address.text.isEmpty()) {
+                                            Text(
+                                                "搜索或输入网址",
+                                                color = scheme.onSurfaceVariant,
+                                                fontSize = 14.sp,
+                                            )
+                                        }
+                                        inner()
+                                    }
+                                },
+                            )
                             Box(
                                 modifier = Modifier
                                     .padding(horizontal = 4.dp)
                                     .size(BrowserUiTokens.ControlMedium)
                                     .browserControlLiquidGlass()
-                                    .clickable(onClick = onNavigateBack),
+                                    .combinedClickable(
+                                        onClick = { hostRef?.reload() },
+                                        onLongClick = { hostRef?.scrollToTop() },
+                                    ),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                SymbolIcon(Symbols.Home,
-                                    contentDescription = "主页",
+                                SymbolIcon(
+                                    Symbols.Refresh,
+                                    contentDescription = "刷新",
                                     tint = scheme.onSurface,
                                     modifier = Modifier.size(20.dp),
                                 )
                             }
-                        } else {
-                            Spacer(modifier = Modifier.width(8.dp))
                         }
-                        BasicTextField(
-                            value = address,
-                            onValueChange = { address = it },
+                    } else {
+                        // SPEC-168: landscape combined top bar
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .height(BrowserUiTokens.ControlMedium)
-                                .browserControlLiquidGlass(
-                                    shape = ContinuousCapsule,
-                                    interactive = false,
-                                )
-                                .padding(horizontal = BrowserUiTokens.SpaceMd, vertical = 6.dp)
-                                .onFocusChanged { fs ->
-                                    val nowFocused = fs.isFocused
-                                    if (!addressFocused && nowFocused) {
-                                        // SPEC-125: focus → show URL for editing.
-                                        val editUrl = clientRef?.lastUrl.orEmpty()
-                                            .ifBlank { initialUrl }
-                                        // SPEC-146 R1: select all so typing replaces the URL.
-                                        address = if (editUrl.isNotBlank()) {
-                                            TextFieldValue(editUrl, TextRange(0, editUrl.length))
-                                        } else {
-                                            TextFieldValue("")
-                                        }
-                                        // SPEC-146 R2: clipboard link candidate.
-                                        clipboardUrl = BrowserClipboardUrl.latest(context)
-                                    } else if (addressFocused && !nowFocused) {
-                                        // Blur without Go → restore title / site host.
-                                        clipboardUrl = null
-                                        syncIdleAddress(
-                                            clientRef?.lastTitle ?: initialTitle,
-                                            clientRef?.lastUrl ?: initialUrl,
-                                        )
-                                    }
-                                    addressFocused = nowFocused
-                                },
-                            singleLine = true,
-                            textStyle = TextStyle(
-                                color = scheme.onSurface,
-                                fontSize = 14.sp,
-                            ),
-                            cursorBrush = SolidColor(ReaderFabBlue),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                            keyboardActions = KeyboardActions(onGo = { navigateToAddress() }),
-                            decorationBox = { inner ->
-                                Box(contentAlignment = Alignment.CenterStart) {
-                                    if (address.text.isEmpty()) {
-                                        Text(
-                                            "搜索或输入网址",
-                                            color = scheme.onSurfaceVariant,
-                                            fontSize = 14.sp,
-                                        )
-                                    }
-                                    inner()
-                                }
-                            },
-                        )
-                        Box(
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp)
-                                .size(BrowserUiTokens.ControlMedium)
-                                .browserControlLiquidGlass()
-                                .clickable { hostRef?.reload() },
-                            contentAlignment = Alignment.Center,
+                                .fillMaxWidth()
+                                .height(TopBarHeight)
+                                .padding(horizontal = phoneWebGap),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(phoneWebGap),
                         ) {
-                            SymbolIcon(Symbols.Refresh,
-                                contentDescription = "刷新",
-                                tint = scheme.onSurface,
-                                modifier = Modifier.size(20.dp),
+                            if (showNavigationBack) {
+                                PhoneWebChromeIcon(
+                                    icon = Symbols.Home,
+                                    description = "主页",
+                                    onClick = onNavigateBack,
+                                )
+                            }
+                            PhoneWebChromeIcon(
+                                icon = Symbols.ArrowBack,
+                                description = "后退",
+                                onClick = { hostRef?.goBack() },
+                                onLongClick = {
+                                    val items = hostRef?.navigationHistoryItems(
+                                        io.legado.app.browser.engine.BrowserNavHistory.Direction.Back,
+                                    ).orEmpty()
+                                    if (items.isEmpty()) {
+                                        context.toastOnUi("没有可后退的页面")
+                                    } else {
+                                        backHistoryItems = items
+                                        forwardHistoryMenu = false
+                                        backHistoryMenu = true
+                                    }
+                                },
+                                menu = {
+                                    BrowserNavHistoryMenu(
+                                        expanded = backHistoryMenu,
+                                        items = backHistoryItems,
+                                        onDismiss = { backHistoryMenu = false },
+                                        onSelect = { hostRef?.goBackOrForward(it.steps) },
+                                        aboveAnchor = false,
+                                    )
+                                },
                             )
+                            PhoneWebChromeIcon(
+                                icon = Symbols.ArrowForwardIos,
+                                description = "前进",
+                                onClick = { hostRef?.goForward() },
+                                onLongClick = {
+                                    val items = hostRef?.navigationHistoryItems(
+                                        io.legado.app.browser.engine.BrowserNavHistory.Direction.Forward,
+                                    ).orEmpty()
+                                    if (items.isEmpty()) {
+                                        context.toastOnUi("没有可前进的页面")
+                                    } else {
+                                        forwardHistoryItems = items
+                                        backHistoryMenu = false
+                                        forwardHistoryMenu = true
+                                    }
+                                },
+                                menu = {
+                                    BrowserNavHistoryMenu(
+                                        expanded = forwardHistoryMenu,
+                                        items = forwardHistoryItems,
+                                        onDismiss = { forwardHistoryMenu = false },
+                                        onSelect = { hostRef?.goBackOrForward(it.steps) },
+                                        aboveAnchor = false,
+                                    )
+                                },
+                            )
+                            PhoneWebChromeIcon(
+                                icon = Symbols.Refresh,
+                                description = "刷新",
+                                onClick = { hostRef?.reload() },
+                                onLongClick = { hostRef?.scrollToTop() },
+                            )
+                            BasicTextField(
+                                value = address,
+                                onValueChange = { address = it },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .defaultMinSize(minWidth = 0.dp, minHeight = 0.dp)
+                                    .height(phoneWebFieldHeight)
+                                    .browserControlLiquidGlass(
+                                        shape = ContinuousCapsule,
+                                        interactive = false,
+                                    )
+                                    .padding(horizontal = BrowserUiTokens.SpaceMd, vertical = 6.dp)
+                                    .onFocusChanged { fs ->
+                                        val nowFocused = fs.isFocused
+                                        if (!addressFocused && nowFocused) {
+                                            val editUrl = clientRef?.lastUrl.orEmpty()
+                                                .ifBlank { initialUrl }
+                                            address = if (editUrl.isNotBlank()) {
+                                                TextFieldValue(editUrl, TextRange(0, editUrl.length))
+                                            } else {
+                                                TextFieldValue("")
+                                            }
+                                            clipboardUrl = BrowserClipboardUrl.latest(context)
+                                        } else if (addressFocused && !nowFocused) {
+                                            clipboardUrl = null
+                                            syncIdleAddress(
+                                                clientRef?.lastTitle ?: initialTitle,
+                                                clientRef?.lastUrl ?: initialUrl,
+                                            )
+                                        }
+                                        addressFocused = nowFocused
+                                    },
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    color = scheme.onSurface,
+                                    fontSize = 14.sp,
+                                ),
+                                cursorBrush = SolidColor(ReaderFabBlue),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                                keyboardActions = KeyboardActions(onGo = { navigateToAddress() }),
+                                decorationBox = { inner ->
+                                    Box(contentAlignment = Alignment.CenterStart) {
+                                        if (address.text.isEmpty()) {
+                                            Text(
+                                                "搜索或输入网址",
+                                                color = scheme.onSurfaceVariant,
+                                                fontSize = 14.sp,
+                                            )
+                                        }
+                                        inner()
+                                    }
+                                },
+                            )
+                            PhoneWebChromeIcon(
+                                icon = Symbols.Box,
+                                description = "工具箱",
+                                onClick = { showToolbox = true },
+                            )
+                            Box(contentAlignment = Alignment.Center) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(phoneWebIconSlot)
+                                        .combinedClickable(
+                                            onClick = {
+                                                val open = onOpenTabs
+                                                if (open != null) {
+                                                    open()
+                                                    BrowserSessionHolder.captureActiveThumbnail()
+                                                } else {
+                                                    showSnack("标签页即将支持")
+                                                }
+                                            },
+                                            onLongClick = { tabMenu = true },
+                                        ),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    BrowserTabCountBadge(
+                                        count = openTabCount.size,
+                                        tint = scheme.onSurface,
+                                        useGlass = false,
+                                        // SPEC-181: match left-side 20dp glyphs in landscape top bar.
+                                        size = 20.dp,
+                                        borderWidth = 1.5.dp,
+                                        textSizeScale = 20f / 22f,
+                                    )
+                                }
+                                BrowserTabCountMenu(
+                                    expanded = tabMenu,
+                                    onDismiss = { tabMenu = false },
+                                    aboveAnchor = false,
+                                    onNewTab = {
+                                        BrowserTabManager.openNewTab(url = null, select = true)
+                                    },
+                                    onCloseAll = { BrowserTabManager.closeAll() },
+                                    onAddBookmark = {
+                                        val url = clientRef?.lastUrl?.takeIf { it.startsWith("http") }
+                                            ?: address.text
+                                        store.addBookmark(url, clientRef?.lastTitle.orEmpty())
+                                        context.toastOnUi(context.getString(R.string.browser_favorite_added))
+                                    },
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    // SPEC-170: landscape 净读 FAB 32dp touch slot.
+                                    .size(TabletBrowserLayout.PhoneLandscapeReaderFabDp.dp)
+                                    .combinedClickable(
+                                        enabled = !extracting,
+                                        onClick = { openReaderView() },
+                                        onLongClick = { readerModeMenu = true },
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                // SPEC-181 R2: visual blue circle shrinks to 20dp so it reads
+                                // the same size as the neighbouring 20dp glyphs; icon 16dp.
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .browserReaderFabGlass(ReaderFabBlue),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    SymbolIcon(
+                                        symbol = Symbols.Book2,
+                                        contentDescription = "净读",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                                BrowserReaderModeMenu(
+                                    expanded = readerModeMenu,
+                                    onDismiss = { readerModeMenu = false },
+                                    autoOpenEnabled = readerAutoOpen,
+                                    onAutoOpenChange = { enabled ->
+                                        readerAutoOpen = enabled
+                                        readerPrefs.triggerMode = if (enabled) {
+                                            BrowserReaderPrefs.TriggerMode.AutoDetect
+                                        } else {
+                                            BrowserReaderPrefs.TriggerMode.Manual
+                                        }
+                                        showSnack(
+                                            if (enabled) "已开启自动净读模式" else "已关闭自动净读模式",
+                                        )
+                                    },
+                                    onTextMode = {
+                                        val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
+                                        startExtract {
+                                            openNovelReader(pageUrl, keepImages = false)
+                                        }
+                                    },
+                                    onImageMode = {
+                                        openReaderView(WebMangaBookFactory.Kind.Manga)
+                                    },
+                                    onMixedMode = {
+                                        val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
+                                        startExtract {
+                                            openNovelReader(pageUrl, keepImages = true)
+                                        }
+                                    },
+                                    belowAnchor = true,
+                                )
+                            }
                         }
                     }
                     // SPEC-121: find bar under omnibox (not bottom — IME covers bottom).
@@ -1449,6 +1752,8 @@ fun BrowserSessionScreen(
                             // SPEC-135: drop previous site's sniffed video so B does not show A's offer.
                             BrowserVideoOfferBus.clear()
                             dismissedVideoPromptUrl = null
+                            // SPEC-188: navigate away → stop page/native video (听音频例外).
+                            BrowserVideoLeaveGuard.stopExceptAudioListen(context)
                         },
                         onOverrideUrl = { handleSpecialUrl(it) },
                         onNavigationOverride = { target -> hostRef?.loadUrl(target) },
@@ -1502,15 +1807,66 @@ fun BrowserSessionScreen(
                             tryHttpsFallback(url, netError)
                         },
                         customViewShowHandler = { view, callback ->
-                            if (videoCustomView != null) {
-                                runCatching { callback.onCustomViewHidden() }
-                            } else {
+                            // SPEC-178: attach on the UI thread; Chromium docs use
+                            // window.addContentView. Immediate onCustomViewHidden on
+                            // failure returns the picture so the page does not stay black.
+                            val run = Runnable {
+                                val activity = context.findActivityOrNull()
+                                val window = activity?.window
+                                if (activity == null || window == null) {
+                                    android.util.Log.w(
+                                        "Diag146",
+                                        "onShowCustomView: no activity/window",
+                                    )
+                                    runCatching { callback.onCustomViewHidden() }
+                                    return@Runnable
+                                }
+                                if (videoCustomView != null) {
+                                    android.util.Log.w(
+                                        "Diag146",
+                                        "onShowCustomView: already showing",
+                                    )
+                                    runCatching { callback.onCustomViewHidden() }
+                                    return@Runnable
+                                }
+                                val host = android.widget.FrameLayout(activity).apply {
+                                    setBackgroundColor(android.graphics.Color.BLACK)
+                                    isClickable = true
+                                    importantForAccessibility =
+                                        android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                                }
+                                (view.parent as? ViewGroup)?.removeView(view)
+                                host.addView(
+                                    view,
+                                    android.widget.FrameLayout.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ),
+                                )
+                                window.addFlags(
+                                    android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                                )
+                                window.addContentView(
+                                    host,
+                                    android.widget.FrameLayout.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        android.view.Gravity.CENTER,
+                                    ),
+                                )
+                                host.bringToFront()
+                                videoFullscreenHost = host
                                 videoCustomView = view
                                 videoCustomViewCallback = callback
-                                context.findActivityOrNull()?.let { act ->
-                                    act.keepScreenOn(true)
-                                    act.toggleSystemBar(false)
-                                }
+                                activity.keepScreenOn(true)
+                                activity.toggleSystemBar(false)
+                                android.util.Log.i("Diag146", "onShowCustomView: attached")
+                            }
+                            val decor = context.findActivityOrNull()?.window?.decorView
+                            if (decor != null) {
+                                decor.post(run)
+                            } else {
+                                run.run()
                             }
                         },
                         customViewHideHandler = {
@@ -1527,6 +1883,47 @@ fun BrowserSessionScreen(
                                     isHls = isHls,
                                 ),
                             )
+                        },
+                        onPageMediaState = { playing, mediaUrl, documentUrl, durationSec, _ ->
+                            // SPEC-188: webpage player → system media notification.
+                            when (playing) {
+                                true -> {
+                                    if (!BrowserVideoPlaybackService.isAudioOnlyActive() &&
+                                        !BrowserVideoPlayerBridge.hasNativeVideo()
+                                    ) {
+                                        BrowserWebMediaBridge.onPageMediaPlay(
+                                            mediaUrl = mediaUrl,
+                                            documentUrl = documentUrl,
+                                            durationSec = durationSec,
+                                            pageTitle = clientRef?.lastTitle.orEmpty(),
+                                        )
+                                        BrowserVideoPlaybackService.startPage(
+                                            context,
+                                            BrowserWebMediaBridge.title,
+                                        )
+                                    }
+                                }
+                                false -> {
+                                    BrowserWebMediaBridge.onPageMediaPause()
+                                    if (BrowserWebMediaBridge.active &&
+                                        !BrowserVideoPlaybackService.isAudioOnlyActive() &&
+                                        !BrowserVideoPlayerBridge.hasNativeVideo()
+                                    ) {
+                                        BrowserVideoPlaybackService.startPage(
+                                            context,
+                                            BrowserWebMediaBridge.title,
+                                        )
+                                    }
+                                }
+                                null -> {
+                                    BrowserWebMediaBridge.onPageMediaDestroy()
+                                    if (!BrowserVideoPlaybackService.isAudioOnlyActive() &&
+                                        !BrowserVideoPlayerBridge.hasNativeVideo()
+                                    ) {
+                                        BrowserVideoPlaybackService.stop(context)
+                                    }
+                                }
+                            }
                         },
                         onUrlChanged = { url ->
                             pendingForcedUrl = null
@@ -1557,6 +1954,10 @@ fun BrowserSessionScreen(
                             // SPEC-022 B: scroll hook on phone + tablet for chrome auto-hide + 073 memory.
                             hostRef?.evaluateJavaScript(
                                 BrowserAwContentsClient.SCROLL_HOOK_JS,
+                                null,
+                            )
+                            hostRef?.evaluateJavaScript(
+                                BrowserAwContentsClient.VIDEO_HOOK_JS,
                                 null,
                             )
                             hostRef?.evaluateJavaScript(BrowserContextMenuJs.HOOK_JS, null)
@@ -1808,152 +2209,201 @@ fun BrowserSessionScreen(
                                 Spacer(modifier = Modifier.height(16.dp))
                             }
                         }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            val blurOn = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-                            val barBackdrop = LocalTopBarBackdrop.current ?: chromeBackdrop
-                            // SPEC-038: action bar, not tab strip — no sticky selected index.
-                            fun activateChromeTab(index: Int) {
-                                when (index) {
-                                    0 -> hostRef?.goBack()
-                                    1 -> hostRef?.goForward()
-                                    2 -> showToolbox = true
-                                    3 -> {
-                                        // SPEC-074: open tabs first; snapshot after navigate to
-                                        // avoid DrawFn + nav transition stacking on RenderThread.
-                                        val open = onOpenTabs
-                                        if (open != null) {
-                                            open()
-                                            BrowserSessionHolder.captureActiveThumbnail()
+                        if (phoneSplitChrome) {
+                            // SPEC-169 / 1.7.0: bottom = back · forward · toolbox · tabs · reader FAB
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    val blurOn = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                                    val barBackdrop = LocalTopBarBackdrop.current ?: chromeBackdrop
+                                    fun activateChromeTab(index: Int) {
+                                        when (index) {
+                                            0 -> hostRef?.goBack()
+                                            1 -> hostRef?.goForward()
+                                            2 -> showToolbox = true
+                                            3 -> {
+                                                val open = onOpenTabs
+                                                if (open != null) {
+                                                    open()
+                                                    BrowserSessionHolder.captureActiveThumbnail()
+                                                } else {
+                                                    showSnack("标签页即将支持")
+                                                }
+                                            }
+                                        }
+                                    }
+                                    fun openBackHistory() {
+                                        val items = hostRef?.navigationHistoryItems(
+                                            io.legado.app.browser.engine.BrowserNavHistory.Direction.Back,
+                                        ).orEmpty()
+                                        if (items.isEmpty()) {
+                                            context.toastOnUi("没有可后退的页面")
                                         } else {
-                                            showSnack("标签页即将支持")
+                                            backHistoryItems = items
+                                            forwardHistoryMenu = false
+                                            backHistoryMenu = true
+                                        }
+                                    }
+                                    fun openForwardHistory() {
+                                        val items = hostRef?.navigationHistoryItems(
+                                            io.legado.app.browser.engine.BrowserNavHistory.Direction.Forward,
+                                        ).orEmpty()
+                                        if (items.isEmpty()) {
+                                            context.toastOnUi("没有可前进的页面")
+                                        } else {
+                                            forwardHistoryItems = items
+                                            backHistoryMenu = false
+                                            forwardHistoryMenu = true
+                                        }
+                                    }
+                                    FloatingBottomBar(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        selectedIndex = { 0 },
+                                        onSelected = { activateChromeTab(it) },
+                                        onReselected = { activateChromeTab(it) },
+                                        backdrop = barBackdrop,
+                                        tabsCount = 4,
+                                        isBlurEnabled = blurOn,
+                                        enableDragSwitch = false,
+                                        persistentSelection = false,
+                                        barHeight = phoneChromeBarHeight,
+                                        indicatorHeight = phoneChromeBarHeight,
+                                    ) {
+                                        FloatingBottomBarItem(
+                                            onClick = { activateChromeTab(0) },
+                                            onLongClick = { openBackHistory() },
+                                        ) {
+                                            Box {
+                                                SymbolIcon(
+                                                    Symbols.ArrowBack,
+                                                    contentDescription = "后退",
+                                                    tint = scheme.onSurface,
+                                                )
+                                                BrowserNavHistoryMenu(
+                                                    expanded = backHistoryMenu,
+                                                    items = backHistoryItems,
+                                                    onDismiss = { backHistoryMenu = false },
+                                                    onSelect = { hostRef?.goBackOrForward(it.steps) },
+                                                    aboveAnchor = true,
+                                                )
+                                            }
+                                        }
+                                        FloatingBottomBarItem(
+                                            onClick = { activateChromeTab(1) },
+                                            onLongClick = { openForwardHistory() },
+                                        ) {
+                                            Box {
+                                                SymbolIcon(
+                                                    Symbols.ArrowForwardIos,
+                                                    contentDescription = "前进",
+                                                    tint = scheme.onSurface,
+                                                )
+                                                BrowserNavHistoryMenu(
+                                                    expanded = forwardHistoryMenu,
+                                                    items = forwardHistoryItems,
+                                                    onDismiss = { forwardHistoryMenu = false },
+                                                    onSelect = { hostRef?.goBackOrForward(it.steps) },
+                                                    aboveAnchor = true,
+                                                )
+                                            }
+                                        }
+                                        FloatingBottomBarItem(
+                                            onClick = { activateChromeTab(2) },
+                                        ) {
+                                            SymbolIcon(
+                                                Symbols.Box,
+                                                contentDescription = "工具箱",
+                                                tint = scheme.onSurface,
+                                                size = 28.dp,
+                                            )
+                                        }
+                                        FloatingBottomBarItem(
+                                            onClick = { activateChromeTab(3) },
+                                            onLongClick = { tabMenu = true },
+                                        ) {
+                                            Box {
+                                                BrowserTabCountBadge(
+                                                    count = openTabCount.size,
+                                                    tint = scheme.onSurface,
+                                                    useGlass = false,
+                                                    size = 28.dp,
+                                                    borderWidth = 2.dp,
+                                                )
+                                                BrowserTabCountMenu(
+                                                    expanded = tabMenu,
+                                                    onDismiss = { tabMenu = false },
+                                                    aboveAnchor = true,
+                                                    onNewTab = {
+                                                        BrowserTabManager.openNewTab(url = null, select = true)
+                                                    },
+                                                    onCloseAll = { BrowserTabManager.closeAll() },
+                                                    onAddBookmark = {
+                                                        val url = clientRef?.lastUrl?.takeIf { it.startsWith("http") }
+                                                            ?: address.text
+                                                        store.addBookmark(url, clientRef?.lastTitle.orEmpty())
+                                                        context.toastOnUi(
+                                                            context.getString(R.string.browser_favorite_added),
+                                                        )
+                                                    },
+                                                )
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            FloatingBottomBar(
-                                modifier = Modifier.fillMaxWidth(),
-                                selectedIndex = { 0 },
-                                onSelected = { activateChromeTab(it) },
-                                onReselected = { activateChromeTab(it) },
-                                backdrop = barBackdrop,
-                                tabsCount = 4,
-                                isBlurEnabled = blurOn,
-                                enableDragSwitch = false,
-                                persistentSelection = false,
-                                barHeight = phoneChromeBarHeight,
-                                indicatorHeight = phoneChromeBarHeight,
-                            ) {
-                                FloatingBottomBarItem(
-                                    onClick = { activateChromeTab(0) },
-                                ) {
-                                    SymbolIcon(Symbols.ArrowBack,
-                                        contentDescription = "后退",
-                                        tint = scheme.onSurface,
-                                    )
-                                }
-                                FloatingBottomBarItem(
-                                    onClick = { activateChromeTab(1) },
-                                ) {
-                                    SymbolIcon(Symbols.ArrowForwardIos,
-                                        contentDescription = "前进",
-                                        tint = scheme.onSurface,
-                                    )
-                                }
-                                FloatingBottomBarItem(
-                                    onClick = { activateChromeTab(2) },
+                                Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceMd))
+                                Box(
+                                    modifier = Modifier
+                                        .size(phoneChromeBarHeight)
+                                        .browserReaderFabGlass(ReaderFabBlue)
+                                        .combinedClickable(
+                                            enabled = !extracting,
+                                            onClick = { openReaderView() },
+                                            onLongClick = { readerModeMenu = true },
+                                        ),
+                                    contentAlignment = Alignment.Center,
                                 ) {
                                     SymbolIcon(
-                                        Symbols.Box,
-                                        contentDescription = "工具箱",
-                                        tint = scheme.onSurface,
-                                        size = 28.dp,
+                                        symbol = Symbols.Book2,
+                                        contentDescription = "净读视图",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp),
                                     )
-                                }
-                                FloatingBottomBarItem(
-                                    onClick = { activateChromeTab(3) },
-                                    onLongClick = { tabMenu = true },
-                                ) {
-                                    Box {
-                                        BrowserTabCountBadge(
-                                            count = openTabCount.size,
-                                            tint = scheme.onSurface,
-                                            useGlass = false,
-                                            size = 28.dp,
-                                            borderWidth = 2.dp,
-                                        )
-                                        BrowserTabCountMenu(
-                                            expanded = tabMenu,
-                                            onDismiss = { tabMenu = false },
-                                            aboveAnchor = true,
-                                            onNewTab = {
-                                                BrowserTabManager.openNewTab(url = null, select = true)
-                                            },
-                                            onCloseAll = { BrowserTabManager.closeAll() },
-                                            onAddBookmark = {
-                                                val url = clientRef?.lastUrl?.takeIf { it.startsWith("http") }
-                                                    ?: address.text
-                                                store.addBookmark(url, clientRef?.lastTitle.orEmpty())
-                                                context.toastOnUi(context.getString(R.string.browser_favorite_added))
-                                            },
-                                        )
-                                    }
+                                    BrowserReaderModeMenu(
+                                        expanded = readerModeMenu,
+                                        onDismiss = { readerModeMenu = false },
+                                        autoOpenEnabled = readerAutoOpen,
+                                        onAutoOpenChange = { enabled ->
+                                            readerAutoOpen = enabled
+                                            readerPrefs.triggerMode = if (enabled) {
+                                                BrowserReaderPrefs.TriggerMode.AutoDetect
+                                            } else {
+                                                BrowserReaderPrefs.TriggerMode.Manual
+                                            }
+                                            showSnack(
+                                                if (enabled) "已开启自动净读模式" else "已关闭自动净读模式",
+                                            )
+                                        },
+                                        onTextMode = {
+                                            val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
+                                            startExtract {
+                                                openNovelReader(pageUrl, keepImages = false)
+                                            }
+                                        },
+                                        onImageMode = {
+                                            openReaderView(WebMangaBookFactory.Kind.Manga)
+                                        },
+                                        onMixedMode = {
+                                            val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
+                                            startExtract {
+                                                openNovelReader(pageUrl, keepImages = true)
+                                            }
+                                        },
+                                    )
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceMd))
-                        Box(
-                            modifier = Modifier
-                                .size(phoneChromeBarHeight)
-                                .browserReaderFabGlass(ReaderFabBlue)
-                                .combinedClickable(
-                                    enabled = !extracting,
-                                    onClick = { openReaderView() },
-                                    onLongClick = { readerModeMenu = true },
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            SymbolIcon(symbol = Symbols.Book2,
-                                contentDescription = "净读视图",
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp),
-                            )
-                            BrowserReaderModeMenu(
-                                expanded = readerModeMenu,
-                                onDismiss = { readerModeMenu = false },
-                                autoOpenEnabled = readerAutoOpen,
-                                onAutoOpenChange = { enabled ->
-                                    readerAutoOpen = enabled
-                                    readerPrefs.triggerMode = if (enabled) {
-                                        BrowserReaderPrefs.TriggerMode.AutoDetect
-                                    } else {
-                                        BrowserReaderPrefs.TriggerMode.Manual
-                                    }
-                                    showSnack(
-                                        if (enabled) "已开启自动净读模式" else "已关闭自动净读模式",
-                                    )
-                                },
-                                onTextMode = {
-                                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
-                                    startExtract {
-                                        openNovelReader(pageUrl, keepImages = false)
-                                    }
-                                },
-                                onImageMode = {
-                                    openReaderView(WebMangaBookFactory.Kind.Manga)
-                                },
-                                onMixedMode = {
-                                    val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
-                                    startExtract {
-                                        openNovelReader(pageUrl, keepImages = true)
-                                    }
-                                },
-                            )
-                        }
-                    }
                     }
                 }
             } else {
@@ -2091,40 +2541,16 @@ fun BrowserSessionScreen(
                             .width(extractCapsuleWidth),
                     )
                 } else {
+                    // SPEC-169: raise above portrait bottom bar; landscape has no function bar.
+                    val barLift = if (phoneSplitChrome) phoneChromeBarHeight else 0.dp
                     ReaderLoadingCapsule(
                         onCancel = { cancelExtract() },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .padding(bottom = floatingBottomPad + phoneChromeBarHeight + 16.dp)
+                            .padding(bottom = floatingBottomPad + barLift + 16.dp)
                             .width(extractCapsuleWidth),
                     )
                 }
-            }
-        }
-    }
-
-    // SPEC-131: fullscreen video above phone/tablet chrome (Dialog covers shell).
-    videoCustomView?.let { fsView ->
-        Dialog(
-            onDismissRequest = { requestExitVideoFullscreen() },
-            properties = DialogProperties(
-                dismissOnBackPress = true,
-                dismissOnClickOutside = false,
-                usePlatformDefaultWidth = false,
-                decorFitsSystemWindows = false,
-            ),
-        ) {
-            key(fsView) {
-                AndroidView(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black)
-                        .zIndex(1f),
-                    factory = {
-                        (fsView.parent as? ViewGroup)?.removeView(fsView)
-                        fsView
-                    },
-                )
             }
         }
     }
@@ -2434,6 +2860,44 @@ private fun ChromeSnackBar(message: String) {
     )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PhoneWebChromeIcon(
+    icon: MaterialSymbol,
+    description: String,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    menu: (@Composable () -> Unit)? = null,
+) {
+    val scheme = LegadoTheme.colorScheme
+    val slot = TabletBrowserLayout.PhoneWebIconSlotDp.dp
+    Box(
+        modifier = Modifier.size(slot),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(slot)
+                .then(
+                    if (onLongClick != null) {
+                        Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                    } else {
+                        Modifier.clickable(onClick = onClick)
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            SymbolIcon(
+                icon,
+                contentDescription = description,
+                tint = scheme.onSurface,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        menu?.invoke()
+    }
+}
+
 /**
  * SPEC-149: 阅读提取加载胶囊——无遮罩；胶囊本体吞掉点击（不透传网页），取消键可用。
  */
@@ -2458,7 +2922,7 @@ private fun ReaderLoadingCapsule(
             strokeWidth = 2.dp,
         )
         Text(
-            "正在打开净读视图…",
+            "加载中",
             color = scheme.onSurface,
             fontSize = 13.sp,
             maxLines = 1,

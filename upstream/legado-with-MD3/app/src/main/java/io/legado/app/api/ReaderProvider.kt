@@ -51,9 +51,8 @@ class ReaderProvider : ContentProvider() {
     }
 
     override fun onCreate(): Boolean {
-        context?.let { context ->
-            ShortCuts.buildShortCuts(context)
-        }
+        // SPEC-165: do not draw shortcut icons here. 1.6.8 did, and an exception
+        // in this provider killed the process while the splash window was up.
         return false
     }
 

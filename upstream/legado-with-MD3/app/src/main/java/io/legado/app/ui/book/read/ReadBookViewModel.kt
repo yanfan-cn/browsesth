@@ -6,6 +6,7 @@ import android.speech.tts.TextToSpeech
 import androidx.lifecycle.viewModelScope
 import io.legado.app.BuildConfig
 import io.legado.app.R
+import splitties.init.appCtx
 import io.legado.app.base.BaseViewModel
 import io.legado.app.browser.reader.WebArticleBookFactory
 import io.legado.app.constant.AppLog
@@ -2039,6 +2040,7 @@ class ReadBookViewModel(
             durChapterIndex = ReadBook.durChapterIndex,
             durChapterPos = ReadBook.durChapterPos,
             durPageIndex = canvasPage?.pageIndex ?: ReadBook.durPageIndex,
+            chapterPageCount = canvasPage?.pageCount ?: 0,
             isLocalBook = ReadBook.isLocalBook,
             msg = ReadBook.msg,
             seekProgress = calculateSeekProgress(),
@@ -2076,7 +2078,8 @@ class ReadBookViewModel(
                 readMenuBorderColorNight = ReadBookConfig.readMenuBorderColorNight,
                 readMenuTextColor = ReadBookConfig.readMenuTextColor,
                 readMenuTextColorNight = ReadBookConfig.readMenuTextColorNight,
-                readMenuBlurAlpha = if (isBrowserEphemeralNovel) 0 else ReadBookConfig.readMenuBlurAlpha,
+                readMenuBlurAlpha = if (isBrowserEphemeralNovel) 85 else ReadBookConfig.readMenuBlurAlpha,
+                ephemeralReaderOpaqueGlass = isBrowserEphemeralNovel,
                 readMenuBlurColor = ReadBookConfig.readMenuBlurColor,
                 readMenuBlurColorNight = ReadBookConfig.readMenuBlurColorNight,
                 readMenuPaletteStyle = ReadBookConfig.readMenuPaletteStyle,
@@ -2466,11 +2469,22 @@ class ReadBookViewModel(
 
     @Suppress("LongMethod")
     private fun toggleTranslation() {
-        val book = ReadBook.book ?: return
+        val book = ReadBook.book
+        if (book == null) {
+            _effects.tryEmit(
+                ReadBookEffect.ShowToast(appCtx.getString(R.string.reader_translation_unavailable))
+            )
+            return
+        }
         val enabled = !book.getTranslationMode()
         book.setTranslationMode(enabled)
         book.save()
         _uiState.update { it.copy(translationMode = enabled) }
+        if (enabled) {
+            _effects.tryEmit(
+                ReadBookEffect.ShowToast(appCtx.getString(R.string.reader_translation_started))
+            )
+        }
         ReadBook.loadContent(false)
     }
 
@@ -2518,6 +2532,7 @@ class ReadBookViewModel(
         _uiState.update { state ->
             state.copy(
                 durPageIndex = position.pageIndex,
+                chapterPageCount = position.pageCount,
                 seekProgress = if (readSettingsRepository.currentSettings.progressBarBehavior == "page") {
                     position.pageIndex
                 } else {

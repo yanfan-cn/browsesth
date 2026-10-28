@@ -16,7 +16,6 @@ import io.legado.app.help.storage.Restore
 import io.legado.app.utils.toastOnUi
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -25,7 +24,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import splitties.init.appCtx
 
 class OnboardingViewModel(
@@ -55,16 +53,11 @@ class OnboardingViewModel(
     private var busyJob: Job? = null
 
     init {
+        // SPEC-165: onboarding is light-only. Persist so the rest of the app matches.
         viewModelScope.launch {
-            val privacy = withContext(Dispatchers.IO) {
-                runCatching { appCtx.assets.open("privacyPolicy.md").readBytes().decodeToString() }
-                    .getOrDefault("")
-            }
-            val disclaimer = withContext(Dispatchers.IO) {
-                runCatching { appCtx.assets.open("disclaimer.md").readBytes().decodeToString() }
-                    .getOrDefault("")
-            }
-            _uiState.update { it.copy(privacyPolicy = privacy, disclaimer = disclaimer) }
+            appShellSettingsGateway.update { it.copy(themeMode = "1") }
+            _uiState.update { it.copy(themeMode = "1") }
+            _effects.tryEmit(OnboardingEffect.ApplyDayNight)
         }
         viewModelScope.launch {
             themeSettingsGateway.settings.collect { theme ->
@@ -134,15 +127,9 @@ class OnboardingViewModel(
     }
 
     private fun nextPage() {
-        val state = _uiState.value
-        if (state.page == 0) {
-            LocalConfig.privacyPolicyOk = true
-        }
-        if (state.page >= state.pageCount - 1) {
-            _effects.tryEmit(OnboardingEffect.NavigateHome)
-        } else {
-            _uiState.update { it.copy(page = it.page + 1) }
-        }
+        // Privacy text stays in About. Completing this page must not loop Welcome.
+        LocalConfig.privacyPolicyOk = true
+        _effects.tryEmit(OnboardingEffect.NavigateHome)
     }
 
     private fun previousPage() {

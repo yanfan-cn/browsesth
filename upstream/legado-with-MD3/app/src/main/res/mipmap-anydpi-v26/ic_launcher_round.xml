@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- SPEC-184: round launchers get the circle logo — background layer keeps the navy disc
+     opaque across the whole mask, foreground insets the same PNG to the 72/108 mask circle
+     so the visible result is the source circle art itself. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <background android:drawable="@drawable/ic_launcher_circle" />
+    <foreground>
+        <inset
+            android:drawable="@drawable/ic_launcher_circle"
+            android:inset="16.67%" />
+    </foreground>
     <monochrome android:drawable="@drawable/ic_launcher_foreground_m" />
 </adaptive-icon>

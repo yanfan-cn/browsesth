@@ -1,8 +1,11 @@
 package io.legado.app.ui.browser
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -52,6 +55,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableIntStateOf
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import io.legado.app.ui.main.bookCoverSharedElementKey
 import io.legado.app.ui.theme.LocalTopBarBackdrop
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -64,6 +68,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -81,11 +86,14 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -113,6 +121,7 @@ import io.legado.app.browser.engine.BrowserNtpNews
 import io.legado.app.browser.engine.BrowserNtpPrefs
 import io.legado.app.browser.engine.BrowserNtpScrollMemory
 import io.legado.app.browser.engine.BrowserClipboardUrl
+import io.legado.app.browser.engine.BrowserNtpSearchRows
 import io.legado.app.browser.engine.BrowserOmniboxSuggest
 import io.legado.app.browser.engine.BrowserSearchEngine
 import io.legado.app.browser.engine.BrowserShortcut
@@ -128,6 +137,7 @@ import io.legado.app.ui.theme.LegadoTheme
 import java.io.File
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.image.cover.CoilBookCover
 import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.utils.toastOnUi
@@ -152,7 +162,7 @@ private data class NtpColors(
     val divider: Color,
 )
 
-/** SPEC-067: non-incognito NTP follows App ColorScheme (same as「我的」). */
+/** SPEC-067/161: NTP follows App ColorScheme (same as「我的」); incognito no longer overrides. */
 @Composable
 private fun rememberNtpColors(forceDark: Boolean?): NtpColors {
     val scheme = LegadoTheme.colorScheme
@@ -162,7 +172,6 @@ private fun rememberNtpColors(forceDark: Boolean?): NtpColors {
         null -> LegadoTheme.isDark || isSystemInDarkTheme()
     }
     // Prefer App scheme for both light/dark so NTP matches settings pages.
-    // Incognito still overrides with BrowserUiTokens at call sites.
     return NtpColors(
         pageBg = scheme.background,
         fieldBg = scheme.surfaceContainerLow,
@@ -189,6 +198,11 @@ fun BrowserNtpScreen(
     rootModifier: Modifier = Modifier,
     /** SPEC-018/040: tablet NTP layout (55% width, wallpaper, no corner chrome). */
     tabletLayout: Boolean = false,
+    /** SPEC-177: phone fullscreen search open → hide main bottom bar. */
+    onPhoneSearchActiveChange: (Boolean) -> Unit = {},
+    /** SPEC-183: shared-element scopes for the reading-list card covers. */
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
     viewModel: BrowserNtpViewModel = koinViewModel(),
 ) {
     val context = LocalContext.current
@@ -202,6 +216,47 @@ fun BrowserNtpScreen(
     var engine by remember { mutableStateOf(ntpPrefs.searchEngine()) }
     var query by remember { mutableStateOf("") }
     var queryFocused by remember { mutableStateOf(false) }
+    val fullscreenSearch = BrowserNtpSearchRows.opensFullscreen(tabletLayout)
+    var phoneSearchMounted by remember { mutableStateOf(false) }
+    var phoneSearchExpanded by remember { mutableStateOf(false) }
+    /** SPEC-179: keep search cover while session slides in; no collapse-to-NTP flash. */
+    var phoneSearchDismissAfterNav by remember { mutableStateOf(false) }
+    var ntpRootTop by remember { mutableFloatStateOf(0f) }
+    var ntpRootLeft by remember { mutableFloatStateOf(0f) }
+    var ntpRootWidth by remember { mutableFloatStateOf(0f) }
+    var searchAnchorTop by remember { mutableFloatStateOf(0f) }
+    var searchAnchorLeft by remember { mutableFloatStateOf(0f) }
+    var searchAnchorWidth by remember { mutableFloatStateOf(0f) }
+    BackHandler(enabled = phoneSearchMounted && !phoneSearchDismissAfterNav) {
+        phoneSearchExpanded = false
+    }
+    LaunchedEffect(phoneSearchMounted) {
+        onPhoneSearchActiveChange(phoneSearchMounted)
+    }
+    LaunchedEffect(phoneSearchDismissAfterNav) {
+        if (!phoneSearchDismissAfterNav) return@LaunchedEffect
+        // SPEC-179 R2: entry into the web page is immediate; hold the search cover
+        // until the session actually starts showing, then cover its Material
+        // slide-in (240ms) before unmounting — no NTP flash in between.
+        val start = System.currentTimeMillis()
+        var sessionShowing = false
+        while (System.currentTimeMillis() - start < 3000L) {
+            val activeId = BrowserTabManager.activeTabId.value
+            val active = BrowserTabManager.tabs.value.firstOrNull { it.id == activeId }
+            if (BrowserTabManager.isWebSessionShowing(active)) {
+                sessionShowing = true
+                break
+            }
+            delay(16)
+        }
+        delay(if (sessionShowing) 360L else 120L)
+        phoneSearchMounted = false
+        phoneSearchExpanded = false
+        phoneSearchDismissAfterNav = false
+    }
+    DisposableEffect(Unit) {
+        onDispose { onPhoneSearchActiveChange(false) }
+    }
     /** SPEC-146 R2: clipboard link candidate while the NTP search is focused. */
     var clipboardUrl by remember { mutableStateOf<String?>(null) }
     var shortcuts by remember { mutableStateOf(shortcutStore.list()) }
@@ -235,6 +290,8 @@ fun BrowserNtpScreen(
     var newsSourceMenu by remember { mutableStateOf(false) }
     val ntpScrollState = rememberScrollState()
     val newsScope = rememberCoroutineScope()
+    // SPEC-192: 滚动期间抑制液态玻璃采样，静止后恢复。
+    io.legado.app.ui.theme.ScrollGlassSuppressor(ntpScrollState)
     // SPEC-098: arm before sync; remount at 0 must not wipe saved offset (web ScrollMemory pattern).
     DisposableEffect(Unit) {
         BrowserNtpScrollMemory.armRestore()
@@ -435,6 +492,12 @@ fun BrowserNtpScreen(
         onOpenUrl(url, incognito, raw)
     }
 
+    fun openPhoneSearch() {
+        if (!fullscreenSearch) return
+        phoneSearchMounted = true
+        phoneSearchExpanded = true
+    }
+
     fun openSuggest(item: BrowserOmniboxSuggest.Item) {
         keyboardController?.hide()
         focusManager.clearFocus(force = true)
@@ -461,16 +524,17 @@ fun BrowserNtpScreen(
         }
     }
 
+    // SPEC-161: incognito keeps the same page appearance as normal (no forced dark skin).
     val pageBg by animateColorAsState(
-        targetValue = if (incognito) BrowserUiTokens.IncognitoPageBg else colors.pageBg,
+        targetValue = colors.pageBg,
         animationSpec = tween(400),
         label = "ntpPageBg",
     )
-    // SPEC-059: follow app theme (rememberNtpColors already uses LegadoTheme when forceDark=null)
-    val ntpDark = incognito || LegadoTheme.isDark || isSystemInDarkTheme()
-    // SPEC-158: daily Bing when the switch is on; otherwise the selected preset / photo.
-    val dailyWallpaperVisible = wallpaperUrl.isNotBlank() && !incognito && dailyWallpaper
-    val presetWallpaperVisible = !incognito && !dailyWallpaper
+    // SPEC-059/161: follow app theme only (incognito no longer forces dark).
+    val ntpDark = LegadoTheme.isDark || isSystemInDarkTheme()
+    // SPEC-158/161: wallpaper stays visible in incognito.
+    val dailyWallpaperVisible = wallpaperUrl.isNotBlank() && dailyWallpaper
+    val presetWallpaperVisible = !dailyWallpaper
     val userWallpaperVisible = presetWallpaperVisible && !NtpWallpaperIds.isBuiltin(wallpaperId)
     val wallpaperScrim = when {
         dailyWallpaperVisible -> 0.35f
@@ -496,7 +560,13 @@ fun BrowserNtpScreen(
     Box(
         modifier = rootModifier
             .fillMaxSize()
-            .background(pageBg),
+            .background(pageBg)
+            .onGloballyPositioned { coords ->
+                val pos = coords.positionInWindow()
+                ntpRootTop = pos.y
+                ntpRootLeft = pos.x
+                ntpRootWidth = coords.size.width.toFloat()
+            },
     ) {
         // SPEC-049: sample source must NOT contain glass descendants — nested
         // layerBackdrop + browserControlLiquidGlass caused RenderThread SIGSEGV.
@@ -541,26 +611,53 @@ fun BrowserNtpScreen(
                 }
         }
 
+        // SPEC-160: top gradient translucent mask (no blur) for chrome readability.
+        val scrimBase = if (LegadoTheme.isDark) {
+            BrowserUiTokens.PageBgDark
+        } else {
+            BrowserUiTokens.PageBgLight
+        }
+        val scrimEdge = BrowserUiTokens.ntpScrimEdgeAlpha(isDark = LegadoTheme.isDark)
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .zIndex(1.5f)
+                .fillMaxWidth()
+                .height(BrowserUiTokens.NtpScrimHeightTop)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            scrimBase.copy(alpha = scrimEdge),
+                            scrimBase.copy(alpha = 0f),
+                        ),
+                    ),
+                ),
+        )
+
         // SPEC-049: compact 54dp chrome + glass customize panel (sibling of sample source)
-        val chromeTint = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText
+        val chromeTint = colors.primaryText
         Row(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .zIndex(2f)
-                .fillMaxWidth()
-                .then(if (tabletLayout) Modifier else Modifier.statusBarsPadding())
-                .height(BrowserUiTokens.NtpTopBarHeight)
-                .padding(horizontal = BrowserUiTokens.PagePaddingH),
+                .then(
+                    if (tabletLayout) {
+                        // SPEC-168: no full-width blank band. The menu sits on its own.
+                        Modifier.padding(start = BrowserUiTokens.PagePaddingH, top = 8.dp)
+                    } else {
+                        Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .height(BrowserUiTokens.NtpTopBarHeight)
+                            .padding(horizontal = BrowserUiTokens.PagePaddingH)
+                    },
+                ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceMd),
         ) {
             // SPEC-069/071: top chrome uses search-field tone; liquid glass → low alpha.
-            val glassFill = ntpGlassOverlayAlpha(forceDark = if (incognito) true else null)
-            val chromeBtnBg = (if (incognito) {
-                BrowserUiTokens.IncognitoFieldBg
-            } else {
-                colors.fieldBg
-            }).copy(alpha = glassFill)
+            val glassFill = ntpGlassOverlayAlpha()
+            val chromeBtnBg = colors.fieldBg.copy(alpha = glassFill)
             Box {
                 NtpGlassIcon(
                     icon = Symbols.Tune,
@@ -615,8 +712,8 @@ fun BrowserNtpScreen(
                     )
                 }
             }
-            Spacer(modifier = Modifier.weight(1f))
             if (!tabletLayout) {
+            Spacer(modifier = Modifier.weight(1f))
                 NtpGlassIcon(
                     icon = Symbols.History,
                     desc = "历史记录",
@@ -642,7 +739,7 @@ fun BrowserNtpScreen(
                     onCloseAll = { BrowserTabManager.closeAll() },
                 )
             }
-        }
+            }
 
         // SPEC-126: tablet — full-width scroll so left/right blank areas also scroll;
         // content column stays 75%/55% centered; no large bottom placeholder.
@@ -657,7 +754,7 @@ fun BrowserNtpScreen(
                 .align(Alignment.TopCenter)
                 .then(
                     if (tabletLayout) {
-                        Modifier.padding(top = BrowserUiTokens.NtpTopBarHeight)
+                        Modifier
                     } else {
                         // SPEC-140-R5: horizontal/bottom insets stay fixed on the
                         // scroll container; the TOP shift moved INSIDE the scroll
@@ -675,7 +772,14 @@ fun BrowserNtpScreen(
                 .verticalScroll(ntpScrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (!tabletLayout) {
+            if (tabletLayout) {
+                // SPEC-170: shift NTP body 90dp; home menu stays outside this scroll.
+                Spacer(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(TabletBrowserLayout.TabletNtpContentShiftDownDp.dp),
+                )
+            } else {
                 // SPEC-140-R5: scrollable top spacing — at rest the search capsule
                 // sits NtpContentShiftDown below the status bar (135dp below the
                 // chrome row per operator directive) and scrolls away with the
@@ -708,35 +812,45 @@ fun BrowserNtpScreen(
                     .padding(bottom = if (tabletLayout) 16.dp else 0.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-            val showLogo = incognito || !dailyWallpaper
+            // SPEC-161/170: hide wordmark on daily wallpaper; phone landscape always hides.
+            val showLogo = if (tabletLayout) {
+                !dailyWallpaper
+            } else {
+                TabletBrowserLayout.phoneNtpShowWordmarkLogo(
+                    landscape = phoneLandscape,
+                    dailyWallpaper = dailyWallpaper,
+                )
+            }
             if (showLogo) {
                 Image(
                     painter = painterResource(R.drawable.ic_ntp_logo),
                     contentDescription = stringResource(R.string.app_name),
                     contentScale = ContentScale.Fit,
-                    colorFilter = ColorFilter.tint(
-                        if (incognito) Color(0xFFF6F1EA) else colors.ntpWordmark,
-                    ),
+                    colorFilter = ColorFilter.tint(colors.ntpWordmark),
                     modifier = Modifier.height(44.dp),
                 )
                 // SPEC-060: Logo ↔ search spacing 24dp on tablet; phone keeps 16dp
                 Spacer(modifier = Modifier.height(if (tabletLayout) 24.dp else 16.dp))
             }
 
-            // SPEC-049: dual-row capsule, no divider, liquid glass
-            val fieldBg = if (incognito) BrowserUiTokens.IncognitoFieldBg else colors.fieldBg
-            val textColor = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText
-            val secondary = if (incognito) BrowserUiTokens.TextSecondaryDark else colors.secondaryText
+            // SPEC-049/161: dual-row capsule — same colors in incognito.
+            val fieldBg = colors.fieldBg
+            val textColor = colors.primaryText
+            val secondary = colors.secondaryText
             val capsuleShape = RoundedCornerShape(28.dp)
-            // SPEC-072: liquid glass 0.4/0.35; filled = 1; incognito keeps dark overlay.
-            val capsuleFill = if (incognito) {
-                BrowserUiTokens.NtpGlassOverlayDark
-            } else {
-                ntpGlassOverlayAlpha()
-            }
+            // SPEC-072: liquid glass 0.4/0.35; filled = 1.
+            val capsuleFill = ntpGlassOverlayAlpha()
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .onGloballyPositioned { coords ->
+                        if (!phoneSearchMounted) {
+                            val pos = coords.positionInWindow()
+                            searchAnchorTop = pos.y - ntpRootTop
+                            searchAnchorLeft = pos.x - ntpRootLeft
+                            searchAnchorWidth = coords.size.width.toFloat()
+                        }
+                    }
                     .clip(capsuleShape)
                     .browserControlLiquidGlass(capsuleShape, interactive = false, showShadow = false)
                     .background(fieldBg.copy(alpha = capsuleFill)),
@@ -780,6 +894,23 @@ fun BrowserNtpScreen(
                         )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
+                    if (fullscreenSearch) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .clickable { openPhoneSearch() },
+                            contentAlignment = Alignment.CenterStart,
+                        ) {
+                            Text(
+                                "在 ${engine.displayName} 中搜索或输入网址",
+                                color = secondary,
+                                fontSize = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    } else {
                     BasicTextField(
                         value = query,
                         onValueChange = { query = it },
@@ -813,6 +944,7 @@ fun BrowserNtpScreen(
                             inner()
                         },
                     )
+                    }
                 }
 
                 Row(
@@ -887,7 +1019,7 @@ fun BrowserNtpScreen(
                 }
             }
 
-            if (querySuggestions.isNotEmpty() || clipboardUrl != null) {
+            if (!fullscreenSearch && (querySuggestions.isNotEmpty() || clipboardUrl != null)) {
                 Spacer(modifier = Modifier.height(10.dp))
                 BrowserOmniboxSuggestPanel(
                     items = querySuggestions,
@@ -952,34 +1084,24 @@ fun BrowserNtpScreen(
 
             if (showBookshelf) {
                 Spacer(modifier = Modifier.height(BrowserUiTokens.SpaceXl))
-                val shelfFill = if (incognito) {
-                    BrowserUiTokens.NtpGlassOverlayDark
-                } else {
-                    ntpGlassOverlayAlpha()
-                }
-                val shelfBg = (if (incognito) {
-                    BrowserUiTokens.IncognitoFieldBg
-                } else {
-                    colors.fieldBg
-                }).copy(alpha = shelfFill)
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(BrowserUiTokens.CardCorner))
-                        .browserControlLiquidGlass(
-                            RoundedCornerShape(BrowserUiTokens.CardCorner),
-                            interactive = false,
-                        ),
-                    shape = RoundedCornerShape(BrowserUiTokens.CardCorner),
-                    // SPEC-069/071: same tone as search field; liquid glass keeps translucency.
-                    color = shelfBg,
-                    shadowElevation = 0.dp,
-                    tonalElevation = 0.dp,
-                ) {
+                val shelfFill = ntpGlassOverlayAlpha()
+                val shelfBg = colors.fieldBg.copy(alpha = shelfFill)
+                val shelfShape = RoundedCornerShape(BrowserUiTokens.CardCorner)
+                // SPEC-189 R3: glass and clip stay on the background sibling. A
+                // drawBackdrop layer around the covers rasterizes them, so the
+                // shared-element overlay cannot fly the cover to book info.
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(shelfShape)
+                            .background(shelfBg, shelfShape)
+                            .browserControlLiquidGlass(shelfShape, interactive = false),
+                    )
                     Column(modifier = Modifier.padding(BrowserUiTokens.SpaceLg)) {
                         Text(
-                            "净读列表",
-                            color = if (incognito) BrowserUiTokens.TextPrimaryDark else colors.primaryText,
+                            "阅读列表",
+                            color = colors.primaryText,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier
@@ -989,7 +1111,7 @@ fun BrowserNtpScreen(
                         )
                         if (books.isEmpty()) {
                             Text(
-                                "净读列表暂无内容，可在「净读列表」页添加",
+                                "阅读列表暂无内容，可在「阅读列表」页添加",
                                 color = colors.secondaryText,
                                 fontSize = 12.sp,
                                 modifier = Modifier
@@ -999,6 +1121,9 @@ fun BrowserNtpScreen(
                             )
                         } else {
                             LazyRow(
+                                // SPEC-189 R3: eat horizontal remainder and fling after the
+                                // row has scrolled. Do not disable the outer pager.
+                                modifier = Modifier.nestedScroll(NtpShelfScroll),
                                 horizontalArrangement = Arrangement.spacedBy(BrowserUiTokens.SpaceMd),
                                 contentPadding = PaddingValues(horizontal = BrowserUiTokens.SpaceXs),
                             ) {
@@ -1012,25 +1137,25 @@ fun BrowserNtpScreen(
                                                 onLongClick = { coverBook = book },
                                             ),
                                     ) {
-                                        SubcomposeAsyncImage(
-                                            model = ImageRequest.Builder(context)
-                                                .data(book.getDisplayCover())
-                                                .crossfade(true)
-                                                .build(),
-                                            contentDescription = book.name,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .size(width = 72.dp, height = 96.dp)
-                                                .clip(RoundedCornerShape(BrowserUiTokens.ButtonCorner))
-                                                .background(colors.fieldBg),
+                                        // SPEC-160: CoilBookCover renders color/gradient covers too.
+                                        CoilBookCover(
+                                            name = book.name,
+                                            author = book.author,
+                                            path = book.getDisplayCover(),
+                                            radius = BrowserUiTokens.ButtonCorner,
+                                            modifier = Modifier.size(width = 72.dp, height = 96.dp),
+                                            bookUrl = book.bookUrl,
+                                            preferCache = true,
+                                            ignoreUseDefaultCover = true,
+                                            // SPEC-183: same key the book-info route falls back to,
+                                            // so the cover morphs into the detail page.
+                                            sharedCoverKey = bookCoverSharedElementKey(book.bookUrl),
+                                            sharedTransitionScope = sharedTransitionScope,
+                                            animatedVisibilityScope = animatedVisibilityScope,
                                         )
                                         Text(
                                             book.name,
-                                            color = if (incognito) {
-                                                BrowserUiTokens.TextPrimaryDark
-                                            } else {
-                                                colors.primaryText
-                                            },
+                                            color = colors.primaryText,
                                             fontSize = 12.sp,
                                             maxLines = 2,
                                             overflow = TextOverflow.Ellipsis,
@@ -1303,6 +1428,7 @@ fun BrowserNtpScreen(
         show = pendingCover != null,
         name = pendingCover?.name.orEmpty(),
         author = pendingCover?.author.orEmpty(),
+        webCoverUrl = pendingCover?.coverUrl,
         onDismissRequest = { coverBook = null },
         onSelect = { coverUrl ->
             pendingCover?.let { viewModel.updateCustomCover(it.bookUrl, coverUrl) }
@@ -1310,6 +1436,39 @@ fun BrowserNtpScreen(
             context.toastOnUi("封面已更新")
         },
     )
+        if (phoneSearchMounted) {
+            PhoneNtpSearchOverlay(
+                expanded = phoneSearchExpanded,
+                anchorTopPx = searchAnchorTop,
+                anchorLeftPx = searchAnchorLeft,
+                anchorWidthPx = searchAnchorWidth,
+                rootWidthPx = ntpRootWidth,
+                incognito = incognito,
+                engine = engine,
+                onEngineChange = {
+                    engine = it
+                    ntpPrefs.searchEngineId = it.id
+                },
+                browseStore = browseStore,
+                pageBg = colors.pageBg,
+                fieldBg = colors.fieldBg,
+                cardBg = colors.cardBg,
+                textColor = colors.primaryText,
+                secondary = colors.secondaryText,
+                cursor = colors.cta,
+                onNavigate = { url, label ->
+                    keyboardController?.hide()
+                    // SPEC-179: open session first; keep overlay covering NTP during slide-in.
+                    onOpenUrl(url, incognito, label)
+                    phoneSearchDismissAfterNav = true
+                },
+                onExited = {
+                    if (phoneSearchDismissAfterNav) return@PhoneNtpSearchOverlay
+                    phoneSearchMounted = false
+                    phoneSearchExpanded = false
+                },
+            )
+        }
         } // CompositionLocalProvider
     } // root Box
 }
@@ -1664,7 +1823,7 @@ private fun NtpCustomizePanel(
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
             )
-            NtpCustomizeRow("净读列表卡", showBookshelf, textColor, onShowBookshelf)
+                            NtpCustomizeRow("阅读列表卡", showBookshelf, textColor, onShowBookshelf)
             NtpCustomizeRow("快捷书签", showShortcuts, textColor, onShowShortcuts)
             // SPEC-087: master switch only; per-source toggles live in the news card.
             NtpCustomizeRow("资讯信息流", newsFeedEnabled, textColor, onNewsFeedEnabled)

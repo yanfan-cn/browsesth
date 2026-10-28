@@ -2080,6 +2080,9 @@ class BookInfoViewModel(
             origin = origin,
             originName = originName,
             coverPath = getDisplayCover(),
+            webCoverUrl = coverUrl?.takeIf {
+                it.startsWith("http://") || it.startsWith("https://")
+            },
             group = group,
             isLocal = isLocal,
             type = type,

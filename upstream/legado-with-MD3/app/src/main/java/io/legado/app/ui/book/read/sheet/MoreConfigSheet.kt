@@ -126,9 +126,6 @@ fun MoreConfigSheet(
                 onSliderVibratorChange = {
                     onIntent(ReadBookIntent.UpdateConfig(ConfigUpdate.SliderVibrator(it)))
                 },
-                onUseNewTocSheetChange = {
-                    onIntent(ReadBookIntent.UpdateConfig(ConfigUpdate.UseNewTocSheet(it)))
-                },
                 onMaxLengthWithNoTocChange = {
                     onIntent(ReadBookIntent.UpdateConfig(ConfigUpdate.MaxLengthWithNoToc(it)))
                 },
@@ -165,15 +162,6 @@ fun MoreConfigSheet(
                 onOpenClickRegionalConfig = onOpenClickRegionalConfig,
                 onOpenPageKeyConfig = onOpenPageKeyConfig,
                 onOpenTextSelectMenuConfig = onOpenTextSelectMenuConfig,
-                onDisableReturnKeyChange = {
-                    onIntent(ReadBookIntent.UpdateConfig(ConfigUpdate.DisableReturnKey(it)))
-                },
-                onShowReadTitleAdditionChange = {
-                    onIntent(ReadBookIntent.UpdateConfig(ConfigUpdate.ShowReadTitleAddition(it)))
-                },
-                onShowMenuIconChange = {
-                    onIntent(ReadBookIntent.UpdateConfig(ConfigUpdate.ShowMenuIcon(it)))
-                },
             )
         }
     }
@@ -333,7 +321,6 @@ private fun PageControlSettings(
 private fun OtherSettings(
     preferences: ReadPreferences,
     onSliderVibratorChange: (Boolean) -> Unit,
-    onUseNewTocSheetChange: (Boolean) -> Unit,
     onMaxLengthWithNoTocChange: (Int) -> Unit,
     onSelectVibratorChange: (Boolean) -> Unit,
     onAutoChangeSourceChange: (Boolean) -> Unit,
@@ -346,11 +333,8 @@ private fun OtherSettings(
     onOptimizeRenderChange: (Boolean) -> Unit,
     onClickImgWayChange: (String) -> Unit,
     onOpenClickRegionalConfig: () -> Unit,
-    onDisableReturnKeyChange: (Boolean) -> Unit,
     onOpenPageKeyConfig: () -> Unit,
     onOpenTextSelectMenuConfig: () -> Unit,
-    onShowReadTitleAdditionChange: (Boolean) -> Unit,
-    onShowMenuIconChange: (Boolean) -> Unit,
 ) {
     val clickImageWayEntries = stringArrayResource(R.array.click_image_way_title)
     val clickImageWayValues = stringArrayResource(R.array.click_image_way_value)
@@ -359,12 +343,6 @@ private fun OtherSettings(
         title = stringResource(R.string.enable_slider_vibrator),
         checked = preferences.sliderVibrator,
         onCheckedChange = onSliderVibratorChange,
-    )
-
-    TinySwitchSettingItem(
-        title = stringResource(R.string.use_new_toc_sheet),
-        checked = preferences.useNewTocSheet,
-        onCheckedChange = onUseNewTocSheetChange,
     )
 
     TinySliderSettingItem(
@@ -440,11 +418,6 @@ private fun OtherSettings(
         title = stringResource(R.string.click_regional_config),
         onClick = onOpenClickRegionalConfig,
     )
-    TinySwitchSettingItem(
-        title = stringResource(R.string.disable_return_key),
-        checked = preferences.disableReturnKey,
-        onCheckedChange = onDisableReturnKeyChange,
-    )
     TinyClickableSettingItem(
         title = stringResource(R.string.custom_page_key),
         onClick = onOpenPageKeyConfig,
@@ -452,15 +425,5 @@ private fun OtherSettings(
     TinyClickableSettingItem(
         title = stringResource(R.string.edit_select_menu),
         onClick = onOpenTextSelectMenuConfig,
-    )
-    TinySwitchSettingItem(
-        title = stringResource(R.string.show_read_title_addition),
-        checked = preferences.showReadTitleAddition,
-        onCheckedChange = onShowReadTitleAdditionChange,
-    )
-    TinySwitchSettingItem(
-        title = stringResource(R.string.show_menu_icon),
-        checked = preferences.showMenuIcon,
-        onCheckedChange = onShowMenuIconChange,
     )
 }

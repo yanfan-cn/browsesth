@@ -111,7 +111,8 @@ import kotlin.coroutines.suspendCoroutine
 /**
  * 主界面
  */
-open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
+open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack,
+    io.legado.app.ui.book.manga.MangaReaderKeyHost {
 
     private data class RouteEvent(
         val route: NavKey,
@@ -129,12 +130,6 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
     }
 
     companion object {
-        private const val KEY_RESTORE_READ_ROUTE = "restoreReadRoute"
-        private const val KEY_RESTORE_READ_BOOK_URL = "restoreReadBookUrl"
-        private const val KEY_RESTORE_READ_ALOUD = "restoreReadAloud"
-        private const val KEY_RESTORE_READ_IN_BOOKSHELF = "restoreReadInBookshelf"
-        private const val KEY_RESTORE_READ_CHAPTER_CHANGED = "restoreReadChapterChanged"
-
         @Volatile
         var hasActiveReadBookRoute: Boolean = false
 
@@ -333,20 +328,24 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
         }
     }
     private var shouldApplyDefaultToRead = true
-    private var restoredReadBookRoute: MainRouteReadBook? = null
     internal var activeReadBookInputHandler: ReadBookInputHandler? = null
-    internal var activeReadBookRoute: MainRouteReadBook? = null
-    internal var activeMangaKeyHandler: ((Int) -> Boolean)? = null
+    override var activeMangaKeyHandler: ((Int) -> Boolean)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         shouldApplyDefaultToRead = savedInstanceState == null
-        restoredReadBookRoute = savedInstanceState?.restoreReadBookRoute()
         super.onCreate(savedInstanceState)
 
         // SPEC-123 diag: capture extra Chromium switches via
         // `am start ... --es xunye_switches "--switch=a,--switch-b"`, applied next start.
         runCatching { BrowserKernelCompat.captureSwitchesExtra(this, intent?.getStringExtra("xunye_switches")) }
+        // SPEC-165: register shortcuts after the first frame. Doing it in
+        // ReaderProvider.onCreate (1.6.8) crashed the process on the splash window.
+        window.decorView.post {
+            runCatching { io.legado.app.api.ShortCuts.buildShortCuts(applicationContext) }
+                .onFailure { android.util.Log.e("ShortCuts", "register", it) }
+        }
+        MainShortcutBus.consumeIntentExtras(intent)
 
         if (checkStartupRoute()) return
 
@@ -391,9 +390,19 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
         }
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // SPEC-166: shortcut bitmaps follow the system light/dark switch.
+        window.decorView.post {
+            runCatching { io.legado.app.api.ShortCuts.buildShortCuts(applicationContext) }
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        // SPEC-164: shortcut extras (new tab / bookshelf tab) even when already on Home.
+        MainShortcutBus.consumeIntentExtras(intent)
         if (intent.getBooleanExtra(MainIntent.EXTRA_OPEN_READ_ALOUD_PLAYER, false)) {
             ReadAloudPlayerOverlayBus.request()
             return
@@ -455,14 +464,6 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                         arrayOf(MainRouteHome, resolved)
                     }
                 }
-                !hasExplicitStartRoute && restoredReadBookRoute != null -> {
-                    arrayOf(MainRouteHome, restoredReadBookRoute!!)
-                }
-                shouldApplyDefaultToRead &&
-                        defaultToRead &&
-                        resolved == MainRouteHome -> {
-                    arrayOf(MainRouteHome, MainRouteReadBook())
-                }
                 resolved is MainRouteSourceLogin -> {
                     arrayOf(MainRouteHome, resolved)
                 }
@@ -474,8 +475,27 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                 }
             }
         }
+        // SPEC-190: 阅读器已改为独立 Activity。「启动直接进阅读器」改为
+        // MainActivity 起来后拉起 ReadBookActivity（系统窗口转场，不再占 nav3 栈）。
+        var defaultReaderLaunched by rememberSaveable { mutableStateOf(false) }
+        LaunchedEffect(defaultToRead) {
+            if (
+                !defaultReaderLaunched &&
+                shouldApplyDefaultToRead &&
+                defaultToRead &&
+                MainNavigator.resolveStartRoute(intent) == MainRouteHome &&
+                intent?.hasExplicitStartRoute() != true
+            ) {
+                defaultReaderLaunched = true
+                startActivity(MainActivity.createReadBookIntent(this@MainActivity))
+            }
+        }
         val backStack = rememberNavBackStack(*startRoutes)
         SideEffect { navRouteTracker.onBackStackChanged(backStack) }
+        // SPEC-192: 导航转场期间抑制液态玻璃采样（底栏/顶栏不再逐帧重采样运动内容）。
+        io.legado.app.ui.theme.NavTransitionGlassSuppressor(
+            trigger = backStack.size to backStack.lastOrNull(),
+        )
 
         // SPEC-148 R3: 首帧渲染完成后再过两帧才放行液态玻璃，把玻璃特效层
         // 建立/着色器编译从冷启动首帧关键路径移走（此前走 fallback 半透明纯色）。
@@ -614,11 +634,38 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
         // SPEC-112: 平板嵌入阅读等壳内请求压栈（引擎/音色、角色配音）。
         LaunchedEffect(backStack) {
             MainRouteRequestBus.events.collect { route ->
-                MainNavigator.navigateToRoute(
-                    backStack = backStack,
-                    route = route,
-                    tracker = navRouteTracker,
-                )
+                // SPEC-192: 设置族路由改道 SettingsActivity，不再进 Main 的 nav3 栈。
+                val settingsStartRoute = when (route) {
+                    MainRouteSettings -> MainRouteConst.ROUTE_SETTINGS
+                    MainRouteSettingsBrowser -> MainRouteConst.ROUTE_SETTINGS_BROWSER
+                    is MainRouteBrowserPrivacy -> MainRouteConst.ROUTE_BROWSER_PRIVACY
+                    is MainRouteBrowserPickBlock -> MainRouteConst.ROUTE_BROWSER_PICK_BLOCK
+                    is MainRouteBrowserClearData -> MainRouteConst.ROUTE_BROWSER_CLEAR_DATA
+                    is MainRouteSettingsOther -> MainRouteConst.ROUTE_SETTINGS_OTHER
+                    is MainRouteSettingsRead -> MainRouteConst.ROUTE_SETTINGS_READ
+                    is MainRouteSettingsCover -> MainRouteConst.ROUTE_SETTINGS_COVER
+                    is MainRouteSettingsCoverAlbums -> MainRouteConst.ROUTE_SETTINGS_COVER_ALBUMS
+                    is MainRouteSettingsTheme -> MainRouteConst.ROUTE_SETTINGS_THEME
+                    is MainRouteSettingsThemeManage -> MainRouteConst.ROUTE_SETTINGS_THEME_MANAGE
+                    is MainRouteSettingsCustomTheme -> MainRouteConst.ROUTE_SETTINGS_CUSTOM_THEME
+                    is MainRouteSettingsBackup -> MainRouteConst.ROUTE_SETTINGS_BACKUP
+                    is MainRouteSettingsAi -> MainRouteConst.ROUTE_SETTINGS_AI
+                    is MainRouteSettingsAiSummary -> MainRouteConst.ROUTE_SETTINGS_AI_SUMMARY
+                    is MainRouteSettingsAiPrompt -> MainRouteConst.ROUTE_SETTINGS_AI_PROMPT
+                    is MainRouteSettingsDownloadCache -> MainRouteConst.ROUTE_SETTINGS_DOWNLOAD_CACHE
+                    is MainRouteSettingsTranslation -> MainRouteConst.ROUTE_SETTINGS_TRANSLATION
+                    is MainRouteSettingsPrivate -> MainRouteConst.ROUTE_SETTINGS_PRIVATE
+                    else -> null
+                }
+                if (settingsStartRoute != null) {
+                    startActivity(MainIntent.createSettingsIntent(this@MainActivity, settingsStartRoute))
+                } else {
+                    MainNavigator.navigateToRoute(
+                        backStack = backStack,
+                        route = route,
+                        tracker = navRouteTracker,
+                    )
+                }
             }
         }
 
@@ -666,7 +713,9 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                                 ModalOverlaySceneStrategy(),
                                 // SPEC-139: history/bookmarks/tabs/clear-data
                                 // self-slide over a composed Home underlay.
-                                SlideOverlaySceneStrategy(),
+                                SlideOverlaySceneStrategy { contentKey ->
+                                    slideOverlayStillInStack(contentKey, backStack)
+                                },
                                 SinglePaneSceneStrategy(),
                             ),
                             // SPEC-101: Keep underneath on push; pop = top slides right only.
@@ -764,15 +813,16 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
                         predictiveBackEnabled = configuration.appShell.effectivePredictiveBackEnabled(),
                         onDismiss = { readAloudPlayerVisible = false },
                         onSwitchToClassic = { bookUrl ->
-                            // 栈顶是阅读界面：让它直接落在经典朗读控制页；
+                            // 前台是阅读器 Activity：让它直接落在经典朗读控制页；
                             // 否则没有可用的阅读界面，打开一个新的。
                             if (isReaderOnTop(backStack)) {
                                 ReadAloudControlsRequestBus.request()
                             } else {
-                                MainNavigator.navigateToRoute(
-                                    backStack,
-                                    MainRouteReadBook(bookUrl = bookUrl.ifBlank { null }),
-                                    navRouteTracker,
+                                startActivity(
+                                    MainActivity.createReadBookIntent(
+                                        this@MainActivity,
+                                        bookUrl = bookUrl.ifBlank { null },
+                                    )
                                 )
                             }
                         },
@@ -902,25 +952,8 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack {
         if (otherSettingsGateway.currentSettings.autoRefresh) {
             outState.putBoolean("isAutoRefreshedBook", true)
         }
-        val readRoute = navRouteTracker.backStack.value.lastOrNull() as? MainRouteReadBook
-            ?: activeReadBookRoute
-        if (readRoute != null) {
-            outState.putBoolean(KEY_RESTORE_READ_ROUTE, true)
-            outState.putString(KEY_RESTORE_READ_BOOK_URL, readRoute.bookUrl)
-            outState.putBoolean(KEY_RESTORE_READ_ALOUD, readRoute.readAloud)
-            outState.putBoolean(KEY_RESTORE_READ_IN_BOOKSHELF, readRoute.inBookshelf)
-            outState.putBoolean(KEY_RESTORE_READ_CHAPTER_CHANGED, readRoute.chapterChanged)
-        }
-    }
-
-    private fun Bundle.restoreReadBookRoute(): MainRouteReadBook? {
-        if (!getBoolean(KEY_RESTORE_READ_ROUTE, false)) return null
-        return MainRouteReadBook(
-            bookUrl = getString(KEY_RESTORE_READ_BOOK_URL),
-            readAloud = getBoolean(KEY_RESTORE_READ_ALOUD, false),
-            inBookshelf = getBoolean(KEY_RESTORE_READ_IN_BOOKSHELF, true),
-            chapterChanged = getBoolean(KEY_RESTORE_READ_CHAPTER_CHANGED, false),
-        )
+        // SPEC-190: 阅读器是独立 Activity，恢复由其自身的 saved state 负责，
+        // MainActivity 不再保存阅读路由。
     }
 
     private fun Intent.hasExplicitStartRoute(): Boolean {

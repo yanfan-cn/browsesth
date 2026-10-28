@@ -83,6 +83,17 @@ class BrowserAwContentsClient(
         documentUrl: String,
         isHls: Boolean,
     ) -> Unit)? = null,
+    /**
+     * SPEC-188: in-page HTML5 play/pause/destroy for media notification + leave-to-stop.
+     * playing=true on play; false on pause; null on destroy.
+     */
+    private val onPageMediaState: ((
+        playing: Boolean?,
+        mediaUrl: String,
+        documentUrl: String,
+        durationSec: Double,
+        isAudioOnly: Boolean,
+    ) -> Unit)? = null,
 ) : AwContentsClient() {
 
     val interceptHits = AtomicInteger(0)
@@ -104,6 +115,13 @@ class BrowserAwContentsClient(
             Log.i(TAG, "ad-intercept #$n $url")
             onStatus("广告拦截 #$n")
             return emptyBlockedResponse()
+        }
+        // SPEC-166: notice playable media, then let the page load it unchanged.
+        if (BrowserVideoOfferBus.classifyPlayableUrl(url, lastUrl) != null) {
+            val headerLines = request.requestHeaders.orEmpty().entries.joinToString("\n") { (k, v) ->
+                "$k:$v"
+            }
+            onPlayableMedia?.invoke(url, headerLines, lastUrl, url.contains(".m3u8", true))
         }
         return null
     }
@@ -214,6 +232,13 @@ class BrowserAwContentsClient(
             }
             return true
         }
+        if (msg.startsWith(VIDEO_SRC_PREFIX)) {
+            val src = msg.removePrefix(VIDEO_SRC_PREFIX).trim()
+            if (src.startsWith("http://") || src.startsWith("https://")) {
+                onPlayableMedia?.invoke(src, "", lastUrl, src.contains(".m3u8", true))
+            }
+            return true
+        }
         if (msg.startsWith(SCROLL_PREFIX)) {
             onScrollDirection?.invoke(msg.removePrefix(SCROLL_PREFIX).trim())
             return true
@@ -289,7 +314,14 @@ class BrowserAwContentsClient(
         customViewHideHandler?.invoke()
     }
 
-    override fun getDefaultVideoPoster(): Bitmap? = null
+    /**
+     * SPEC-178: must return a non-null bitmap. Null (or missing chrome fullscreen
+     * hooks) makes Chromium report fullscreen as unsupported — the page's
+     * fullscreen control stays gray / unclickable.
+     */
+    override fun getDefaultVideoPoster(): Bitmap =
+        Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888)
+
     override fun onFindResultReceived(activeMatchOrdinal: Int, numberOfMatches: Int, isDoneCounting: Boolean) {}
     override fun onNewPicture(picture: Picture) {}
     override fun onRendererUnresponsive(process: AwRenderProcess) {}
@@ -356,6 +388,8 @@ class BrowserAwContentsClient(
         if (!isAudioOnly && mediaUrl.isNotBlank()) {
             onPlayableMedia?.invoke(mediaUrl, "", documentUrl, mediaUrl.contains(".m3u8", true))
         }
+        // SPEC-188: notify host for system media notification (video + page audio).
+        onPageMediaState?.invoke(true, mediaUrl, documentUrl, durationSec, isAudioOnly)
     }
 
     override fun onMediaPause(
@@ -364,9 +398,13 @@ class BrowserAwContentsClient(
         documentUrl: String,
         durationSec: Double,
         isAudioOnly: Boolean,
-    ) {}
+    ) {
+        onPageMediaState?.invoke(false, mediaUrl, documentUrl, durationSec, isAudioOnly)
+    }
 
-    override fun onMediaDestroy(playerId: BromiumClient.MediaPlayerId, mediaUrl: String, documentUrl: String) {}
+    override fun onMediaDestroy(playerId: BromiumClient.MediaPlayerId, mediaUrl: String, documentUrl: String) {
+        onPageMediaState?.invoke(null, mediaUrl, documentUrl, 0.0, false)
+    }
 
     override fun onMediaError(
         playerId: BromiumClient.MediaPlayerId,
@@ -422,6 +460,8 @@ class BrowserAwContentsClient(
     ) {}
 
     override fun onRequestedDownloadUrl(url: String) {}
+    // SPEC-188: leave-to-stop — Chromium must pause page video when backgrounded.
+    // 「听音频」uses a separate ExoPlayer service and is unaffected.
     override fun shouldPlayBackgroundVideo(): Boolean = false
     override fun onHlsDetected(url: String, requestHeaders: String) {
         // SPEC-132
@@ -439,6 +479,15 @@ class BrowserAwContentsClient(
         const val SCROLL_PREFIX = "BROWSESTH_SCROLL:"
         /** SPEC-073: throttled scrollY for history restore. */
         const val SCROLL_Y_PREFIX = "BROWSESTH_SCROLLY:"
+        /** SPEC-166: http(s) currentSrc from an in-page video element. */
+        const val VIDEO_SRC_PREFIX = "BROWSESTH_VIDEO:"
+        const val VIDEO_HOOK_JS =
+            "(function(){if(window.__browsesthVideoHook)return;window.__browsesthVideoHook=1;" +
+                "document.addEventListener('play',function(e){var t=e.target;" +
+                "if(!t||String(t.tagName)!=='VIDEO')return;" +
+                "var s=t.currentSrc||t.src||'';" +
+                "if(s.indexOf('http')===0)console.log('BROWSESTH_VIDEO:'+s);" +
+                "},true);})();"
         const val SCROLL_HOOK_JS =
             "(function(){if(window.__browsesthScrollHook)return;window.__browsesthScrollHook=1;" +
                 "var last=0;var t=null;" +

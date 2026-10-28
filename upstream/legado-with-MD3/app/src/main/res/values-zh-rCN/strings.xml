@@ -1761,7 +1761,7 @@
     <string name="onboarding_summary_welcome">请先阅读应用的服务条款与用户协议。</string>
     <string name="onboarding_summary_backup">此处可设置云同步与恢复应用备份。</string>
     <string name="onboarding_summary_book_folder">请选择保存本地书籍的文件夹。</string>
-    <string name="onboarding_summary_theme">在这里设置您喜爱的样式。</string>
+    <string name="onboarding_summary_theme">选择主题颜色。这一页只使用浅色。</string>
     <string name="onboarding_liquid_glass_summary">需要安卓 13 以上才能使用，对设备性能有一定要求，打开后可能影响流畅度。</string>
     <string name="onboarding_next_agree">阅读并同意</string>
     <string name="onboarding_next_step">下一步</string>
@@ -1870,6 +1870,11 @@
     <string name="restart_later_message">更改将在下次启动应用时生效</string>
     <string name="search_select_group">选择书源分组</string>
     <string name="day_night_switch">深浅色模式切换</string>
+    <string name="reader_target_dark_mode">深色模式</string>
+    <string name="reader_target_light_mode">浅色模式</string>
+    <string name="reader_translation_started">正在翻译本章…</string>
+    <string name="reader_translation_failed">翻译失败</string>
+    <string name="reader_translation_unavailable">当前没有可翻译的正文</string>
     <string name="manga_long_click">长按保存图片</string>
     <string name="read_type_long">长按设置为全局默认模式</string>
     <string name="read_slider_mode">滑动条显示样式</string>

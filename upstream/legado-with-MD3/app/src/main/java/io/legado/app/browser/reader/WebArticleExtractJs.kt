@@ -23,12 +23,15 @@ object WebArticleExtractJs {
         if(/(?:^|[^a-z0-9])ads?(?![a-z0-9])/.test(low))return true;
         if(/(?:^|[^a-z0-9])advert/.test(low))return true;
         var cls=((el.className||'')+' '+(el.id||'')).toLowerCase();
-        if(/avatar|icon|logo|emoji|sprite|banner|pixel|track|adsbygoogle/.test(cls))return true;
+        if(/avatar|icon|logo|emoji|sprite|banner|pixel|track|adsbygoogle|thumb|thumbnail/.test(cls))return true;
         if(/(?:^|[^a-z0-9])ads?(?![a-z0-9])/.test(cls))return true;
         if(/(?:^|[^a-z0-9])advert/.test(cls))return true;
-        if(!fromLazy){
-        var w=el.naturalWidth||el.width||0,h=el.naturalHeight||el.height||0;
-        if(w>0&&h>0&&(w<80||h<80||w*h<12000))return true;
+        var aw=parseInt(el.getAttribute('width'),10)||0,ah=parseInt(el.getAttribute('height'),10)||0;
+        if(fromLazy){
+        if((aw>1&&aw<120)||(ah>1&&ah<120))return true;
+        }else{
+        var w=el.naturalWidth||aw||el.width||0,h=el.naturalHeight||ah||el.height||0;
+        if((w>0&&w<120)||(h>0&&h<120)||(w>0&&h>0&&w*h<14400))return true;
         }
         return false;
         }
@@ -116,15 +119,19 @@ object WebArticleExtractJs {
             "cover=abs(cover);" +
             "if(!cover||cover.indexOf('http')!==0){" +
             "var best='',bw=0,bh=0;" +
-            "var nodes=document.querySelectorAll('img');" +
+            // SPEC-160: prefer images inside article root; lower size floor for mobile pages.
+            "var scope=root||document;" +
+            "var nodes=scope.querySelectorAll('img');" +
+            "if(!nodes.length)nodes=document.querySelectorAll('img');" +
             "for(var i=0;i<nodes.length;i++){" +
             "var el=nodes[i];" +
-            "var src=el.currentSrc||el.src||el.getAttribute('data-src')||'';" +
+            "var src=el.currentSrc||el.src||el.getAttribute('data-src')||el.getAttribute('data-original')||'';" +
             "if(!src||src.indexOf('data:')===0)continue;" +
             "var w=el.naturalWidth||el.width||0;" +
             "var h=el.naturalHeight||el.height||0;" +
-            "if(w<240||h<240)continue;" +
-            "if(w*h>bw*bh){bw=w;bh=h;best=abs(src);}" +
+            "if(w>0&&h>0&&(w<120||h<120))continue;" +
+            "var area=(w||320)*(h||320);" +
+            "if(area>bw*bh){bw=w||320;bh=h||320;best=abs(src);}" +
             "}" +
             "cover=best;" +
             "}" +

@@ -1,12 +1,16 @@
 package io.legado.app.ui.browser.video
 
+import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -21,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -29,6 +34,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -39,15 +45,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -67,8 +74,18 @@ import io.legado.app.browser.engine.BrowserDlnaCast
 import io.legado.app.browser.engine.BrowserDownloadHelper
 import io.legado.app.browser.engine.BrowserUa
 import io.legado.app.browser.engine.BrowserVideoMedia
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import io.legado.app.R
+import io.legado.app.browser.engine.BrowseStore
+import io.legado.app.browser.engine.BrowserDownloadRepository
+import io.legado.app.browser.engine.BrowserDownloadStatus
 import io.legado.app.browser.engine.BrowserVideoOffer
 import io.legado.app.browser.engine.BrowserVideoOfferBus
+import io.legado.app.ui.main.MainIntent
+import io.legado.app.ui.main.MainRouteConst
+import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
@@ -123,9 +140,6 @@ fun BrowserVideoPlayerScreen(
     var selectedQualityHeight by remember { mutableStateOf<Int?>(null) }
     // SPEC-147 R8/R9: 视频实际宽高（onPrepared 后提取），画中画/截图按此比例。
     var videoSize by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    // SPEC-152: 画面旋转步进（0/90/180/270）。平板/大屏下系统可能忽略 requestedOrientation，
-    // 「旋转」改为直接旋转视频画面本身。
-    var videoRotation by remember { mutableStateOf(0) }
     val audioManager = remember { context.getSystemService(AudioManager::class.java) }
     var windowBrightness by remember {
         mutableFloatStateOf(
@@ -142,6 +156,13 @@ fun BrowserVideoPlayerScreen(
     val rotateSymbol = remember { MaterialSymbol("screen_rotation", autoMirror = false) }
     val pipSymbol = remember { MaterialSymbol("picture_in_picture_alt", autoMirror = false) }
     val moreSymbol = remember { MaterialSymbol("more_vert", autoMirror = false) }
+    // SPEC-166: recreate the player after the surface callback is dropped.
+    var playerEpoch by remember { mutableIntStateOf(0) }
+    var pendingResumeMs by remember { mutableLongStateOf(0L) }
+    var pendingAutoStart by remember { mutableStateOf(true) }
+    var activeDownloadId by remember { mutableStateOf<String?>(null) }
+    val downloads by BrowserDownloadRepository.get(context).items.collectAsState()
+    val activeDownload = downloads.firstOrNull { it.id == activeDownloadId }
 
     fun applySpeed(speed: Float, vv: VideoView?) {
         val s = speed.coerceIn(0.5f, 3.0f)
@@ -224,29 +245,22 @@ fun BrowserVideoPlayerScreen(
     }
 
     fun replayFromStart() {
-        val vv = videoViewRef ?: return
-        // SPEC-146 R6: ExoMedia's restart() re-prepares after playback ended
-        // (ENDED/IDLE only); mid-pause falls back to seek+start.
-        val restarted = runCatching {
-            vv.restart()
-        }.getOrDefault(false)
-        if (!restarted) {
-            vv.seekTo(0L)
-            vv.start()
-        }
-        android.util.Log.i(
-            "Diag146",
-            "replay url=${currentOffer.url.take(80)} restarted=$restarted",
-        )
-        playing = true
-        onPlayingChanged(true)
-        onBackgroundService(true, currentOffer.title.ifBlank { "视频播放中" })
+        // SPEC-166: seek+start leaves a black surface after the holder callback
+        // was removed. A new player binds the current surface.
+        pendingResumeMs = 0L
+        pendingAutoStart = true
+        playerEpoch++
     }
 
     fun toggleOrientation() {
-        // SPEC-152: 平板/大屏下系统可能忽略 requestedOrientation（原实现点了没反应）；
-        // 改为旋转视频画面本身，按 90° 步进循环。
-        videoRotation = (videoRotation + 90) % 360
+        // SPEC-159: 恢复 1.3.8 的整页横竖切换。画面内 rotationZ 放大黑边会裁切变形。
+        val landscape = activity.resources.configuration.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        activity.requestedOrientation = if (landscape) {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
     }
 
     LaunchedEffect(videoViewRef) {
@@ -275,6 +289,36 @@ fun BrowserVideoPlayerScreen(
 
     DisposableEffect(Unit) {
         onDispose { onBackgroundService(false, "") }
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        // ExoMedia drops its surface listener when the window surface is
+        // destroyed (home, recents, picture-in-picture). Progress keeps
+        // moving and a plain seek stays black. Rebuild on the next resume.
+        var rebindAfterPause = false
+        var heldPosition = 0L
+        var heldPlaying = true
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> {
+                    if (activity.isChangingConfigurations) return@LifecycleEventObserver
+                    val vv = videoViewRef ?: return@LifecycleEventObserver
+                    heldPosition = vv.currentPosition
+                    heldPlaying = vv.isPlaying
+                    rebindAfterPause = true
+                }
+                Lifecycle.Event.ON_RESUME -> {
+                    if (!rebindAfterPause) return@LifecycleEventObserver
+                    rebindAfterPause = false
+                    pendingResumeMs = heldPosition
+                    pendingAutoStart = heldPlaying
+                    playerEpoch++
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     BackHandler { onClose() }
 
@@ -308,38 +352,13 @@ fun BrowserVideoPlayerScreen(
     ) {
         // SPEC-143: key by URL so picking another sniffed video tears down the
         // old player instead of feeding it a new source.
-        key(currentOffer.url) {
+        key(currentOffer.url, playerEpoch) {
             // SPEC-152: 换视频复位画面旋转与截图比例（feed 类连播避免用上一部的比例裁错）。
             LaunchedEffect(currentOffer.url) {
-                videoRotation = 0
                 videoSize = null
             }
-            // SPEC-157: 保持 fillMaxSize（VideoView 按画面比例拟合），再 rotationZ；
-            // 90°/270° 时用等比 scale 铺满，禁止换宽高测布局（会把画面拉扁）。
-            val rotationStep = (videoRotation % 360 + 360) % 360
             AndroidView(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        rotationZ = rotationStep.toFloat()
-                        if (rotationStep % 180 != 0) {
-                            val w = size.width
-                            val h = size.height
-                            if (w > 0f && h > 0f) {
-                                // 旋转后原宽边贴高边，需放大 max(w/h,h/w) 才能铺满。
-                                val s = maxOf(w / h, h / w)
-                                scaleX = s
-                                scaleY = s
-                            } else {
-                                scaleX = 1f
-                                scaleY = 1f
-                            }
-                        } else {
-                            // 回到 0°/180° 必须复位，否则会沿用上次 90° 的 scale。
-                            scaleX = 1f
-                            scaleY = 1f
-                        }
-                    },
+                modifier = Modifier.fillMaxSize(),
                 factory = { ctx ->
                     videoViewRef?.let { old ->
                         runCatching {
@@ -353,10 +372,22 @@ fun BrowserVideoPlayerScreen(
                         vv.handleAudioFocus = true
                         vv.videoControls = null
                         vv.setOnPreparedListener(OnPreparedListener {
-                            vv.start()
-                            playing = true
-                            onPlayingChanged(true)
-                            onBackgroundService(true, currentOffer.title.ifBlank { "视频播放中" })
+                            val resumeAt = pendingResumeMs
+                            if (resumeAt > 0L) {
+                                vv.seekTo(resumeAt)
+                                pendingResumeMs = 0L
+                            }
+                            applySpeed(baseSpeed, vv)
+                            if (pendingAutoStart) {
+                                vv.start()
+                                playing = true
+                                onPlayingChanged(true)
+                                onBackgroundService(true, currentOffer.title.ifBlank { "视频播放中" })
+                            } else {
+                                vv.pause()
+                                playing = false
+                                onPlayingChanged(false)
+                            }
                             // SPEC-145 R3: prepared 后刷新分辨率档位。
                             refreshQualities(vv)
                             onPrepared()
@@ -418,8 +449,11 @@ fun BrowserVideoPlayerScreen(
                                     BrowserVideoSpeed.LONG_PRESS_DEFAULT,
                                     BrowserVideoSpeed.GESTURE_STEPS,
                                 )
-                                val idx = (baseIdx + (totalDx / (size.width / 5f)).toInt())
-                                    .coerceIn(0, BrowserVideoSpeed.GESTURE_STEPS.lastIndex)
+                                val idx = BrowserVideoSpeed.gestureIndex(
+                                    totalDx,
+                                    size.width.toFloat(),
+                                    baseIdx,
+                                )
                                 val speed = BrowserVideoSpeed.GESTURE_STEPS[idx]
                                 if (speed != currentSpeed) {
                                     applySpeed(speed, videoViewRef)
@@ -514,19 +548,118 @@ fun BrowserVideoPlayerScreen(
             )
         }
 
-        gestureHint?.let { hint ->
-            Text(
-                text = hint,
-                color = Color.White,
-                fontSize = 18.sp,
+        if (longPressing) {
+            SpeedGesturePopup(
+                current = currentSpeed,
                 modifier = Modifier
-                    // SPEC-143: park the overlay under the top bar, not mid-screen.
                     .align(Alignment.TopCenter)
                     .statusBarsPadding()
-                    .padding(top = 62.dp)
-                    .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(top = 62.dp),
             )
+        } else {
+            gestureHint?.let { hint ->
+                Text(
+                    text = hint,
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    modifier = Modifier
+                        // SPEC-143: park the overlay under the top bar, not mid-screen.
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(top = 62.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                )
+            }
+        }
+        activeDownload?.let { item ->
+            val scheme = LegadoTheme.colorScheme
+            val failed = item.status == BrowserDownloadStatus.FAILED
+            val percent = item.progressPercent
+            val label = when (item.status) {
+                BrowserDownloadStatus.COMPLETED -> "下载完成"
+                BrowserDownloadStatus.FAILED -> "下载失败"
+                BrowserDownloadStatus.PAUSED -> "下载已暂停"
+                else -> if (percent >= 0) "下载中 $percent%" else "下载中"
+            }
+            AnimatedVisibility(
+                visible = true,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(top = if (showControls) 62.dp else 12.dp, end = 12.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .wrapContentWidth()
+                        .width(if (failed) 148.dp else 168.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(scheme.surfaceContainer)
+                        .then(
+                            if (failed) {
+                                Modifier
+                            } else {
+                                Modifier.clickable {
+                                    context.startActivity(
+                                        MainIntent.createLauncherIntent(context).apply {
+                                            addFlags(
+                                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                                    Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                                            )
+                                            putExtra(
+                                                MainIntent.EXTRA_START_ROUTE,
+                                                MainRouteConst.ROUTE_BROWSER_DOWNLOADS,
+                                            )
+                                        },
+                                    )
+                                }
+                            },
+                        )
+                        .padding(start = 14.dp, end = if (failed) 4.dp else 14.dp, top = 10.dp, bottom = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = label,
+                            color = scheme.onSurface,
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        if (!failed) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            if (item.status == BrowserDownloadStatus.RUNNING ||
+                                item.status == BrowserDownloadStatus.QUEUED
+                            ) {
+                                if (percent >= 0) {
+                                    LinearProgressIndicator(
+                                        progress = { percent / 100f },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        color = scheme.primary,
+                                        trackColor = scheme.surfaceVariant,
+                                    )
+                                } else {
+                                    LinearProgressIndicator(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        color = scheme.primary,
+                                        trackColor = scheme.surfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (failed) {
+                        IconButton(onClick = { activeDownloadId = null }) {
+                            SymbolIcon(
+                                Symbols.Close,
+                                "关闭",
+                                tint = scheme.onSurface,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         errorText?.let { err ->
@@ -603,6 +736,8 @@ fun BrowserVideoPlayerScreen(
                                             positionMs = 0L
                                             durationMs = 0L
                                             pendingSeekMs = Long.MIN_VALUE
+                                            pendingResumeMs = 0L
+                                            pendingAutoStart = true
                                             errorText = null
                                             qualities = emptyList()
                                             selectedQualityHeight = null
@@ -626,7 +761,33 @@ fun BrowserVideoPlayerScreen(
                         shape = RoundedCornerShape(24.dp),
                     ) {
                         DropdownMenuItem(
+                            text = { Text("加入收藏") },
+                            leadingIcon = {
+                                SymbolIcon(Symbols.BookmarkAdd, "加入收藏", modifier = Modifier.size(22.dp))
+                            },
+                            onClick = {
+                                moreMenu = false
+                                val page = currentOffer.pageUrl.trim()
+                                if (!page.startsWith("http")) {
+                                    Toast.makeText(context, "当前没有可收藏的链接", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    BrowseStore(context).addBookmark(
+                                        page,
+                                        currentOffer.title.ifBlank { page },
+                                    )
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.browser_favorite_added),
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            },
+                        )
+                        DropdownMenuItem(
                             text = { Text("投屏") },
+                            leadingIcon = {
+                                SymbolIcon(Symbols.Cast, "投屏", modifier = Modifier.size(22.dp))
+                            },
                             onClick = {
                                 moreMenu = false
                                 dlnaDialog = true
@@ -640,21 +801,33 @@ fun BrowserVideoPlayerScreen(
                         )
                         DropdownMenuItem(
                             text = { Text("下载") },
+                            leadingIcon = {
+                                SymbolIcon(Symbols.Download, "下载", modifier = Modifier.size(22.dp))
+                            },
                             onClick = {
                                 moreMenu = false
                                 val result = BrowserDownloadHelper.enqueue(
                                     context = context,
                                     url = currentOffer.url,
-                                    userAgent = currentOffer.headers["User-Agent"] ?: BrowserUa.resolve(context),
-                                    mimeType = if (currentOffer.isHls) "application/vnd.apple.mpegurl" else "video/mp4",
+                                    userAgent = BrowserDownloadHelper.headerIgnoreCase(
+                                        currentOffer.headers,
+                                        "User-Agent",
+                                    ) ?: BrowserUa.resolve(context),
+                                    mimeType = if (currentOffer.isHls) {
+                                        "application/vnd.apple.mpegurl"
+                                    } else {
+                                        "video/mp4"
+                                    },
                                     title = currentOffer.title,
                                     toMovies = true,
                                     headers = currentOffer.headers,
-                                    // SPEC-147 R3: headers 无 Referer 时回退来源页，
-                                    // 防盗链站缺 Referer 会 403。
                                     referer = currentOffer.pageUrl,
                                 )
-                                Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                                if (result.ok && result.id.isNotBlank()) {
+                                    activeDownloadId = result.id
+                                } else {
+                                    Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                                }
                             },
                         )
                         DropdownMenuItem(
@@ -667,6 +840,9 @@ fun BrowserVideoPlayerScreen(
                                     },
                                 )
                             },
+                            leadingIcon = {
+                                SymbolIcon(Symbols.Hd, "分辨率", modifier = Modifier.size(22.dp))
+                            },
                             onClick = {
                                 moreMenu = false
                                 qualityMenu = true
@@ -674,6 +850,9 @@ fun BrowserVideoPlayerScreen(
                         )
                         DropdownMenuItem(
                             text = { Text("重新播放") },
+                            leadingIcon = {
+                                SymbolIcon(Symbols.Replay, "重新播放", modifier = Modifier.size(22.dp))
+                            },
                             onClick = {
                                 moreMenu = false
                                 replayFromStart()
@@ -933,6 +1112,36 @@ fun BrowserVideoPlayerScreen(
                 TextButton(onClick = { dlnaDialog = false }) { Text("关闭") }
             },
         )
+    }
+}
+
+@Composable
+private fun SpeedGesturePopup(current: Float, modifier: Modifier = Modifier) {
+    val dark = isSystemInDarkTheme()
+    val popup = if (dark) Color(0xFF2A2A2A) else Color.White
+    val ink = if (dark) Color(0xFFF6F1EA) else Color(0xFF1C1B19)
+    val selectedFill = if (dark) Color(0xFF121212) else Color(0xFFF6F1EA)
+    Row(
+        modifier = modifier
+            .background(popup, RoundedCornerShape(24.dp))
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BrowserVideoSpeed.GESTURE_STEPS.forEach { speed ->
+            val selected = speed == current
+            Text(
+                text = BrowserVideoSpeed.label(speed),
+                color = ink,
+                fontSize = 16.sp,
+                modifier = Modifier
+                    .background(
+                        if (selected) selectedFill else Color.Transparent,
+                        RoundedCornerShape(12.dp),
+                    )
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            )
+        }
     }
 }
 

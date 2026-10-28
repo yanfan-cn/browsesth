@@ -60,6 +60,12 @@ class CoverInterceptor(
         val request = chain.request
         val data = request.data
 
+        // SPEC-186: PDF manga pages carry no resolvable URL/rule — skip AnalyzeUrl and the
+        // cover-cache rewrites entirely; CoverFetcher renders them via PdfFile.
+        if (data is String && data.startsWith("pdf-page://", ignoreCase = true)) {
+            return chain.proceed()
+        }
+
         val fileOwner = request.extras[CoverExtras.MangaFileOwner]
         // 分页与条漫在线页复用同一原图；本地漫画与 content/file URI 保持平台加载器。
         if (fileOwner != null && data is String &&

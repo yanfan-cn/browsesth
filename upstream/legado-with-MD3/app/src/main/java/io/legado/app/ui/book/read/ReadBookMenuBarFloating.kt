@@ -53,6 +53,7 @@ internal fun FloatingIconRow(
     backdrop: Backdrop?,
 ) {
     val context = LocalContext.current
+    val isNightTheme = LegadoTheme.isDark
     val floatingIcons = remember(
         state.menuConfig.titleBarButtons,
         state.isReadAloudRunning,
@@ -60,6 +61,7 @@ internal fun FloatingIconRow(
         state.translationMode,
         state.useReplaceRule,
         eyeProtectionActive,
+        isNightTheme,
     ) {
         loadFloatingIcons(
             context = context,
@@ -197,8 +199,22 @@ private fun loadFloatingIcons(
             val info = infoMap[id] ?: return@mapNotNull null
             FloatingIconDef(
                 id = id,
-                icon = info.icon,
-                label = info.label,
+                icon = if (id == "theme") {
+                    dayNightToggleSymbol(
+                        io.legado.app.help.config.ReadStyleResolver.isNightTheme(),
+                    )
+                } else {
+                    info.icon
+                },
+                label = if (id == "theme") {
+                    context.getString(
+                        dayNightToggleLabelRes(
+                            io.legado.app.help.config.ReadStyleResolver.isNightTheme(),
+                        ),
+                    )
+                } else {
+                    info.label
+                },
                 isActive = id in activeIds,
                 onClick = actionMap[id] ?: {},
                 onLongClick = when (id) {

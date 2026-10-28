@@ -78,6 +78,20 @@ class TranslateChapterUseCase(
                 return@withContext Result.success(cachedTranslation)
             }
 
+            // SPEC-171: ML Kit translates the whole chapter once (internal chunking + one model load).
+            if (provider == TranslationConstants.PROVIDER_MLKIT) {
+                onTranslateStarted()
+                onProgress(TranslationProgress(0, 1, null, emptySet()))
+                val mlResult = translateWithMlKit(originalContent, targetLanguage)
+                mlResult.onSuccess { translated ->
+                    translationCacheGateway.writeTranslation(
+                        book, bookChapter, targetLanguage, translated,
+                    )
+                    onProgress(TranslationProgress(1, 1, translated, setOf(0)))
+                }
+                return@withContext mlResult
+            }
+
             val contentHash = translationCacheGateway.computeContentHash(originalContent)
 
             val chunkLimit = when (provider) {
@@ -316,6 +330,17 @@ class TranslateChapterUseCase(
 
     private suspend fun resolveTranslationPreset(): AiTaskPresetConfig? {
         return aiProfileGateway.getTaskPreset(AiTaskType.TRANSLATE_CHAPTER)
+    }
+
+    /** SPEC-171: on-device EN/JA → zh. Target must be Simplified Chinese. */
+    private suspend fun translateWithMlKit(text: String, targetLanguage: String): Result<String> {
+        val normalized = targetLanguage.lowercase().substringBefore('-')
+        if (normalized != "zh") {
+            return Result.failure(
+                Exception("端上翻译目前仅支持译为简体中文，请在翻译设置中将目标语言设为简体中文。"),
+            )
+        }
+        return io.legado.app.model.translation.MlKitChapterTranslator.translateToSimplifiedChinese(text)
     }
 
     private suspend fun translateWithGoogle(text: String, targetLanguage: String): Result<String> {

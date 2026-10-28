@@ -9,6 +9,8 @@ import coil3.fetch.Fetcher
 import coil3.fetch.SourceFetchResult
 import coil3.request.Options
 import io.legado.app.data.appDb
+import io.legado.app.model.localBook.PdfFile
+import io.legado.app.model.localBook.pdfMangaPageIndex
 import io.legado.app.help.glide.progress.ProgressUrlTag
 import io.legado.app.utils.ImageUtils
 import io.legado.app.utils.isWifiConnect
@@ -68,6 +70,20 @@ class CoverFetcher(
         val isManga = options.extras[CoverExtras.Manga] == true
         val mangaBook = options.extras[CoverExtras.MangaBookUrl]
             ?.let { bookUrl -> withContext(Dispatchers.IO) { appDb.bookDao.getBook(bookUrl) } }
+        val pdfPage = pdfMangaPageIndex(url)
+        if (isManga && pdfPage != null && mangaBook != null) {
+            val bytes = withContext(Dispatchers.IO) {
+                PdfFile.getImage(mangaBook, pdfPage.toString())?.use { it.readBytes() }
+            } ?: throw IOException("PDF page $pdfPage")
+            return SourceFetchResult(
+                source = ImageSource(
+                    source = Buffer().write(bytes),
+                    fileSystem = options.fileSystem
+                ),
+                mimeType = null,
+                dataSource = DataSource.MEMORY
+            )
+        }
 
         if (url.startsWith("data:", true)) {
             val base64Data = url.substringAfter("base64,", "")

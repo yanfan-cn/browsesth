@@ -5,6 +5,7 @@ import io.legado.app.BuildConfig
 import io.legado.app.R
 import io.legado.app.data.AppDatabase
 import io.legado.app.data.entities.Book
+import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.readRecord.ReadRecordSession
 import io.legado.app.data.repository.ReadRecordRepository
 import io.legado.app.domain.gateway.BackupSettingsGateway
@@ -13,6 +14,7 @@ import io.legado.app.domain.gateway.MangaReaderDataGateway
 import io.legado.app.domain.model.manga.MangaBookPresentation
 import io.legado.app.domain.model.manga.MangaBookState
 import io.legado.app.domain.model.manga.MangaChapterContent
+import io.legado.app.domain.model.manga.MangaPageContent
 import io.legado.app.domain.model.manga.MangaProgressState
 import io.legado.app.domain.model.manga.OpenedMangaBook
 import io.legado.app.domain.usecase.GetReadingProgressUseCase
@@ -28,7 +30,13 @@ import io.legado.app.help.storage.Backup
 import io.legado.app.model.cache.CacheDownloadRequest
 import io.legado.app.model.cache.CacheDownloadSource
 import io.legado.app.model.cache.ChapterSelection
+import io.legado.app.help.book.isPdf
 import io.legado.app.model.localBook.LocalBook
+import io.legado.app.model.localBook.PdfFile
+import io.legado.app.model.localBook.PDF_MANGA_CHAPTER_URL
+import io.legado.app.model.localBook.isLegacyPdfChapterUrl
+import io.legado.app.model.localBook.pdfMangaPageUrl
+import io.legado.app.model.localBook.pdfMangaProgressPage
 import io.legado.app.model.webBook.WebBook
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -83,7 +91,10 @@ class MangaReaderDataRepository(
             }
         }
         var chapterCount = database.bookChapterDao.getChapterCount(book.bookUrl)
-        if (chapterCount == 0 || book.isLocalModified()) {
+        if (book.isPdf) {
+            ensurePdfMangaChapter(book)
+            chapterCount = 1
+        } else if (chapterCount == 0 || book.isLocalModified()) {
             if (book.isLocal) {
                 val chapters = if (localMangaLoader.supports(book)) {
                     localMangaLoader.chapters(book).also {
@@ -146,7 +157,9 @@ class MangaReaderDataRepository(
             ?: throw NoStackTraceException(application.getString(R.string.no_book))
         val chapter = database.bookChapterDao.getChapter(bookUrl, chapterIndex)
             ?: throw NoStackTraceException(application.getString(R.string.error_load_toc))
-        return if (book.isLocal && localMangaLoader.supports(book)) {
+        return if (book.isPdf) {
+            pdfMangaChapter(book, chapter)
+        } else if (book.isLocal && localMangaLoader.supports(book)) {
             localMangaLoader.load(book, chapter)
         } else chapterPageLoader.load(book, chapter)
     }
@@ -217,6 +230,51 @@ class MangaReaderDataRepository(
         if (!backupSettingsGateway.currentSettings.syncBookProgressPlus) return null
         val book = database.bookDao.getBook(bookUrl) ?: return null
         return syncOrUpload(book)
+    }
+
+    private suspend fun ensurePdfMangaChapter(book: Book) {
+        val existing = database.bookChapterDao.getChapterList(book.bookUrl)
+        val already = existing.size == 1 && existing.first().url == PDF_MANGA_CHAPTER_URL
+        if (already && !book.isLocalModified()) return
+        val pageCount = PdfFile.pageCount(book)
+        if (pageCount <= 0) {
+            throw NoStackTraceException(application.getString(R.string.content_empty))
+        }
+        val page = pdfMangaProgressPage(
+            oldChapterIndex = book.durChapterIndex,
+            oldPagePos = book.durChapterPos,
+            legacyGrouped = existing.any { isLegacyPdfChapterUrl(it.url) },
+        )
+        database.bookChapterDao.delByBook(book.bookUrl)
+        database.bookChapterDao.insert(
+            BookChapter(
+                url = PDF_MANGA_CHAPTER_URL,
+                title = book.name,
+                bookUrl = book.bookUrl,
+                index = 0,
+            )
+        )
+        book.durChapterIndex = 0
+        book.durChapterPos = page.coerceIn(0, pageCount - 1)
+        book.totalChapterNum = 1
+        book.latestChapterTitle = book.name
+        database.bookDao.update(book)
+    }
+
+    private fun pdfMangaChapter(book: Book, chapter: BookChapter): MangaChapterContent {
+        val count = PdfFile.pageCount(book)
+        if (count <= 0) {
+            throw NoStackTraceException(application.getString(R.string.content_empty))
+        }
+        return MangaChapterContent(
+            chapterIndex = chapter.index,
+            chapterTitle = chapter.title,
+            chapterUrl = chapter.url,
+            pages = List(count) { index ->
+                MangaPageContent(pdfMangaPageUrl(index), index, count)
+            },
+            isVolume = false,
+        )
     }
 
     private suspend fun findNewerProgress(book: Book): MangaProgressState? {

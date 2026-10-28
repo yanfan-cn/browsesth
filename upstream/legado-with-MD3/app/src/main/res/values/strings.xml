@@ -1816,7 +1816,7 @@
     <string name="onboarding_summary_welcome">Please read the terms of service and user agreement first.</string>
     <string name="onboarding_summary_backup">Set up cloud sync and restore app backups here.</string>
     <string name="onboarding_summary_book_folder">Choose the folder for saving local books.</string>
-    <string name="onboarding_summary_theme">Set up your favorite style here.</string>
+    <string name="onboarding_summary_theme">Choose a theme color. This screen stays in light mode.</string>
     <string name="onboarding_liquid_glass_summary">Requires Android 13 or higher. Needs decent device performance and may affect smoothness when enabled.</string>
     <string name="onboarding_next_agree">Agree &amp; Continue</string>
     <string name="onboarding_next_step">Next</string>
@@ -1925,6 +1925,11 @@
     <string name="restart_later_message">Restart Later</string>
     <string name="search_select_group">Select Book Source Group</string>
     <string name="day_night_switch">Light/Dark Mode Switch</string>
+    <string name="reader_target_dark_mode">Dark mode</string>
+    <string name="reader_target_light_mode">Light mode</string>
+    <string name="reader_translation_started">Translating this chapter…</string>
+    <string name="reader_translation_failed">Translation failed</string>
+    <string name="reader_translation_unavailable">Nothing to translate</string>
     <string name="manga_long_click">Long press to save image</string>
     <string name="read_type_long">Long press to set as the global default mode</string>
     <string name="read_slider_mode">Slider Display Style</string>

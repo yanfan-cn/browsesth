@@ -308,6 +308,20 @@ class App : Application(), SingletonImageLoader.Factory {
         CrashHandler(this)
         // Aloha ThreadUtils may lack Cronet's setThreadAssertsDisabledForTesting — skip.
         registerActivityLifecycleCallbacks(LifecycleHelp)
+        // SPEC-188: leave-to-stop for webpage / native video (听音频例外).
+        io.legado.app.browser.engine.BrowserMediaSessionHooks.onWebContextLeft = {
+            io.legado.app.ui.browser.video.BrowserVideoLeaveGuard.stopExceptAudioListen(this@App)
+        }
+        // SPEC-188: app fully backgrounded → same guard (LifecycleHelp tracks started
+        // activities; lifecycle-process is not on the classpath).
+        Coroutine.async {
+            LifecycleHelp.appVisible.collect { visible ->
+                if (!visible) {
+                    io.legado.app.ui.browser.video.BrowserVideoLeaveGuard
+                        .stopExceptAudioListen(this@App)
+                }
+            }
+        }
         // Rhino 的全局 ContextFactory 必须在任何线程执行 Context.enter() 之前安装：
         // 它只在 RhinoScriptEngine 的 object init 里通过 ContextFactory.initGlobal 生效，
         // 而 Context.enter() 取的就是这个全局工厂。原先 initRhino() 排在下面那个

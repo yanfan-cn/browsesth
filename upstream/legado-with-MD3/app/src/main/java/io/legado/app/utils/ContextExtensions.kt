@@ -40,7 +40,7 @@ import io.legado.app.constant.AppConst
 import io.legado.app.data.entities.Book
 import io.legado.app.help.IntentHelp
 import io.legado.app.help.book.isAudio
-import io.legado.app.help.book.isImage
+import io.legado.app.help.book.preferMangaReader
 import io.legado.app.help.config.AppConfigStore
 import io.legado.app.help.config.SettingsWriter
 import io.legado.app.domain.gateway.BookshelfSettingsGateway
@@ -75,13 +75,13 @@ fun Context.startActivityForBook(
 ) {
     val intent = when {
         book.isAudio -> MainActivity.createAudioPlayIntent(this, book.bookUrl)
-        book.isImage && mangaSettingsGateway.currentSettings.showMangaUi ->
+        book.preferMangaReader(mangaSettingsGateway.currentSettings.showMangaUi) ->
             MainActivity.createReadMangaIntent(this, book.bookUrl)
 
         else -> MainActivity.createReadBookIntent(this, book.bookUrl)
     }
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    if (book.isAudio || (book.isImage && mangaSettingsGateway.currentSettings.showMangaUi)) {
+    if (book.isAudio || book.preferMangaReader(mangaSettingsGateway.currentSettings.showMangaUi)) {
         intent.putExtra("bookUrl", book.bookUrl)
     }
     intent.apply(configIntent)
@@ -94,13 +94,13 @@ fun Context.startActivityForBook(
 ) {
     val intent = when {
         book.isAudio -> MainActivity.createAudioPlayIntent(this, book.bookUrl)
-        book.isImage && mangaSettingsGateway.currentSettings.showMangaUi ->
+        book.preferMangaReader(mangaSettingsGateway.currentSettings.showMangaUi) ->
             MainActivity.createReadMangaIntent(this, book.bookUrl)
 
         else -> MainActivity.createReadBookIntent(this, book.bookUrl)
     }
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    if (book.isAudio || (book.isImage && mangaSettingsGateway.currentSettings.showMangaUi)) {
+    if (book.isAudio || book.preferMangaReader(mangaSettingsGateway.currentSettings.showMangaUi)) {
         intent.putExtra("bookUrl", book.bookUrl)
     }
     intent.apply(configIntent)
@@ -352,10 +352,23 @@ fun Context.shareWithQr(
 }
 
 fun Context.sendToClip(text: String) {
-    val clipData = ClipData.newPlainText(null, text)
-    clipboardManager.setPrimaryClip(clipData)
-    longToastOnUi(R.string.copy_complete)
+    // SPEC-179: binder parcels cap around 1MB — huge crash reports threw
+    // TransactionTooLargeException on copy. Clamp and keep head/tail.
+    val clipped = if (text.length <= MAX_CLIP_CHARS) text else {
+        text.take(MAX_CLIP_CHARS / 2) +
+            "\n\n……（内容过长，已截断）……\n\n" +
+            text.takeLast(MAX_CLIP_CHARS / 2)
+    }
+    val clipData = ClipData.newPlainText(null, clipped)
+    runCatching {
+        clipboardManager.setPrimaryClip(clipData)
+        longToastOnUi(R.string.copy_complete)
+    }.onFailure {
+        toastOnUi(it.localizedMessage ?: "复制失败")
+    }
 }
+
+private const val MAX_CLIP_CHARS = 100_000
 
 fun Context.getClipText(): String? {
     clipboardManager.primaryClip?.let {

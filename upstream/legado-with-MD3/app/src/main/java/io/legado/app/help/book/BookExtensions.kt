@@ -83,6 +83,14 @@ val Book.isUmd: Boolean
 val Book.isPdf: Boolean
     get() = isLocal && originName.endsWith(".pdf", true)
 
+fun Book.preferMangaReader(showMangaUi: Boolean): Boolean = io.legado.app.model.localBook.preferMangaReader(
+    isAudio = isAudio,
+    isLocal = isLocal,
+    isImage = isImage,
+    isPdf = isPdf,
+    showMangaUi = showMangaUi,
+)
+
 val Book.isMobi: Boolean
     get() = isLocal && (originName.endsWith(".mobi", true) ||
             originName.endsWith(".azw3", true) ||

@@ -5,13 +5,13 @@ import io.legado.app.domain.model.settings.ThemeSettings
 import kotlinx.collections.immutable.ImmutableList
 
 /**
- * 欢迎引导流程（隐私 → 书籍文件夹 → 主题）的 Compose 契约。SPEC-091 隐藏备份页。
+ * SPEC-165: 仅浅色主题一页。隐私协议在「关于」，不在引导里。
  * 页面文案见 strings.xml 的 onboarding_* 资源。
  */
 @Stable
 data class OnboardingUiState(
     val page: Int = 0,
-    val pageCount: Int = 3,
+    val pageCount: Int = 1,
     val privacyPolicy: String = "",
     val disclaimer: String = "",
     val webDavUrl: String = "",

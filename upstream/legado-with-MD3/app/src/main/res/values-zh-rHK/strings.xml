@@ -1408,7 +1408,7 @@
     <string name="onboarding_summary_welcome">请先阅读应用的服务条款与用户协议。</string>
     <string name="onboarding_summary_backup">此处可设置云同步与恢复应用备份。</string>
     <string name="onboarding_summary_book_folder">请选择保存本地书籍的文件夹。</string>
-    <string name="onboarding_summary_theme">在这里设置您喜爱的样式。</string>
+    <string name="onboarding_summary_theme">选择主题颜色。这一页只使用浅色。</string>
     <string name="onboarding_next_agree">阅读并同意</string>
     <string name="onboarding_next_step">下一步</string>
     <string name="onboarding_next_done">完成</string>
@@ -1828,6 +1828,11 @@
     <string name="data_must_be_json">資料必須為 JSON 格式</string>
     <string name="day_card_bg_color">白天卡片背景色</string>
     <string name="day_night_switch">日/夜模式切換</string>
+    <string name="reader_target_dark_mode">深色模式</string>
+    <string name="reader_target_light_mode">淺色模式</string>
+    <string name="reader_translation_started">正在翻譯本章…</string>
+    <string name="reader_translation_failed">翻譯失敗</string>
+    <string name="reader_translation_unavailable">目前沒有可翻譯的正文</string>
     <string name="debug_finished">調試完成</string>
     <string name="default_color">使用預設字體顏色</string>
     <string name="delay_book_load">延遲書籍載入</string>

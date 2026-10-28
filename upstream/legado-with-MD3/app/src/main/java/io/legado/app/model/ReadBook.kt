@@ -44,10 +44,13 @@ import io.legado.app.model.ReadBook.callBack
 import io.legado.app.model.ReadBook.publishSnapshot
 import io.legado.app.model.ReadBook.renderCallBack
 import io.legado.app.model.ReadBook.snapshot
+import io.legado.app.R
 import io.legado.app.model.localBook.LocalBook
 import io.legado.app.model.localBook.TextFile
 import io.legado.app.model.reader.ReaderChapterInput
 import io.legado.app.model.reader.ReaderChapterInputWindow
+import io.legado.app.model.translation.isTranslationTerminal
+import io.legado.app.model.translation.translationDisplayContent
 import io.legado.app.model.translation.TranslationChapterState
 import io.legado.app.model.translation.TranslationChapterStatus
 import io.legado.app.model.translation.TranslationManager
@@ -1599,23 +1602,23 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
         val job = launch {
             try {
                 taskFlow.takeWhile { state ->
-                    when (state.status) {
-                        TranslationChapterStatus.Translating,
-                        TranslationChapterStatus.Thinking -> {
-                            state.mixedContent?.let { mixed ->
-                                contentLoadFinish(
-                                    book,
-                                    chapter,
-                                    mixed,
-                                    upContent = true,
-                                    resetPageOffset = false,
-                                )
-                            }
-                        }
-                        else -> Unit
+                    translationDisplayContent(state)?.takeIf { it.isNotBlank() }?.let { text ->
+                        contentLoadFinish(
+                            book,
+                            chapter,
+                            text,
+                            upContent = true,
+                            resetPageOffset = false,
+                        )
                     }
-                    state.status == TranslationChapterStatus.Translating ||
-                        state.status == TranslationChapterStatus.Thinking
+                    if (state.status == TranslationChapterStatus.Failed ||
+                        (state.status == TranslationChapterStatus.Translated &&
+                            translationDisplayContent(state).isNullOrBlank())
+                    ) {
+                        val detail = state.errorMessage?.takeIf { it.isNotBlank() }
+                        upMsg(detail ?: appCtx.getString(R.string.reader_translation_failed))
+                    }
+                    !isTranslationTerminal(state.status)
                 }.collect {}
             } finally {
                 coroutineContext[Job]?.let { job ->

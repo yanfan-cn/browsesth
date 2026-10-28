@@ -2,19 +2,20 @@ package io.legado.app.ui.main
 
 import androidx.navigation3.runtime.NavKey
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MainNavigatorBackStackTest {
 
     @Test
-    fun `opening book info from bookshelf manage keeps manage in back stack`() {
+    fun `opening search content from bookshelf manage keeps manage in back stack`() {
         val manage = MainRouteCache(-1L)
-        val bookInfo = MainRouteBookInfo("Book", "Author", "book-url")
+        val searchContent = MainRouteSearchContent(bookUrl = "book-url")
         val backStack = mutableListOf<NavKey>(MainRouteHome, manage)
 
-        MainNavigator.navigateToRoute(backStack, bookInfo)
+        MainNavigator.navigateToRoute(backStack, searchContent)
 
-        assertEquals(listOf(MainRouteHome, manage, bookInfo), backStack)
+        assertEquals(listOf(MainRouteHome, manage, searchContent), backStack)
     }
 
     @Test
@@ -29,24 +30,17 @@ class MainNavigatorBackStackTest {
     }
 
     @Test
-    fun `media reader replaces stale route with home parent`() {
-        val bookInfo = MainRouteBookInfo("Book", "Author", "book-url")
-        val reader = MainRouteReadBook(readAloud = true)
-        val backStack = mutableListOf<NavKey>(MainRouteHome, bookInfo)
-
-        MainNavigator.navigateToRoute(backStack, reader, resetToHome = true)
-
-        assertEquals(listOf(MainRouteHome, reader), backStack)
-    }
-
-    @Test
-    fun `regular reader keeps book info as parent`() {
-        val bookInfo = MainRouteBookInfo("Book", "Author", "book-url")
-        val reader = MainRouteReadBook(bookUrl = "book-url", chapterChanged = true)
-        val backStack = mutableListOf<NavKey>(MainRouteHome, bookInfo)
-
-        MainNavigator.navigateToRoute(backStack, reader)
-
-        assertEquals(listOf(MainRouteHome, bookInfo, reader), backStack)
+    fun `reader and book info routes no longer exist on the nav stack`() {
+        // SPEC-190/193: readers and book info are dedicated activities; navigateToRoute
+        // must not accept them.
+        val retiredRoutes = listOf(
+            "MainRouteReadBook",
+            "MainRouteReadManga",
+            "MainRouteBookInfo",
+        )
+        val mainRouteClasses = MainRoute::class.sealedSubclasses.map { it.simpleName }
+        retiredRoutes.forEach { name ->
+            assertTrue("$name must not be a MainRoute anymore", !mainRouteClasses.contains(name))
+        }
     }
 }

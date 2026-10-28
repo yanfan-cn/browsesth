@@ -162,6 +162,8 @@ object BrowserClearDataHelper {
         val since = range.sinceMs()
         if (BrowserClearCategory.History in categories) {
             BrowseStore(context).clearHistoryInRange(since)
+            // SPEC-177: search queries clear with browsing history.
+            BrowserSearchHistoryStore(context).clearInRange(since)
         }
         if (BrowserClearCategory.Passwords in categories) {
             clearJsonByAt(context, "browsesth_browser_passwords", since)

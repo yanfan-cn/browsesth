@@ -24,4 +24,13 @@ class BrowserDownloadHelperTest {
         )
         assertEquals("pack.zip", name)
     }
+
+    @Test
+    fun headerIgnoreCase_readsUserAgent() {
+        val value = BrowserDownloadHelper.headerIgnoreCase(
+            mapOf("user-agent" to "  TestAgent  "),
+            "User-Agent",
+        )
+        assertEquals("TestAgent", value)
+    }
 }

@@ -48,6 +48,8 @@ navigation3 = "1.2.0"
 # 显式保持 1.2 系列，避免回退到尚未包含该修复的稳定版 1.1.2。
 navigationevent = "1.2.0-rc01"
 markwon = "4.6.2"
+mlkitTranslate = "17.0.3"
+mlkitLanguageId = "17.0.6"
 material = "1.14.0"
 material3 = "1.5.0-alpha28"
 materialKolor = "5.0.1"
@@ -232,6 +234,8 @@ kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "
 
 liveeventbus = { module = "com.github.michaellee123:LiveEventBus", version.ref = "liveeventbus" }
 material = { module = "com.google.android.material:material", version.ref = "material" }
+mlkit-translate = { module = "com.google.mlkit:translate", version.ref = "mlkitTranslate" }
+mlkit-language-id = { module = "com.google.mlkit:language-id", version.ref = "mlkitLanguageId" }
 
 mozilla-rhino = { module = "org.mozilla:rhino", version.ref = "rhino" }
 zxing-lite = { module = "com.github.jenly1314:zxing-lite", version.ref = "zxingLite" }

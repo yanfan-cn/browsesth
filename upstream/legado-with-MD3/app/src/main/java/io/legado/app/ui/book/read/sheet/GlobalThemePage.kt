@@ -168,7 +168,8 @@ fun GlobalThemePage(
                 )
                 SmallTonalButton(
                     onClick = onToggleDayNight,
-                    icon = if (isNightTheme) Symbols.DarkMode else Symbols.LightMode,
+                    // SPEC-171: show the mode you will switch to.
+                    icon = if (isNightTheme) Symbols.LightMode else Symbols.DarkMode,
                     contentColor = LegadoTheme.colorScheme.onSurfaceVariant,
                     containerColor = LegadoTheme.colorScheme.surfaceContainerHigh,
                     selectedContainerColor = LegadoTheme.colorScheme.surfaceContainerHigh,

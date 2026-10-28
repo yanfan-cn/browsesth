@@ -21,6 +21,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import com.script.rhino.runScriptWithContext
 import io.legado.app.BuildConfig
+import io.legado.app.ui.main.NavMotion
 import io.legado.app.R
 import io.legado.app.constant.AppLog
 import io.legado.app.constant.BookType
@@ -1537,10 +1538,6 @@ class ReadBookController(
                 }
             }
             // Keep streamed current pages responsive; defer only the complete batch's Main work.
-            // The timeout also covers direct entries whose entrance callback never settles.
-            ReaderPerfTrace.suspendSection("pagination.wait-for-entrance") {
-                withTimeoutOrNull(900L) { readerEntranceSettled.first { it } }
-            }
             withContext(Main) {
                 applyDirectReaderPaginationBatch(
                     environmentKey = environmentKey,

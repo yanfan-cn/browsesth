@@ -2,8 +2,14 @@ package io.legado.app.ui.browser
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -46,6 +52,7 @@ import io.legado.app.browser.engine.BrowserDownloadKind
 import io.legado.app.browser.engine.BrowserDownloadPaths
 import io.legado.app.browser.engine.BrowserDownloadRepository
 import io.legado.app.browser.engine.BrowserDownloadStatus
+import io.legado.app.browser.engine.BrowserMediaStorePublisher
 import io.legado.app.constant.AppConst
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.AppScaffold
@@ -83,12 +90,24 @@ private fun BrowserDownloadsBody(
     var selectedIds by remember { mutableStateOf(emptySet<String>()) }
     var showSettings by remember { mutableStateOf(false) }
     var askBefore by remember { mutableStateOf(chromePrefs.askBeforeDownload) }
+    var preferAllFiles by remember { mutableStateOf(chromePrefs.preferAllFilesVideoDownload) }
+    var hasAllFiles by remember { mutableStateOf(BrowserDownloadPaths.hasAllFilesAccess()) }
     var customPath by remember {
         mutableStateOf(
             chromePrefs.downloadDirPath.ifBlank {
                 BrowserDownloadPaths.defaultRootDir().absolutePath
             },
         )
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasAllFiles = BrowserDownloadPaths.hasAllFilesAccess()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     val scheme = LegadoTheme.colorScheme
     val filtered = remember(items, query) {
@@ -335,12 +354,83 @@ private fun BrowserDownloadsBody(
                             },
                         )
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "视频默认经 MediaStore 写入系统影片库（相册可见）。",
+                        color = scheme.onSurfaceVariant,
+                        fontSize = 13.sp,
+                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                            Text("所有文件访问")
+                            Text(
+                                if (hasAllFiles) {
+                                    "已授权。开启后视频直接写入公共影片目录"
+                                } else {
+                                    "未授权。开启开关将跳转系统设置申请"
+                                },
+                                color = scheme.onSurfaceVariant,
+                                fontSize = 12.sp,
+                            )
+                        }
+                        Switch(
+                            checked = preferAllFiles && hasAllFiles,
+                            onCheckedChange = { want ->
+                                if (want) {
+                                    chromePrefs.preferAllFilesVideoDownload = true
+                                    preferAllFiles = true
+                                    if (!BrowserDownloadPaths.hasAllFilesAccess()) {
+                                        openManageAllFilesSettings(context)
+                                        context.toastOnUi("请授予「所有文件访问」后返回")
+                                    } else {
+                                        hasAllFiles = true
+                                    }
+                                } else {
+                                    preferAllFiles = false
+                                    chromePrefs.preferAllFilesVideoDownload = false
+                                }
+                            },
+                        )
+                    }
+                    if (preferAllFiles && !hasAllFiles) {
+                        TextButton(onClick = { openManageAllFilesSettings(context) }) {
+                            Text("去系统设置授权")
+                        }
+                    }
                 }
             },
             confirmButton = {
                 TextButton(onClick = { showSettings = false }) { Text("完成") }
             },
         )
+    }
+}
+
+private fun openManageAllFilesSettings(context: android.content.Context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+        context.toastOnUi("当前系统无需此项授权")
+        return
+    }
+    runCatching {
+        context.startActivity(
+            Intent(
+                Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                Uri.parse("package:${context.packageName}"),
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }.onFailure {
+        runCatching {
+            context.startActivity(
+                Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }.onFailure { err ->
+            context.toastOnUi("无法打开设置：${err.message}")
+        }
     }
 }
 
@@ -439,17 +529,15 @@ private fun DownloadRow(
 }
 
 private fun openDownloadedFile(context: android.content.Context, item: BrowserDownloadItem) {
-    val file = File(item.absolutePath)
-    if (!file.exists()) {
-        context.toastOnUi("文件不存在")
-        return
-    }
     runCatching {
-        val uri = FileProvider.getUriForFile(
-            context,
-            AppConst.authority,
-            file,
-        )
+        val uri = if (BrowserMediaStorePublisher.isContentUri(item.absolutePath)) {
+            BrowserMediaStorePublisher.parseUri(item.absolutePath)
+                ?: error("无效的媒体地址")
+        } else {
+            val file = File(item.absolutePath)
+            if (!file.exists()) error("文件不存在")
+            FileProvider.getUriForFile(context, AppConst.authority, file)
+        }
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, item.mimeType ?: "*/*")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

@@ -43,6 +43,7 @@ internal object BrowserChromeGlassStyle {
     fun barFallbackAlpha(isDark: Boolean): Float = if (isDark) 0.55f else 0.38f
     fun fabFallbackAlpha(isDark: Boolean): Float = if (isDark) 0.72f else 0.48f
     fun shadowAlpha(isDark: Boolean): Float = if (isDark) 0.20f else 0.10f
+
 }
 
 @Composable

@@ -5,8 +5,10 @@ object TranslationConstants {
     const val PROVIDER_OPENAI = "openai"
     const val PROVIDER_APP_AI = "app_ai"
     const val PROVIDER_GOOGLE = "google"
-    /** SPEC-048: Baidu Translate (mainland-friendly default). */
+    /** SPEC-048: Baidu Translate (mainland-friendly). */
     const val PROVIDER_BAIDU = "baidu"
+    /** SPEC-171: Google ML Kit on-device (optional; needs GMS / Google network). */
+    const val PROVIDER_MLKIT = "mlkit"
     /** Reserved; not exposed in UI yet (SPEC-048 deferred). */
     const val PROVIDER_MICROSOFT = "microsoft"
 
@@ -16,11 +18,13 @@ object TranslationConstants {
 
     val providerDisplayNames = listOf(
         "百度翻译",
+        "端上翻译 (ML Kit)",
         "应用 AI 接口",
         "Google Translate",
     )
     val providerValues = listOf(
         PROVIDER_BAIDU,
+        PROVIDER_MLKIT,
         PROVIDER_APP_AI,
         PROVIDER_GOOGLE,
     )

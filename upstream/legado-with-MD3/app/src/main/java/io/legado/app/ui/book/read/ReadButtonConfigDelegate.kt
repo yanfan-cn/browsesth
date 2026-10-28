@@ -34,7 +34,7 @@ class ReadButtonConfigDelegate(
     /** 从 SharedPreferences 读回两条按钮配置，刷进 menuConfig。VM 构造时调一次。 */
     fun refresh() {
         val titleBarButtons = loadButtonConfig(TITLE_BAR_ICON_PREFS, TITLE_BAR_ICON_KEY)
-        val bottomBarButtons = loadButtonConfig(TOOL_BUTTON_PREFS, TOOL_BUTTON_KEY)
+        val bottomBarButtons = loadBottomBarButtons()
         host.updateMenuConfig {
             it.copy(
                 titleBarButtons = titleBarButtons.toImmutableList(),
@@ -152,6 +152,16 @@ class ReadButtonConfigDelegate(
         }
     }
 
+    /** SPEC-167: 底栏把仍开着的「章节梗概」换成日夜切换。顶栏不走这里。 */
+    private fun loadBottomBarButtons(): List<ReadBookButtonConfigItem> {
+        val loaded = loadButtonConfig(TOOL_BUTTON_PREFS, TOOL_BUTTON_KEY)
+        val migrated = normalizeButtonConfig(replaceChapterSummaryWithDayNight(loaded))
+        if (encodeButtonConfig(migrated) != encodeButtonConfig(loaded)) {
+            saveButtonConfig(TOOL_BUTTON_PREFS, TOOL_BUTTON_KEY, migrated)
+        }
+        return migrated
+    }
+
     /** SPEC-112: 默认两行十键，顺序固定。 */
     fun defaultBottomBarButtons(): List<ReadBookButtonConfigItem> {
         val enabledOrder = DefaultEnabledBottomBarButtonIds
@@ -210,5 +220,30 @@ class ReadButtonConfigDelegate(
 
         fun encodeButtonConfig(items: List<ReadBookButtonConfigItem>): String =
             items.joinToString(";") { "${it.id},${it.enabled}" }
+
+        /**
+         * SPEC-167: 日夜切换已经开着时，只关掉章节梗概。
+         * 否则把章节梗概那一格换成日夜切换，并保持原来的开关。
+         * 章节梗概本来就关着时不改。
+         */
+        fun replaceChapterSummaryWithDayNight(
+            items: List<ReadBookButtonConfigItem>,
+        ): List<ReadBookButtonConfigItem> {
+            val summaryIndex = items.indexOfFirst { it.id == "ai_summary" }
+            if (summaryIndex < 0) return items
+            val themeIndex = items.indexOfFirst { it.id == "theme" }
+            if (themeIndex >= 0 && items[themeIndex].enabled) {
+                return items.mapIndexed { index, item ->
+                    if (index == summaryIndex) item.copy(enabled = false) else item
+                }
+            }
+            if (!items[summaryIndex].enabled) return items
+            val swapped = items.toMutableList()
+            swapped[summaryIndex] = ReadBookButtonConfigItem("theme", true)
+            if (themeIndex >= 0) {
+                swapped[themeIndex] = ReadBookButtonConfigItem("ai_summary", false)
+            }
+            return swapped
+        }
     }
 }

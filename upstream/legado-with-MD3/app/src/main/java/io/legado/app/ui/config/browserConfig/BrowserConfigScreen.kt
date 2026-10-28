@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.legado.app.browser.engine.BrowserChromePrefs
 import io.legado.app.browser.engine.BrowserFormFactor
+import io.legado.app.browser.engine.BrowserNtpPrefs
 import io.legado.app.browser.engine.BrowserReaderPrefs
 import io.legado.app.browser.engine.BrowserShieldPrefs
 import io.legado.app.browser.engine.BrowserUa
@@ -61,6 +62,7 @@ private fun BrowserConfigBody(
     val context = LocalContext.current
     val prefs = remember { BrowserShieldPrefs(context) }
     val chromePrefs = remember { BrowserChromePrefs(context) }
+    val ntpPrefs = remember { BrowserNtpPrefs(context) }
     val isTablet = remember { BrowserFormFactor.isTablet(context) }
     var adBlock by remember { mutableStateOf(prefs.adBlockEnabled) }
     var blockPopups by remember { mutableStateOf(prefs.blockPopups) }
@@ -167,6 +169,19 @@ private fun BrowserConfigBody(
                         onCheckedChange = {
                             videoPlayerPrompt = it
                             chromePrefs.videoPlayerPromptEnabled = it
+                        },
+                    )
+                    // SPEC-177: phone fullscreen search empty-state recent queries.
+                    var showSearchHistory by remember {
+                        mutableStateOf(ntpPrefs.showSearchHistory)
+                    }
+                    SwitchSettingItem(
+                        title = "显示搜索记录",
+                        description = "手机主页全屏搜索未输入时，显示最近 5 条搜索记录",
+                        checked = showSearchHistory,
+                        onCheckedChange = {
+                            showSearchHistory = it
+                            ntpPrefs.showSearchHistory = it
                         },
                     )
                 }

@@ -470,8 +470,19 @@ internal fun loadToolButtons(
         infoMap.getValue("addBookmark").toButton {
             onIntent(ReadBookIntent.AddBookmark)
         },
-        infoMap.getValue("theme").toButton {
-            onIntent(ReadBookIntent.ToggleDayNight)
+        run {
+            val theme = infoMap.getValue("theme")
+            ToolButtonDef(
+                id = theme.id,
+                icon = dayNightToggleSymbol(io.legado.app.help.config.ReadStyleResolver.isNightTheme()),
+                description = context.getString(
+                    dayNightToggleLabelRes(
+                        io.legado.app.help.config.ReadStyleResolver.isNightTheme(),
+                    ),
+                ),
+                customIconPath = customIcons[theme.id],
+                onClick = { onIntent(ReadBookIntent.ToggleDayNight) },
+            )
         },
         infoMap.getValue("eye_protection").toButton(
             isActive = eyeProtectionEnabled,

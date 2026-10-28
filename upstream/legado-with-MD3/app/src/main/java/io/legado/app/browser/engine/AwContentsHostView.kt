@@ -87,6 +87,11 @@ class AwContentsHostView @JvmOverloads constructor(
         settings.setUseWideViewPort(true)
         settings.setLoadWithOverviewMode(false)
         settings.setMediaPlaybackRequiresUserGesture(true)
+        // SPEC-180: system WebView glue auto-calls AwSettings.setFullscreenSupported(true)
+        // when setWebChromeClient(non-null) is invoked; direct AwContents wiring never does.
+        // Without it document.fullscreenEnabled=false and the page's fullscreen button stays grey.
+        runCatching { settings.setFullscreenSupported(true) }
+            .onFailure { Log.w(TAG, "setFullscreenSupported: ${it.message}") }
         // SPEC-093: disable built-in Aw hyperlink menu; we show Compose sheet instead.
         runCatching {
             settings.setHyperlinkContextMenuItems(0)
@@ -262,7 +267,45 @@ class AwContentsHostView @JvmOverloads constructor(
         awContents?.goForward()
     }
 
+    /** SPEC-163: jump [steps] entries in the tab navigation stack (negative = back). */
+    fun goBackOrForward(steps: Int) {
+        if (steps == 0) return
+        BrowserScrollMemory.markHistoryNavigation()
+        awContents?.goBackOrForward(steps)
+    }
+
+    /** SPEC-163: long-press back/forward menus. */
+    fun navigationHistoryItems(direction: BrowserNavHistory.Direction): List<BrowserNavHistory.Item> {
+        val history = runCatching { awContents?.navigationHistory }.getOrNull()
+            ?: return emptyList()
+        val entries = buildList {
+            for (i in 0 until history.entryCount) {
+                val entry = history.getEntryAtIndex(i) ?: continue
+                val url = entry.url?.getValidSpecOrEmpty()
+                    ?.ifEmpty { entry.virtualUrl?.getValidSpecOrEmpty().orEmpty() }
+                    .orEmpty()
+                add(
+                    BrowserNavHistory.Entry(
+                        title = entry.title.orEmpty(),
+                        url = url,
+                        isInitial = entry.isInitialEntry,
+                    ),
+                )
+            }
+        }
+        return BrowserNavHistory.slice(
+            entries = entries,
+            currentIndex = history.currentEntryIndex,
+            direction = direction,
+        )
+    }
+
     fun reload() { awContents?.reload() }
+
+    /** SPEC-163: long-press refresh → top of page, no reload. */
+    fun scrollToTop() {
+        evaluateJavaScript(io.legado.app.browser.reader.WebChapterExpandJs.SCROLL_TOP, null)
+    }
 
     /** SPEC-119: apply UA live, then caller should [reload]. */
     fun applyUserAgent(mode: BrowserUa.Mode) {

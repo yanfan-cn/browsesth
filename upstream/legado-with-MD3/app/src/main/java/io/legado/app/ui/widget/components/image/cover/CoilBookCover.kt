@@ -43,6 +43,8 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import java.io.File
+import io.legado.app.ui.widget.components.image.cover.CoverPaletteStore
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.withSave
@@ -55,22 +57,22 @@ import io.legado.app.model.BookCover as BookCoverModel
 
 private const val SharedCoverRadiusCacheMaxSize = 256
 
-/** 用户在换封面页选的“默认封面”，与空地址一样表示这本书没有真实封面。 */
+/** 鐢ㄦ埛鍦ㄦ崲灏侀潰椤甸€夌殑鈥滈粯璁ゅ皝闈⑩€濓紝涓庣┖鍦板潃涓€鏍疯〃绀鸿繖鏈功娌℃湁鐪熷疄灏侀潰銆?*/
 internal const val DefaultCoverPath = "use_default_cover"
 private val sharedCoverRadiusCache = mutableStateMapOf<String, Dp>()
 
 /**
- * 这本书是否有真实封面地址可加载。
+ * 杩欐湰涔︽槸鍚︽湁鐪熷疄灏侀潰鍦板潃鍙姞杞姐€?
  *
- * 与 [usesDefaultBookCover] 的区别：这里只看地址本身，不读 Compose 配置，
- * 因此预热这类非组合场景也能复用同一判定。
+ * 涓?[usesDefaultBookCover] 鐨勫尯鍒細杩欓噷鍙湅鍦板潃鏈韩锛屼笉璇?Compose 閰嶇疆锛?
+ * 鍥犳棰勭儹杩欑被闈炵粍鍚堝満鏅篃鑳藉鐢ㄥ悓涓€鍒ゅ畾銆?
  */
 internal fun isDefaultCoverPath(path: String?): Boolean =
     path.isNullOrBlank() || path == DefaultCoverPath
 
 /**
- * 封面在源页面的圆角缓存读取入口：封面离开源页面（Visible→Visible 定格）时写入，
- * 阅读端 sharedBounds 的起始圆角由它提供，保证转场两端圆角衔接连续。
+ * 灏侀潰鍦ㄦ簮椤甸潰鐨勫渾瑙掔紦瀛樿鍙栧叆鍙ｏ細灏侀潰绂诲紑婧愰〉闈紙Visible鈫扸isible 瀹氭牸锛夋椂鍐欏叆锛?
+ * 闃呰绔?sharedBounds 鐨勮捣濮嬪渾瑙掔敱瀹冩彁渚涳紝淇濊瘉杞満涓ょ鍦嗚琛旀帴杩炵画銆?
  */
 internal fun sharedCoverSourceRadius(sharedCoverKey: String?): Dp? =
     sharedCoverKey?.let { sharedCoverRadiusCache[it] }
@@ -89,7 +91,7 @@ fun BookCoverImage(
     modifier: Modifier = Modifier,
     sourceOrigin: String? = null,
     memoryCacheKey: String? = null,
-    // 本书 bookUrl（别名缓存键）与书架本地优先标志，透传给 buildCoverImageRequest。
+    // 鏈功 bookUrl锛堝埆鍚嶇紦瀛橀敭锛変笌涔︽灦鏈湴浼樺厛鏍囧織锛岄€忎紶缁?buildCoverImageRequest銆?
     bookUrl: String? = null,
     preferCache: Boolean = false,
     ignoreUseDefaultCover: Boolean = false,
@@ -107,10 +109,46 @@ fun BookCoverImage(
     val isNight = LegadoTheme.isDark
     val coverSettings = LocalAppUiConfiguration.current.cover
 
+    // SPEC-185: nothing extractable (blank, default marker, or the local cover file is
+    // gone) → random palette cover; the seed keeps one book on one cover.
+    val paletteCover = remember(name, author, bookUrl, path) {
+        val seed = name ?: author ?: bookUrl
+        val missingLocal = path != null && path.startsWith("/") && !File(path).exists()
+        if (seed != null && (path.isNullOrBlank() || path == DefaultCoverPath || missingLocal)) {
+            CoverPaletteStore.pickForSeed(context, seed)
+        } else {
+            null
+        }
+    }
+    val effectivePath = paletteCover ?: path
+
+    // SPEC-160: color/gradient covers skip default-cover substitution.
+    if (GeneratedCover.isGenerated(effectivePath)) {
+        Box(
+            modifier = modifier.then(
+                with(sharedTransitionScope) {
+                    if (this != null && animatedVisibilityScope != null && sharedCoverKey != null) {
+                        Modifier.sharedBounds(
+                            sharedContentState = rememberSharedContentState(sharedCoverKey),
+                            animatedVisibilityScope = animatedVisibilityScope,
+                        )
+                    } else {
+                        Modifier
+                    }
+                }
+            )
+        ) {
+            GeneratedCoverFace(path = effectivePath!!, title = name, modifier = Modifier.fillMaxSize())
+            onLoadFinish?.invoke()
+            onSuccess?.invoke()
+        }
+        return
+    }
+
     val useDefault = (!ignoreUseDefaultCover && coverSettings.useDefaultCover) ||
-            path.isNullOrBlank() ||
-            path == DefaultCoverPath
-    val finalPath = if (useDefault) null else path
+            effectivePath.isNullOrBlank() ||
+            effectivePath == DefaultCoverPath
+    val finalPath = if (useDefault) null else effectivePath
     val defaultCoverPaths =
         if (isNight) coverSettings.defaultCoverDark else coverSettings.defaultCover
 
@@ -130,6 +168,13 @@ fun BookCoverImage(
         }
     var isOnlineCoverLoaded by remember(finalPath) { mutableStateOf(false) }
     var onlineCoverLoadFailed by remember(finalPath) { mutableStateOf(false) }
+
+    // SPEC-194: 网络封面加载失败也回落配色封面（操作者 2026-10-28 重申：
+    // 网页/本地书籍无图可提取时一律配色封面，含阅读列表卡/页与阅读记录）。
+    val failurePalette = remember(finalPath) {
+        val seed = name ?: author ?: bookUrl
+        if (seed != null) CoverPaletteStore.pickForSeed(context, seed) else null
+    }
 
     LaunchedEffect(finalPath) {
         if (finalPath == null) {
@@ -190,39 +235,48 @@ fun BookCoverImage(
         }
 
         if (finalPath != null) {
-            AsyncImage(
-                model = buildCoverImageRequest(
-                    context = context,
-                    data = finalPath,
-                    sourceOrigin = sourceOrigin,
-                    loadOnlyWifi = false,
-                    crossfade = showLoadingPlaceholder,
-                    memoryCacheKey = coverMemoryCacheKey(
-                        sharedCoverKey = sharedCoverKey,
-                        explicitKey = memoryCacheKey,
-                        path = finalPath,
+            if (onlineCoverLoadFailed && failurePalette != null) {
+                // SPEC-194: 加载失败不再显示默认图标，改用配色封面（自带书名绘制）。
+                GeneratedCoverFace(
+                    path = failurePalette,
+                    title = name,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                AsyncImage(
+                    model = buildCoverImageRequest(
+                        context = context,
+                        data = finalPath,
+                        sourceOrigin = sourceOrigin,
+                        loadOnlyWifi = false,
+                        crossfade = showLoadingPlaceholder,
+                        memoryCacheKey = coverMemoryCacheKey(
+                            sharedCoverKey = sharedCoverKey,
+                            explicitKey = memoryCacheKey,
+                            path = finalPath,
+                        ),
+                        bookUrl = bookUrl,
+                        preferCache = preferCache,
+                        configure = requestBuilder,
                     ),
-                    bookUrl = bookUrl,
-                    preferCache = preferCache,
-                    configure = requestBuilder,
-                ),
-                contentDescription = null,
-                imageLoader = koinInject(),
-                contentScale = contentScale,
-                modifier = Modifier.fillMaxSize(),
-                onSuccess = {
-                    isOnlineCoverLoaded = true
-                    onlineCoverLoadFailed = false
-                    onSuccess?.invoke()
-                    onLoadFinish?.invoke()
-                },
-                onError = {
-                    isOnlineCoverLoaded = false
-                    onlineCoverLoadFailed = true
-                    onError?.invoke()
-                    onLoadFinish?.invoke()
-                }
-            )
+                    contentDescription = null,
+                    imageLoader = koinInject(),
+                    contentScale = contentScale,
+                    modifier = Modifier.fillMaxSize(),
+                    onSuccess = {
+                        isOnlineCoverLoaded = true
+                        onlineCoverLoadFailed = false
+                        onSuccess?.invoke()
+                        onLoadFinish?.invoke()
+                    },
+                    onError = {
+                        isOnlineCoverLoaded = false
+                        onlineCoverLoadFailed = true
+                        onError?.invoke()
+                        onLoadFinish?.invoke()
+                    }
+                )
+            }
         } else {
             LaunchedEffect(Unit) {
                 onLoadFinish?.invoke()
@@ -231,7 +285,7 @@ fun BookCoverImage(
     }
 }
 
-// 改成BookCover
+// 鏀规垚BookCover
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun CoilBookCover(
@@ -241,7 +295,7 @@ fun CoilBookCover(
     radius: Dp = 4.dp,
     modifier: Modifier = Modifier.width(64.dp),
     sourceOrigin: String? = null,
-    // 本书 bookUrl + 书架本地优先标志，透传给 BookCoverImage
+    // 鏈功 bookUrl + 涔︽灦鏈湴浼樺厛鏍囧織锛岄€忎紶缁?BookCoverImage
     bookUrl: String? = null,
     preferCache: Boolean = false,
     onLoadFinish: (() -> Unit)? = null,
@@ -252,33 +306,86 @@ fun CoilBookCover(
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
     sharedCoverKey: String? = null,
     /**
-     * 内容模糊半径，作用于封面图与占位文字这些**共享元素内部的子节点**。
+     * 鍐呭妯＄硦鍗婂緞锛屼綔鐢ㄤ簬灏侀潰鍥句笌鍗犱綅鏂囧瓧杩欎簺**鍏变韩鍏冪礌鍐呴儴鐨勫瓙鑺傜偣**銆?
      *
-     * 之所以要传进来而不是让调用方在外面套 `Modifier.blur`：共享元素转场时，
-     * overlay 只会搬运 sharedBounds 节点自己的内容，加在祖先上的模糊会被落下，
-     * 表现就是"动画一开始模糊突然没了"。
+     * 涔嬫墍浠ヨ浼犺繘鏉ヨ€屼笉鏄璋冪敤鏂瑰湪澶栭潰濂?`Modifier.blur`锛氬叡浜厓绱犺浆鍦烘椂锛?
+     * overlay 鍙細鎼繍 sharedBounds 鑺傜偣鑷繁鐨勫唴瀹癸紝鍔犲湪绁栧厛涓婄殑妯＄硦浼氳钀戒笅锛?
+     * 琛ㄧ幇灏辨槸"鍔ㄧ敾涓€寮€濮嬫ā绯婄獊鐒舵病浜?銆?
      */
     contentBlur: Dp = 0.dp,
     /**
-     * 盖在封面之上的叠加层（遮罩、点阵、锁标…），渲染在共享节点**内部**。
+     * 鐩栧湪灏侀潰涔嬩笂鐨勫彔鍔犲眰锛堥伄缃┿€佺偣闃点€侀攣鏍団€︼級锛屾覆鏌撳湪鍏变韩鑺傜偣**鍐呴儴**銆?
      *
-     * 放成兄弟节点的话转场时不会被 overlay 带走，会出现"装饰停在原地、只有封面在飞"。
+     * 鏀炬垚鍏勫紵鑺傜偣鐨勮瘽杞満鏃朵笉浼氳 overlay 甯﹁蛋锛屼細鍑虹幇"瑁呴グ鍋滃湪鍘熷湴銆佸彧鏈夊皝闈㈠湪椋?銆?
      */
     overlayContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
+    val context = LocalContext.current
     val coverSettings = LocalAppUiConfiguration.current.cover
     val isNight = LegadoTheme.isDark
 
+    // SPEC-185: same no-cover fallback as BookCoverImage (stable seed per book).
+    val paletteCover = remember(name, author, bookUrl, path) {
+        val seed = name ?: author ?: bookUrl
+        val missingLocal = path != null && path.startsWith("/") && !File(path).exists()
+        if (seed != null && (path.isNullOrBlank() || path == DefaultCoverPath || missingLocal)) {
+            CoverPaletteStore.pickForSeed(context, seed)
+        } else {
+            null
+        }
+    }
+    val effectivePath = paletteCover ?: path
+
+    // SPEC-160: generated color covers are first-class paths.
+    if (GeneratedCover.isGenerated(effectivePath)) {
+        val transitionRadius = rememberSharedCoverTransitionRadius(
+            sharedCoverKey = sharedCoverKey,
+            radius = radius,
+            animatedVisibilityScope = animatedVisibilityScope
+        )
+        val shape = remember(transitionRadius) { RoundedCornerShape(transitionRadius) }
+        Box(
+            modifier = modifier
+                .aspectRatio(5f / 7f)
+                .then(
+                    with(sharedTransitionScope) {
+                        if (this != null && animatedVisibilityScope != null && sharedCoverKey != null) {
+                            Modifier.sharedBounds(
+                                sharedContentState = rememberSharedContentState(sharedCoverKey),
+                                animatedVisibilityScope = animatedVisibilityScope,
+                                clipInOverlayDuringTransition = OverlayClip(shape)
+                            )
+                        } else Modifier
+                    }
+                )
+                .then(
+                    if (coverSettings.showShadow) {
+                        Modifier.shadow(4.dp, shape)
+                    } else Modifier
+                )
+                .clip(shape)
+        ) {
+            GeneratedCoverFace(
+                path = effectivePath!!,
+                title = name,
+                modifier = Modifier.fillMaxSize(),
+            )
+            overlayContent?.invoke(this)
+            onLoadFinish?.invoke()
+        }
+        return
+    }
+
     val useDefault = (!ignoreUseDefaultCover && coverSettings.useDefaultCover) ||
-            path.isNullOrBlank() ||
-            path == DefaultCoverPath
-    val finalPath = if (useDefault) null else path
+            effectivePath.isNullOrBlank() ||
+            effectivePath == DefaultCoverPath
+    val finalPath = if (useDefault) null else effectivePath
     val defaultCoverPaths =
         if (isNight) coverSettings.defaultCoverDark else coverSettings.defaultCover
 
-    val randomPath = remember(name, author, path, isNight, defaultCoverPaths) {
+    val randomPath = remember(name, author, effectivePath, isNight, defaultCoverPaths) {
         BookCoverModel.getRandomDefaultPath(
-            seed = name ?: author ?: path ?: "",
+            seed = name ?: author ?: effectivePath ?: "",
             isNight = isNight
         )
     }
@@ -361,15 +468,15 @@ fun CoilBookCover(
 
         if (
             finalPath == null ||
-            onlineCoverLoadFailed ||
             (
+                // SPEC-194: 加载失败时内层已渲染配色封面（自带书名），不再叠文字占位。
                 sharedCoverKey == null &&
                     showLoadingPlaceholder &&
                     !isOnlineCoverLoaded
                 )
         ) {
-            // 占位文字（默认封面上的书名/作者）也一起模糊：
-            // 它露的是真实字符串，锁定态不能比正常态更清晰
+            // 鍗犱綅鏂囧瓧锛堥粯璁ゅ皝闈笂鐨勪功鍚?浣滆€咃級涔熶竴璧锋ā绯婏細
+            // 瀹冮湶鐨勬槸鐪熷疄瀛楃涓诧紝閿佸畾鎬佷笉鑳芥瘮姝ｅ父鎬佹洿娓呮櫚
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -383,15 +490,15 @@ fun CoilBookCover(
             }
         }
 
-        // 遮罩/点阵/锁标等叠加层渲染在共享节点内部，转场时会随封面一起移动
+        // 閬僵/鐐归樀/閿佹爣绛夊彔鍔犲眰娓叉煋鍦ㄥ叡浜妭鐐瑰唴閮紝杞満鏃朵細闅忓皝闈竴璧风Щ鍔?
         overlayContent?.invoke(this)
     }
 }
 
 
 /**
- * 转场两端的圆角：起点用源页面缓存下来的圆角，终点用本节点的 [radius]，
- * 期间随转场进度插值，避免两端圆角不一致时跳变。脱敏封面复用同一实现。
+ * 杞満涓ょ鐨勫渾瑙掞細璧风偣鐢ㄦ簮椤甸潰缂撳瓨涓嬫潵鐨勫渾瑙掞紝缁堢偣鐢ㄦ湰鑺傜偣鐨?[radius]锛?
+ * 鏈熼棿闅忚浆鍦鸿繘搴︽彃鍊硷紝閬垮厤涓ょ鍦嗚涓嶄竴鑷存椂璺冲彉銆傝劚鏁忓皝闈㈠鐢ㄥ悓涓€瀹炵幇銆?
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable

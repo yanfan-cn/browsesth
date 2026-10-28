@@ -1,5 +1,6 @@
 package io.legado.app.ui.browser
 
+import android.content.res.Configuration
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -90,8 +91,11 @@ private fun BrowserTabsBody(
         tabs.filter { it.incognito == showIncognito }
     }
     // SPEC-080: tablet tabs grid is 4 columns.
-    val isTablet = BrowserFormFactor.isTablet(LocalConfiguration.current)
-    val columns = if (isTablet) 4 else 2
+    val configuration = LocalConfiguration.current
+    val isTablet = BrowserFormFactor.isTablet(configuration)
+    // SPEC-182: phone landscape uses 3 columns with screen-aspect thumbnails.
+    val landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val columns = if (isTablet) 4 else TabletBrowserLayout.phoneTabsColumns(landscape)
 
     // SPEC-079: no liquid-glass backdrop / content sampling on tabs page.
     AppScaffold(
@@ -340,10 +344,12 @@ private fun TabCard(
 ) {
     val scheme = LegadoTheme.colorScheme
     val preview = remember(tab.id, thumbRev) { BrowserTabThumbnailStore.get(tab.id) }
-    // SPEC-081: tablet thumb matches screen aspect; phone stays portrait 0.75.
+    // SPEC-081: tablet thumb matches screen aspect; SPEC-182: phone landscape too.
+    // Phone portrait stays 0.75.
     val configuration = LocalConfiguration.current
     val isTablet = BrowserFormFactor.isTablet(configuration)
-    val thumbAspect = if (isTablet) {
+    val landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val thumbAspect = if (TabletBrowserLayout.thumbMatchesScreenAspect(isTablet, landscape)) {
         val w = configuration.screenWidthDp.coerceAtLeast(1)
         val h = configuration.screenHeightDp.coerceAtLeast(1)
         w.toFloat() / h.toFloat()

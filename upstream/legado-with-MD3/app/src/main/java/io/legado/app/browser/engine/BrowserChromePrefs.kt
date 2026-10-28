@@ -59,6 +59,14 @@ class BrowserChromePrefs(context: Context) {
         get() = prefs.getBoolean(KEY_ASK_DOWNLOAD, false)
         set(value) = prefs.edit().putBoolean(KEY_ASK_DOWNLOAD, value).apply()
 
+    /**
+     * SPEC-178: when true and the system 「所有文件访问」 grant is present,
+     * player videos write to public Movies/XunYeBrowser. Default false → MediaStore.
+     */
+    var preferAllFilesVideoDownload: Boolean
+        get() = prefs.getBoolean(KEY_PREFER_ALL_FILES_VIDEO, false)
+        set(value) = prefs.edit().putBoolean(KEY_PREFER_ALL_FILES_VIDEO, value).apply()
+
     /** SPEC-120: Chrome-like force enable zoom; default ON. */
     var forcePageZoom: Boolean
         get() = prefs.getBoolean(KEY_FORCE_ZOOM, true)
@@ -120,6 +128,7 @@ class BrowserChromePrefs(context: Context) {
         private const val KEY_TEXT_ZOOM = "text_zoom_percent"
         private const val KEY_DOWNLOAD_DIR = "download_dir_path"
         private const val KEY_ASK_DOWNLOAD = "ask_before_download"
+        private const val KEY_PREFER_ALL_FILES_VIDEO = "prefer_all_files_video_download"
         private const val KEY_FORCE_ZOOM = "force_page_zoom"
         private const val KEY_ACCEPT_COOKIES = "accept_cookies"
         private const val KEY_ACCEPT_3P_COOKIES = "accept_third_party_cookies"

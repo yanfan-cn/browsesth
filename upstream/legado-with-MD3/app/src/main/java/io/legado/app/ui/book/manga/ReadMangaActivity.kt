@@ -1,21 +1,14 @@
 package io.legado.app.ui.book.manga
 
-import android.content.ClipData
 import android.content.Intent
 import android.os.Bundle
 import android.view.KeyEvent
-import android.view.WindowManager
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.core.content.FileProvider
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.legado.app.R
 import io.legado.app.base.BaseComposeActivity
-import io.legado.app.constant.AppConst
-import io.legado.app.constant.BookType
-import io.legado.app.model.SourceCallBack
-import io.legado.app.receiver.NetworkChangedListener
 import io.legado.app.ui.book.info.BookInfoActivity
 import io.legado.app.ui.book.info.READER_RESULT_DELETED
 import io.legado.app.ui.book.read.sheet.ReaderBookSheetRoute
@@ -23,29 +16,29 @@ import io.legado.app.ui.book.read.sheet.ReaderBookSheetTab
 import io.legado.app.ui.book.toc.TocActivityResult
 import io.legado.app.ui.login.SourceLoginType
 import io.legado.app.ui.main.MainActivity
-import io.legado.app.utils.NetworkUtils
 import io.legado.app.utils.StartActivityContract
-import io.legado.app.utils.openUrl
-import io.legado.app.utils.share
-import io.legado.app.utils.toggleSystemBar
-import kotlinx.coroutines.flow.collectLatest
 import org.koin.androidx.viewmodel.ext.android.viewModel
-import java.io.File
 
 /**
- * Android compatibility host for the Compose manga reader.
+ * SPEC-190: 独立 Activity 宿主的漫画阅读器。
  *
- * The reader surface and interaction state live in [MangaReaderScreen] and
- * [MangaReaderViewModel]. This activity only owns Android activity results,
- * window state and external activity navigation.
+ * 阅读器不再压在 MainActivity 的 nav3 栈上：进入/退出转场交给系统窗口动画，
+ * MainActivity（网页/阅读列表/详情）作为底页全程保持渲染、不重组。
+ *
+ * 本 Activity 只负责 Android 层：窗口状态、音量键翻页、Activity 结果（书籍信息/书源编辑）、
+ * 二级目的地跳转。阅读界面与业务状态在 [MangaReaderRouteScreen] / [MangaReaderViewModel]。
  */
-class ReadMangaActivity : BaseComposeActivity(imageBg = false) {
+class ReadMangaActivity : BaseComposeActivity(imageBg = false), MangaReaderKeyHost {
 
     private val readerViewModel by viewModel<MangaReaderViewModel>()
-    private val networkChangedListener by lazy { NetworkChangedListener(this) }
 
-    private var isRestoredFromSavedState = false
-    private var justInitialized = false
+    override var activeMangaKeyHandler: ((Int) -> Boolean)? = null
+
+    /**
+     * RouteScreen 以 openRequestId 区分同一本书的重复打开请求（外部目录选章后回开）；
+     * onNewIntent 复用实例时递增它触发重新 Initialize。
+     */
+    private var openRequestId by mutableLongStateOf(0L)
 
     private val sourceEditActivity =
         registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) {
@@ -56,8 +49,7 @@ class ReadMangaActivity : BaseComposeActivity(imageBg = false) {
 
     private val bookInfoActivity =
         registerForActivityResult(StartActivityContract(BookInfoActivity::class.java)) {
-            if (it.resultCode == RESULT_OK) {
-                setResult(READER_RESULT_DELETED)
+            if (it.resultCode == READER_RESULT_DELETED) {
                 finish()
             } else {
                 readerViewModel.onIntent(MangaReaderIntent.ReloadContent)
@@ -71,20 +63,79 @@ class ReadMangaActivity : BaseComposeActivity(imageBg = false) {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        isRestoredFromSavedState = savedInstanceState != null
         super.onCreate(savedInstanceState)
-        toggleSystemBar(false)
-        justInitialized = true
-        initializeReader(intent)
+        openRequestId = if (savedInstanceState != null) {
+            savedInstanceState.getLong(STATE_OPEN_REQUEST_ID)
+        } else {
+            System.nanoTime()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        io.legado.app.ui.main.ReaderForegroundTracker.readerActivityInForeground = true
+    }
+
+    override fun onPause() {
+        io.legado.app.ui.main.ReaderForegroundTracker.readerActivityInForeground = false
+        super.onPause()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putLong(STATE_OPEN_REQUEST_ID, openRequestId)
     }
 
     @Composable
     override fun Content() {
         val state by readerViewModel.uiState.collectAsStateWithLifecycle()
-        LaunchedEffect(Unit) {
-            readerViewModel.effects.collectLatest(::handleEffect)
-        }
-        MangaReaderScreen(state = state, onIntent = readerViewModel::onIntent)
+        MangaReaderRouteScreen(
+            bookUrl = intent.getStringExtra("bookUrl"),
+            inBookshelf = intent.getBooleanExtra("inBookshelf", true),
+            chapterChanged = intent.getBooleanExtra("chapterChanged", false),
+            openRequestId = openRequestId,
+            viewModel = readerViewModel,
+            restoreSystemBarsVisible = true,
+            onFinish = { bookshelfChanged ->
+                if (bookshelfChanged) setResult(RESULT_OK)
+                finish()
+            },
+            onOpenBookInfo = { name, author, bookUrl ->
+                if (bookUrl.isNotEmpty()) {
+                    bookInfoActivity.launch {
+                        putExtra("name", name)
+                        putExtra("author", author)
+                        putExtra("bookUrl", bookUrl)
+                    }
+                }
+            },
+            onOpenSourceLogin = { sourceUrl ->
+                startActivity(
+                    MainActivity.createSourceLoginIntent(
+                        this,
+                        SourceLoginType.BookSource,
+                        sourceUrl,
+                    )
+                )
+            },
+            onOpenSourceEdit = { sourceUrl ->
+                sourceEditActivity.launch(
+                    MainActivity.createBookSourceEditIntent(this, sourceUrl)
+                )
+            },
+            onOpenWebView = { title, url, sourceOrigin, sourceName, sourceType ->
+                startActivity(
+                    MainActivity.createWebViewIntent(
+                        this,
+                        title,
+                        url,
+                        sourceOrigin,
+                        sourceName,
+                        sourceType,
+                    )
+                )
+            },
+        )
         if (state.activeSheet == MangaReaderSheet.Catalog && state.bookUrl.isNotEmpty()) {
             ReaderBookSheetRoute(
                 show = true,
@@ -105,94 +156,10 @@ class ReadMangaActivity : BaseComposeActivity(imageBg = false) {
         }
     }
 
-    private fun handleEffect(effect: MangaReaderEffect) {
-        when (effect) {
-            is MangaReaderEffect.Finish -> {
-                if (effect.bookshelfChanged) setResult(RESULT_OK)
-                finishReader()
-            }
-            MangaReaderEffect.OpenBookInfo -> openBookInfoActivity()
-            is MangaReaderEffect.OpenChapterUrl -> openCurrentChapterUrl(effect.externalBrowser)
-            is MangaReaderEffect.OpenSourceLogin -> startActivity(
-                MainActivity.createSourceLoginIntent(
-                    this,
-                    SourceLoginType.BookSource,
-                    effect.sourceUrl,
-                )
-            )
-            is MangaReaderEffect.OpenSourceEdit -> sourceEditActivity.launch(
-                MainActivity.createBookSourceEditIntent(this, effect.sourceUrl)
-            )
-            is MangaReaderEffect.RunSourceCustomButton -> SourceCallBack.callBackBtn(
-                this,
-                effect.event,
-                effect.source,
-                effect.book,
-                effect.chapter,
-                BookType.image,
-            )
-            is MangaReaderEffect.OpenPaymentUrl -> startActivity(
-                MainActivity.createWebViewIntent(
-                    this,
-                    getString(R.string.chapter_pay),
-                    effect.url,
-                    effect.sourceOrigin,
-                    effect.sourceName,
-                    effect.sourceType,
-                )
-            )
-            is MangaReaderEffect.SetWindowBrightness -> {
-                if (effect.auto) resetWindowToSystemBrightness()
-                else updateWindowBrightness(effect.brightness)
-            }
-            is MangaReaderEffect.SetSystemBarsVisible -> toggleSystemBar(effect.visible)
-            is MangaReaderEffect.ShareImage -> share(File(effect.filePath), "image/jpeg")
-            is MangaReaderEffect.CopyImage -> {
-                val uri =
-                    FileProvider.getUriForFile(this, AppConst.authority, File(effect.filePath))
-                getSystemService(android.content.ClipboardManager::class.java)
-                    .setPrimaryClip(ClipData.newUri(contentResolver, "manga", uri))
-            }
-        }
-    }
-
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        initializeReader(intent)
-    }
-
-    private fun initializeReader(androidIntent: Intent) {
-        readerViewModel.onIntent(
-            MangaReaderIntent.Initialize(
-                bookUrl = androidIntent.getStringExtra("bookUrl"),
-                inBookshelf = androidIntent.getBooleanExtra("inBookshelf", true),
-                chapterChanged = androidIntent.getBooleanExtra("chapterChanged", false),
-            )
-        )
-    }
-
-    override fun onResume() {
-        super.onResume()
-        networkChangedListener.register()
-        networkChangedListener.onNetworkChanged = {
-            if (NetworkUtils.isAvailable() && !justInitialized) {
-                readerViewModel.onIntent(MangaReaderIntent.NetworkAvailable)
-            }
-        }
-        justInitialized = false
-        readerViewModel.onIntent(MangaReaderIntent.ResumeSession)
-    }
-
-    override fun onPause() {
-        readerViewModel.onIntent(MangaReaderIntent.PauseSession)
-        networkChangedListener.unRegister()
-        super.onPause()
-    }
-
-    private fun finishReader() {
-        if (readerViewModel.uiState.value.inBookshelf && !isRestoredFromSavedState) supportFinishAfterTransition()
-        else finish()
+        openRequestId = System.nanoTime()
     }
 
     private fun openBookInfoActivity() {
@@ -206,47 +173,12 @@ class ReadMangaActivity : BaseComposeActivity(imageBg = false) {
         }
     }
 
-    private fun openCurrentChapterUrl(externalBrowser: Boolean) {
-        val state = readerViewModel.uiState.value
-        val chapterUrl = state.chapterUrl ?: return
-        if (externalBrowser) {
-            openUrl(chapterUrl)
-            return
-        }
-        startActivity(
-            MainActivity.createWebViewIntent(
-                this,
-                state.chapterName,
-                chapterUrl,
-                state.sourceUrl,
-                state.sourceName,
-                state.sourceType,
-            )
-        )
-    }
-
-    private fun resetWindowToSystemBrightness() {
-        window.attributes = window.attributes.apply {
-            screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
-        }
-    }
-
-    private fun updateWindowBrightness(brightness: Int) {
-        window.attributes = window.attributes.apply {
-            screenBrightness = (brightness / 255f).coerceIn(0f, 1f)
-        }
-    }
-
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        val settings = readerViewModel.uiState.value.settings
-        if (!settings.volumeKeyPage) return super.onKeyDown(keyCode, event)
-        val reverse = settings.reverseVolumeKeyPage
-        val direction = when (keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP -> if (reverse) 1 else -1
-            KeyEvent.KEYCODE_VOLUME_DOWN -> if (reverse) -1 else 1
-            else -> return super.onKeyDown(keyCode, event)
-        }
-        readerViewModel.onIntent(MangaReaderIntent.PageStep(direction))
-        return true
+        if (activeMangaKeyHandler?.invoke(keyCode) == true) return true
+        return super.onKeyDown(keyCode, event)
+    }
+
+    private companion object {
+        const val STATE_OPEN_REQUEST_ID = "readManga.openRequestId"
     }
 }

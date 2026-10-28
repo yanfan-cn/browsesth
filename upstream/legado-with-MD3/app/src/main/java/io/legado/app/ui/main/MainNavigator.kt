@@ -59,24 +59,7 @@ object MainNavigator {
         }
         val currentRoute = backStack.lastOrNull()
         // SPEC-156: Settings 允许「已在栈顶」时走重挂分支，不能在此提前 return。
-        if (currentRoute == route && route !is MainRouteSettings) return
-
-        if (route is MainRouteReadManga) {
-            val existingReaderIndex = backStack.indexOfLast { it is MainRouteReadManga }
-            if (existingReaderIndex >= 0) {
-                while (backStack.lastIndex > existingReaderIndex) {
-                    backStack.removeAt(backStack.lastIndex)
-                }
-                backStack[existingReaderIndex] = route
-                return
-            }
-        }
-
-        if (route is MainRouteReadBook) ReaderPerfTrace.marker("open.request")
-        // 导航动画和阅读页组合要花几百毫秒, 这段时间足够把正文读出来并排版好
-        if (route is MainRouteReadBook && !route.chapterChanged) {
-            route.bookUrl?.let { ReadBook.prefetchForOpen(it) }
-        }
+        if (currentRoute == route) return
 
         when (route) {
             is MainRouteSourceLogin -> {
@@ -99,93 +82,14 @@ object MainNavigator {
                 backStack.add(MainRouteHome)
             }
 
-            MainRouteSettings -> {
-                // SPEC-156/157: 进过设置子页再回「我的」后，栈上常残留 Settings/
-                // SettingsBrowser/子页，或返回防抖吞掉出栈 → 再点设置被挡住。
-                // 打开设置前剥光所有设置相关路由，再在 Home 上压入全新 Settings。
-                resetBackNavigationGuard()
-                while (backStack.size > 1) {
-                    val top = backStack.lastOrNull() ?: break
-                    if (top == MainRouteHome) break
-                    if (
-                        top == MainRouteSettings ||
-                        top == MainRouteSettingsBrowser ||
-                        isSettingsSubPage(top)
-                    ) {
-                        backStack.removeLastOrNull()
-                        continue
-                    }
-                    break
-                }
-                if (backStack.isEmpty() || backStack.lastOrNull() != MainRouteHome) {
-                    backStack.clear()
-                    backStack.add(MainRouteHome)
-                }
-                backStack.add(MainRouteSettings)
-                Log.i("Diag145", "open Settings -> ${diagStackSnapshot(backStack)}")
-            }
-
             MainRouteAiChat -> {
-                if (currentRoute == MainRouteSettingsAi || currentRoute == MainRouteHome) {
+                // SPEC-192: 设置族已搬入 SettingsActivity；AI 聊天从设置语境打开时
+                // 以独立 start route 落在 Main，不再构造设置返回语境。
+                if (currentRoute == MainRouteHome) {
                     backStack.add(route)
                 } else {
                     backStack.clear()
                     backStack.add(MainRouteHome)
-                    backStack.add(MainRouteSettings)
-                    backStack.add(MainRouteSettingsAi)
-                    backStack.add(route)
-                }
-            }
-
-            // SPEC-094: browser settings from Home/toolbox → direct entry; back returns to web.
-            MainRouteSettingsBrowser -> {
-                when (currentRoute) {
-                    MainRouteHome,
-                    MainRouteBrowserTabs,
-                    MainRouteBrowserBookmarks,
-                    MainRouteBrowserDownloads,
-                    MainRouteBrowserHistory,
-                    MainRouteBrowserClearData,
-                    MainRouteBrowserPrivacy,
-                    MainRouteBrowserPickBlock,
-                    -> backStack.add(route)
-                    MainRouteSettings -> backStack.add(route)
-                    else -> {
-                        backStack.clear()
-                        backStack.add(MainRouteHome)
-                        backStack.add(route)
-                    }
-                }
-            }
-
-            MainRouteSettingsOther,
-            MainRouteSettingsRead,
-            MainRouteSettingsCover,
-            MainRouteSettingsCoverAlbums,
-            MainRouteSettingsTheme,
-            MainRouteSettingsBackup,
-            MainRouteSettingsAi,
-            is MainRouteSettingsAiProviderEdit,
-            is MainRouteSettingsAiModelEdit,
-            MainRouteSettingsAiSummary,
-            MainRouteSettingsAiPrompt,
-            MainRouteSettingsCustomTheme,
-            MainRouteSettingsThemeManage,
-            MainRouteSettingsDownloadCache,
-            MainRouteSettingsTranslation,
-            MainRouteSettingsPrivate -> {
-                // SPEC-144 TC-5：从设置根或其它设置子页进入时保留既有返回语境，
-                // 仅在游离态（栈顶非设置语境）才清栈重建，避免「我的」页切换卡顿与返回错页。
-                if (
-                    currentRoute == MainRouteSettings ||
-                    currentRoute == MainRouteSettingsBrowser ||
-                    isSettingsSubPage(currentRoute ?: MainRouteHome)
-                ) {
-                    backStack.add(route)
-                } else {
-                    backStack.clear()
-                    backStack.add(MainRouteHome)
-                    backStack.add(MainRouteSettings)
                     backStack.add(route)
                 }
             }
@@ -197,23 +101,13 @@ object MainNavigator {
             MainRouteBrowserBookmarks,
             MainRouteBrowserDownloads,
             MainRouteBrowserHistory,
-            MainRouteBrowserClearData,
-            MainRouteBrowserPrivacy,
-            MainRouteBrowserPickBlock,
-            MainRouteBrowserTabs,
-            is MainRouteReadBook,
-            is MainRouteReadManga -> {
+            MainRouteBrowserTabs -> {
                 if (
                     currentRoute == MainRouteHome ||
-                    currentRoute is MainRouteBookInfo ||
                     currentRoute == MainRouteBrowserBookmarks ||
                     currentRoute == MainRouteBrowserDownloads ||
                     currentRoute == MainRouteBrowserHistory ||
-                    currentRoute == MainRouteBrowserClearData ||
-                    currentRoute == MainRouteBrowserPrivacy ||
-                    currentRoute == MainRouteBrowserPickBlock ||
-                    currentRoute == MainRouteBrowserTabs ||
-                    currentRoute == MainRouteSettingsBrowser
+                    currentRoute == MainRouteBrowserTabs
                 ) {
                     backStack.add(route)
                 } else {
@@ -231,10 +125,7 @@ object MainNavigator {
                         backStack.removeAt(backStack.lastIndex)
                     }
                     backStack[existingAudioIndex] = route
-                } else if (
-                    currentRoute == MainRouteHome ||
-                    currentRoute is MainRouteBookInfo
-                ) {
+                } else if (currentRoute == MainRouteHome) {
                     backStack.add(route)
                 } else {
                     backStack.clear()
@@ -250,27 +141,9 @@ object MainNavigator {
             is MainRouteSearch -> {
                 if (
                     currentRoute == MainRouteHome ||
-                    currentRoute is MainRouteBookInfo ||
                     currentRoute is MainRouteExploreShow ||
                     currentRoute is MainRouteBookSourceManage ||
                     currentRoute is MainRouteSearch
-                ) {
-                    backStack.add(route)
-                } else {
-                    backStack.clear()
-                    backStack.add(MainRouteHome)
-                    backStack.add(route)
-                }
-            }
-
-            is MainRouteBookInfo -> {
-                if (
-                    currentRoute == MainRouteHome ||
-                    currentRoute is MainRouteSearch ||
-                    currentRoute is MainRouteExploreShow ||
-                    currentRoute is MainRouteBookInfo ||
-                    currentRoute is MainRouteCache ||
-                    currentRoute is MainRouteReadManga
                 ) {
                     backStack.add(route)
                 } else {
@@ -291,7 +164,6 @@ object MainNavigator {
             is MainRouteBookEventList,
             is MainRouteBookEventDetail -> {
                 if (
-                    currentRoute is MainRouteBookInfo ||
                     currentRoute is MainRouteBookCharacterDetail ||
                     currentRoute is MainRouteBookCharacterNetwork ||
                     currentRoute is MainRouteBookCharacterList ||
@@ -301,9 +173,7 @@ object MainNavigator {
                     currentRoute is MainRouteBookKnowledgeList ||
                     currentRoute is MainRouteBookKnowledgeDetail ||
                     currentRoute is MainRouteBookEventList ||
-                    currentRoute is MainRouteBookEventDetail ||
-                    currentRoute is MainRouteReadBook ||
-                    currentRoute is MainRouteReadManga
+                    currentRoute is MainRouteBookEventDetail
                 ) {
                     backStack.add(route)
                 } else {
@@ -316,7 +186,6 @@ object MainNavigator {
             is MainRouteExploreShow -> {
                 if (
                     currentRoute == MainRouteHome ||
-                    currentRoute is MainRouteBookInfo ||
                     currentRoute is MainRouteSearch ||
                     currentRoute is MainRouteExploreShow
                 ) {
@@ -401,26 +270,6 @@ object MainNavigator {
         // 同步栈快照：Activity 级叠层（全局朗读胶囊）据此立刻重算显隐，不必等 back stack 回灌
         Log.i("Diag145", "push ${route::class.java.simpleName} -> ${diagStackSnapshot(backStack)}")
         tracker?.onBackStackChanged(backStack)
-    }
-
-    private fun isSettingsSubPage(route: NavKey): Boolean = when (route) {
-        MainRouteSettingsOther,
-        MainRouteSettingsRead,
-        MainRouteSettingsCover,
-        MainRouteSettingsCoverAlbums,
-        MainRouteSettingsTheme,
-        MainRouteSettingsBackup,
-        MainRouteSettingsAi,
-        is MainRouteSettingsAiProviderEdit,
-        is MainRouteSettingsAiModelEdit,
-        MainRouteSettingsAiSummary,
-        MainRouteSettingsAiPrompt,
-        MainRouteSettingsCustomTheme,
-        MainRouteSettingsThemeManage,
-        MainRouteSettingsDownloadCache,
-        MainRouteSettingsTranslation,
-        MainRouteSettingsPrivate -> true
-        else -> false
     }
 
     /** SPEC-144 TC-5 diag：栈大小 + 栈顶 3 个路由类名，用于定位页面错乱/闪退。 */
@@ -582,6 +431,11 @@ object MainNavigator {
             MainRouteConst.ROUTE_AI_CHAT -> MainRouteAiChat
             MainRouteConst.ROUTE_SETTINGS_CUSTOM_THEME -> MainRouteSettingsCustomTheme
             MainRouteConst.ROUTE_SETTINGS_PRIVATE -> MainRouteSettingsPrivate
+            MainRouteConst.ROUTE_SETTINGS_BROWSER -> MainRouteSettingsBrowser
+            MainRouteConst.ROUTE_SETTINGS_THEME_MANAGE -> MainRouteSettingsThemeManage
+            MainRouteConst.ROUTE_BROWSER_PRIVACY -> MainRouteBrowserPrivacy
+            MainRouteConst.ROUTE_BROWSER_PICK_BLOCK -> MainRouteBrowserPickBlock
+            MainRouteConst.ROUTE_BROWSER_CLEAR_DATA -> MainRouteBrowserClearData
             MainRouteConst.ROUTE_SETTINGS_DOWNLOAD_CACHE -> MainRouteSettingsDownloadCache
             MainRouteConst.ROUTE_SETTINGS_TRANSLATION -> MainRouteSettingsTranslation
             MainRouteConst.ROUTE_IMPORT_LOCAL -> MainRouteImportLocal
@@ -594,24 +448,22 @@ object MainNavigator {
             )
 
             MainRouteConst.ROUTE_BOOK_CACHE_MANAGE -> MainRouteBookCacheManage
-            MainRouteConst.ROUTE_READ_BOOK -> MainRouteReadBook(
-                bookUrl = intent?.getStringExtra(MainIntent.EXTRA_BOOK_URL),
-                readAloud = intent?.getBooleanExtra(MainIntent.EXTRA_READ_ALOUD, false) == true,
-                inBookshelf = intent?.getBooleanExtra(MainIntent.EXTRA_IN_BOOKSHELF, true) != false,
-                chapterChanged = intent?.getBooleanExtra(
-                    MainIntent.EXTRA_CHAPTER_CHANGED,
-                    false
-                ) == true,
+            // SPEC-190: 阅读器不再作为 MainActivity 路由；其二级目的地经独立 MainActivity
+            // 实例的 start route 打开。
+            MainRouteConst.ROUTE_SEARCH_CONTENT -> MainRouteSearchContent(
+                bookUrl = intent?.getStringExtra(MainIntent.EXTRA_BOOK_URL).orEmpty(),
+                searchWord = intent?.getStringExtra(MainIntent.EXTRA_SEARCH_KEY),
+                searchResultIndex = intent?.getIntExtra(MainIntent.EXTRA_SEARCH_RESULT_INDEX, 0) ?: 0,
+                autoFocus = intent?.getBooleanExtra(MainIntent.EXTRA_SEARCH_AUTO_FOCUS, true) != false,
             )
-            MainRouteConst.ROUTE_READ_MANGA -> MainRouteReadManga(
-                bookUrl = intent?.getStringExtra(MainIntent.EXTRA_BOOK_URL),
-                inBookshelf = intent?.getBooleanExtra(MainIntent.EXTRA_IN_BOOKSHELF, true) != false,
-                chapterChanged = intent?.getBooleanExtra(
-                    MainIntent.EXTRA_CHAPTER_CHANGED,
-                    false,
-                ) == true,
-                openRequestId = System.nanoTime(),
+            MainRouteConst.ROUTE_BOOK_VOICE_CASTING -> intent?.getStringExtra(MainIntent.EXTRA_BOOK_URL)
+                ?.takeIf { it.isNotBlank() }
+                ?.let { MainRouteBookVoiceCasting(bookUrl = it) }
+                ?: MainRouteHome
+            MainRouteConst.ROUTE_CLOUD_TTS_ENGINES -> MainRouteCloudTtsEngines(
+                intent?.getStringExtra(MainIntent.EXTRA_BOOK_URL)
             )
+            MainRouteConst.ROUTE_TTS_CACHE -> MainRouteTtsCache
             MainRouteConst.ROUTE_AUDIO_PLAY -> MainRouteAudioPlay(
                 bookUrl = intent?.getStringExtra(MainIntent.EXTRA_BOOK_URL),
                 inBookshelf = intent?.getBooleanExtra(MainIntent.EXTRA_IN_BOOKSHELF, true) != false,
@@ -621,17 +473,8 @@ object MainNavigator {
                 scopeRaw = intent?.getStringExtra(MainIntent.EXTRA_SEARCH_SCOPE)
             )
 
-            MainRouteConst.ROUTE_BOOK_INFO -> intent?.getStringExtra(MainIntent.EXTRA_BOOK_URL)
-                ?.takeIf { it.isNotBlank() }
-                ?.let { bookUrl ->
-                    MainRouteBookInfo(
-                        name = intent.getStringExtra(MainIntent.EXTRA_BOOK_NAME),
-                        author = intent.getStringExtra(MainIntent.EXTRA_BOOK_AUTHOR),
-                        bookUrl = bookUrl,
-                        origin = intent.getStringExtra(MainIntent.EXTRA_BOOK_ORIGIN),
-                        coverPath = intent.getStringExtra(MainIntent.EXTRA_BOOK_COVER)
-                    )
-                } ?: MainRouteHome
+            // SPEC-193: ROUTE_BOOK_INFO 移除——详情经 BookInfoActivity 承载，
+            // 不再走 Main 的 start-route 解析（旧外链回落主页）。
 
             MainRouteConst.ROUTE_BOOK_CHARACTER_DETAIL -> intent?.getStringExtra(MainIntent.EXTRA_BOOK_URL)
                 ?.takeIf { it.isNotBlank() }
@@ -697,6 +540,7 @@ object MainNavigator {
             MainRouteConst.ROUTE_ABOUT -> MainRouteAbout
 
             MainRouteConst.ROUTE_BROWSER_DOWNLOADS -> MainRouteBrowserDownloads
+            MainRouteConst.ROUTE_BROWSER_BOOKMARKS -> MainRouteBrowserBookmarks
 
             else -> MainRouteHome
         }

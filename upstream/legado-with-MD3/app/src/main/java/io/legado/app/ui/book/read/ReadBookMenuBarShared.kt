@@ -8,9 +8,12 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
+import io.legado.app.R
 import io.legado.app.constant.ReadMenuBlurStyle
 import io.legado.app.help.config.ReadStyleResolver
 import io.legado.app.ui.theme.LegadoTheme
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
+import io.legado.app.ui.widget.components.icon.Symbols
 import io.legado.app.ui.widget.components.reader.ReaderMenuPlacement
 import io.legado.app.ui.widget.components.reader.ReaderMenuTintStyle
 import io.legado.app.ui.widget.components.reader.readerMenuLiquidGlass
@@ -26,6 +29,38 @@ internal data class ReadMenuColors(
     val background: Color,
     val content: Color,
 )
+
+/**
+ * SPEC-167: 净读液态玻璃底色约 85%。普通阅读仍压到最多 60%。
+ * 拖动进度传入的更低 alpha 低于上限，所以仍会变淡。
+ */
+internal fun readMenuLiquidGlassContainerAlpha(blurAlpha: Int, opaqueReaderBars: Boolean): Float {
+    val requested = blurAlpha.coerceIn(0, 100) / 100f
+    val cap = if (opaqueReaderBars) 0.85f else 0.6f
+    return requested.coerceAtMost(cap)
+}
+
+/**
+ * SPEC-167/171: 页数未知时仍显示；已知且少于 6 页则整行按「不显示」。
+ * 「不显示」模式始终藏。
+ */
+internal fun shouldShowReadProgressSeekRow(readSliderMode: String, chapterPageCount: Int): Boolean {
+    if (readSliderMode == "1") return false
+    if (chapterPageCount in 1 until 6) return false
+    return true
+}
+
+/** @deprecated SPEC-171: use [shouldShowReadProgressSeekRow] (hides chapter buttons too). */
+internal fun shouldShowReadProgressSlider(readSliderMode: String, chapterPageCount: Int): Boolean =
+    shouldShowReadProgressSeekRow(readSliderMode, chapterPageCount)
+
+/** SPEC-171: icon shows the mode you will switch *to*. */
+internal fun dayNightToggleSymbol(isNightTheme: Boolean): MaterialSymbol =
+    if (isNightTheme) Symbols.LightMode else Symbols.DarkMode
+
+/** SPEC-173: caption matches the icon (the mode you will switch to). */
+internal fun dayNightToggleLabelRes(isNightTheme: Boolean): Int =
+    if (isNightTheme) R.string.reader_target_light_mode else R.string.reader_target_dark_mode
 
 internal fun Int.toReaderMenuTintStyle(): ReaderMenuTintStyle {
     return if (this == ReadMenuBlurStyle.Progressive) {
@@ -51,7 +86,10 @@ internal fun Modifier.readMenuLiquidGlass(
     val blurAlpha = surfaceAlphaOverride ?: menuConfig.readMenuBlurAlpha
     val surfaceColor = readMenuTintColor(menuConfig) ?: colors.background
     val containerColor = surfaceColor.copy(
-        alpha = (blurAlpha.coerceIn(0, 100) / 100f).coerceAtMost(0.6f)
+        alpha = readMenuLiquidGlassContainerAlpha(
+            blurAlpha,
+            menuConfig.ephemeralReaderOpaqueGlass,
+        )
     )
     val topBarSurfaceBrush = readerMenuSurfaceBrush(
         style = ReaderMenuTintStyle.Gradient,

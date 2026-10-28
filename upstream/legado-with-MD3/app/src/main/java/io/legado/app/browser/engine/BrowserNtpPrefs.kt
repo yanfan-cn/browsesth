@@ -67,6 +67,11 @@ class BrowserNtpPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_NEWS_SSPAI, true)
         set(value) = prefs.edit().putBoolean(KEY_NEWS_SSPAI, value).apply()
 
+    /** SPEC-177: show recent search queries on phone fullscreen search (default on). */
+    var showSearchHistory: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_SEARCH_HISTORY, true)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_SEARCH_HISTORY, value).apply()
+
     fun searchEngine(): BrowserSearchEngine = BrowserSearchEngine.fromId(searchEngineId)
 
     companion object {
@@ -84,6 +89,7 @@ class BrowserNtpPrefs(context: Context) {
         private const val KEY_NEWS_TENCENT = "news_source_tencent"
         private const val KEY_NEWS_BBC_ZH = "news_source_bbc_zh"
         private const val KEY_NEWS_SSPAI = "news_source_sspai"
+        private const val KEY_SHOW_SEARCH_HISTORY = "show_search_history"
         const val INCOGNITO_CONTEXT = "browsesth_incognito"
 
         fun browserContext(incognito: Boolean): AwBrowserContext {

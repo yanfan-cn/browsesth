@@ -127,6 +127,8 @@ object BrowserTabManager {
         )
         _tabs.update { it + tab }
         if (select) {
+            // SPEC-188: leaving current page context (new tab).
+            BrowserMediaSessionHooks.notifyWebContextLeft()
             BrowserSessionHolder.captureActiveThumbnail()
             // SPEC-120: park previous tab session (do not destroy/reload).
             BrowserSessionHolder.parkActive()
@@ -140,6 +142,8 @@ object BrowserTabManager {
         if (_tabs.value.none { it.id == tabId }) return
         val already = _activeId.value == tabId
         if (!already) {
+            // SPEC-188: switch tab → stop page/native video (听音频例外).
+            BrowserMediaSessionHooks.notifyWebContextLeft()
             BrowserSessionHolder.captureActiveThumbnail()
             // SPEC-120: park instead of destroy — restore without network reload.
             BrowserSessionHolder.parkActive()
@@ -157,6 +161,10 @@ object BrowserTabManager {
     fun close(tabId: String) {
         val list = _tabs.value
         if (list.none { it.id == tabId }) return
+        // SPEC-188: closing a tab leaves its media context.
+        if (tabId == _activeId.value || list.size <= 1) {
+            BrowserMediaSessionHooks.notifyWebContextLeft()
+        }
         BrowserTabThumbnailStore.remove(tabId)
         BrowserSessionHolder.destroyKey(tabId)
         if (list.size <= 1) {
@@ -177,6 +185,7 @@ object BrowserTabManager {
 
     /** SPEC-053: empty tab list is allowed; count shows 0. */
     fun closeAll() {
+        BrowserMediaSessionHooks.notifyWebContextLeft()
         BrowserSessionHolder.captureActiveThumbnail()
         BrowserTabThumbnailStore.clear()
         BrowserSessionHolder.destroy()
@@ -253,6 +262,8 @@ object BrowserTabManager {
     fun clearActiveToNtp() {
         val id = _activeId.value
         if (id.isEmpty() || _tabs.value.none { it.id == id }) return
+        // SPEC-188: back to NTP leaves the webpage.
+        BrowserMediaSessionHooks.notifyWebContextLeft()
         BrowserSessionHolder.captureActiveThumbnail()
         _tabs.update { list ->
             list.map {

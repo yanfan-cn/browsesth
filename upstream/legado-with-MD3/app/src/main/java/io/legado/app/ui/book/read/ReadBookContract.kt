@@ -219,6 +219,8 @@ data class ReadBookUiState(
     val durChapterIndex: Int = 0,
     val durChapterPos: Int = 0,
     val durPageIndex: Int = 0,
+    /** 当前章已算出的页数。0 表示还没分页。 */
+    val chapterPageCount: Int = 0,
     val isLocalBook: Boolean = true,
     val msg: String? = null,
     val isInitFinish: Boolean = false,
@@ -385,6 +387,8 @@ data class ReadMenuConfig(
     val readMenuTextColor: Int = 0,
     val readMenuTextColorNight: Int = 0,
     val readMenuBlurAlpha: Int = 85,
+    /** SPEC-167: 净读液态玻璃用约 85% 底色，不再压到 60%。 */
+    val ephemeralReaderOpaqueGlass: Boolean = false,
     val readMenuBlurColor: Int = 0,
     val readMenuBlurColorNight: Int = 0,
     val readMenuPaletteStyle: String = "",
@@ -455,7 +459,7 @@ internal val DefaultEnabledBottomBarButtonIds = listOf(
     "translate",
     "re_segment",
     "add_to_bookshelf",
-    "ai_summary",
+    "theme",
 )
 
 internal val MoreActionIds = listOf(

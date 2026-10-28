@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
@@ -6,8 +6,8 @@
     <!-- SPEC-136: DLNA SSDP multicast discovery -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <!-- 自 Android 17 (API 37) 起本地网络保护强制生效：接受局域网入站连接需要该运行时权限，
-         否则 Web 服务对局域网内其他设备不可达。targetSdk < 37 时不得声明该权限。 -->
+    <!-- 鑷?Android 17 (API 37) 璧锋湰鍦扮綉缁滀繚鎶ゅ己鍒剁敓鏁堬細鎺ュ彈灞€鍩熺綉鍏ョ珯杩炴帴闇€瑕佽杩愯鏃舵潈闄愶紝
+         鍚﹀垯 Web 鏈嶅姟瀵瑰眬鍩熺綉鍐呭叾浠栬澶囦笉鍙揪銆倀argetSdk < 37 鏃朵笉寰楀０鏄庤鏉冮檺銆?-->
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -34,6 +34,7 @@
         android:name=".App"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="${app_name}"
         android:networkSecurityConfig="@xml/network_security_config"
         android:requestLegacyExternalStorage="true"
@@ -46,13 +47,14 @@
         <profileable
             android:shell="true"
             tools:targetApi="q" />
-        <!-- 图标0 -->
+        <!-- 鍥炬爣0 -->
         <activity
             android:name=".ui.main.LauncherW"
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
             android:icon="@mipmap/launcherw"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -70,6 +72,7 @@
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
             android:icon="@mipmap/launcher0"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -81,13 +84,14 @@
                 android:name="com.samsung.android.support.REMOTE_ACTION"
                 android:resource="@xml/spen_remote_actions" />
         </activity>
-        <!-- 图标1 -->
+        <!-- 鍥炬爣1 -->
         <activity
             android:name=".ui.main.Launcher1"
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
             android:icon="@mipmap/launcher1"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -99,13 +103,14 @@
                 android:name="com.samsung.android.support.REMOTE_ACTION"
                 android:resource="@xml/spen_remote_actions" />
         </activity>
-        <!-- 图标2 -->
+        <!-- 鍥炬爣2 -->
         <activity
             android:name=".ui.main.Launcher2"
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
             android:icon="@mipmap/launcher2"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -117,13 +122,14 @@
                 android:name="com.samsung.android.support.REMOTE_ACTION"
                 android:resource="@xml/spen_remote_actions" />
         </activity>
-        <!-- 图标3 -->
+        <!-- 鍥炬爣3 -->
         <activity
             android:name=".ui.main.Launcher3"
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
             android:icon="@mipmap/launcher3"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -135,13 +141,14 @@
                 android:name="com.samsung.android.support.REMOTE_ACTION"
                 android:resource="@xml/spen_remote_actions" />
         </activity>
-        <!-- 图标4 -->
+        <!-- 鍥炬爣4 -->
         <activity
             android:name=".ui.main.Launcher4"
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
             android:icon="@mipmap/launcher4"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -153,13 +160,14 @@
                 android:name="com.samsung.android.support.REMOTE_ACTION"
                 android:resource="@xml/spen_remote_actions" />
         </activity>
-        <!-- 图标5 -->
+        <!-- 鍥炬爣5 -->
         <activity
             android:name=".ui.main.Launcher5"
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
             android:icon="@mipmap/launcher5"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -171,13 +179,14 @@
                 android:name="com.samsung.android.support.REMOTE_ACTION"
                 android:resource="@xml/spen_remote_actions" />
         </activity>
-        <!-- 图标6 -->
+        <!-- 鍥炬爣6 -->
         <activity
             android:name=".ui.main.Launcher6"
             android:enabled="false"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:exported="true"
             android:icon="@mipmap/launcher6"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -189,12 +198,13 @@
                 android:name="com.samsung.android.support.REMOTE_ACTION"
                 android:resource="@xml/spen_remote_actions" />
         </activity>
-        <!-- 主界面 -->
+        <!-- 涓荤晫闈?-->
         <activity
             android:name=".ui.main.MainActivity"
             android:alwaysRetainTaskState="true"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout|orientation|screenSize|smallestScreenSize"
             android:enableOnBackInvokedCallback="true"
+            android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize"
             android:exported="true"
             android:theme="@style/Theme.App.Starting">
@@ -214,7 +224,7 @@
             android:enableOnBackInvokedCallback="true"
             android:exported="false"
             android:windowSoftInputMode="adjustPan|stateHidden" />
-        <!-- 阅读漫画界面 -->
+        <!-- 闃呰婕敾鐣岄潰 -->
         <activity
             android:name=".ui.book.manga.ReadMangaActivity"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
@@ -229,26 +239,39 @@
                 android:name="com.samsung.android.support.REMOTE_ACTION"
                 android:resource="@xml/spen_remote_actions" />
         </activity>
-        <!-- 书籍详情页 -->
+        <activity
+            android:name=".ui.book.read.ReadBookActivity"
+            android:configChanges="locale|layoutDirection|uiMode|screenLayout|orientation|screenSize|smallestScreenSize"
+            android:exported="false"
+            android:enableOnBackInvokedCallback="true"
+            android:launchMode="singleTask" />
+        <!-- 涔︾睄璇︽儏椤?-->
         <activity
             android:name=".ui.book.info.BookInfoActivity"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:enableOnBackInvokedCallback="true"
             android:launchMode="singleTop" />
-        <!-- 书籍信息编辑 -->
+        <!-- 涔︾睄淇℃伅缂栬緫 -->
         <activity
             android:name=".ui.book.info.edit.BookInfoEditActivity"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:enableOnBackInvokedCallback="true"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize|stateHidden" />
-        <!-- 音频播放界面（nav3 路由，见 MainRouteAudioPlay） -->
-        <!-- 授权界面 -->
+        <!-- SPEC-192: 独立 Activity 宿主的设置族 -->
+        <activity
+            android:name=".ui.config.SettingsActivity"
+            android:configChanges="locale|layoutDirection|uiMode|screenLayout|orientation|screenSize|smallestScreenSize"
+            android:exported="false"
+            android:enableOnBackInvokedCallback="true"
+            android:launchMode="singleTask" />
+        <!-- 闊抽鎾斁鐣岄潰锛坣av3 璺敱锛岃 MainRouteAudioPlay锛?-->
+        <!-- 鎺堟潈鐣岄潰 -->
         <activity
             android:name="io.legado.app.lib.permission.PermissionActivity"
             android:enableOnBackInvokedCallback="true"
             android:theme="@style/Activity.Permission" />
-        <!-- 二维码扫描 -->
+        <!-- 浜岀淮鐮佹壂鎻?-->
         <activity
             android:name=".ui.qrcode.QrCodeActivity"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
@@ -260,38 +283,38 @@
             android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:launchMode="singleTask" />
-        <!-- txt目录规则管理 -->
+        <!-- txt鐩綍瑙勫垯绠＄悊 -->
         <activity
             android:name=".ui.book.toc.rule.TxtTocRuleActivity"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:enableOnBackInvokedCallback="true"
             android:launchMode="singleTop" />
-        <!-- txt目录规则预览(阅读界面) -->
+        <!-- txt鐩綍瑙勫垯棰勮(闃呰鐣岄潰) -->
         <activity
             android:name=".ui.book.toc.rule.preview.TxtTocRulePreviewActivity"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:enableOnBackInvokedCallback="true"
             android:launchMode="singleTop" />
-        <!-- 替换规则界面 -->
+        <!-- 鏇挎崲瑙勫垯鐣岄潰 -->
         <activity
             android:name=".ui.replace.ReplaceRuleActivity"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:enableOnBackInvokedCallback="true"
             android:windowSoftInputMode="adjustResize"
             android:launchMode="singleTop" />
-        <!-- 目录 -->
+        <!-- 鐩綍 -->
         <activity
             android:name=".ui.book.toc.TocActivity"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:enableOnBackInvokedCallback="true"
             android:launchMode="singleTop" />
-        <!-- 书签 -->
+        <!-- 涔︾ -->
         <activity
             android:name=".ui.book.bookmark.AllBookmarkActivity"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
             android:enableOnBackInvokedCallback="true"
             android:launchMode="singleTop" />
-        <!-- 字典管理 -->
+        <!-- 瀛楀吀绠＄悊 -->
         <activity
             android:name=".ui.dict.rule.DictRuleActivity"
             android:enableOnBackInvokedCallback="true"
@@ -302,13 +325,13 @@
             android:enableOnBackInvokedCallback="true"
             android:configChanges="locale|layoutDirection|uiMode|orientation|screenSize|screenLayout"
             android:hardwareAccelerated="true" />
-        <!-- 文件管理 -->
+        <!-- 鏂囦欢绠＄悊 -->
         <activity
             android:name=".ui.file.FileManageActivity"
             android:enableOnBackInvokedCallback="true"
             android:configChanges="locale|layoutDirection|uiMode|orientation|screenSize|screenLayout"
             android:hardwareAccelerated="true" />
-        <!-- 文字处理 -->
+        <!-- 鏂囧瓧澶勭悊 -->
         <activity
             android:name=".receiver.SharedReceiverActivity"
             android:exported="true"
@@ -329,7 +352,7 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
-        <!-- 一键导入 -->
+        <!-- 涓€閿鍏?-->
         <activity
             android:name=".ui.association.OnLineImportActivity"
             android:configChanges="locale|layoutDirection|uiMode|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
@@ -345,7 +368,7 @@
                 <data android:scheme="yuedu" />
             </intent-filter>
         </activity>
-        <!-- 验证码输入 -->
+        <!-- 楠岃瘉鐮佽緭鍏?-->
         <activity
             android:name=".ui.association.VerificationCodeActivity"
             android:configChanges="locale|layoutDirection|uiMode|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
@@ -359,12 +382,12 @@
             android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
             android:theme="@style/Base.AppTheme" />
-        <!-- 跳转确认 -->
+        <!-- 璺宠浆纭 -->
         <activity
             android:name=".ui.association.OpenUrlConfirmActivity"
             android:configChanges="locale|layoutDirection|uiMode|keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout"
             android:theme="@style/AppTheme.Transparent" />
-        <!-- 打开文件 -->
+        <!-- 鎵撳紑鏂囦欢 -->
         <activity
             android:name=".ui.association.FileAssociationActivity"
             android:configChanges="locale|layoutDirection|uiMode|screenLayout"
@@ -567,3 +590,4 @@
     </queries>
 
 </manifest>
+

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
@@ -48,6 +50,12 @@ import io.legado.app.domain.usecase.ChangeSourceMigrationOptions
 import io.legado.app.ui.book.changecover.ChangeCoverViewModel
 import io.legado.app.ui.book.group.GroupEditSheet
 import io.legado.app.ui.theme.LegadoTheme
+import io.legado.app.ui.widget.components.image.cover.CoverPaletteStore
+import io.legado.app.ui.widget.components.image.cover.GeneratedCover
+import io.legado.app.ui.widget.components.image.cover.GeneratedCoverFace
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
 import io.legado.app.ui.widget.components.button.series.MediumTonalButton
 import io.legado.app.ui.widget.components.button.series.SmallPlainButton
 import io.legado.app.ui.widget.components.card.GlassCard
@@ -191,6 +199,8 @@ fun ChangeCoverSheet(
     author: String,
     onDismissRequest: () -> Unit,
     onSelect: (String) -> Unit,
+    /** SPEC-160: http(s) webpage cover when available (净读网页书). */
+    webCoverUrl: String? = null,
     viewModel: ChangeCoverViewModel = koinViewModel(key = "cover-$name-$author"),
 ) {
     val items by remember(show) {
@@ -204,6 +214,13 @@ fun ChangeCoverSheet(
         if (show) viewModel.dataFlow else flowOf(emptyList())
     }.collectAsStateWithLifecycle(initialValue = emptyList<SearchBook>())
     val isSearching by viewModel.isSearching.collectAsStateWithLifecycle()
+    val pageCover = webCoverUrl?.takeIf {
+        it.startsWith("http://") || it.startsWith("https://")
+    }
+    val context = LocalContext.current
+    val galleryCovers = remember(show) {
+        if (show) CoverPaletteStore.galleryUris(context) else emptyList()
+    }
 
     LaunchedEffect(name, author) {
         viewModel.initData(name, author)
@@ -232,7 +249,118 @@ fun ChangeCoverSheet(
             AppLinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(12.dp))
         }
-        LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // SPEC-160: shared color / gradient templates (NTP + book info).
+            item(span = { GridItemSpan(3) }) {
+                AppText(
+                    text = "配色封面",
+                    style = LegadoTheme.typography.titleSmallEmphasized,
+                )
+            }
+            items(GeneratedCover.presets, key = { it.uri }) { preset ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(4.dp))
+                        .clickable { onSelect(preset.uri) }
+                        .padding(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(5f / 7f)
+                            .clip(RoundedCornerShape(4.dp)),
+                    ) {
+                        GeneratedCoverFace(
+                            path = preset.uri,
+                            title = name.takeIf { it.isNotBlank() },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    AppText(
+                        text = preset.label,
+                        style = LegadoTheme.typography.labelSmallEmphasized,
+                        maxLines = 1,
+                    )
+                }
+            }
+            if (galleryCovers.isNotEmpty()) {
+                item(span = { GridItemSpan(3) }) {
+                    AppText(
+                        text = "相册封面",
+                        style = LegadoTheme.typography.titleSmallEmphasized,
+                    )
+                }
+                items(galleryCovers, key = { it }) { uri ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable { onSelect(uri) }
+                            .padding(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        AsyncImage(
+                            model = uri,
+                            contentDescription = "相册封面",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(5f / 7f)
+                                .clip(RoundedCornerShape(4.dp)),
+                        )
+                        AppText(
+                            text = "相册",
+                            style = LegadoTheme.typography.labelSmallEmphasized,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+            if (pageCover != null) {
+                item(span = { GridItemSpan(3) }) {
+                    AppText(
+                        text = "网页封面",
+                        style = LegadoTheme.typography.titleSmallEmphasized,
+                    )
+                }
+                item(key = "web-cover") {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable { onSelect(pageCover) }
+                            .padding(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        CoilBookCover(
+                            name = name,
+                            author = author,
+                            path = pageCover,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(5f / 7f),
+                        )
+                        AppText(
+                            text = "使用网页图片",
+                            style = LegadoTheme.typography.labelSmallEmphasized,
+                            maxLines = 2,
+                        )
+                    }
+                }
+            }
+            item(span = { GridItemSpan(3) }) {
+                AppText(
+                    text = "搜索封面",
+                    style = LegadoTheme.typography.titleSmallEmphasized,
+                )
+            }
             items(items, key = { it.bookUrl + it.originName }) { item ->
                 Column(
                     modifier = Modifier

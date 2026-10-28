@@ -43,6 +43,15 @@ data class BookShelfItem(
 
     val isImage: Boolean get() = (type and BookType.image) > 0
 
+    fun preferMangaReader(showMangaUi: Boolean): Boolean =
+        io.legado.app.model.localBook.preferMangaReader(
+            isAudio = isAudio,
+            isLocal = isLocal,
+            isImage = isImage,
+            isPdf = isLocal && originName.endsWith(".pdf", ignoreCase = true),
+            showMangaUi = showMangaUi,
+        )
+
     val isNotShelf: Boolean get() = (type and BookType.notShelf) > 0
 
     val isNew: Boolean get() = lastCheckCount > 0

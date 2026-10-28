@@ -161,8 +161,14 @@ class BrowserDownloadRepository private constructor(
         store.remove(id)
         if (deleteFile) {
             item?.absolutePath?.let { path ->
-                runCatching { File(path).delete() }
-                runCatching { File("$path.partial").delete() }
+                if (BrowserMediaStorePublisher.isContentUri(path)) {
+                    BrowserMediaStorePublisher.parseUri(path)?.let { uri ->
+                        runCatching { app.contentResolver.delete(uri, null, null) }
+                    }
+                } else {
+                    runCatching { File(path).delete() }
+                    runCatching { File("$path.partial").delete() }
+                }
             }
         }
         cancelNotify(id)
@@ -380,13 +386,11 @@ class BrowserDownloadRepository private constructor(
             partial.copyTo(dest, overwrite = true)
             partial.delete()
         }
-        val done = store.get(id)?.copy(
-            status = BrowserDownloadStatus.COMPLETED,
-            bytesDownloaded = dest.length(),
-            totalBytes = dest.length(),
-            absolutePath = dest.absolutePath,
-            updatedAt = System.currentTimeMillis(),
-            error = null,
+        val done = finalizeCompletedFile(
+            id = id,
+            dest = dest,
+            fileName = dest.name,
+            mimeType = store.get(id)?.mimeType,
         ) ?: return
         persist(done)
         cancelNotify(id)
@@ -538,19 +542,52 @@ class BrowserDownloadRepository private constructor(
             partial.copyTo(dest, overwrite = true)
             partial.delete()
         }
-        val finalItem = store.get(id) ?: return
-        val doneItem = finalItem.copy(
-            status = BrowserDownloadStatus.COMPLETED,
+        val doneItem = finalizeCompletedFile(
+            id = id,
+            dest = dest,
             fileName = fileName,
-            absolutePath = absPath,
-            bytesDownloaded = dest.length(),
-            totalBytes = dest.length(),
+            mimeType = store.get(id)?.mimeType ?: "video/mp4",
+        ) ?: return
+        persist(doneItem)
+        cancelNotify(id)
+    }
+
+    /**
+     * SPEC-178: when the file was staged under app Movies, publish into MediaStore
+     * and replace absolutePath with the content Uri (delete the staging file).
+     */
+    private fun finalizeCompletedFile(
+        id: String,
+        dest: File,
+        fileName: String,
+        mimeType: String?,
+    ): BrowserDownloadItem? {
+        val base = store.get(id) ?: return null
+        val length = dest.length().coerceAtLeast(0L)
+        var path = dest.absolutePath
+        val name = fileName
+        if (BrowserDownloadPaths.isAppMoviesStaging(app, path)) {
+            val published = BrowserMediaStorePublisher.publishVideo(
+                context = app,
+                file = dest,
+                displayName = name,
+                mimeType = mimeType,
+            )
+            if (published != null) {
+                runCatching { dest.delete() }
+                path = published
+            }
+        }
+        return base.copy(
+            status = BrowserDownloadStatus.COMPLETED,
+            fileName = name,
+            absolutePath = path,
+            bytesDownloaded = length,
+            totalBytes = length,
             updatedAt = System.currentTimeMillis(),
             error = null,
             speedBps = 0L,
         )
-        persist(doneItem)
-        cancelNotify(id)
     }
 
     private fun openRequest(
@@ -579,11 +616,14 @@ class BrowserDownloadRepository private constructor(
         referer: String?,
         extraHeaders: Map<String, String>,
     ) {
-        val reserved = setOf("user-agent", "cookie", "referer", "range", "host", "content-length")
+        val reserved = setOf(
+            "user-agent", "cookie", "referer", "range", "host", "content-length",
+            "accept-encoding", "connection", "transfer-encoding",
+        )
         extraHeaders.forEach { (key, value) ->
-            if (!reserved.contains(key.lowercase()) && value.isNotBlank()) {
-                runCatching { conn.setRequestProperty(key, value) }
-            }
+            if (reserved.contains(key.lowercase()) || value.isBlank()) return@forEach
+            if (value.any { it == '\n' || it == '\r' }) return@forEach
+            runCatching { conn.setRequestProperty(key, value) }
         }
         if (!userAgent.isNullOrBlank()) conn.setRequestProperty("User-Agent", userAgent)
         if (!cookie.isNullOrBlank()) conn.setRequestProperty("Cookie", cookie)
@@ -662,7 +702,8 @@ class BrowserDownloadRepository private constructor(
         } else {
             builder.setProgress(0, 0, true)
         }
-        nm.notify(notifyId(item.id), builder.build())
+        // SPEC-176: a missing notification permission must not fail the file write.
+        runCatching { nm.notify(notifyId(item.id), builder.build()) }
     }
 
     private fun cancelNotify(id: String) {

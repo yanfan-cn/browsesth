@@ -1,11 +1,13 @@
 package io.legado.app.browser.engine
 
 import android.content.Context
+import android.os.Build
 import android.os.Environment
 import java.io.File
 
 /**
  * SPEC-064/119: public Downloads/XunYeBrowser by default; optional custom dir.
+ * SPEC-178: player videos → MediaStore (via app staging) unless all-files access.
  */
 object BrowserDownloadPaths {
     const val FOLDER_NAME = "XunYeBrowser"
@@ -15,16 +17,50 @@ object BrowserDownloadPaths {
         return File(downloads, FOLDER_NAME)
     }
 
-    /** SPEC-136: default video download root = public Movies. */
-    fun moviesDir(): File {
+    /** Public Movies/XunYeBrowser (needs all-files access on Android 10+). */
+    fun publicMoviesDir(): File {
         val movies = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
         return File(movies, FOLDER_NAME)
     }
 
+    /** App-owned staging dir for MediaStore publish (no storage permission). */
+    fun appMoviesDir(context: Context): File {
+        val appDir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
+            ?: File(context.filesDir, "Movies")
+        return File(appDir, FOLDER_NAME)
+    }
+
+    fun hasAllFilesAccess(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            true
+        }
+    }
+
+    /**
+     * SPEC-178: video downloads.
+     * - Prefer all-files + public Movies when the user enabled that setting and
+     *   the system grant is present.
+     * - Otherwise stage under [appMoviesDir] for MediaStore publish on complete.
+     */
     fun ensureMovies(context: Context): File {
-        val dir = moviesDir()
+        val prefs = BrowserChromePrefs(context)
+        if (prefs.preferAllFilesVideoDownload && hasAllFilesAccess()) {
+            val publicDir = publicMoviesDir()
+            if ((publicDir.exists() || publicDir.mkdirs()) && publicDir.canWrite()) {
+                return publicDir
+            }
+        }
+        val dir = appMoviesDir(context)
         if (!dir.exists()) dir.mkdirs()
         return dir
+    }
+
+    fun isAppMoviesStaging(context: Context, path: String): Boolean {
+        if (path.isBlank() || BrowserMediaStorePublisher.isContentUri(path)) return false
+        val staging = appMoviesDir(context).absolutePath
+        return path.startsWith(staging)
     }
 
     fun rootDir(context: Context? = null): File {

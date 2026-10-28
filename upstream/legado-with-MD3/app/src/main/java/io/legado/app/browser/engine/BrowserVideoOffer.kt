@@ -36,28 +36,41 @@ object BrowserVideoOfferBus {
     @Volatile
     private var lastPublishedUrl: String = ""
 
+    /** SPEC-166: best rank already kept for a dedupe key. */
+    private val ranks = HashMap<String, Int>()
+
     fun publish(offer: BrowserVideoOffer) {
-        val url = offer.url.trim()
-        if (url.isEmpty()) return
-        if (!looksPlayable(url)) return
+        synchronized(this) {
+            publishLocked(offer)
+        }
+    }
+
+    private fun publishLocked(offer: BrowserVideoOffer) {
+        val raw = offer.url.trim()
+        if (raw.isEmpty() || isRejectedMediaUrl(raw)) return
+        val url = stripRequestOnlyQuery(raw)
+        val sniff = classifyPlayableUrl(url, offer.pageUrl) ?: return
+        val key = sniff.dedupeKey
+        val rank = sniff.rank
+        val prev = ranks[key]
+        if (prev != null && rank <= prev) return
+        ranks[key] = rank
         val published = offer.copy(
             url = url,
-            isHls = offer.isHls || url.contains(".m3u8", ignoreCase = true),
+            isHls = offer.isHls || sniff.isHls || url.contains(".m3u8", ignoreCase = true),
         )
         // SPEC-143: maintain the per-page list (dedupe, newest first).
-        // SPEC-145 R8: onMediaPlay 与 onHlsDetected 会对同一视频各发一条，URL 细节
-        // （fragment、query 参数顺序）可能不同；按规范化键去重，避免列表重复条目。
-        val key = normalizeVideoKey(url)
-        val deduped = _offers.value.filterNot { normalizeVideoKey(it.url) == key }
-        // SPEC-147 R1: 全量 publish 日志，装机仍见重复条目时凭 URL 对比定位。
+        // SPEC-145 R8 / SPEC-166: same normalized key, or the same YouTube watch id.
+        val deduped = _offers.value.filterNot { existing ->
+            val existingKey = classifyPlayableUrl(existing.url, existing.pageUrl)?.dedupeKey
+                ?: normalizeVideoKey(existing.url)
+            existingKey == key
+        }
         Log.i(
             DIAG_TAG,
-            "publish key=$key size=${deduped.size + 1} " +
-                "urls=${(listOf(url) + _offers.value.map { it.url }).joinToString(" | ")}",
+            "publish key=$key rank=$rank size=${deduped.size + 1}",
         )
         _offers.value = (listOf(published) + deduped).take(20)
-        val lastKey = normalizeVideoKey(lastPublishedUrl)
-        if (key == lastKey && _offer.value?.url == url) return
         lastPublishedUrl = url
         _offer.value = published
     }
@@ -89,9 +102,12 @@ object BrowserVideoOfferBus {
 
     /** SPEC-135: drop stale offer (e.g. main-frame navigation to another site). */
     fun clear() {
-        lastPublishedUrl = ""
-        _offer.value = null
-        _offers.value = emptyList()
+        synchronized(this) {
+            lastPublishedUrl = ""
+            ranks.clear()
+            _offer.value = null
+            _offers.value = emptyList()
+        }
     }
 
     /** True when [offer] still belongs to [currentPageUrl] (same host). */
@@ -111,6 +127,92 @@ object BrowserVideoOfferBus {
             null
         }
     }
+
+    /**
+     * SPEC-166: a direct media URL worth offering to the native player.
+     * [rank] is higher for streams ExoPlayer can play with sound (progressive
+     * MP4 / HLS) than for video-only DASH fragments. YouTube streams for the
+     * same watch page share one key so the list does not fill with itags.
+     */
+    internal fun classifyPlayableUrl(url: String, pageUrl: String = ""): VideoSniff? {
+        val trimmed = url.trim()
+        val u = trimmed.lowercase()
+        if (!u.startsWith("http://") && !u.startsWith("https://")) return null
+        if (isRejectedMediaUrl(u)) return null
+        val path = u.substringBefore('#').substringBefore('?')
+        val youtube = u.contains("googlevideo.com") && u.contains("videoplayback")
+        val isHls = path.contains(".m3u8") || u.contains(".m3u8")
+        val isDash = path.endsWith(".mpd") || u.contains(".mpd")
+        val isFile = path.endsWith(".mp4") || path.endsWith(".webm") || path.endsWith(".mkv") ||
+            u.contains(".mp4") || u.contains(".webm") || u.contains(".mkv")
+        val itag = queryParam(trimmed, "itag")
+        // SPEC-178: keep listing googlevideo streams (prefer progressive). SPEC-176's
+        // "progressive only" filter made ordinary YouTube pages show no capsule.
+        if (!youtube && !isHls && !isDash && !isFile) return null
+        val rank = when {
+            itag == "22" -> 100
+            itag == "18" -> 90
+            itag != null && itag in PROGRESSIVE_ITAGS -> 80
+            isHls -> 70
+            isDash -> 60
+            isFile -> 50
+            youtube -> 25
+            else -> 20
+        }
+        val key = if (youtube) {
+            val watch = queryParam(pageUrl, "v")
+                ?: pageUrl.substringBefore('#').substringBefore('?').ifBlank { queryParam(trimmed, "id").orEmpty() }
+            "gv:$watch"
+        } else {
+            normalizeVideoKey(trimmed)
+        }
+        return VideoSniff(trimmed, isHls, rank, key)
+    }
+
+    internal data class VideoSniff(
+        val url: String,
+        val isHls: Boolean,
+        val rank: Int,
+        val dedupeKey: String,
+    )
+
+    private val PROGRESSIVE_ITAGS = setOf("18", "22", "37", "38", "59", "78")
+
+    private fun isRejectedMediaUrl(url: String): Boolean {
+        val u = url.lowercase()
+        if (u.contains("mime=audio") || u.contains("mime%3daudio")) return true
+        if (u.contains("mime=image") || u.contains("mime%3dimage") || u.contains("mime=text")) return true
+        val path = u.substringBefore('#').substringBefore('?')
+        return path.endsWith(".ts") ||
+            path.endsWith(".m4s") ||
+            path.endsWith(".aac") ||
+            path.endsWith(".vtt") ||
+            path.endsWith(".jpg") ||
+            path.endsWith(".jpeg") ||
+            path.endsWith(".png") ||
+            path.endsWith(".js") ||
+            path.endsWith(".css")
+    }
+
+    private fun queryParam(url: String, name: String): String? {
+        val query = url.substringBefore('#').substringAfter('?', "")
+        if (query.isEmpty()) return null
+        for (part in query.split('&')) {
+            val eq = part.indexOf('=')
+            if (eq <= 0) continue
+            if (part.substring(0, eq).equals(name, ignoreCase = true)) {
+                return part.substring(eq + 1).takeIf { it.isNotEmpty() }
+            }
+        }
+        return null
+    }
+
+    /**
+     * SPEC-178: do not strip googlevideo `range`/`rn`/`rbuf` — signatures often
+     * cover those keys; removing them caused play/download 403. Sniffed URL is
+     * kept as Chromium requested it.
+     */
+    internal fun stripRequestOnlyQuery(url: String): String = url
 
     fun looksPlayable(url: String): Boolean {
         val u = url.lowercase()

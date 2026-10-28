@@ -61,6 +61,7 @@ import kotlinx.coroutines.runBlocking
 import org.apache.commons.text.StringEscapeUtils
 import org.koin.core.context.GlobalContext
 import splitties.init.appCtx
+import io.legado.app.ui.widget.components.image.cover.CoverPaletteStore
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -242,19 +243,35 @@ object LocalBook {
         return importFile(saveBookFile(str, fileName, source))
     }
 
+/**
+ * SPEC-173: a content Uri often reports size 0 until the stream is opened.
+ * Treat a readable first byte as a real file.
+ */
+internal fun localImportHasReadableBytes(size: Long, firstByte: Int?): Boolean {
+    if (size > 0L) return true
+    return firstByte != null && firstByte >= 0
+}
+
     /**
      * 导入本地文件
      */
     fun importFile(uri: Uri): Book {
-        val input = FileDoc.fromUri(uri, false)
-        if (input.isDir) return importMangaDirectory(input)
+        val fileDoc = FileDoc.fromUri(uri, false)
+        if (fileDoc.isDir) return importMangaDirectory(fileDoc)
         val bookUrl: String
         //updateTime变量不要修改,否则会导致读取不到缓存
-        val (fileName, _, _, updateTime, _) = FileDoc.fromUri(uri, false).apply {
-            if (size == 0L) throw EmptyFileException("Unexpected empty File")
-
-            bookUrl = toString()
-        }
+        val readable = localImportHasReadableBytes(
+            size = fileDoc.size,
+            firstByte = if (fileDoc.size > 0L) {
+                0
+            } else {
+                fileDoc.uri.inputStream(appCtx).getOrNull()?.use { it.read() }
+            },
+        )
+        if (!readable) throw EmptyFileException("Unexpected empty File")
+        val fileName = fileDoc.name
+        val updateTime = fileDoc.lastModified
+        bookUrl = fileDoc.toString()
         var book = appDb.bookDao.getBook(bookUrl)
         if (book == null) {
             val nameAuthor = analyzeNameAuthor(fileName)
@@ -315,6 +332,10 @@ object LocalBook {
             book.isUmd -> UmdFile.upBookInfo(book)
             book.isPdf -> PdfFile.upBookInfo(book)
             book.isMobi -> MobiFile.upBookInfo(book)
+        }
+        // SPEC-185: nothing extractable → random palette cover (stable per bookUrl).
+        if (book.coverUrl.isNullOrBlank()) {
+            book.coverUrl = CoverPaletteStore.pickForSeed(appCtx, book.bookUrl)
         }
     }
 

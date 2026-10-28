@@ -27,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
@@ -63,13 +65,15 @@ fun BrowserTabCountBadge(
     drawBorder: Boolean = true,
     /** SPEC-103: web bottom bar uses 2dp; default 1dp. */
     borderWidth: Dp = 1.dp,
+    /** SPEC-181: scale digit text with a smaller badge (1f = SPEC-069 baseline). */
+    textSizeScale: Float = 1f,
 ) {
     val digitCount = count.toString().length
-    val textSize = when {
+    val textSize = (when {
         digitCount >= 3 -> 10.sp
         digitCount == 2 -> 12.sp
         else -> 13.sp
-    }
+    }).value * textSizeScale
     Box(
         modifier = modifier
             .size(size)
@@ -101,9 +105,13 @@ fun BrowserTabCountBadge(
         Text(
             text = count.toString(),
             color = tint,
-            fontSize = textSize,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
+            // SPEC-170: default font padding makes the digit sit low in the badge.
+            style = TextStyle(
+                fontSize = textSize.sp,
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+            ),
         )
     }
 }

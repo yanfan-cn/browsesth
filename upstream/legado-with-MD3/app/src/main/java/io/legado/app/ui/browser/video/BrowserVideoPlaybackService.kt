@@ -26,21 +26,28 @@ import io.legado.app.browser.engine.BrowserVideoOffer
 import io.legado.app.browser.engine.BrowserVideoOfferBus
 
 /**
- * SPEC-132/135/137: foreground media notification (+ optional headless audio ExoPlayer).
+ * SPEC-132/135/137/188: foreground media notification
+ * (native VideoView, headless audio ExoPlayer, or in-page HTML5 via WebMediaBridge).
  * SPEC-137: MediaSession progress scrubber + seek ±15s actions.
  */
 class BrowserVideoPlaybackService : Service() {
 
     private var audioPlayer: ExoPlayer? = null
     private var audioOnly: Boolean = false
+    private var pageMedia: Boolean = false
     private var titleText: String = "视频播放中"
     private var mediaSession: MediaSessionCompat? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private val tickRunnable = object : Runnable {
         override fun run() {
+            if (pageMedia) {
+                BrowserWebMediaBridge.refreshStateFromPage()
+            }
             publishSessionState()
             startAsForeground(BrowserVideoPlayerBridge.isPlaying())
-            if (BrowserVideoPlayerBridge.isPlaying() || audioPlayer != null) {
+            if (BrowserVideoPlayerBridge.isPlaying() || audioPlayer != null ||
+                (pageMedia && BrowserWebMediaBridge.active)
+            ) {
                 mainHandler.postDelayed(this, 1000L)
             }
         }
@@ -130,13 +137,28 @@ class BrowserVideoPlaybackService : Service() {
                 }
                 titleText = offer.title.ifBlank { "音频播放中" }
                 audioOnly = true
+                pageMedia = false
+                audioOnlyActive = true
                 startAudioPlayer(offer)
                 startAsForeground(playing = true, title = titleText)
                 scheduleTicks()
                 return START_STICKY
             }
+            ACTION_START_PAGE -> {
+                audioOnly = false
+                pageMedia = true
+                audioOnlyActive = false
+                titleText = intent?.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank {
+                    BrowserWebMediaBridge.title.ifBlank { "视频播放中" }
+                }
+                startAsForeground(playing = BrowserWebMediaBridge.isPlaying(), title = titleText)
+                scheduleTicks()
+                return START_STICKY
+            }
             else -> {
                 audioOnly = false
+                pageMedia = false
+                audioOnlyActive = false
                 titleText = intent?.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { "视频播放中" }
                 startAsForeground(playing = true, title = titleText)
                 scheduleTicks()
@@ -148,6 +170,8 @@ class BrowserVideoPlaybackService : Service() {
     override fun onDestroy() {
         mainHandler.removeCallbacks(tickRunnable)
         releaseAudioPlayer()
+        pageMedia = false
+        audioOnlyActive = false
         mediaSession?.isActive = false
         mediaSession?.release()
         mediaSession = null
@@ -252,7 +276,7 @@ class BrowserVideoPlaybackService : Service() {
     }
 
     private fun buildNotification(playing: Boolean, title: String): Notification {
-        val openIntent = if (audioOnly) {
+        val openIntent = if (audioOnly || pageMedia) {
             packageManager.getLaunchIntentForPackage(packageName)
                 ?: Intent(this, BrowserVideoPlayerActivity::class.java)
         } else {
@@ -293,7 +317,9 @@ class BrowserVideoPlaybackService : Service() {
                 when {
                     audioOnly && playing -> "后台听音频"
                     audioOnly -> "已暂停"
-                    playing -> "后台播放中"
+                    pageMedia && playing -> "网页播放中"
+                    pageMedia -> "已暂停"
+                    playing -> "播放中"
                     else -> "已暂停"
                 },
             )
@@ -332,10 +358,18 @@ class BrowserVideoPlaybackService : Service() {
         const val ACTION_PLAY = "io.legado.app.video.PLAY"
         const val ACTION_STOP = "io.legado.app.video.STOP"
         const val ACTION_START_AUDIO = "io.legado.app.video.START_AUDIO"
+        const val ACTION_START_PAGE = "io.legado.app.video.START_PAGE"
         const val ACTION_SEEK_BACK = "io.legado.app.video.SEEK_BACK"
         const val ACTION_SEEK_FWD = "io.legado.app.video.SEEK_FWD"
 
+        @Volatile
+        private var audioOnlyActive: Boolean = false
+
+        /** SPEC-188: leave-to-stop must not kill 「听音频」. */
+        fun isAudioOnlyActive(): Boolean = audioOnlyActive
+
         fun start(context: Context, title: String) {
+            audioOnlyActive = false
             val intent = Intent(context, BrowserVideoPlaybackService::class.java)
                 .putExtra(EXTRA_TITLE, title)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -345,7 +379,21 @@ class BrowserVideoPlaybackService : Service() {
             }
         }
 
+        /** SPEC-188: notification for in-page HTML5 media. */
+        fun startPage(context: Context, title: String) {
+            audioOnlyActive = false
+            val intent = Intent(context, BrowserVideoPlaybackService::class.java)
+                .setAction(ACTION_START_PAGE)
+                .putExtra(EXTRA_TITLE, title)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+
         fun startAudio(context: Context, offer: BrowserVideoOffer) {
+            audioOnlyActive = true
             val intent = Intent(context, BrowserVideoPlaybackService::class.java)
                 .setAction(ACTION_START_AUDIO)
                 .putExtra(EXTRA_URL, offer.url)
@@ -366,6 +414,7 @@ class BrowserVideoPlaybackService : Service() {
         }
 
         fun stop(context: Context) {
+            audioOnlyActive = false
             context.stopService(Intent(context, BrowserVideoPlaybackService::class.java))
         }
 

@@ -87,16 +87,22 @@ data class FileDoc(
 
         fun fromUri(uri: Uri, isDir: Boolean): FileDoc {
             if (uri.isContentScheme()) {
+                val downloadId = downloadManagerIdOrNull(uri.scheme, uri.host, uri.lastPathSegment)
                 val doc = if (isDir) {
                     DocumentFile.fromTreeUri(appCtx, uri)!!
-                } else if (uri.host == "downloads") {
+                } else if (downloadId != null) {
                     val query = DownloadManager.Query()
-                    query.setFilterById(uri.lastPathSegment!!.toLong())
+                    query.setFilterById(downloadId)
                     downloadManager.query(query).use {
                         if (it.moveToFirst()) {
                             val lUriColum = it.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-                            val lUri = it.getString(lUriColum)
-                            DocumentFile.fromSingleUri(appCtx, lUri.toUri())!!
+                            val lUri = if (lUriColum >= 0) it.getString(lUriColum) else null
+                            if (!lUri.isNullOrBlank()) {
+                                DocumentFile.fromSingleUri(appCtx, lUri.toUri())
+                                    ?: DocumentFile.fromSingleUri(appCtx, uri)!!
+                            } else {
+                                DocumentFile.fromSingleUri(appCtx, uri)!!
+                            }
                         } else {
                             DocumentFile.fromSingleUri(appCtx, uri)!!
                         }
@@ -137,6 +143,16 @@ data class FileDoc(
  * 过滤器
  */
 typealias FileDocFilter = (file: FileDoc) -> Boolean
+
+/**
+ * SPEC-173: only numeric DownloadManager ids use the downloads shortcut.
+ * A single file from the system picker is often `content://downloads/.../raw:…`,
+ * and [String.toLong] on that segment crashes the import.
+ */
+internal fun downloadManagerIdOrNull(scheme: String?, host: String?, lastPathSegment: String?): Long? {
+    if (!scheme.equals("content", ignoreCase = true) || host != "downloads") return null
+    return lastPathSegment?.toLongOrNull()
+}
 
 private val projection by lazy {
     arrayOf(

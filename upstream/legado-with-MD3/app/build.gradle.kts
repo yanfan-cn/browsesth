@@ -264,6 +264,9 @@ dependencies {
     implementation(libs.material)
     implementation(libs.flexbox)
     implementation(libs.gson)
+    // SPEC-171: on-device EN/JA → zh for reading-mode translation.
+    implementation(libs.mlkit.translate)
+    implementation(libs.mlkit.language.id)
     implementation(libs.lifecycle.common.java8)
     implementation(libs.lifecycle.service)
     implementation(libs.media.media)

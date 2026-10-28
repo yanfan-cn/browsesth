@@ -2,15 +2,20 @@ package io.legado.app.ui.main.home
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import android.content.res.Configuration
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -41,6 +46,7 @@ import io.legado.app.data.entities.Book
 import io.legado.app.ui.browser.BrowserNtpScreen
 import io.legado.app.ui.browser.BrowserSessionActions
 import io.legado.app.ui.browser.BrowserSessionScreen
+import io.legado.app.ui.browser.BrowserTabsScreen
 import io.legado.app.ui.browser.BrowserTheme
 import io.legado.app.ui.browser.TabletBrowserLayout
 import io.legado.app.ui.browser.TabletBrowserShell
@@ -64,6 +70,7 @@ import kotlinx.coroutines.launch
 fun BrowserHomeTabScreen(
     onOpenBook: (Book) -> Unit,
     onSessionActiveChange: (Boolean) -> Unit = {},
+    onPhoneSearchActiveChange: (Boolean) -> Unit = {},
     onOpenBrowserSettings: () -> Unit = {},
     onOpenBookmarks: () -> Unit = {},
     onOpenDownloads: () -> Unit = {},
@@ -74,11 +81,15 @@ fun BrowserHomeTabScreen(
     onOpenMangaReader: (bookUrl: String) -> Unit = {},
     onOpenBookshelf: () -> Unit = {},
     onOpenMy: () -> Unit = {},
+    /** SPEC-183: shared-element scopes for the reading-list card covers. */
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     BrowserTheme {
         BrowserHomeTabBody(
             onOpenBook = onOpenBook,
             onSessionActiveChange = onSessionActiveChange,
+            onPhoneSearchActiveChange = onPhoneSearchActiveChange,
             onOpenBrowserSettings = onOpenBrowserSettings,
             onOpenBookmarks = onOpenBookmarks,
             onOpenDownloads = onOpenDownloads,
@@ -89,6 +100,8 @@ fun BrowserHomeTabScreen(
             onOpenMangaReader = onOpenMangaReader,
             onOpenBookshelf = onOpenBookshelf,
             onOpenMy = onOpenMy,
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope,
         )
     }
 }
@@ -97,6 +110,7 @@ fun BrowserHomeTabScreen(
 private fun BrowserHomeTabBody(
     onOpenBook: (Book) -> Unit,
     onSessionActiveChange: (Boolean) -> Unit,
+    onPhoneSearchActiveChange: (Boolean) -> Unit,
     onOpenBrowserSettings: () -> Unit,
     onOpenBookmarks: () -> Unit,
     onOpenDownloads: () -> Unit,
@@ -107,6 +121,8 @@ private fun BrowserHomeTabBody(
     onOpenMangaReader: (bookUrl: String) -> Unit,
     onOpenBookshelf: () -> Unit,
     onOpenMy: () -> Unit,
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     val context = LocalContext.current
     // SPEC-108: react to fold/unfold (do not remember forever).
@@ -233,6 +249,9 @@ private fun BrowserHomeTabBody(
             onOpenMangaReader = onOpenMangaReader,
             sessionKey = active?.id,
             onSessionExitFinished = onSessionExitFinished,
+            onPhoneSearchActiveChange = onPhoneSearchActiveChange,
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope,
         )
     } else {
     TabletBrowserShell(
@@ -320,6 +339,8 @@ private fun BrowserHomeTabBody(
                     onOpenBookmarks = { sidePanel = TabletSidePanel.Bookmarks },
                     onOpenTabs = { sidePanel = TabletSidePanel.Tabs },
                     tabletLayout = true,
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
                 )
             },
             session = {
@@ -463,50 +484,84 @@ private fun PhoneBrowserHome(
     onOpenMangaReader: (bookUrl: String) -> Unit,
     sessionKey: String?,
     onSessionExitFinished: () -> Unit,
+    onPhoneSearchActiveChange: (Boolean) -> Unit,
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
-    BrowserNtpSessionSwitch(
-        showNtp = showNtp,
-        onSessionExitFinished = onSessionExitFinished,
-        ntp = {
-            BrowserNtpScreen(
-                incognito = incognito,
-                onIncognitoChange = { BrowserTabManager.setActiveIncognito(it) },
-                onOpenUrl = { openUrl, inIncognito, label ->
-                    BrowserTabManager.setActiveIncognito(inIncognito)
-                    BrowserTabManager.openUrlInActive(openUrl, inIncognito, omniboxLabel = label)
-                },
-                onOpenBook = onOpenBook,
-                onOpenHistory = onOpenHistory,
-                onOpenBookmarks = onOpenBookmarks,
-                onOpenTabs = onOpenTabs,
-                tabletLayout = false,
-            )
-        },
-        session = {
-            val url = activeUrl
-            if (!url.isNullOrBlank()) {
-            BrowserSessionScreen(
-                initialUrl = url,
-                showNavigationBack = true,
-                onNavigateBack = { BrowserTabManager.clearActiveToNtp() },
-                incognito = incognito,
-                sessionKey = sessionKey,
-                initialOmniboxLabel = omniboxLabel,
-                initialTitle = initialTitle,
-                navEpoch = navEpoch,
-                onOpenBrowserSettings = onOpenBrowserSettings,
-                onOpenBookmarks = onOpenBookmarks,
-                onOpenDownloads = onOpenDownloads,
-                onOpenHistory = onOpenHistory,
-                onOpenTabs = onOpenTabs,
-                onOpenReader = onOpenReader,
-                onOpenMangaReader = onOpenMangaReader,
-                onPageMeta = { pageUrl, title ->
-                    BrowserTabManager.updateActiveMeta(pageUrl, title)
-                },
-                tabletEmbedded = false,
-            )
+    // SPEC-170: landscape tabs = tablet-like overlay; portrait keeps route navigation.
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val useOverlayTabs = TabletBrowserLayout.phoneUsesTabletLikePanels(landscape)
+    var showTabsOverlay by remember { mutableStateOf(false) }
+    LaunchedEffect(useOverlayTabs) {
+        if (!useOverlayTabs) showTabsOverlay = false
+    }
+    val openTabs: () -> Unit = {
+        if (useOverlayTabs) showTabsOverlay = true else onOpenTabs()
+    }
+    BackHandler(enabled = showTabsOverlay) { showTabsOverlay = false }
+
+    Box(Modifier.fillMaxSize()) {
+        BrowserNtpSessionSwitch(
+            showNtp = showNtp,
+            onSessionExitFinished = onSessionExitFinished,
+            ntp = {
+                BrowserNtpScreen(
+                    incognito = incognito,
+                    onIncognitoChange = { BrowserTabManager.setActiveIncognito(it) },
+                    onOpenUrl = { openUrl, inIncognito, label ->
+                        BrowserTabManager.setActiveIncognito(inIncognito)
+                        BrowserTabManager.openUrlInActive(openUrl, inIncognito, omniboxLabel = label)
+                    },
+                    onOpenBook = onOpenBook,
+                    onOpenHistory = onOpenHistory,
+                    onOpenBookmarks = onOpenBookmarks,
+                    onOpenTabs = openTabs,
+                    tabletLayout = false,
+                    onPhoneSearchActiveChange = onPhoneSearchActiveChange,
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
+                )
+            },
+            session = {
+                val url = activeUrl
+                if (!url.isNullOrBlank()) {
+                    BrowserSessionScreen(
+                        initialUrl = url,
+                        showNavigationBack = true,
+                        onNavigateBack = { BrowserTabManager.clearActiveToNtp() },
+                        incognito = incognito,
+                        sessionKey = sessionKey,
+                        initialOmniboxLabel = omniboxLabel,
+                        initialTitle = initialTitle,
+                        navEpoch = navEpoch,
+                        onOpenBrowserSettings = onOpenBrowserSettings,
+                        onOpenBookmarks = onOpenBookmarks,
+                        onOpenDownloads = onOpenDownloads,
+                        onOpenHistory = onOpenHistory,
+                        onOpenTabs = openTabs,
+                        onOpenReader = onOpenReader,
+                        onOpenMangaReader = onOpenMangaReader,
+                        onPageMeta = { pageUrl, title ->
+                            BrowserTabManager.updateActiveMeta(pageUrl, title)
+                        },
+                        tabletEmbedded = false,
+                    )
+                }
+            },
+        )
+        if (showTabsOverlay) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(8f)
+                    .background(LegadoTheme.colorScheme.surface)
+                    .clickable(enabled = false) {},
+            ) {
+                BrowserTabsScreen(
+                    onBack = { showTabsOverlay = false },
+                    onOpenActiveTab = { showTabsOverlay = false },
+                )
             }
-        },
-    )
+        }
+    }
 }

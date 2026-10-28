@@ -39,7 +39,9 @@ object ChromeSurfaceStylePolicy {
 
     fun isLiquidGlassActive(stored: String?, sdk: Int = Build.VERSION.SDK_INT): Boolean =
         resolve(stored, sdk) == ChromeSurfaceStyle.LiquidGlass &&
-            sdk >= Build.VERSION_CODES.TIRAMISU
+            sdk >= Build.VERSION_CODES.TIRAMISU &&
+            // SPEC-192: 运动中（滚动/转场）玻璃退 fallback，静止后恢复。
+            !GlassMotionGate.suppressed
 
     fun isFilledActive(stored: String?, sdk: Int = Build.VERSION.SDK_INT): Boolean =
         resolve(stored, sdk) == ChromeSurfaceStyle.Filled

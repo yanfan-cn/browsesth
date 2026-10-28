@@ -19,6 +19,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -71,6 +72,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.browser.engine.BrowserChromePrefs
+import io.legado.app.browser.engine.BrowserNavHistory
 import io.legado.app.browser.engine.BrowserNtpPrefs
 import io.legado.app.browser.engine.BrowserOpenBridge
 import io.legado.app.browser.engine.BrowserShieldPrefs
@@ -854,28 +856,86 @@ private fun TabletFunctionBar(
     val ntpPrefs = remember { BrowserNtpPrefs(context) }
     var engine by remember { mutableStateOf(ntpPrefs.searchEngine()) }
     var engineMenu by remember { mutableStateOf(false) }
+    // SPEC-163
+    var backHistoryMenu by remember { mutableStateOf(false) }
+    var forwardHistoryMenu by remember { mutableStateOf(false) }
+    var backHistoryItems by remember { mutableStateOf<List<BrowserNavHistory.Item>>(emptyList()) }
+    var forwardHistoryItems by remember { mutableStateOf<List<BrowserNavHistory.Item>>(emptyList()) }
     val readerCapsuleShape = RoundedCornerShape(24.dp)
+    val omniboxHeight = TabletBrowserLayout.TabletOmniboxHeightDp.dp
+    val itemGap = TabletBrowserLayout.ChromeItemGapDp.dp
 
-    // SPEC-128: Edge/Chrome-like — omnibox fills leftover width; even icon slots;
-    // equal SpaceSm gaps on both sides of the field; in-bar「加入收藏」.
+    // SPEC-168: one gap between every control. Omnibox and 净读 are 40dp.
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(BrowserUiTokens.TopBarHeight)
             .background(scheme.surface)
-            .padding(horizontal = BrowserUiTokens.SpaceSm),
+            .padding(horizontal = itemGap),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(itemGap),
     ) {
-        ChromeIcon(Symbols.ArrowBack, "后退", onBack)
-        ChromeIcon(Symbols.ArrowForwardIos, "前进", onForward)
-        ChromeIcon(Symbols.Refresh, "刷新", onRefresh)
-        // SPEC-126: My between refresh and omnibox.
+        ChromeIcon(
+            icon = Symbols.ArrowBack,
+            desc = "后退",
+            onClick = onBack,
+            onLongClick = {
+                val items = sessionActions?.backHistoryItems?.invoke().orEmpty()
+                if (items.isEmpty()) {
+                    context.toastOnUi("没有可后退的页面")
+                } else {
+                    backHistoryItems = items
+                    forwardHistoryMenu = false
+                    backHistoryMenu = true
+                }
+            },
+            menu = {
+                BrowserNavHistoryMenu(
+                    expanded = backHistoryMenu,
+                    items = backHistoryItems,
+                    onDismiss = { backHistoryMenu = false },
+                    onSelect = { sessionActions?.goHistoryOffset?.invoke(it.steps) },
+                    aboveAnchor = false,
+                )
+            },
+        )
+        ChromeIcon(
+            icon = Symbols.ArrowForwardIos,
+            desc = "前进",
+            onClick = onForward,
+            onLongClick = {
+                val items = sessionActions?.forwardHistoryItems?.invoke().orEmpty()
+                if (items.isEmpty()) {
+                    context.toastOnUi("没有可前进的页面")
+                } else {
+                    forwardHistoryItems = items
+                    backHistoryMenu = false
+                    forwardHistoryMenu = true
+                }
+            },
+            menu = {
+                BrowserNavHistoryMenu(
+                    expanded = forwardHistoryMenu,
+                    items = forwardHistoryItems,
+                    onDismiss = { forwardHistoryMenu = false },
+                    onSelect = { sessionActions?.goHistoryOffset?.invoke(it.steps) },
+                    aboveAnchor = false,
+                )
+            },
+        )
+        ChromeIcon(
+            icon = Symbols.Refresh,
+            desc = "刷新",
+            onClick = onRefresh,
+            onLongClick = { sessionActions?.scrollToTop?.invoke() },
+        )
+        // SPEC-126/168: 我的, then reading list, then the omnibox.
         ChromeIcon(Symbols.Person, "我的", onOpenMy)
-        Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceSm))
+        ChromeIcon(Symbols.Book, "阅读列表", onOpenBookshelf)
         Row(
             modifier = Modifier
                 .weight(1f)
-                .height(BrowserUiTokens.InputHeightLarge)
+                .height(omniboxHeight)
                 .clip(RoundedCornerShape(24.dp))
                 .background(scheme.surfaceContainerHighest)
                 .padding(start = 10.dp, end = 4.dp),
@@ -907,7 +967,7 @@ private fun TabletFunctionBar(
                     },
                     textColor = scheme.onSurface,
                     mutedColor = scheme.onSurfaceVariant,
-                    verticalOffset = BrowserUiTokens.InputHeightLarge + 8.dp,
+                    verticalOffset = omniboxHeight + itemGap,
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
@@ -959,16 +1019,14 @@ private fun TabletFunctionBar(
                 )
             }
         }
-        Spacer(modifier = Modifier.width(BrowserUiTokens.SpaceSm))
         ChromeIcon(Symbols.Bookmark, "收藏", onOpenBookmarks)
         ChromeIcon(Symbols.History, "历史", onOpenHistory)
-        ChromeIcon(Symbols.Book, "净读列表", onOpenBookshelf)
         ChromeIcon(Symbols.Box, "工具箱", onOpenToolbox)
         // SPEC-126: 「阅读」capsule at far right (icon + label, 24dp radius fill).
         Box {
             Row(
                 modifier = Modifier
-                    .height(BrowserUiTokens.InputHeightLarge)
+                    .height(omniboxHeight)
                     .clip(readerCapsuleShape)
                     .background(scheme.surfaceContainerHighest, readerCapsuleShape)
                     .combinedClickable(
@@ -1026,21 +1084,44 @@ private fun TabletFunctionBar(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ChromeIcon(
     icon: MaterialSymbol,
     desc: String,
     onClick: () -> Unit,
     tint: Color? = null,
+    onLongClick: (() -> Unit)? = null,
+    menu: (@Composable () -> Unit)? = null,
 ) {
     val scheme = LegadoTheme.colorScheme
-    IconButton(onClick = onClick, modifier = Modifier.size(TabletChromeIconSlot)) {
-        SymbolIcon(
-            symbol = icon,
-            contentDescription = desc,
-            modifier = Modifier.size(22.dp),
-            tint = tint ?: scheme.onSurface,
-        )
+    Box(
+        modifier = Modifier.size(TabletChromeIconSlot),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(TabletChromeIconSlot)
+                .then(
+                    if (onLongClick != null) {
+                        Modifier.combinedClickable(
+                            onClick = onClick,
+                            onLongClick = onLongClick,
+                        )
+                    } else {
+                        Modifier.clickable(onClick = onClick)
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            SymbolIcon(
+                symbol = icon,
+                contentDescription = desc,
+                modifier = Modifier.size(22.dp),
+                tint = tint ?: scheme.onSurface,
+            )
+        }
+        menu?.invoke()
     }
 }
 

@@ -7,7 +7,13 @@ import org.chromium.android_webview.AwCookieManager
  * SPEC-058/064: filename helpers + enqueue into [BrowserDownloadRepository].
  */
 object BrowserDownloadHelper {
-    data class Result(val ok: Boolean, val message: String, val fileName: String = "")
+    data class Result(
+        val ok: Boolean,
+        val message: String,
+        val fileName: String = "",
+        /** SPEC-166: repository id so the player can follow progress. */
+        val id: String = "",
+    )
 
     /**
      * Pure JVM-friendly filename guess (no android.net.Uri / URLUtil in the hot path),
@@ -31,6 +37,12 @@ object BrowserDownloadHelper {
             "download_${System.currentTimeMillis()}"
         }
     }
+
+    internal fun headerIgnoreCase(headers: Map<String, String>, name: String): String? =
+        headers.entries.firstOrNull { it.key.equals(name, ignoreCase = true) }
+            ?.value
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
 
     fun enqueue(
         context: Context,
@@ -56,7 +68,9 @@ object BrowserDownloadHelper {
             // segment files, not as the tiny .m3u8 text itself.
             val isHls = clean.contains(".m3u8", ignoreCase = true) ||
                 mimeType?.contains("mpegurl", ignoreCase = true) == true
-            val effReferer = headers["Referer"] ?: referer?.takeIf { it.isNotBlank() }
+            val effReferer = headerIgnoreCase(headers, "Referer") ?: referer?.takeIf { it.isNotBlank() }
+            val effUserAgent = userAgent?.takeIf { it.isNotBlank() }
+                ?: headerIgnoreCase(headers, "User-Agent")
             // SPEC-152: offer 的完整请求头序列化持久化，重试/续传时原样套用（防盗链令牌头不丢）。
             val headersJson = if (headers.isEmpty()) null else runCatching {
                 org.json.JSONObject(headers).toString()
@@ -65,7 +79,7 @@ object BrowserDownloadHelper {
                 BrowserDownloadRepository.get(context).enqueueHls(
                     url = clean,
                     title = title,
-                    userAgent = userAgent,
+                    userAgent = effUserAgent,
                     cookie = cookie,
                     referer = effReferer,
                     targetDir = if (toMovies) BrowserDownloadPaths.ensureMovies(context) else null,
@@ -75,7 +89,7 @@ object BrowserDownloadHelper {
                 BrowserDownloadRepository.get(context).enqueueFile(
                     url = clean,
                     title = title,
-                    userAgent = userAgent,
+                    userAgent = effUserAgent,
                     contentDisposition = contentDisposition,
                     mimeType = mimeType,
                     cookie = cookie,
@@ -84,7 +98,7 @@ object BrowserDownloadHelper {
                     requestHeadersJson = headersJson,
                 )
             }
-            Result(true, "已开始下载 ${item.fileName}", item.fileName)
+            Result(true, "已开始下载 ${item.fileName}", item.fileName, item.id)
         } catch (t: Throwable) {
             Result(false, "下载失败：${t.message ?: "未知错误"}")
         }

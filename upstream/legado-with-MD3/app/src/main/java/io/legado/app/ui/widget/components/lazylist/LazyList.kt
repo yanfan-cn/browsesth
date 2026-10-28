@@ -75,6 +75,8 @@ fun FastScrollLazyColumn(
         // horizontal margin), so it stays flush with the screen edge.
         topContentPadding = contentPadding.calculateTopPadding(),
     ) {
+        // SPEC-192: 滚动期间抑制液态玻璃采样，静止后恢复。
+        io.legado.app.ui.theme.ScrollGlassSuppressor(state)
         LazyColumn(
             state = state,
             contentPadding = contentPadding,
@@ -109,6 +111,8 @@ fun FastScrollLazyVerticalGrid(
             modifier = modifier,
             topContentPadding = contentPadding.calculateTopPadding(),
         ) {
+            // SPEC-192: 滚动期间抑制液态玻璃采样，静止后恢复。
+            io.legado.app.ui.theme.ScrollGlassSuppressor(state)
             LazyVerticalGrid(
                 columns = columns,
                 state = state,
@@ -121,6 +125,8 @@ fun FastScrollLazyVerticalGrid(
             )
         }
     } else {
+        // SPEC-192: 滚动期间抑制液态玻璃采样，静止后恢复。
+        io.legado.app.ui.theme.ScrollGlassSuppressor(state)
         LazyVerticalGrid(
             columns = columns,
             modifier = modifier,

@@ -20,7 +20,7 @@ import java.security.MessageDigest
 
 /**
  * Builds an ephemeral online image book from web-extracted image URLs
- * for [io.legado.app.ui.main.MainRouteReadManga] (SPEC-011/014).
+ * for [io.legado.app.ui.book.manga.ReadMangaActivity] (SPEC-011/014, SPEC-190).
  */
 object WebMangaBookFactory {
 

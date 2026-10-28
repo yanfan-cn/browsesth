@@ -8,16 +8,18 @@ import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.book.addType
+import io.legado.app.ui.widget.components.image.cover.CoverPaletteStore
 import io.legado.app.utils.GSON
 import io.legado.app.utils.HtmlFormatter
 import io.legado.app.utils.fromJsonObject
 import com.google.gson.annotations.SerializedName
+import splitties.init.appCtx
 import java.net.URL
 import java.security.MessageDigest
 
 /**
  * Turns extracted web article text into an ephemeral text book for
- * [io.legado.app.ui.main.MainRouteReadBook] (SPEC-010/014/015).
+ * [io.legado.app.ui.book.read.ReadBookActivity] (SPEC-010/014/015, SPEC-190).
  */
 object WebArticleBookFactory {
 
@@ -82,7 +84,12 @@ object WebArticleBookFactory {
             origin = ORIGIN,
             originName = "浏览器",
             tocUrl = identity,
-            coverUrl = extracted.coverUrl,
+            // SPEC-160/164: no webpage image → color cover from enabled palette pool.
+            coverUrl = extracted.coverUrl
+                ?: CoverPaletteStore.pickForSeed(
+                    appCtx,
+                    extracted.title.ifBlank { pageUrl },
+                ),
             customIntro = pageUrl,
             totalChapterNum = chapters.size,
             durChapterIndex = durIndex,

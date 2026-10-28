@@ -6,7 +6,7 @@ import com.devbrackets.android.exomedia.ui.widget.VideoView
 import java.lang.ref.WeakReference
 
 /**
- * SPEC-132/135/137: notification actions control VideoView or headless audio Player.
+ * SPEC-132/135/137/188: notification actions control VideoView, headless audio, or in-page media.
  */
 object BrowserVideoPlayerBridge {
     @Volatile
@@ -36,24 +36,42 @@ object BrowserVideoPlayerBridge {
     }
 
     fun play() {
-        videoRef?.get()?.start()
-        audioRef?.get()?.play()
+        videoRef?.get()?.let {
+            it.start()
+            return
+        }
+        audioRef?.get()?.let {
+            it.play()
+            return
+        }
+        if (BrowserWebMediaBridge.active) {
+            BrowserWebMediaBridge.play()
+        }
     }
 
     fun pause() {
         videoRef?.get()?.pause()
         audioRef?.get()?.pause()
+        if (BrowserWebMediaBridge.active) {
+            BrowserWebMediaBridge.pause()
+        }
     }
 
     fun isPlaying(): Boolean {
         videoRef?.get()?.let { return it.isPlaying }
         audioRef?.get()?.let { return it.isPlaying }
+        if (BrowserWebMediaBridge.active) {
+            return BrowserWebMediaBridge.isPlaying()
+        }
         return false
     }
 
     fun positionMs(): Long {
         videoRef?.get()?.let { return it.currentPosition }
         audioRef?.get()?.let { return it.currentPosition }
+        if (BrowserWebMediaBridge.active) {
+            return BrowserWebMediaBridge.positionMs()
+        }
         return 0L
     }
 
@@ -63,10 +81,13 @@ object BrowserVideoPlayerBridge {
             val d = it.duration
             return if (d == C.TIME_UNSET || d < 0) 0L else d
         }
+        if (BrowserWebMediaBridge.active) {
+            return BrowserWebMediaBridge.durationMs()
+        }
         return 0L
     }
 
-    /** SPEC-137: relative seek for gesture / notification (±15s). */
+    /** SPEC-137/188: relative seek for gesture / notification (±15s). */
     fun seekBy(deltaMs: Long) {
         videoRef?.get()?.let { vv ->
             val dur = vv.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
@@ -76,6 +97,10 @@ object BrowserVideoPlayerBridge {
         audioRef?.get()?.let { p ->
             val dur = p.duration.takeIf { it > 0 && it != C.TIME_UNSET } ?: Long.MAX_VALUE
             p.seekTo((p.currentPosition + deltaMs).coerceIn(0L, dur))
+            return
+        }
+        if (BrowserWebMediaBridge.active) {
+            BrowserWebMediaBridge.seekBy(deltaMs)
         }
     }
 
@@ -88,6 +113,10 @@ object BrowserVideoPlayerBridge {
         audioRef?.get()?.let { p ->
             val dur = p.duration.takeIf { it > 0 && it != C.TIME_UNSET } ?: Long.MAX_VALUE
             p.seekTo(positionMs.coerceIn(0L, dur))
+            return
+        }
+        if (BrowserWebMediaBridge.active) {
+            BrowserWebMediaBridge.seekTo(positionMs)
         }
     }
 
@@ -100,4 +129,6 @@ object BrowserVideoPlayerBridge {
         }
         audioRef = null
     }
+
+    fun hasNativeVideo(): Boolean = videoRef?.get() != null
 }

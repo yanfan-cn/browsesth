@@ -24,6 +24,9 @@ object BrowserVideoMedia {
             )
         val headers = offer.headers.filterKeys {
             !it.equals("User-Agent", true)
+        }.toMutableMap()
+        if (headers.keys.none { it.equals("Referer", true) } && offer.pageUrl.isNotBlank()) {
+            headers["Referer"] = offer.pageUrl
         }
         if (headers.isNotEmpty()) {
             factory.setDefaultRequestProperties(headers)
@@ -34,7 +37,7 @@ object BrowserVideoMedia {
         return when {
             offer.isHls || path.endsWith(".m3u8") || urlLower.contains(".m3u8") ->
                 HlsMediaSource.Factory(factory).createMediaSource(mediaItem)
-            path.endsWith(".mpd") || urlLower.contains("mpd") ->
+            path.endsWith(".mpd") || urlLower.contains(".mpd") ->
                 DashMediaSource.Factory(factory).createMediaSource(mediaItem)
             else -> {
                 val progressive = MediaItem.Builder()

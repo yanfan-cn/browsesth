@@ -60,6 +60,9 @@ class PdfFile(var book: Book) {
             return getPFile(book).getImage(href)
         }
 
+        @Synchronized
+        fun pageCount(book: Book): Int = getPFile(book).pdfRenderer?.pageCount ?: 0
+
     }
 
     /**
@@ -85,19 +88,33 @@ class PdfFile(var book: Book) {
      * @return
      */
     private fun readPdf(): PdfRenderer? {
-        val uri = book.getLocalUri()
-        if (uri.isContentScheme()) {
-            fileDescriptor = appCtx.contentResolver.openFileDescriptor(uri, "r")?.also {
-                pdfRenderer = PdfRenderer(it)
+        // SPEC-186: open failures (missing file, revoked content grant, corrupt PDF) must not
+        // escape; record them so the on-device root cause is observable via AppLog.
+        var pendingFd: ParcelFileDescriptor? = null
+        return try {
+            val uri = book.getLocalUri()
+            if (uri.isContentScheme()) {
+                pendingFd = appCtx.contentResolver.openFileDescriptor(uri, "r")
+                if (pendingFd == null) {
+                    AppLog.put("PDF open failed: content resolver returned null (${book.bookUrl})")
+                    return null
+                }
+                fileDescriptor = pendingFd
+                PdfRenderer(pendingFd).also { pdfRenderer = it }
+            } else {
+                pendingFd =
+                    ParcelFileDescriptor.open(File(uri.path!!), ParcelFileDescriptor.MODE_READ_ONLY)
+                fileDescriptor = pendingFd
+                PdfRenderer(pendingFd).also { pdfRenderer = it }
             }
-        } else {
-            fileDescriptor =
-                ParcelFileDescriptor.open(File(uri.path!!), ParcelFileDescriptor.MODE_READ_ONLY)
-                    ?.also {
-                        pdfRenderer = PdfRenderer(it)
-                    }
+        } catch (e: Exception) {
+            runCatching { pendingFd?.close() }
+            fileDescriptor = null
+            pdfRenderer = null
+            AppLog.put("PDF open failed: ${e.javaClass.simpleName} ${e.localizedMessage} (${book.bookUrl})", e)
+            e.printOnDebug()
+            null
         }
-        return pdfRenderer
     }
 
     /**
@@ -167,6 +184,8 @@ class PdfFile(var book: Book) {
             }
 
         } catch (_: Exception) {
+            // SPEC-186: render failures were fully silent before; log for on-device diagnosis.
+            AppLog.put("PDF page render failed: href=$href")
             return null
         }
     }

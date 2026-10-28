@@ -92,7 +92,6 @@ import io.legado.app.ui.book.toc.TocActivityResult
 import io.legado.app.ui.login.SourceLoginType
 import io.legado.app.ui.main.AndroidPlatformCapabilities
 import io.legado.app.ui.main.MainActivity
-import io.legado.app.ui.main.readerSharedBounds
 import io.legado.app.ui.replace.ReplaceEditRoute
 import io.legado.app.ui.replace.ReplaceRuleActivity
 import io.legado.app.ui.theme.LegadoTheme
@@ -654,22 +653,12 @@ fun ReadBookRouteScreen(
             ReaderPerfTrace.marker("surface.page-ready")
         }
     }
-    // 阅读页 sharedBounds 的裁剪圆角动画：从封面源圆角渐变到设备屏幕圆角，
-    // 转场收尾时正文页与物理圆角贴合（Compose 不会自动插值两端 clip，需自行驱动）。
-    val platformCapabilities = remember(controller) { AndroidPlatformCapabilities(controller.activity) }
-    val displayConfiguration = LocalConfiguration.current
-    val displayCornerRadiusPx = remember(displayConfiguration) { platformCapabilities.displayCornerRadiusPx }
+    // SPEC-190: 阅读器搬入独立 Activity，封面 sharedBounds 随 NavDisplay 转场一起退场；
+    // 页面直角贴合由系统窗口转场负责，不再需要圆角插值层。
     Box(
         Modifier
             .fillMaxSize()
             .semantics { testTagsAsResourceId = true }
-            .readerSharedBounds(
-                sharedTransitionScope = sharedTransitionScope,
-                animatedVisibilityScope = animatedVisibilityScope,
-                sharedCoverKey = sharedCoverKey,
-                displayCornerRadiusPx = displayCornerRadiusPx,
-                density = density,
-            )
             .background(readerSurfaceColor)
     ) {
         Box(

@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -71,12 +72,14 @@ import androidx.compose.runtime.setValue
 import androidx.navigation3.runtime.NavKey
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import io.legado.app.browser.engine.BrowserFormFactor
+import io.legado.app.ui.browser.BrowserUiTokens
 import io.legado.app.ui.browser.TabletBrowserLayout
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -251,6 +254,14 @@ fun MainScreen(
     val pagerState = rememberPagerState(initialPage = initialPage) { destinations.size }
     val currentDestination = destinations.getOrNull(pagerState.currentPage)
     val onBrowserHome = currentDestination == MainDestination.Home
+    val mainContext = LocalContext.current
+    // SPEC-188: leave browser main tab (阅读列表 / 我的) → stop video (听音频例外).
+    LaunchedEffect(onBrowserHome) {
+        if (!onBrowserHome) {
+            io.legado.app.ui.browser.video.BrowserVideoLeaveGuard
+                .stopExceptAudioListen(mainContext)
+        }
+    }
     // SPEC-060: from 阅读列表, system back returns to browser Home instead of exiting.
     val bookshelfPageIndex = remember(destinations) {
         destinations.indexOfFirst { it == MainDestination.Bookshelf }
@@ -264,6 +275,22 @@ fun MainScreen(
         io.legado.app.browser.engine.BrowserOpenBridge.offer(url)
         pagerState.animateScrollToPage(homePageIndex)
         pendingInAppBrowserUrl = null
+    }
+    // SPEC-164: desktop shortcuts → new tab / 阅读列表.
+    LaunchedEffect(Unit) {
+        MainShortcutBus.events.collect { event ->
+            when (event) {
+                MainShortcutBus.Event.NewTab -> {
+                    pagerState.animateScrollToPage(homePageIndex)
+                    io.legado.app.browser.engine.BrowserTabManager.openNewTab(url = null, select = true)
+                }
+                MainShortcutBus.Event.BookshelfTab -> {
+                    if (bookshelfPageIndex >= 0) {
+                        pagerState.animateScrollToPage(bookshelfPageIndex)
+                    }
+                }
+            }
+        }
     }
     BackHandler(
         enabled = (
@@ -299,8 +326,11 @@ fun MainScreen(
         onDispose { onRegisterRootTabBack(null) }
     }
     // SPEC-008: hide main app bottom bar while a browser session is open on Home.
+    // SPEC-177: also hide while phone NTP fullscreen search is open.
     var browserSessionActive by rememberSaveable { mutableStateOf(false) }
-    val hideMainBottomBarForBrowserSession = onBrowserHome && browserSessionActive
+    var phoneNtpSearchActive by rememberSaveable { mutableStateOf(false) }
+    val hideMainBottomBarForBrowserSession =
+        onBrowserHome && (browserSessionActive || phoneNtpSearchActive)
     // SPEC-025: tablet never shows the floating bottom bar.
     val isTabletFormFactor = BrowserFormFactor.isTablet(LocalConfiguration.current)
     val pagerNestedScrollConnection = rememberPagerFlingPassThroughConnection(
@@ -545,12 +575,10 @@ fun MainScreen(
                             onBrowserHome = onBrowserHome,
                             sessionActive = browserSessionActive,
                         ),
-                        // SPEC-009/021: warm neighbors like upstream; keep 0 while AwContents live.
-                        beyondViewportPageCount = if (hideMainBottomBarForBrowserSession) {
-                            0
-                        } else {
-                            4
-                        },
+                        // SPEC-193 R2: 热邻居回调为 1（操作者真机判定 warm=0 时切标签非常卡）。
+                        // 滑动掉帧与热邻居无直接关系（warm=0 时滑动依旧掉帧），元凶待
+                        // 真机 Perfetto 定位；warm=1 保留相邻页预组合以救回标签切换手感。
+                        beyondViewportPageCount = 1,
                     ) { page ->
                         val destination = destinations.getOrNull(page) ?: return@HorizontalPager
                         val pageLifecycleOwner = rememberMainPageLifecycleOwner(
@@ -566,10 +594,14 @@ fun MainScreen(
                                         book.bookUrl,
                                         book.origin,
                                         book.getDisplayCover(),
-                                        null,
+                                        // SPEC-183: source cover joins the shared-element morph.
+                                        bookCoverSharedElementKey(book.bookUrl),
                                     )
                                 },
                                 onSessionActiveChange = { browserSessionActive = it },
+                                onPhoneSearchActiveChange = { phoneNtpSearchActive = it },
+                                sharedTransitionScope = sharedTransitionScope,
+                                animatedVisibilityScope = animatedVisibilityScope,
                                 onOpenBrowserSettings = onNavigateToBrowserSettings,
                                 onOpenBookmarks = onNavigateToBrowserBookmarks,
                                 onOpenDownloads = onNavigateToBrowserDownloads,
@@ -708,81 +740,124 @@ fun MainScreen(
                         isTablet = false,
                         landscape = phoneLandscape,
                     )
-                    // SPEC-133: landscape phone — vertical nav on the end (right in LTR).
+                    // SPEC-160: browser home gradient translucent mask behind nav (no blur).
+                    if (onBrowserHome) {
+                        val scrim = LegadoTheme.colorScheme.background
+                        val edge = BrowserUiTokens.ntpScrimEdgeAlpha(LegadoTheme.isDark)
+                        if (navAtEnd) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .fillMaxHeight()
+                                    .width(BrowserUiTokens.NtpScrimHeightBottom)
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            colors = listOf(
+                                                scrim.copy(alpha = 0f),
+                                                scrim.copy(alpha = edge),
+                                            ),
+                                        ),
+                                    ),
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .height(BrowserUiTokens.NtpScrimHeightBottom)
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(
+                                                scrim.copy(alpha = 0f),
+                                                scrim.copy(alpha = edge),
+                                            ),
+                                        ),
+                                    ),
+                            )
+                        }
+                    }
+                    // SPEC-133/170: landscape phone — vertical nav on the end, vertically centered.
                     if (navAtEnd) {
-                        Column(
+                        Box(
                             modifier = Modifier
                                 .align(Alignment.CenterEnd)
+                                .fillMaxHeight()
                                 .windowInsetsPadding(
                                     WindowInsets.safeDrawing.only(WindowInsetsSides.End),
                                 )
-                                .padding(end = 12.dp, top = 12.dp, bottom = 12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                                .padding(end = 12.dp),
                         ) {
                             Column(
                                 modifier = Modifier
-                                    .clip(ContinuousCapsule)
-                                    .background(
-                                        LegadoTheme.colorScheme.surfaceContainer.copy(
-                                            alpha = if (useLiquidGlass) 0.85f else 1f,
-                                        ),
-                                    )
-                                    .padding(vertical = 10.dp, horizontal = 8.dp),
+                                    .align(Alignment.CenterEnd)
+                                    .padding(vertical = 12.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                destinations.forEachIndexed { index, destination ->
-                                    val selected = pagerState.targetPage == index
-                                    val customIconPath = mainUiState.customIconPath(destination)
-                                    val selectedCustomIconPath =
-                                        mainUiState.selectedCustomIconPath(destination)
-                                    val destinationLabel = stringResource(destination.labelId)
-                                    Column(
-                                        modifier = Modifier
-                                            .defaultMinSize(minWidth = 56.dp, minHeight = 52.dp)
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .clickable {
-                                                handleMainDestinationClick(index, destination)
-                                            }
-                                            .padding(vertical = 6.dp, horizontal = 4.dp)
-                                            .semantics(mergeDescendants = true) {
-                                                contentDescription = destinationLabel
-                                            },
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                    ) {
-                                        NavigationIcon(
-                                            destination = destination,
-                                            customIconPath = if (selected) {
-                                                selectedCustomIconPath.ifEmpty { customIconPath }
-                                            } else customIconPath,
-                                            selected = selected,
+                                Column(
+                                    modifier = Modifier
+                                        .clip(ContinuousCapsule)
+                                        .background(
+                                            LegadoTheme.colorScheme.surfaceContainer.copy(
+                                                alpha = if (useLiquidGlass) 0.85f else 1f,
+                                            ),
                                         )
-                                        if (showLabel && (alwaysShowLabel || selected)) {
-                                            AppText(
-                                                text = stringResource(destination.labelId),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
+                                        .padding(vertical = 10.dp, horizontal = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    destinations.forEachIndexed { index, destination ->
+                                        val selected = pagerState.targetPage == index
+                                        val customIconPath = mainUiState.customIconPath(destination)
+                                        val selectedCustomIconPath =
+                                            mainUiState.selectedCustomIconPath(destination)
+                                        val destinationLabel = stringResource(destination.labelId)
+                                        Column(
+                                            modifier = Modifier
+                                                .defaultMinSize(minWidth = 56.dp, minHeight = 52.dp)
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .clickable {
+                                                    handleMainDestinationClick(index, destination)
+                                                }
+                                                .padding(vertical = 6.dp, horizontal = 4.dp)
+                                                .semantics(mergeDescendants = true) {
+                                                    contentDescription = destinationLabel
+                                                },
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                        ) {
+                                            NavigationIcon(
+                                                destination = destination,
+                                                customIconPath = if (selected) {
+                                                    selectedCustomIconPath.ifEmpty { customIconPath }
+                                                } else customIconPath,
+                                                selected = selected,
                                             )
+                                            if (showLabel && (alwaysShowLabel || selected)) {
+                                                AppText(
+                                                    text = stringResource(destination.labelId),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            }
                                         }
                                     }
                                 }
+                                ReadAloudBarCapsuleSlot(
+                                    enabled = homePlaybackCapsuleEnabled,
+                                    onOpenPlayer = { ReadAloudPlayerOverlayBus.request(it) },
+                                    morph = readAloudMorph,
+                                    anchorPreview = capsuleAnchorPreview,
+                                    backdrop = floatingBarBackdrop,
+                                    isBlurEnabled = useLiquidGlass,
+                                    controlsExpanded = playbackControlsExpanded,
+                                    expansion = expansion,
+                                    width = ReadAloudBarCapsuleSize,
+                                    expandedWidth = ReadAloudBarCapsuleSize,
+                                    onControlsExpandedChange = { playbackControlsExpanded = it },
+                                    onOccupiedWidthChanged = { readAloudCapsuleShown = it > 0 },
+                                )
                             }
-                            ReadAloudBarCapsuleSlot(
-                                enabled = homePlaybackCapsuleEnabled,
-                                onOpenPlayer = { ReadAloudPlayerOverlayBus.request(it) },
-                                morph = readAloudMorph,
-                                anchorPreview = capsuleAnchorPreview,
-                                backdrop = floatingBarBackdrop,
-                                isBlurEnabled = useLiquidGlass,
-                                controlsExpanded = playbackControlsExpanded,
-                                expansion = expansion,
-                                width = ReadAloudBarCapsuleSize,
-                                expandedWidth = ReadAloudBarCapsuleSize,
-                                onControlsExpandedChange = { playbackControlsExpanded = it },
-                                onOccupiedWidthChanged = { readAloudCapsuleShown = it > 0 },
-                            )
                         }
                     }
                     if (!navAtEnd) BoxWithConstraints(
