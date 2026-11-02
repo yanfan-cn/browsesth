@@ -551,8 +551,8 @@ fun MainActivity.mainEntryProvider(
             onNavigateToRemoteImport = {
                 onNavigateToRoute(MainRouteImportRemote)
             },
-            onNavigateToLocalImport = {
-                onNavigateToRoute(MainRouteImportLocal)
+            onNavigateToLocalImport = { autoPick ->
+                onNavigateToRoute(MainRouteImportLocal(autoPick = autoPick))
             },
             onNavigateToCache = { groupId ->
                 onNavigateToRoute(MainRouteCache(groupId))
@@ -772,8 +772,9 @@ fun MainActivity.mainEntryProvider(
 
     entry<MainRouteImportLocal>(
         metadata = browserSlideOverlayMetadata(onBack = { onNavigateBack() }),
-    ) {
+    ) { route ->
         ImportBookRouteScreen(
+            autoPick = route.autoPick,
             onBackClick = { onNavigateBack() }
         )
     }
@@ -1278,9 +1279,12 @@ fun MainActivity.mainEntryProvider(
         LaunchedEffect(viewModel) {
             viewModel.effects.collectLatest { effect ->
                 when (effect) {
-                    // SPEC-124: open in active Browsesth tab then go Home (same as bookmarks/history).
+                    // SPEC-124/221: open in active Browsesth tab, go Home route, switch pager to 浏览器.
                     is AboutEffect.OpenUrl -> {
                         io.legado.app.browser.engine.BrowserTabManager.openUrlInActive(effect.url)
+                        io.legado.app.ui.main.MainShortcutBus.offer(
+                            io.legado.app.ui.main.MainShortcutBus.Event.BrowserHome,
+                        )
                         onNavigateToRoute(MainRouteHome)
                     }
                     is AboutEffect.ShowToast -> context.toastOnUi(effect.message)

@@ -20,15 +20,16 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
+import io.legado.app.ui.widget.components.menu.AnimatedMenuPopup
+import io.legado.app.ui.widget.components.menu.MenuPopupAlignment
+import io.legado.app.ui.widget.components.menu.MenuPopupBarEdge
 
 /**
- * SPEC-109/111: reader mode menu — auto-open switch + text / image / mixed.
+ * SPEC-109/111/220: reader mode menu — auto-open + 极致净化 + text / image / mixed.
  * Phone FAB: above anchor; tablet top chrome: belowAnchor.
  */
 @Composable
@@ -37,6 +38,8 @@ fun BrowserReaderModeMenu(
     onDismiss: () -> Unit,
     autoOpenEnabled: Boolean,
     onAutoOpenChange: (Boolean) -> Unit,
+    extremePurgeEnabled: Boolean,
+    onExtremePurgeChange: (Boolean) -> Unit,
     onTextMode: () -> Unit,
     onImageMode: () -> Unit,
     onMixedMode: () -> Unit,
@@ -45,12 +48,14 @@ fun BrowserReaderModeMenu(
     if (!expanded) return
     val scheme = LegadoTheme.colorScheme
     val shape = RoundedCornerShape(BrowserUiTokens.CardCorner)
-    val gapPx = with(LocalDensity.current) { 8.dp.roundToPx() }
-    Popup(
-        alignment = if (belowAnchor) Alignment.TopEnd else Alignment.BottomEnd,
+    val gapPx = with(LocalDensity.current) { 4.dp.roundToPx() }
+    AnimatedMenuPopup(
+        alignment = if (belowAnchor) MenuPopupAlignment.BelowEnd else MenuPopupAlignment.AboveEnd,
+        // SPEC-200 R2: 菜单整体置于栏外 4dp（上/下随 belowAnchor）。
+        barEdge = if (belowAnchor) MenuPopupBarEdge.Down else MenuPopupBarEdge.Up,
+        alignEnd = true,
         offset = IntOffset(0, if (belowAnchor) gapPx else -gapPx),
         onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = true),
     ) {
         Column(
             modifier = Modifier
@@ -80,6 +85,24 @@ fun BrowserReaderModeMenu(
                 Switch(
                     checked = autoOpenEnabled,
                     onCheckedChange = onAutoOpenChange,
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(BrowserUiTokens.ControlLarge)
+                    .padding(horizontal = BrowserUiTokens.SpaceLg),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "极致净化",
+                    color = scheme.onSurface,
+                    fontSize = 15.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = extremePurgeEnabled,
+                    onCheckedChange = onExtremePurgeChange,
                 )
             }
             HorizontalDivider(
@@ -125,6 +148,8 @@ private fun ReaderModeRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(BrowserUiTokens.ControlLarge)
+            // SPEC-199: 弹出菜单行涟漪 16dp 圆角。
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = BrowserUiTokens.SpaceLg),
         verticalAlignment = Alignment.CenterVertically,

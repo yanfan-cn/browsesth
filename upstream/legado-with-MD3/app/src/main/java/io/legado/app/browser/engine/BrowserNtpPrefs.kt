@@ -1,13 +1,10 @@
 package io.legado.app.browser.engine
 
 import android.content.Context
-import android.util.Log
-import org.chromium.android_webview.AwBrowserContext
-import org.chromium.android_webview.AwBrowserContextStore
-import org.chromium.android_webview.AwCookieManager
 
 /**
- * NTP prefs: search engine, theme override; incognito AwBrowserContext helpers.
+ * NTP prefs: search engine, theme override.
+ * Incognito cookie/context helpers: [BrowserIncognitoRuntime] (flavor-specific).
  */
 class BrowserNtpPrefs(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -75,7 +72,6 @@ class BrowserNtpPrefs(context: Context) {
     fun searchEngine(): BrowserSearchEngine = BrowserSearchEngine.fromId(searchEngineId)
 
     companion object {
-        private const val TAG = "BrowsesthNtp"
         const val PREFS_NAME = "browsesth_ntp_prefs"
         private const val PREFS = PREFS_NAME
         private const val KEY_ENGINE = "search_engine"
@@ -92,46 +88,9 @@ class BrowserNtpPrefs(context: Context) {
         private const val KEY_SHOW_SEARCH_HISTORY = "show_search_history"
         const val INCOGNITO_CONTEXT = "browsesth_incognito"
 
-        fun browserContext(incognito: Boolean): AwBrowserContext {
-            if (!incognito) {
-                return AwBrowserContext.getDefault()
-                    ?: error("AwBrowserContext.getDefault() is null")
-            }
-            return try {
-                AwBrowserContextStore.getNamedContext(INCOGNITO_CONTEXT, /* createIfNeeded= */ true)
-                    ?: AwBrowserContext.getDefault()
-                    ?: error("incognito AwBrowserContext unavailable")
-            } catch (t: Throwable) {
-                Log.w(TAG, "getNamedContext failed, fallback default: ${t.message}")
-                AwBrowserContext.getDefault()
-                    ?: error("AwBrowserContext.getDefault() is null")
-            }
-        }
+        fun activateCookieJar(incognito: Boolean) =
+            BrowserIncognitoRuntime.activateCookieJar(incognito)
 
-        fun activateCookieJar(incognito: Boolean) {
-            try {
-                val jar = if (incognito) {
-                    AwCookieManager.getPrivateCookieManager()
-                } else {
-                    AwCookieManager.getDefaultCookieManager()
-                }
-                jar.makeActive()
-            } catch (t: Throwable) {
-                Log.w(TAG, "activateCookieJar failed: ${t.message}")
-            }
-        }
-
-        fun clearIncognitoData() {
-            try {
-                AwCookieManager.getPrivateCookieManager().removeAllCookies()
-            } catch (t: Throwable) {
-                Log.w(TAG, "clear private cookies: ${t.message}")
-            }
-            try {
-                AwBrowserContextStore.deleteNamedContext(INCOGNITO_CONTEXT)
-            } catch (t: Throwable) {
-                Log.w(TAG, "deleteNamedContext: ${t.message}")
-            }
-        }
+        fun clearIncognitoData() = BrowserIncognitoRuntime.clearIncognitoData()
     }
 }

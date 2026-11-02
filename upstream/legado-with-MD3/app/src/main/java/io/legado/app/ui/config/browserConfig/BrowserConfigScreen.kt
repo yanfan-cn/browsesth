@@ -1,8 +1,6 @@
 package io.legado.app.ui.config.browserConfig
 
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
@@ -67,7 +65,6 @@ private fun BrowserConfigBody(
     var adBlock by remember { mutableStateOf(prefs.adBlockEnabled) }
     var blockPopups by remember { mutableStateOf(prefs.blockPopups) }
     var blockExternal by remember { mutableStateOf(prefs.blockExternalApps) }
-    var dailyWallpaper by remember { mutableStateOf(chromePrefs.dailyWallpaperEnabled) }
     var autoHideTop by remember { mutableStateOf(chromePrefs.autoHideTopBar) }
     var webDarkMode by remember { mutableStateOf(chromePrefs.webContentDarkMode) }
     var uaMode by remember { mutableStateOf(chromePrefs.uaModeOrDefault(isTablet)) }
@@ -96,22 +93,13 @@ private fun BrowserConfigBody(
         ) {
             item {
                 // SPEC-059: 网页背景三档 = Force Dark；壳色跟 App 外观
+                // SPEC-203: 「每日自动更换壁纸」仅保留主页自定义菜单入口，设置页不再放。
                 SplicedColumnGroup(title = "网页背景") {
                     ThemeModeSelector(
                         selectedMode = webDarkToSelector(webDarkMode),
                         onModeSelected = { value ->
                             webDarkMode = selectorToWebDark(value)
                             chromePrefs.webContentDarkMode = webDarkMode
-                        },
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SwitchSettingItem(
-                        title = "每日自动更换壁纸",
-                        description = "使用 Bing 每日壁纸作为平板主页背景",
-                        checked = dailyWallpaper,
-                        onCheckedChange = {
-                            dailyWallpaper = it
-                            chromePrefs.dailyWallpaperEnabled = it
                         },
                     )
                 }
@@ -213,6 +201,19 @@ private fun BrowserConfigBody(
                         onCheckedChange = {
                             autoTranslate = it
                             readerPrefs.autoTranslateOnOpen = it
+                        },
+                    )
+                    // SPEC-217/220: 「极致净化」default on; line filter always on.
+                    var strongExtract by remember {
+                        mutableStateOf(readerPrefs.strongContentExtract)
+                    }
+                    SwitchSettingItem(
+                        title = "极致净化",
+                        description = "优先抽取文章主区域并忽略更多控件区；关闭后仅用基础抽取与文字过滤",
+                        checked = strongExtract,
+                        onCheckedChange = {
+                            strongExtract = it
+                            readerPrefs.strongContentExtract = it
                         },
                     )
                 }

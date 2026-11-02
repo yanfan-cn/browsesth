@@ -23,12 +23,26 @@ object GlassMotionGate {
     var suppressed by mutableStateOf(false)
         private set
 
+    /** SPEC-219: nested suppress (scroll + IME/focus) via depth count. */
+    private var depth = 0
+
     fun suppress() {
+        // SPEC-197 R2: 归因打点——确认滑动起止的玻璃降级是否对应长帧突发。
+        if (android.os.Build.VERSION.SDK_INT >= 29 && android.os.Trace.isEnabled()) {
+            android.os.Trace.beginSection("glass.suppress")
+            android.os.Trace.endSection()
+        }
+        depth++
         suppressed = true
     }
 
     fun release() {
-        suppressed = false
+        if (android.os.Build.VERSION.SDK_INT >= 29 && android.os.Trace.isEnabled()) {
+            android.os.Trace.beginSection("glass.release")
+            android.os.Trace.endSection()
+        }
+        depth = (depth - 1).coerceAtLeast(0)
+        suppressed = depth > 0
     }
 }
 

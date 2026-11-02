@@ -26,7 +26,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -41,7 +40,11 @@ import io.legado.app.browser.engine.BrowserChromePrefs
 import io.legado.app.browser.engine.BrowserFormFactor
 import io.legado.app.browser.engine.BrowserOpenBridge
 import io.legado.app.browser.engine.BrowserClipboardUrl
+import io.legado.app.browser.engine.BrowserTabEmbeddedReader
+import io.legado.app.browser.engine.BrowserTabEmbeddedReaderStore
 import io.legado.app.browser.engine.BrowserTabManager
+import io.legado.app.browser.engine.HideBrowserChromeInReaderState
+import io.legado.app.browser.engine.reselectAllOmniboxText
 import io.legado.app.data.entities.Book
 import io.legado.app.ui.browser.BrowserNtpScreen
 import io.legado.app.ui.browser.BrowserSessionActions
@@ -53,6 +56,7 @@ import io.legado.app.ui.browser.TabletBrowserShell
 import io.legado.app.ui.browser.TabletEmbeddedReaderHost
 import io.legado.app.ui.browser.TabletEmbeddedReaderKind
 import io.legado.app.ui.browser.TabletSidePanel
+import io.legado.app.ui.theme.GlassMotionGate
 import io.legado.app.ui.theme.LegadoTheme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -186,24 +190,35 @@ private fun BrowserHomeTabBody(
     var clipboardUrl by remember { mutableStateOf<String?>(null) }
     var submittingAddress by remember { mutableStateOf(false) }
     var sessionActions by remember { mutableStateOf<BrowserSessionActions?>(null) }
-    var embeddedReaderKind by rememberSaveable { mutableStateOf<String?>(null) }
-    var embeddedReaderUrl by rememberSaveable { mutableStateOf<String?>(null) }
-    val embeddedKind = when (embeddedReaderKind) {
-        "novel" -> TabletEmbeddedReaderKind.Novel
-        "manga" -> TabletEmbeddedReaderKind.Manga
+    // SPEC-208: per-tab embedded reader memory (not process-persistent).
+    val embeddedByTab by BrowserTabEmbeddedReaderStore.byTabId.collectAsStateWithLifecycle()
+    val activeEmbedded = active?.id?.let { embeddedByTab[it] }
+    val embeddedKind = when (activeEmbedded?.kind) {
+        BrowserTabEmbeddedReader.KIND_NOVEL -> TabletEmbeddedReaderKind.Novel
+        BrowserTabEmbeddedReader.KIND_MANGA -> TabletEmbeddedReaderKind.Manga
         else -> null
     }
+    val embeddedReaderUrl = activeEmbedded?.bookUrl
+    val hideChromeInReader by HideBrowserChromeInReaderState.value.collectAsStateWithLifecycle()
+    val readerHidesBrowserChrome = embeddedKind != null && hideChromeInReader
 
     fun openEmbeddedReader(kind: TabletEmbeddedReaderKind, bookUrl: String) {
-        embeddedReaderKind = if (kind == TabletEmbeddedReaderKind.Novel) "novel" else "manga"
-        embeddedReaderUrl = bookUrl
-        chromeVisible = true
+        val tabId = active?.id ?: return
+        BrowserTabEmbeddedReaderStore.open(
+            tabId = tabId,
+            kind = if (kind == TabletEmbeddedReaderKind.Novel) {
+                BrowserTabEmbeddedReader.KIND_NOVEL
+            } else {
+                BrowserTabEmbeddedReader.KIND_MANGA
+            },
+            bookUrl = bookUrl,
+        )
+        if (!hideChromeInReader) chromeVisible = true
         sidePanel = TabletSidePanel.None
     }
 
     fun closeEmbeddedReader() {
-        embeddedReaderKind = null
-        embeddedReaderUrl = null
+        active?.id?.let { BrowserTabEmbeddedReaderStore.clear(it) }
     }
 
     // SPEC-125: idle address = page title / host (not search draft).
@@ -259,13 +274,25 @@ private fun BrowserHomeTabBody(
         onAddressChange = { address = it },
         onAddressFocusChange = { focused ->
             if (!addressFocused && focused) {
-                // SPEC-125: focus → URL for editing.
-                // SPEC-146 R1: select all so typing replaces the URL.
-                val editUrl = active?.url.orEmpty()
-                address = if (editUrl.isNotBlank()) {
-                    TextFieldValue(editUrl, TextRange(0, editUrl.length))
+                // SPEC-219: IME/focus — suppress liquid-glass backdrop rebuilds.
+                GlassMotionGate.suppress()
+                // SPEC-125/146 R3: NTP (showHome) stays empty for search; web → URL.
+                // SPEC-146 R1 / SPEC-207: select all（获焦后再补一次，避免点击落点盖选区）。
+                if (active?.showHome == true) {
+                    address = TextFieldValue("")
                 } else {
-                    TextFieldValue("")
+                    val editUrl = active?.url.orEmpty()
+                    address = if (editUrl.isNotBlank()) {
+                        TextFieldValue(editUrl, TextRange(0, editUrl.length))
+                    } else {
+                        TextFieldValue("")
+                    }
+                    chromeScope.launch {
+                        reselectAllOmniboxText(
+                            get = { address },
+                            set = { address = it },
+                        )
+                    }
                 }
                 // SPEC-146 R2: clipboard link candidate.
                 clipboardUrl = BrowserClipboardUrl.latest(context)
@@ -276,22 +303,39 @@ private fun BrowserHomeTabBody(
                     submitting = submittingAddress,
                 )
             ) {
-                clipboardUrl = null
-                address = idleTabletAddress(active)
+                // SPEC-219: IME often clears focus before onGo; delay restore so
+                // submit can flip submittingAddress first.
+                val draft = address.text
+                chromeScope.launch {
+                    delay(64)
+                    if (!submittingAddress && !addressFocused) {
+                        clipboardUrl = null
+                        // Only restore if text was not replaced by submit.
+                        if (address.text == draft) {
+                            address = idleTabletAddress(active)
+                        }
+                    }
+                }
             }
+            val wasFocused = addressFocused
             addressFocused = focused
-            if (focused) submittingAddress = false
+            if (focused) {
+                submittingAddress = false
+            } else if (wasFocused) {
+                // SPEC-219: pair suppress on focus gain.
+                GlassMotionGate.release()
+            }
         },
         addressFocused = addressFocused,
         clipboardUrl = clipboardUrl,
         onSubmitAddress = {
+            // SPEC-219: capture text first — IME may clear focus before onGo finishes.
             val raw = address.text.trim()
             if (raw.isNotEmpty()) {
                 submittingAddress = true
-                addressFocused = false
                 clipboardUrl = null
                 address = TextFieldValue(raw)
-                closeEmbeddedReader()
+                active?.id?.let { BrowserTabEmbeddedReaderStore.clear(it) }
                 BrowserTabManager.updateActiveOmniboxLabel(raw)
                 // SPEC-120: always resolve search/host → URL (fixes net::ERROR on NTP).
                 val url = io.legado.app.browser.engine.resolveBrowserNavigationInput(
@@ -299,9 +343,11 @@ private fun BrowserHomeTabBody(
                     io.legado.app.browser.engine.BrowserNtpPrefs(context).searchEngine(),
                 )
                 if (url.isNotEmpty()) {
-                    sessionActions?.loadUrl(url)
-                        ?: BrowserTabManager.openUrlInActive(url, omniboxLabel = raw)
+                    // SPEC-219: always openUrlInActive — stale sessionActions.loadUrl on NTP
+                    // can no-op after park/destroy and skip the ?: fallback.
+                    BrowserTabManager.openUrlInActive(url, omniboxLabel = raw)
                 }
+                addressFocused = false
             }
         },
         onBack = { sessionActions?.goBack() ?: BrowserTabManager.clearActiveToNtp() },
@@ -310,10 +356,17 @@ private fun BrowserHomeTabBody(
         onReader = { sessionActions?.openReader() },
         onOpenBookshelf = onOpenBookshelf,
         onOpenMy = onOpenMy,
-        chromeVisible = chromeVisible || !logicalSessionActive || embeddedKind != null,
+        // SPEC-208: reader fullscreen hides tab+omnibox chrome.
+        chromeVisible = when {
+            readerHidesBrowserChrome -> false
+            else -> chromeVisible || !logicalSessionActive || embeddedKind != null
+        },
         // NTP/reader: pin chrome in layout. Web session: overlay for auto-hide (SPEC-130).
-        pinChromeInLayout = !logicalSessionActive || embeddedKind != null ||
-            !chromePrefs.autoHideTopBar,
+        pinChromeInLayout = when {
+            readerHidesBrowserChrome -> false
+            else -> !logicalSessionActive || embeddedKind != null ||
+                !chromePrefs.autoHideTopBar
+        },
         sidePanel = sidePanel,
         onSidePanelChange = { sidePanel = it },
         onOpenUrl = { BrowserTabManager.openUrlInActive(it) },
@@ -397,12 +450,15 @@ private fun BrowserHomeTabBody(
         )
         val overlayUrl = embeddedReaderUrl
         if (embeddedKind != null && !overlayUrl.isNullOrBlank()) {
-            TabletEmbeddedReaderHost(
-                kind = embeddedKind,
-                bookUrl = overlayUrl,
-                onClose = { closeEmbeddedReader() },
-                modifier = Modifier.fillMaxSize(),
-            )
+            // Key by tab+url so switching tabs remounts the correct reader (SPEC-208).
+            androidx.compose.runtime.key(active?.id, overlayUrl, embeddedKind) {
+                TabletEmbeddedReaderHost(
+                    kind = embeddedKind,
+                    bookUrl = overlayUrl,
+                    onClose = { closeEmbeddedReader() },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
         }
     }

@@ -1,7 +1,6 @@
 package io.legado.app.browser.engine
 
 import android.content.Context
-import org.chromium.android_webview.AwCookieManager
 
 /**
  * SPEC-058/064: filename helpers + enqueue into [BrowserDownloadRepository].
@@ -136,14 +135,6 @@ object BrowserDownloadHelper {
         }
     }
 
-    private fun cookieFor(url: String, incognito: Boolean): String? {
-        return runCatching {
-            val jar = if (incognito) {
-                AwCookieManager.getPrivateCookieManager()
-            } else {
-                AwCookieManager.getDefaultCookieManager()
-            }
-            jar.getCookie(url)
-        }.getOrNull()
-    }
+    private fun cookieFor(url: String, @Suppress("UNUSED_PARAMETER") incognito: Boolean): String? =
+        BrowserCookies.getCookie(url)
 }

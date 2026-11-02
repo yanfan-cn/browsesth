@@ -139,8 +139,14 @@ data object MainRouteSettingsDownloadCache : MainRoute
 @Serializable
 data object MainRouteSettingsTranslation : MainRoute
 
+/** [autoPick]: null 仅打开导入页；`folder` / `books` 进入后自动弹出对应系统选择器（SPEC-205）。 */
 @Serializable
-data object MainRouteImportLocal : MainRoute
+data class MainRouteImportLocal(val autoPick: String? = null) : MainRoute {
+    companion object {
+        const val AUTO_PICK_FOLDER = "folder"
+        const val AUTO_PICK_BOOKS = "books"
+    }
+}
 
 @Serializable
 data object MainRouteImportRemote : MainRoute

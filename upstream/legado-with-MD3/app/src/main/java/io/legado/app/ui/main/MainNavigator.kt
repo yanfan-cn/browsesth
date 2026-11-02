@@ -94,7 +94,7 @@ object MainNavigator {
                 }
             }
 
-            MainRouteImportLocal,
+            is MainRouteImportLocal,
             MainRouteImportRemote,
             is MainRouteCache,
             MainRouteBookCacheManage,
@@ -438,7 +438,7 @@ object MainNavigator {
             MainRouteConst.ROUTE_BROWSER_CLEAR_DATA -> MainRouteBrowserClearData
             MainRouteConst.ROUTE_SETTINGS_DOWNLOAD_CACHE -> MainRouteSettingsDownloadCache
             MainRouteConst.ROUTE_SETTINGS_TRANSLATION -> MainRouteSettingsTranslation
-            MainRouteConst.ROUTE_IMPORT_LOCAL -> MainRouteImportLocal
+            MainRouteConst.ROUTE_IMPORT_LOCAL -> MainRouteImportLocal()
             MainRouteConst.ROUTE_IMPORT_REMOTE -> MainRouteImportRemote
             MainRouteConst.ROUTE_CACHE -> MainRouteCache(
                 intent?.getLongExtra(

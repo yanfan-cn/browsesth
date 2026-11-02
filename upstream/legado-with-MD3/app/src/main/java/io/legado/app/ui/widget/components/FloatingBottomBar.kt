@@ -211,7 +211,8 @@ fun FloatingBottomBar(
     val containerColor = if (hasCustomColors && customColors.secondary != 0) {
         Color(customColors.secondary).copy(alpha = surfaceAlpha)
     } else {
-        LegadoTheme.colorScheme.surfaceContainer.copy(alpha = surfaceAlpha)
+        // SPEC-215 A: browser chrome — match top bar surface (was surfaceContainer, too dark).
+        LegadoTheme.colorScheme.surface.copy(alpha = surfaceAlpha)
     }
 
     val tabsBackdrop = rememberLayerBackdrop()

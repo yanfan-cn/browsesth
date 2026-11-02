@@ -45,7 +45,12 @@ fun GlassMediumFlexibleTopAppBar(
     scrollBehavior: GlassTopAppBarScrollBehavior? = null,
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
-    bottomContent: @Composable (ColumnScope.() -> Unit)? = null
+    bottomContent: @Composable (ColumnScope.() -> Unit)? = null,
+    /**
+     * SPEC-209: keep title on the same row as nav/actions (pinned TopAppBar),
+     * e.g. bookshelf selection mode 「已选 X 本」.
+     */
+    pinnedTitleRow: Boolean = false,
 ) {
 
     val hazeState = LocalHazeState.current
@@ -69,11 +74,12 @@ fun GlassMediumFlexibleTopAppBar(
         scrolledContainerColor = Color.Transparent
     )
     val subtitleText = subtitle?.takeIf { it.isNotBlank() }
+    val useFlexibleBar = themeSettings.useFlexibleTopAppBar && !pinnedTitleRow
 
     Column(
         modifier = finalModifier
     ) {
-        if (themeSettings.useFlexibleTopAppBar) {
+        if (useFlexibleBar) {
             MediumFlexibleTopAppBar(
                 modifier = Modifier,
                 title = {

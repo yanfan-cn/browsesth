@@ -5,31 +5,17 @@ import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import io.legado.app.ui.widget.components.SectionTitle
 import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -40,16 +26,10 @@ import io.legado.app.data.repository.ReadPreferences
 import io.legado.app.ui.book.read.ConfigUpdate
 import io.legado.app.ui.book.read.ReadBookButtonConfigItem
 import io.legado.app.ui.book.read.ReadBookIntent
-import io.legado.app.ui.widget.components.pager.pagerHeight
-import io.legado.app.ui.widget.components.pager.rememberPagerAnimatedHeight
-import io.legado.app.ui.widget.components.pager.rememberPagerFlingPassThroughConnection
 import io.legado.app.ui.widget.components.settingItem.TinyClickableSettingItem
 import io.legado.app.ui.widget.components.settingItem.TinyDropdownSettingItem
 import io.legado.app.ui.widget.components.settingItem.TinySliderSettingItem
 import io.legado.app.ui.widget.components.settingItem.TinySwitchSettingItem
-import io.legado.app.ui.widget.components.tabRow.CardTabRow
-import kotlinx.coroutines.launch
-
 
 @Composable
 internal fun SystemMenuPage(
@@ -59,88 +39,17 @@ internal fun SystemMenuPage(
     modifier: Modifier = Modifier,
     onIntent: (ReadBookIntent) -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
-    // SPEC-062: only 底栏 + 顶栏 (菜单栏目 removed).
-    val pagerState = rememberPagerState(pageCount = { 2 })
-    var selectedTab by remember { mutableIntStateOf(0) }
-    var clickScrollCount by remember { mutableIntStateOf(0) }
-    val childPagerNestedScrollConnection = rememberPagerFlingPassThroughConnection(
-        state = pagerState,
-        orientation = Orientation.Horizontal,
-    )
-
-    val pageHeights = remember { mutableStateMapOf<Int, Int>() }
-    val animatedHeight by rememberPagerAnimatedHeight(pagerState, pageHeights)
-
-    // Shared state for sheets
+    // SPEC-209: no top-bar layout tab; enter menu → bottom-bar options directly.
     var showIconSheet by remember { mutableStateOf(false) }
 
-    LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.currentPage }.collect { page ->
-            if (clickScrollCount == 0) {
-                selectedTab = page
-            }
-        }
-    }
-
-    Column(
+    BottomBarTab(
+        preferences = preferences,
+        customIcons = customIcons,
+        onIntent = onIntent,
+        onShowIconSheet = { showIconSheet = true },
         modifier = modifier.fillMaxWidth(),
-    ) {
-        // SPEC-155: 删除设置内「更多菜单」「更多设置」入口；仅右上角开 MoreConfig。
-        val tabTitles = listOf(
-            stringResource(R.string.title_bar_layout),
-            stringResource(R.string.read_menu_bottom_bar_layout),
-        )
-        CardTabRow(
-            tabTitles = tabTitles,
-            selectedTabIndex = selectedTab,
-            onTabSelected = { index ->
-                selectedTab = index
-                clickScrollCount++
-                scope.launch {
-                    try {
-                        pagerState.animateScrollToPage(
-                            page = index,
-                            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                        )
-                    } finally {
-                        clickScrollCount = (clickScrollCount - 1).coerceAtLeast(0)
-                    }
-                }
-            },
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-        )
+    )
 
-        HorizontalPager(
-            state = pagerState,
-            verticalAlignment = Alignment.Top,
-            pageNestedScrollConnection = childPagerNestedScrollConnection,
-            modifier = Modifier
-                .weight(1f, fill = false)
-                .clipToBounds()
-                .pagerHeight(animatedHeight),
-        ) { page ->
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onSizeChanged { size ->
-                        pageHeights[page] = size.height
-                    }
-            ) {
-                when (page) {
-                    0 -> TopBarTab(preferences = preferences, onIntent = onIntent)
-                    1 -> BottomBarTab(
-                        preferences = preferences,
-                        customIcons = customIcons,
-                        onIntent = onIntent,
-                        onShowIconSheet = { showIconSheet = true },
-                    )
-                }
-            }
-        }
-    }
-
-    // Floating sheets
     BottomBarIconSheet(
         show = showIconSheet,
         items = bottomBarButtons,
@@ -150,14 +59,13 @@ internal fun SystemMenuPage(
     )
 }
 
-// ========== Tab 1: Bottom Bar ==========
-
 @Composable
 private fun BottomBarTab(
     preferences: ReadPreferences,
     customIcons: Map<String, String>,
     onIntent: (ReadBookIntent) -> Unit,
     onShowIconSheet: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val floatingBottomBar = preferences.readMenuFloatingBottomBar
     val bottomBarBlurMode = if (
@@ -170,7 +78,7 @@ private fun BottomBarTab(
     }
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .verticalScroll(rememberScrollState()),
@@ -246,8 +154,7 @@ private fun BottomBarTab(
             onClick = onShowIconSheet,
         )
 
-        SectionTitle(stringResource(R.string.read_menu_bottom_bar_layout))
-
+        // SPEC-209: no 「底栏布局」page/section label — options follow directly.
         TinySliderSettingItem(
             title = stringResource(R.string.read_menu_bottom_corner_radius),
             value = preferences.readMenuBottomCornerRadius.toFloat(),
@@ -305,89 +212,6 @@ private fun BottomBarTab(
         // SPEC-056: liquid glass follows global chrome surface style; toggles hidden.
     }
 }
-
-// ========== Tab 2: Top Bar ==========
-
-@Composable
-private fun TopBarTab(
-    preferences: ReadPreferences,
-    onIntent: (ReadBookIntent) -> Unit,
-) {
-    val topBarBlurEnabled = preferences.readMenuTopBarBlurMode == ReadMenuBlurMode.Haze
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .verticalScroll(rememberScrollState()),
-    ) {
-        // SPEC-062: title capsule + compact top buttons are always on; toggles hidden.
-        TinyDropdownSettingItem(
-            title = stringResource(R.string.read_menu_icon_container_style),
-            selectedValue = preferences.titleBarIconStyle.toString(),
-            displayEntries = arrayOf(
-                stringResource(R.string.read_menu_icon_style_plain),
-                stringResource(R.string.read_menu_icon_style_tonal),
-                stringResource(R.string.read_menu_icon_style_outlined),
-            ),
-            entryValues = arrayOf("0", "1", "2"),
-            onValueChange = {
-                onIntent(ReadBookIntent.UpdateConfig(ConfigUpdate.TitleBarIconStyle(it.toInt())))
-            },
-        )
-        TinySwitchSettingItem(
-            title = stringResource(R.string.read_menu_bar_blur),
-            checked = topBarBlurEnabled,
-            onCheckedChange = {
-                onIntent(
-                    ReadBookIntent.UpdateConfig(
-                        ConfigUpdate.MenuTopBarBlurSelection(
-                            mode = if (it) ReadMenuBlurMode.Haze else ReadMenuBlurMode.None,
-                            style = preferences.readMenuTopBarBlurStyle,
-                        )
-                    )
-                )
-            },
-        )
-        TinyDropdownSettingItem(
-            title = stringResource(R.string.read_menu_bar_blur_style),
-            selectedValue = preferences.readMenuTopBarBlurStyle.toString(),
-            displayEntries = arrayOf(
-                stringResource(R.string.read_menu_blur_style_solid),
-                stringResource(R.string.read_menu_blur_style_progressive),
-            ),
-            entryValues = arrayOf(
-                ReadMenuBlurStyle.Solid.toString(),
-                ReadMenuBlurStyle.Progressive.toString(),
-            ),
-            onValueChange = {
-                onIntent(
-                    ReadBookIntent.UpdateConfig(
-                        ConfigUpdate.MenuTopBarBlurSelection(
-                            mode = preferences.readMenuTopBarBlurMode,
-                            style = it.toInt(),
-                        )
-                    )
-                )
-            },
-        )
-        // SPEC-056: top-bar liquid glass follows global chrome surface style; toggle hidden.
-        TinySwitchSettingItem(
-            title = stringResource(R.string.read_menu_top_bar_merge_buttons),
-            description = stringResource(R.string.read_menu_top_bar_merge_buttons_summary),
-            checked = preferences.readMenuTopBarMergeButtons,
-            onCheckedChange = {
-                onIntent(
-                    ReadBookIntent.UpdateConfig(
-                        ConfigUpdate.MenuTopBarMergeButtons(it)
-                    )
-                )
-            },
-        )
-    }
-}
-
-// ========== Helpers ==========
 
 internal data class ReadMenuButtonInfo(
     val id: String,

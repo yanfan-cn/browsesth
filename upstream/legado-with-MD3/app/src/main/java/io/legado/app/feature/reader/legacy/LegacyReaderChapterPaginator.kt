@@ -1,5 +1,6 @@
 package io.legado.app.feature.reader.legacy
 
+import io.legado.app.browser.reader.WebArticleBookFactory
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookSource
@@ -142,12 +143,15 @@ object LegacyReaderChapterPaginator {
             else -> null
         }
         val singleImage = imageLayoutMode == ReaderImageLayoutMode.SINGLE_PAGE
+        val forceShowTitle = book.origin == WebArticleBookFactory.ORIGIN ||
+            book.bookUrl.startsWith("browsesth-novel://")
         val layoutSource = source.withTitleVisibility(
             TabletBrowserLayout.showBodyTitle(
                 isTablet = paginationStyle.isTablet,
                 titleMode = ReadBookConfig.titleMode,
                 isVolume = chapter.isVolume,
                 textEmpty = content.textList.isEmpty(),
+                forceShow = forceShowTitle,
             ),
             paginationStyle.titleSegmentation,
         )

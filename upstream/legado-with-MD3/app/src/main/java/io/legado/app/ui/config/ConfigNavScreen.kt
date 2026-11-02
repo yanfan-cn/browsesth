@@ -21,6 +21,7 @@ import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
 @Composable
 fun ConfigNavScreen(
     onBackClick: () -> Unit,
+    onOpenSoftwareUpdate: () -> Unit,
     onNavigateToBrowser: () -> Unit,
     onNavigateToOther: () -> Unit,
     onNavigateToRead: () -> Unit,
@@ -55,6 +56,11 @@ fun ConfigNavScreen(
         ) {
             item {
                 SplicedColumnGroup {
+                    // SPEC-205: 软件更新在浏览器上方，无 leading icon。
+                    ClickableSettingItem(
+                        title = stringResource(R.string.software_update),
+                        onClick = onOpenSoftwareUpdate,
+                    )
                     ClickableSettingItem(
                         title = "浏览器",
                         onClick = onNavigateToBrowser

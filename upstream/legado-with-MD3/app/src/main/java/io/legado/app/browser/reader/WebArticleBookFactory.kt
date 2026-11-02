@@ -2,7 +2,6 @@ package io.legado.app.browser.reader
 
 import android.content.Context
 import io.legado.app.constant.BookType
-import io.legado.app.constant.PageAnim
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
@@ -101,8 +100,8 @@ object WebArticleBookFactory {
         book.addType(BookType.text)
         // SPEC-046: full-width in-body images for mixed article layout.
         book.setImageStyle(Book.imgStyleFull)
-        // SPEC-092: mixed web articles default to scroll (user can change global page anim).
-        book.setPageAnim(PageAnim.scrollPageAnim)
+        // SPEC-210: do not force book-level scroll — global config + orientation
+        // dual-page auto (SPEC-208) must be able to switch to slide in landscape.
         book.save()
 
         val entities = chapters.mapIndexed { index, ch ->
@@ -114,8 +113,10 @@ object WebArticleBookFactory {
             )
         }
         appDb.bookChapterDao.insert(*entities.toTypedArray())
-        // SPEC-044: normalize kept <img src> for the text reader.
-        val body = normalizeMixedHtml(extracted.text, pageUrl)
+        // SPEC-044/216: normalize kept <img src>; drop image-dimension debug lines.
+        val body = WebArticleDebugLineFilter.stripLines(
+            normalizeMixedHtml(extracted.text, pageUrl),
+        )
         BookHelp.saveText(book, entities[durIndex], body)
         prefetchNeighborChapters(book)
         return book

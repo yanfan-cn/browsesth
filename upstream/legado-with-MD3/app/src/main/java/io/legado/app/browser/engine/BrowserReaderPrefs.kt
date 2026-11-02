@@ -18,6 +18,15 @@ class BrowserReaderPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_AUTO_TRANSLATE, false)
         set(value) = prefs.edit().putBoolean(KEY_AUTO_TRANSLATE, value).apply()
 
+    /**
+     * SPEC-217/220: 「极致净化」— stronger article-root / DOM chrome skip when extracting.
+     * Default **on** (SPEC-220); users who previously wrote false stay off.
+     * Line-level [WebArticleChromeFilter] always runs.
+     */
+    var strongContentExtract: Boolean
+        get() = prefs.getBoolean(KEY_STRONG_EXTRACT, true)
+        set(value) = prefs.edit().putBoolean(KEY_STRONG_EXTRACT, value).apply()
+
     enum class TriggerMode(val storage: String, val label: String) {
         Manual("manual", "手动"),
         AutoDetect("auto_detect", "自动识别"),
@@ -34,6 +43,7 @@ class BrowserReaderPrefs(context: Context) {
         private const val PREFS = "browsesth_browser_reader"
         private const val KEY_TRIGGER = "trigger_mode"
         private const val KEY_AUTO_TRANSLATE = "auto_translate_on_open"
+        private const val KEY_STRONG_EXTRACT = "strong_content_extract"
 
         /** Heuristic paths for [TriggerMode.SiteAuto]. */
         fun looksLikeReaderSite(url: String): Boolean {

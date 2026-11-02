@@ -10,7 +10,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
-import org.chromium.android_webview.AwCookieManager
 import org.json.JSONArray
 import java.io.File
 
@@ -187,12 +186,12 @@ object BrowserClearDataHelper {
 
     private fun clearCookies() {
         try {
-            AwCookieManager.getDefaultCookieManager().removeAllCookies()
+            BrowserCookies.removeAllCookies()
         } catch (t: Throwable) {
             Log.w(TAG, "clear cookies: ${t.message}")
         }
         try {
-            AwCookieManager.getPrivateCookieManager().removeAllCookies()
+            BrowserCookies.removeAllCookies()
         } catch (t: Throwable) {
             Log.w(TAG, "clear private cookies: ${t.message}")
         }

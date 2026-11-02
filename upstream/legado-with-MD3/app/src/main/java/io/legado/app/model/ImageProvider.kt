@@ -180,8 +180,8 @@ object ImageProvider {
             val size = SvgUtils.getSize(file.absolutePath)
             if (size != null) return size
             putDebug("ImageProvider: $src Unsupported image type")
-            //file.delete() 重复下载
-            return Size(errorBitmap.width, errorBitmap.height)
+            // SPEC-216: 失败不再用感叹号破图尺寸占位，避免净读排出破图块。
+            return Size(0, 0)
         }
         return Size(op.outWidth, op.outHeight)
     }

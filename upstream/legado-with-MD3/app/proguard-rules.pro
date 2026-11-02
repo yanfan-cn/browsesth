@@ -173,11 +173,14 @@
 -dontwarn com.google.android.gms.common.api.internal.StatusExceptionMapper
 -dontwarn com.google.android.gms.common.api.internal.TaskApiCall$Builder
 -dontwarn com.google.android.gms.common.api.internal.TaskApiCall
+-dontwarn com.google.android.gms.identitycredentials.CreateCredentialHandle
 -dontwarn com.google.android.gms.identitycredentials.CreateCredentialRequest
+-dontwarn com.google.android.gms.identitycredentials.CreateCredentialResponse
 -dontwarn com.google.android.gms.identitycredentials.IdentityCredentialClient
 -dontwarn com.google.android.gms.identitycredentials.IdentityCredentialManager$Companion
 -dontwarn com.google.android.gms.identitycredentials.IdentityCredentialManager
 -dontwarn com.google.android.gms.identitycredentials.SignalCredentialStateRequest
+-dontwarn com.google.android.gms.identitycredentials.SignalCredentialStateResponse
 -dontwarn com.google.android.gms.location.FusedLocationProviderClient
 -dontwarn com.google.android.gms.location.LocationCallback
 -dontwarn com.google.android.gms.location.LocationRequest$Builder
@@ -259,3 +262,13 @@
     public void setAlgorithmicDarkeningAllowed(boolean);
     public void setSafeBrowsingEnabled(boolean);
 }
+
+## ==== SPEC-154: Bromium R 幽灵 ID 防 R8 内联 ====
+## BromiumResources 反射重映射 gen.base_module.R$string 等非 final 字段；
+## R8 若内联幽灵默认 ID（如 actionbar_textselection_title=0x7f110029）到
+## AwActionModeCallback，长按选区会 Resources$NotFoundException。
+-keep class gen.base_module.R
+-keep class gen.base_module.R$* { public static <fields>; }
+-keep class org.chromium.**.R
+-keep class org.chromium.**.R$* { public static <fields>; }
+-keep class com.alohamobile.bromium.BromiumResources { *; }

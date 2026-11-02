@@ -729,6 +729,7 @@
     <string name="indent_3">Indent with 3 chars</string>
     <string name="indent_4">Indent with 4 chars</string>
     <string name="select_folder">Select a folder</string>
+    <string name="select_book">Select books</string>
     <string name="select_file">Select a file</string>
     <string name="no_find">No Discovery, you can add it in BookSource</string>
     <string name="restore_default">Restore default</string>
@@ -1262,6 +1263,8 @@
     <string name="open_in_browser">open in browser</string>
     <string name="copy_url">copy URL</string>
     <string name="full_screen">full screen</string>
+    <string name="hide_browser_chrome_in_reader">Fullscreen (hide browser top bar)</string>
+    <string name="exit_full_screen">Exit fullscreen</string>
     <string name="open_fun">open function</string>
     <string name="use_browser_open">Is it opened in an external browser?</string>
     <string name="cannot_open_url">This URL cannot be opened directly</string>

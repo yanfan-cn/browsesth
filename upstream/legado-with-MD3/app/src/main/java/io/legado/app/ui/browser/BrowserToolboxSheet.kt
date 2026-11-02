@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -114,8 +115,15 @@ private data class ToolboxGridDef(
     val icon: MaterialSymbol,
 )
 
-/** SPEC-111: tablet side panel forces solid toolbox fills. */
+/**
+ * SPEC-111: tablet side panel historically forced solid fills (SIGSEGV with glass+fade).
+ * SPEC-214: liquid glass may use glass cells; callers pass solidSurfaces=false when liquid.
+ */
 private val LocalToolboxSolidSurfaces = staticCompositionLocalOf { false }
+
+/** SPEC-214: nested web-bg card only when not liquid glass (filled path unchanged). */
+internal fun toolboxWebBgUsesNestedSurface(style: ChromeSurfaceStyle): Boolean =
+    style != ChromeSurfaceStyle.LiquidGlass
 
 /** SPEC-107: 20dp corners. */
 private val ToolboxCellShape = RoundedCornerShape(20.dp)
@@ -124,7 +132,8 @@ private val ToolboxCellGap = 12.dp
 private val ToolboxCellHeight = 62.dp
 private val ToolboxCellIcon = 24.dp
 private val ToolboxCellLabelSp = 11.sp
-private val ToolboxContentTopInset = 12.dp
+// SPEC-201: 操作者要求缩小工具箱内部上边框（12dp → 4dp；底 sheet 侧同步一致化）。
+private val ToolboxContentTopInset = 4.dp
 private val ToolboxWebBgShape = RoundedCornerShape(20.dp)
 
 @Composable
@@ -372,10 +381,14 @@ fun BrowserToolboxBody(
     actions: BrowserToolboxActions,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    /** SPEC-111: tablet side panel — solid fills only (no liquid glass). */
+    /**
+     * SPEC-111/214: true → solid cell fills (filled chrome / legacy crash avoidance).
+     * Liquid glass callers set false so panel/cells use glass.
+     */
     solidSurfaces: Boolean = false,
 ) {
     val scheme = LegadoTheme.colorScheme
+    val chromeStyle = currentChromeSurfaceStyle()
     CompositionLocalProvider(LocalToolboxSolidSurfaces provides solidSurfaces) {
     Column(modifier = modifier) {
         if (!editing) {
@@ -383,8 +396,14 @@ fun BrowserToolboxBody(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = ToolboxContentTopInset)
-                    .toolboxWebBgSurface()
-                    .clip(ToolboxWebBgShape)
+                    // SPEC-214: liquid glass — no nested glass card under 网页背景.
+                    .then(
+                        if (toolboxWebBgUsesNestedSurface(chromeStyle)) {
+                            Modifier.toolboxWebBgSurface().clip(ToolboxWebBgShape)
+                        } else {
+                            Modifier
+                        },
+                    )
                     .padding(horizontal = 12.dp, vertical = 10.dp),
             ) {
                 Text(
@@ -407,56 +426,7 @@ fun BrowserToolboxBody(
             Spacer(Modifier.height(ToolboxContentTopInset))
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(ToolboxCellGap),
-        ) {
-            ToolboxCell(
-                icon = Symbols.Bookmarks,
-                label = "书签",
-                tint = scheme.primary,
-                iconFilled = true,
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    onDismiss()
-                    actions.onOpenBookmarks()
-                },
-            )
-            ToolboxCell(
-                icon = Symbols.History,
-                label = "历史",
-                tint = scheme.primary,
-                iconFilled = true,
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    onDismiss()
-                    actions.onOpenHistory()
-                },
-            )
-            ToolboxCell(
-                icon = Symbols.Download,
-                label = "下载",
-                tint = scheme.primary,
-                iconFilled = true,
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    onDismiss()
-                    actions.onOpenDownloads()
-                },
-            )
-            ToolboxCell(
-                icon = Symbols.Settings,
-                label = "设置",
-                tint = scheme.primary,
-                iconFilled = true,
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    onDismiss()
-                    actions.onOpenSettings()
-                },
-            )
-        }
-        Spacer(Modifier.height(ToolboxCellGap))
+        // SPEC-201: 书签/历史/下载/设置改为随下方网格滚动（固定 Row 已删）。
 
         val defs = remember(
             order,
@@ -488,6 +458,13 @@ fun BrowserToolboxBody(
                 horizontalArrangement = Arrangement.spacedBy(ToolboxCellGap),
                 verticalArrangement = Arrangement.spacedBy(ToolboxCellGap),
             ) {
+                // SPEC-201: 书签/历史/下载/设置随网格滚动（编辑态顺序固定、不可拖拽）。
+                ToolboxShortcutCells(
+                    primaryColor = scheme.primary,
+                    actions = actions,
+                    onDismiss = onDismiss,
+                    editing = true,
+                )
                 itemsIndexed(defs, key = { _, d -> d.id }) { _, def ->
                     ReorderableItem(state = reorderable, key = def.id) {
                         ToolboxCell(
@@ -513,6 +490,13 @@ fun BrowserToolboxBody(
                 horizontalArrangement = Arrangement.spacedBy(ToolboxCellGap),
                 verticalArrangement = Arrangement.spacedBy(ToolboxCellGap),
             ) {
+                // SPEC-201: 书签/历史/下载/设置随网格滚动。
+                ToolboxShortcutCells(
+                    primaryColor = scheme.primary,
+                    actions = actions,
+                    onDismiss = onDismiss,
+                    editing = false,
+                )
                 items(defs, key = { it.id }) { def ->
                     ToolboxCell(
                         icon = def.icon,
@@ -615,7 +599,7 @@ private fun gridDef(id: String, actions: BrowserToolboxActions): ToolboxGridDef?
     "ad_block" -> ToolboxGridDef(
         id,
         if (actions.adBlockEnabled) "广告拦截·开" else "广告拦截·关",
-        Symbols.Block,
+        Symbols.Ad,
     )
     "ua_toggle" -> ToolboxGridDef(
         id,
@@ -634,6 +618,70 @@ private fun gridDef(id: String, actions: BrowserToolboxActions): ToolboxGridDef?
     )
     "find_in_page" -> ToolboxGridDef(id, "页内查找", Symbols.Search)
     else -> null
+}
+
+/**
+ * SPEC-201: 书签/历史/下载/设置四个入口——原为网格上方的固定 Row，
+ * 改为随 4 列网格滚动的固定顺序项（编辑态不参与拖拽排序）。
+ */
+private fun LazyGridScope.ToolboxShortcutCells(
+    primaryColor: Color,
+    actions: BrowserToolboxActions,
+    onDismiss: () -> Unit,
+    editing: Boolean,
+) {
+    item(key = "shortcut_bookmarks") {
+        ToolboxCell(
+            icon = Symbols.Bookmarks,
+            label = "书签",
+            tint = primaryColor,
+            iconFilled = true,
+            editing = editing,
+            onClick = {
+                onDismiss()
+                actions.onOpenBookmarks()
+            },
+        )
+    }
+    item(key = "shortcut_history") {
+        ToolboxCell(
+            icon = Symbols.History,
+            label = "历史",
+            tint = primaryColor,
+            iconFilled = true,
+            editing = editing,
+            onClick = {
+                onDismiss()
+                actions.onOpenHistory()
+            },
+        )
+    }
+    item(key = "shortcut_downloads") {
+        ToolboxCell(
+            icon = Symbols.Download,
+            label = "下载",
+            tint = primaryColor,
+            iconFilled = true,
+            editing = editing,
+            onClick = {
+                onDismiss()
+                actions.onOpenDownloads()
+            },
+        )
+    }
+    item(key = "shortcut_settings") {
+        ToolboxCell(
+            icon = Symbols.Settings,
+            label = "设置",
+            tint = primaryColor,
+            iconFilled = true,
+            editing = editing,
+            onClick = {
+                onDismiss()
+                actions.onOpenSettings()
+            },
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)

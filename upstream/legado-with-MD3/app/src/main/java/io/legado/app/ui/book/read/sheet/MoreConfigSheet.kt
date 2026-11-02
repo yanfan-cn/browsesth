@@ -7,15 +7,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.R
+import io.legado.app.browser.engine.BrowserChromePrefs
+import io.legado.app.browser.engine.HideBrowserChromeInReaderState
 import io.legado.app.data.repository.ReadPreferences
 import io.legado.app.data.repository.ReadSettingsRepository
 import io.legado.app.ui.book.read.ConfigUpdate
+import io.legado.app.ui.book.read.LocalReaderUnderBrowserChrome
 import io.legado.app.ui.book.read.ReadBookIntent
 import io.legado.app.ui.book.read.ReadBookSheet
 import io.legado.app.ui.widget.components.SectionTitle
@@ -24,6 +29,7 @@ import io.legado.app.ui.widget.components.settingItem.TinyClickableSettingItem
 import io.legado.app.ui.widget.components.settingItem.TinyDropdownSettingItem
 import io.legado.app.ui.widget.components.settingItem.TinySliderSettingItem
 import io.legado.app.ui.widget.components.settingItem.TinySwitchSettingItem
+import io.legado.app.utils.isPad
 import org.koin.compose.koinInject
 import kotlin.math.roundToInt
 
@@ -64,6 +70,8 @@ fun MoreConfigSheet(
                 onKeepLightChange = {
                     onIntent(ReadBookIntent.KeepLightChanged(it))
                 },
+                // SPEC-208: only tablet shell embedded reader.
+                showHideBrowserChrome = LocalReaderUnderBrowserChrome.current,
                 onHideStatusBarChange = {
                     onIntent(ReadBookIntent.UpdateConfig(ConfigUpdate.HideStatusBar(it)))
                 },
@@ -156,9 +164,6 @@ fun MoreConfigSheet(
                 onOptimizeRenderChange = {
                     onIntent(ReadBookIntent.UpdateConfig(ConfigUpdate.OptimizeRender(it)))
                 },
-                onClickImgWayChange = {
-                    onIntent(ReadBookIntent.UpdateConfig(ConfigUpdate.ClickImgWay(it)))
-                },
                 onOpenClickRegionalConfig = onOpenClickRegionalConfig,
                 onOpenPageKeyConfig = onOpenPageKeyConfig,
                 onOpenTextSelectMenuConfig = onOpenTextSelectMenuConfig,
@@ -172,6 +177,7 @@ private fun ScreenSettings(
     preferences: ReadPreferences,
     onScreenOrientationChange: (String) -> Unit,
     onKeepLightChange: (String) -> Unit,
+    showHideBrowserChrome: Boolean = false,
     onHideStatusBarChange: (Boolean) -> Unit,
     onHideNavigationBarChange: (Boolean) -> Unit,
     onPaddingDisplayCutoutsChange: (Boolean) -> Unit,
@@ -184,6 +190,9 @@ private fun ScreenSettings(
     val screenDirectionValues = stringArrayResource(R.array.screen_direction_value)
     val keepLightEntries = stringArrayResource(R.array.screen_time_out)
     val keepLightValues = stringArrayResource(R.array.screen_time_out_value)
+    val context = LocalContext.current
+    val chromePrefs = remember(context) { BrowserChromePrefs(context) }
+    val hideBrowserChrome by HideBrowserChromeInReaderState.value.collectAsStateWithLifecycle()
 
     TinyDropdownSettingItem(
         title = stringResource(R.string.screen_direction),
@@ -199,6 +208,14 @@ private fun ScreenSettings(
         entryValues = keepLightValues,
         onValueChange = onKeepLightChange,
     )
+    // SPEC-208: below 屏幕超时; tablet shell only.
+    if (showHideBrowserChrome) {
+        TinySwitchSettingItem(
+            title = stringResource(R.string.hide_browser_chrome_in_reader),
+            checked = hideBrowserChrome,
+            onCheckedChange = { chromePrefs.hideBrowserChromeInReader = it },
+        )
+    }
     TinySwitchSettingItem(
         title = stringResource(R.string.pt_hide_status_bar),
         checked = preferences.hideStatusBar,
@@ -253,14 +270,17 @@ private fun PageControlSettings(
     val doublePageValues = stringArrayResource(R.array.double_page_value)
     val progressBarEntries = stringArrayResource(R.array.progress_bar_behavior_title)
     val progressBarValues = stringArrayResource(R.array.progress_bar_behavior_value)
+    val showDoublePage = LocalContext.current.isPad
 
-    TinyDropdownSettingItem(
-        title = stringResource(R.string.double_page_horizontal),
-        selectedValue = preferences.doubleHorizontalPage,
-        displayEntries = doublePageEntries,
-        entryValues = doublePageValues,
-        onValueChange = onDoubleHorizontalPageChange,
-    )
+    if (showDoublePage) {
+        TinyDropdownSettingItem(
+            title = stringResource(R.string.double_page_horizontal),
+            selectedValue = preferences.doubleHorizontalPage,
+            displayEntries = doublePageEntries,
+            entryValues = doublePageValues,
+            onValueChange = onDoubleHorizontalPageChange,
+        )
+    }
     TinyDropdownSettingItem(
         title = stringResource(R.string.progress_bar_behavior),
         selectedValue = preferences.progressBarBehavior,
@@ -331,14 +351,10 @@ private fun OtherSettings(
     onSelectTextChange: (Boolean) -> Unit,
     onNoAnimScrollPageChange: (Boolean) -> Unit,
     onOptimizeRenderChange: (Boolean) -> Unit,
-    onClickImgWayChange: (String) -> Unit,
     onOpenClickRegionalConfig: () -> Unit,
     onOpenPageKeyConfig: () -> Unit,
     onOpenTextSelectMenuConfig: () -> Unit,
 ) {
-    val clickImageWayEntries = stringArrayResource(R.array.click_image_way_title)
-    val clickImageWayValues = stringArrayResource(R.array.click_image_way_value)
-
     TinySwitchSettingItem(
         title = stringResource(R.string.enable_slider_vibrator),
         checked = preferences.sliderVibrator,
@@ -406,13 +422,6 @@ private fun OtherSettings(
         title = stringResource(R.string.enable_optimize_render),
         checked = preferences.optimizeRender,
         onCheckedChange = onOptimizeRenderChange,
-    )
-    TinyDropdownSettingItem(
-        title = stringResource(R.string.click_image_way),
-        selectedValue = preferences.clickImgWay,
-        displayEntries = clickImageWayEntries,
-        entryValues = clickImageWayValues,
-        onValueChange = onClickImgWayChange,
     )
     TinyClickableSettingItem(
         title = stringResource(R.string.click_regional_config),

@@ -17,11 +17,15 @@ import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -42,6 +46,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.unit.DpOffset
@@ -94,7 +99,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
-import org.chromium.android_webview.AwContentsClient
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.capsule.ContinuousCapsule
 import io.legado.app.browser.engine.AlohaBrowserCompose
@@ -102,6 +106,8 @@ import io.legado.app.browser.engine.AwContentsHostView
 import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.browser.engine.BrowserAdRules
 import io.legado.app.browser.engine.BrowserAwContentsClient
+import io.legado.app.browser.engine.BrowserCustomViewCallback
+import io.legado.app.browser.engine.BrowserJsCallback
 import io.legado.app.browser.engine.BrowserChromePrefs
 import io.legado.app.browser.engine.BrowserClipboardUrl
 import io.legado.app.browser.engine.BrowserContextMenuJs
@@ -114,6 +120,7 @@ import io.legado.app.browser.engine.BrowserLoadProgress
 import io.legado.app.browser.engine.BrowserNtpPrefs
 import io.legado.app.browser.engine.BrowserOmniboxLabel
 import io.legado.app.browser.engine.BrowserOmniboxSuggest
+import io.legado.app.browser.engine.reselectAllOmniboxText
 import io.legado.app.browser.engine.BrowserOpenBridge
 import io.legado.app.browser.engine.BrowserReaderPrefs
 import io.legado.app.browser.engine.BrowserScrollMemory
@@ -149,6 +156,7 @@ import io.legado.app.browser.reader.WebArticleBookFactory
 import io.legado.app.browser.reader.WebArticleChromeFilter
 import io.legado.app.browser.reader.WebArticleExtractJs
 import io.legado.app.browser.reader.WebArticleMixedHydration
+import io.legado.app.browser.reader.WebArticleVideoThumb
 import io.legado.app.browser.reader.WebChapterExpandJs
 import io.legado.app.browser.reader.WebChapterHttpFetcher
 import io.legado.app.browser.reader.WebMangaBookFactory
@@ -168,6 +176,7 @@ import io.legado.app.ui.theme.LocalTopBarBackdrop
 import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.FloatingBottomBar
 import io.legado.app.ui.widget.components.FloatingBottomBarItem
+import io.legado.app.ui.widget.components.menu.MenuBarBoundsProvider
 import io.legado.app.ui.widget.components.modalBottomSheet.AppModalBottomSheet
 import io.legado.app.ui.widget.components.progressIndicator.AppLinearProgressIndicator
 import io.legado.app.utils.keepScreenOn
@@ -184,10 +193,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
-import org.chromium.base.Callback
 import androidx.compose.runtime.LaunchedEffect
 
-private val ReaderFabBlue = BrowserUiTokens.Primary
 private val TopBarHeight = BrowserUiTokens.TopBarHeight
 private val AddressFieldHeight = BrowserUiTokens.InputHeightSmall
 private val CardCorner = BrowserUiTokens.CardCorner
@@ -229,6 +236,9 @@ data class BrowserSessionActions(
     /** SPEC-111: tablet reader long-press menu. */
     val readerAutoOpenEnabled: () -> Boolean = { false },
     val setReaderAutoOpen: (Boolean) -> Unit = {},
+    /** SPEC-220: 「极致净化」同设置页偏好。 */
+    val extremePurgeEnabled: () -> Boolean = { true },
+    val setExtremePurge: (Boolean) -> Unit = {},
     val openReaderText: () -> Unit = {},
     val openReaderImage: () -> Unit = {},
     val openReaderMixed: () -> Unit = {},
@@ -315,7 +325,7 @@ fun BrowserSessionScreen(
     /** SPEC-131: Chromium HTML5 custom fullscreen view. */
     var videoCustomView by remember { mutableStateOf<View?>(null) }
     var videoCustomViewCallback by remember {
-        mutableStateOf<AwContentsClient.CustomViewCallback?>(null)
+        mutableStateOf<BrowserCustomViewCallback?>(null)
     }
     var videoFullscreenHost by remember { mutableStateOf<android.widget.FrameLayout?>(null) }
     var tabMenu by remember { mutableStateOf(false) }
@@ -331,6 +341,9 @@ fun BrowserSessionScreen(
     }
     var readerAutoOpen by remember {
         mutableStateOf(readerPrefs.triggerMode != BrowserReaderPrefs.TriggerMode.Manual)
+    }
+    var extremePurge by remember {
+        mutableStateOf(readerPrefs.strongContentExtract)
     }
     val openTabCount by BrowserTabManager.tabs.collectAsStateWithLifecycle()
     var pickMode by remember { mutableStateOf(false) }
@@ -420,6 +433,21 @@ fun BrowserSessionScreen(
         videoOffer != null &&
         videoOffer?.url != dismissedVideoPromptUrl &&
         BrowserVideoOfferBus.belongsToPage(videoOffer, currentPageForVideo)
+    // SPEC-217: 8s idle → collapsed ball; expand once then no auto-collapse again.
+    val videoCapsuleOfferUrl = videoOffer?.url
+    var videoCapsuleCollapsed by remember(videoCapsuleOfferUrl) { mutableStateOf(false) }
+    var videoCapsuleInteracted by remember(videoCapsuleOfferUrl) { mutableStateOf(false) }
+    var videoCapsuleExpandedByUser by remember(videoCapsuleOfferUrl) { mutableStateOf(false) }
+    LaunchedEffect(videoCapsuleOfferUrl, showVideoPlayerPrompt) {
+        if (!showVideoPlayerPrompt || videoCapsuleOfferUrl.isNullOrBlank()) return@LaunchedEffect
+        videoCapsuleCollapsed = false
+        videoCapsuleInteracted = false
+        videoCapsuleExpandedByUser = false
+        delay(8_000)
+        if (!videoCapsuleInteracted && !videoCapsuleExpandedByUser) {
+            videoCapsuleCollapsed = true
+        }
+    }
     /** SPEC-094: short toast above bottom bar (24dp), not Material Snackbar over chrome. */
     var chromeSnack by remember { mutableStateOf<String?>(null) }
     var chromeSnackToken by remember { mutableIntStateOf(0) }
@@ -552,15 +580,28 @@ fun BrowserSessionScreen(
     }
 
 
-    /** SPEC-149: 会话重挂/遮罩时序下 hostRef 可能为空；回退 Holder 活跃宿主并回写自愈。 */
+    /**
+     * SPEC-149/210: 会话重挂/遮罩时序下 hostRef 可能为空；回退 Holder 活跃宿主并回写自愈。
+     * SPEC-210: key 失配时再试任意活跃宿主，避免退出净读后再进误报「不可用」。
+     */
     fun resolveReaderHost(): AwContentsHostView? {
         hostRef?.let { return it }
-        val host = BrowserSessionHolder.activeHostFor(resolvedSessionKey) ?: return null
-        val client = BrowserSessionHolder.activeClientFor(resolvedSessionKey) ?: return null
-        Log.i("Diag149", "reader host fallback via holder (hostRef null), key=$resolvedSessionKey")
-        clientRef = client
-        hostRef = host
-        return host
+        fun adopt(key: String?): AwContentsHostView? {
+            val host = BrowserSessionHolder.activeHostFor(key) ?: return null
+            val client = BrowserSessionHolder.activeClientFor(key) ?: return null
+            clientRef = client
+            hostRef = host
+            return host
+        }
+        adopt(resolvedSessionKey)?.let {
+            Log.i("Diag149", "reader host fallback via holder, key=$resolvedSessionKey")
+            return it
+        }
+        adopt(null)?.let {
+            Log.i("Diag210", "reader host fallback via holder any-active (key mismatch)")
+            return it
+        }
+        return null
     }
 
     suspend fun openNovelReader(
@@ -580,15 +621,30 @@ fun BrowserSessionScreen(
         if (keepImages && WebArticleMixedHydration.needsWait(pageUrl)) {
             awaitMixedArticleImages(host)
         }
-        val partRaw = host.evalJs(WebArticleExtractJs.SCRIPT)
+        // SPEC-217: optional strong extract (prefs default off).
+        val partRaw = host.evalJs(
+            WebArticleExtractJs.script(extremePurge),
+        )
         val extracted = WebArticleBookFactory.parseExtractResult(partRaw)
         val toc = discoverToc(host)
         val rawText = extracted?.text.orEmpty()
         // SPEC-057/109: mixed keeps <img>; text-only strips images first.
-        val cleaned = when {
+        val cleanedRaw = when {
             !rawText.contains('<') -> WebArticleChromeFilter.filter(rawText)
             keepImages -> WebArticleChromeFilter.filterHtml(rawText)
             else -> WebArticleChromeFilter.filterHtmlTextOnly(rawText)
+        }
+        // SPEC-212/213: 有归属可播 offer 时升原海报为 jingshi（不按 offer 数强行补张，防灰假图）。
+        val pageOffers = BrowserVideoOfferBus.offers.value
+            .filter { BrowserVideoOfferBus.belongsToPage(it, pageUrl) }
+        val cleaned = if (pageOffers.isNotEmpty()) {
+            WebArticleVideoThumb.ensureThumb(
+                cleanedRaw,
+                extracted?.coverUrl,
+                minThumbs = 1,
+            )
+        } else {
+            WebArticleVideoThumb.stripThumbs(cleanedRaw)
         }
         if (cleaned.length < 40) {
             context.toastOnUi("未能提取正文，请换一个页面再试")
@@ -759,7 +815,7 @@ fun BrowserSessionScreen(
             val raw = suspendCancellableCoroutine { cont ->
                 host.evaluateJavaScript(
                     WebPageAnalyzeJs.SCRIPT,
-                    Callback { result ->
+                    BrowserJsCallback { result ->
                         if (cont.isActive) cont.resume(result)
                     },
                 )
@@ -1318,6 +1374,11 @@ fun BrowserSessionScreen(
                         BrowserReaderPrefs.TriggerMode.Manual
                     }
                 },
+                extremePurgeEnabled = { extremePurge },
+                setExtremePurge = { enabled ->
+                    extremePurge = enabled
+                    readerPrefs.strongContentExtract = enabled
+                },
                 openReaderText = {
                     val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
                     startExtract { openNovelReader(pageUrl, keepImages = false) }
@@ -1367,6 +1428,8 @@ fun BrowserSessionScreen(
                                     modifier = Modifier
                                         .padding(horizontal = 4.dp)
                                         .size(BrowserUiTokens.ControlMedium)
+                                        // SPEC-199: 玻璃钮涟漪随圆形。
+                                        .clip(CircleShape)
                                         .browserControlLiquidGlass()
                                         .clickable(onClick = onNavigateBack),
                                     contentAlignment = Alignment.Center,
@@ -1390,6 +1453,8 @@ fun BrowserSessionScreen(
                                     .browserControlLiquidGlass(
                                         shape = ContinuousCapsule,
                                         interactive = false,
+                                        // SPEC-214: 液态玻璃下地址栏无阴影。
+                                        showShadow = false,
                                     )
                                     .padding(horizontal = BrowserUiTokens.SpaceMd, vertical = 6.dp)
                                     .onFocusChanged { fs ->
@@ -1403,6 +1468,13 @@ fun BrowserSessionScreen(
                                                 TextFieldValue("")
                                             }
                                             clipboardUrl = BrowserClipboardUrl.latest(context)
+                                            // SPEC-207: 点击落点会盖掉选区，获焦后再全选一次。
+                                            scope.launch {
+                                                reselectAllOmniboxText(
+                                                    get = { address },
+                                                    set = { address = it },
+                                                )
+                                            }
                                         } else if (addressFocused && !nowFocused) {
                                             clipboardUrl = null
                                             syncIdleAddress(
@@ -1417,7 +1489,7 @@ fun BrowserSessionScreen(
                                     color = scheme.onSurface,
                                     fontSize = 14.sp,
                                 ),
-                                cursorBrush = SolidColor(ReaderFabBlue),
+                                cursorBrush = SolidColor(scheme.primary),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                                 keyboardActions = KeyboardActions(onGo = { navigateToAddress() }),
                                 decorationBox = { inner ->
@@ -1437,6 +1509,8 @@ fun BrowserSessionScreen(
                                 modifier = Modifier
                                     .padding(horizontal = 4.dp)
                                     .size(BrowserUiTokens.ControlMedium)
+                                    // SPEC-199: 玻璃钮涟漪随圆形。
+                                    .clip(CircleShape)
                                     .browserControlLiquidGlass()
                                     .combinedClickable(
                                         onClick = { hostRef?.reload() },
@@ -1453,11 +1527,13 @@ fun BrowserSessionScreen(
                             }
                         }
                     } else {
-                        // SPEC-168: landscape combined top bar
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(TopBarHeight)
+                            // SPEC-168: landscape combined top bar
+                            // SPEC-200 R2: 栏边界=横屏组合顶栏 Row，长按菜单整体置于顶栏下 4dp。
+                            MenuBarBoundsProvider {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(TopBarHeight)
                                 .padding(horizontal = phoneWebGap),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(phoneWebGap),
@@ -1537,6 +1613,8 @@ fun BrowserSessionScreen(
                                     .browserControlLiquidGlass(
                                         shape = ContinuousCapsule,
                                         interactive = false,
+                                        // SPEC-214: 液态玻璃下地址栏无阴影。
+                                        showShadow = false,
                                     )
                                     .padding(horizontal = BrowserUiTokens.SpaceMd, vertical = 6.dp)
                                     .onFocusChanged { fs ->
@@ -1550,6 +1628,13 @@ fun BrowserSessionScreen(
                                                 TextFieldValue("")
                                             }
                                             clipboardUrl = BrowserClipboardUrl.latest(context)
+                                            // SPEC-207: 点击落点会盖掉选区，获焦后再全选一次。
+                                            scope.launch {
+                                                reselectAllOmniboxText(
+                                                    get = { address },
+                                                    set = { address = it },
+                                                )
+                                            }
                                         } else if (addressFocused && !nowFocused) {
                                             clipboardUrl = null
                                             syncIdleAddress(
@@ -1564,7 +1649,7 @@ fun BrowserSessionScreen(
                                     color = scheme.onSurface,
                                     fontSize = 14.sp,
                                 ),
-                                cursorBrush = SolidColor(ReaderFabBlue),
+                                cursorBrush = SolidColor(scheme.primary),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                                 keyboardActions = KeyboardActions(onGo = { navigateToAddress() }),
                                 decorationBox = { inner ->
@@ -1589,6 +1674,8 @@ fun BrowserSessionScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(phoneWebIconSlot)
+                                        // SPEC-199: 标签槽涟漪随圆形。
+                                        .clip(CircleShape)
                                         .combinedClickable(
                                             onClick = {
                                                 val open = onOpenTabs
@@ -1629,30 +1716,31 @@ fun BrowserSessionScreen(
                                     },
                                 )
                             }
-                            Box(
-                                modifier = Modifier
-                                    // SPEC-170: landscape 净读 FAB 32dp touch slot.
-                                    .size(TabletBrowserLayout.PhoneLandscapeReaderFabDp.dp)
-                                    .combinedClickable(
+                                Box(
+                                    modifier = Modifier
+                                        // SPEC-170: landscape 净读 FAB 32dp touch slot.
+                                        .size(TabletBrowserLayout.PhoneLandscapeReaderFabDp.dp)
+                                        // SPEC-199: 涟漪随圆形。
+                                        .clip(CircleShape)
+                                        .combinedClickable(
                                         enabled = !extracting,
                                         onClick = { openReaderView() },
                                         onLongClick = { readerModeMenu = true },
                                     ),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                // SPEC-181 R2: visual blue circle shrinks to 20dp so it reads
-                                // the same size as the neighbouring 20dp glyphs; icon 16dp.
+                                // SPEC-201: 蓝圆 20→22dp、图标 16→15dp（操作者指定）。
                                 Box(
                                     modifier = Modifier
-                                        .size(20.dp)
-                                        .browserReaderFabGlass(ReaderFabBlue),
+                                        .size(22.dp)
+                                        .browserReaderFabGlass(scheme.primary),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     SymbolIcon(
                                         symbol = Symbols.Book2,
                                         contentDescription = "净读",
                                         tint = Color.White,
-                                        modifier = Modifier.size(16.dp),
+                                        modifier = Modifier.size(15.dp),
                                     )
                                 }
                                 BrowserReaderModeMenu(
@@ -1668,6 +1756,14 @@ fun BrowserSessionScreen(
                                         }
                                         showSnack(
                                             if (enabled) "已开启自动净读模式" else "已关闭自动净读模式",
+                                        )
+                                    },
+                                    extremePurgeEnabled = extremePurge,
+                                    onExtremePurgeChange = { enabled ->
+                                        extremePurge = enabled
+                                        readerPrefs.strongContentExtract = enabled
+                                        showSnack(
+                                            if (enabled) "已开启极致净化" else "已关闭极致净化",
                                         )
                                     },
                                     onTextMode = {
@@ -1688,6 +1784,7 @@ fun BrowserSessionScreen(
                                     belowAnchor = true,
                                 )
                             }
+                        }
                         }
                     }
                     // SPEC-121: find bar under omnibox (not bottom — IME covers bottom).
@@ -1775,6 +1872,8 @@ fun BrowserSessionScreen(
                             }
                         },
                         onContextMenuHit = { json ->
+                            // SPEC-218: link long-press should not leave a stuck text selection bar.
+                            hostRef?.clearTextSelection()
                             val parsed = GSON.fromJsonObject<BrowserContextMenuPayload>(json)
                                 .getOrNull()
                             if (parsed != null &&
@@ -1790,6 +1889,9 @@ fun BrowserSessionScreen(
                             }
                         },
                         onScrollDirection = { dir ->
+                            // SPEC-218: compositor/window scroll often skips container
+                            // onScrollChanged — clear stuck selection when page scrolls.
+                            hostRef?.clearTextSelectionIfActive()
                             if (!tabletEmbedded) {
                                 phoneChromeVisible = if (chromePrefs.autoHideTopBar) {
                                     dir != "down"
@@ -2168,49 +2270,108 @@ fun BrowserSessionScreen(
                         if (showVideoPlayerPrompt) {
                             val offer = videoOffer
                             if (offer != null) {
-                                VideoPlayerPromptCapsule(
-                                    onPlay = {
-                                        BrowserVideoPlaybackService.stop(context)
-                                        context.startActivity(
-                                            BrowserVideoPlayerActivity.intent(context, offer),
-                                        )
+                                // SPEC-201: 手机横屏宽度 0.75→0.375（50%）并降高；竖屏不变。
+                                val landscape =
+                                    LocalConfiguration.current.orientation ==
+                                        Configuration.ORIENTATION_LANDSCAPE
+                                // SPEC-220: capsule↔ball morph; collapsed gap to bar = 4dp.
+                                AnimatedContent(
+                                    targetState = videoCapsuleCollapsed,
+                                    transitionSpec = {
+                                        (fadeIn(animationSpec = tween(220)) togetherWith
+                                            fadeOut(animationSpec = tween(180)))
+                                            .using(SizeTransform(clip = false))
                                     },
-                                    onAudioOnly = {
-                                        BrowserVideoPlaybackService.startAudio(context, offer)
-                                        dismissedVideoPromptUrl = offer.url
-                                        context.toastOnUi("已开始听音频")
-                                    },
-                                    onPip = {
-                                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-                                            context.toastOnUi("当前系统不支持画中画")
-                                        } else {
-                                            BrowserVideoPlaybackService.stop(context)
-                                            context.startActivity(
-                                                BrowserVideoPlayerActivity.intent(
-                                                    context,
-                                                    offer,
-                                                    autoPip = true,
-                                                ),
+                                    label = "videoCapsuleMorph",
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) { collapsed ->
+                                    if (collapsed) {
+                                        Box(modifier = Modifier.fillMaxWidth()) {
+                                            VideoPlayerCollapsedBall(
+                                                onExpand = {
+                                                    videoCapsuleInteracted = true
+                                                    videoCapsuleExpandedByUser = true
+                                                    videoCapsuleCollapsed = false
+                                                },
+                                                onPlay = {
+                                                    videoCapsuleInteracted = true
+                                                    BrowserVideoPlaybackService.stop(context)
+                                                    context.startActivity(
+                                                        BrowserVideoPlayerActivity.intent(
+                                                            context,
+                                                            offer,
+                                                        ),
+                                                    )
+                                                },
+                                                modifier = Modifier.align(Alignment.CenterEnd),
                                             )
                                         }
-                                    },
-                                    onDismiss = { dismissedVideoPromptUrl = offer.url },
-                                    showPlaylist = playlistOffers.size > 1,
-                                    playlist = playlistOffers,
-                                    onPlayOffer = { item ->
-                                        BrowserVideoPlaybackService.stop(context)
-                                        context.startActivity(
-                                            BrowserVideoPlayerActivity.intent(context, item),
+                                    } else {
+                                        VideoPlayerPromptCapsule(
+                                            widthFraction = if (landscape) 0.375f else 0.75f,
+                                            compact = landscape,
+                                            onPlay = {
+                                                videoCapsuleInteracted = true
+                                                BrowserVideoPlaybackService.stop(context)
+                                                context.startActivity(
+                                                    BrowserVideoPlayerActivity.intent(
+                                                        context,
+                                                        offer,
+                                                    ),
+                                                )
+                                            },
+                                            onAudioOnly = {
+                                                videoCapsuleInteracted = true
+                                                BrowserVideoPlaybackService.startAudio(
+                                                    context,
+                                                    offer,
+                                                )
+                                                dismissedVideoPromptUrl = offer.url
+                                                context.toastOnUi("已开始听音频")
+                                            },
+                                            onPip = {
+                                                videoCapsuleInteracted = true
+                                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                                                    context.toastOnUi("当前系统不支持画中画")
+                                                } else {
+                                                    BrowserVideoPlaybackService.stop(context)
+                                                    context.startActivity(
+                                                        BrowserVideoPlayerActivity.intent(
+                                                            context,
+                                                            offer,
+                                                            autoPip = true,
+                                                        ),
+                                                    )
+                                                }
+                                            },
+                                            onDismiss = {
+                                                videoCapsuleInteracted = true
+                                                dismissedVideoPromptUrl = offer.url
+                                            },
+                                            showPlaylist = playlistOffers.size > 1,
+                                            playlist = playlistOffers,
+                                            onPlayOffer = { item ->
+                                                videoCapsuleInteracted = true
+                                                BrowserVideoPlaybackService.stop(context)
+                                                context.startActivity(
+                                                    BrowserVideoPlayerActivity.intent(
+                                                        context,
+                                                        item,
+                                                    ),
+                                                )
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
                                         )
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                                // SPEC-136: 16dp gap above bottom chrome.
+                                    }
+                                }
+                                // SPEC-221: 迷你球与展开胶囊同为 16dp，避免贴死底栏。
                                 Spacer(modifier = Modifier.height(16.dp))
                             }
                         }
                         if (phoneSplitChrome) {
                             // SPEC-169 / 1.7.0: bottom = back · forward · toolbox · tabs · reader FAB
+                            // SPEC-200 R2: 栏边界=整条底栏 Row，长按菜单整体置于栏上 4dp。
+                            MenuBarBoundsProvider {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -2260,17 +2421,17 @@ fun BrowserSessionScreen(
                                     }
                                     FloatingBottomBar(
                                         modifier = Modifier.fillMaxWidth(),
-                                        selectedIndex = { 0 },
-                                        onSelected = { activateChromeTab(it) },
-                                        onReselected = { activateChromeTab(it) },
-                                        backdrop = barBackdrop,
-                                        tabsCount = 4,
-                                        isBlurEnabled = blurOn,
-                                        enableDragSwitch = false,
-                                        persistentSelection = false,
-                                        barHeight = phoneChromeBarHeight,
-                                        indicatorHeight = phoneChromeBarHeight,
-                                    ) {
+                                            selectedIndex = { 0 },
+                                            onSelected = { activateChromeTab(it) },
+                                            onReselected = { activateChromeTab(it) },
+                                            backdrop = barBackdrop,
+                                            tabsCount = 4,
+                                            isBlurEnabled = blurOn,
+                                            enableDragSwitch = false,
+                                            persistentSelection = false,
+                                            barHeight = phoneChromeBarHeight,
+                                            indicatorHeight = phoneChromeBarHeight,
+                                        ) {
                                         FloatingBottomBarItem(
                                             onClick = { activateChromeTab(0) },
                                             onLongClick = { openBackHistory() },
@@ -2356,7 +2517,9 @@ fun BrowserSessionScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(phoneChromeBarHeight)
-                                        .browserReaderFabGlass(ReaderFabBlue)
+                                        // SPEC-199: 涟漪随圆形。
+                                        .clip(CircleShape)
+                                        .browserReaderFabGlass(scheme.primary)
                                         .combinedClickable(
                                             enabled = !extracting,
                                             onClick = { openReaderView() },
@@ -2385,6 +2548,14 @@ fun BrowserSessionScreen(
                                                 if (enabled) "已开启自动净读模式" else "已关闭自动净读模式",
                                             )
                                         },
+                                        extremePurgeEnabled = extremePurge,
+                                        onExtremePurgeChange = { enabled ->
+                                            extremePurge = enabled
+                                            readerPrefs.strongContentExtract = enabled
+                                            showSnack(
+                                                if (enabled) "已开启极致净化" else "已关闭极致净化",
+                                            )
+                                        },
                                         onTextMode = {
                                             val pageUrl = clientRef?.lastUrl.orEmpty().ifBlank { address.text }
                                             startExtract {
@@ -2403,54 +2574,93 @@ fun BrowserSessionScreen(
                                     )
                                 }
                             }
+                            }
                         }
                     }
                 }
             } else {
-                // SPEC-136: tablet video capsule — below top chrome, top-end.
+                // SPEC-136/217: tablet video capsule — below top chrome, top-end;
+                // 8s idle → collapsed ball same corner.
                 if (showVideoPlayerPrompt) {
                     val offer = videoOffer
                     if (offer != null) {
-                        VideoPlayerPromptCapsule(
-                            onPlay = {
-                                BrowserVideoPlaybackService.stop(context)
-                                context.startActivity(
-                                    BrowserVideoPlayerActivity.intent(context, offer),
-                                )
+                        // SPEC-220: tablet capsule↔ball morph (TR corner unchanged).
+                        AnimatedContent(
+                            targetState = videoCapsuleCollapsed,
+                            transitionSpec = {
+                                (fadeIn(animationSpec = tween(220)) togetherWith
+                                    fadeOut(animationSpec = tween(180)))
+                                    .using(SizeTransform(clip = false))
                             },
-                            onAudioOnly = {
-                                BrowserVideoPlaybackService.startAudio(context, offer)
-                                dismissedVideoPromptUrl = offer.url
-                                context.toastOnUi("已开始听音频")
-                            },
-                            onPip = {
-                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-                                    context.toastOnUi("当前系统不支持画中画")
-                                } else {
-                                    BrowserVideoPlaybackService.stop(context)
-                                    context.startActivity(
-                                        BrowserVideoPlayerActivity.intent(
-                                            context,
-                                            offer,
-                                            autoPip = true,
-                                        ),
-                                    )
-                                }
-                            },
-                            onDismiss = { dismissedVideoPromptUrl = offer.url },
-                            showPlaylist = playlistOffers.size > 1,
-                            playlist = playlistOffers,
-                            onPlayOffer = { item ->
-                                BrowserVideoPlaybackService.stop(context)
-                                context.startActivity(
-                                    BrowserVideoPlayerActivity.intent(context, item),
-                                )
-                            },
-                            widthFraction = 0.45f,
+                            label = "tabletVideoCapsuleMorph",
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .padding(top = 12.dp, end = 16.dp),
-                        )
+                        ) { collapsed ->
+                        if (collapsed) {
+                            VideoPlayerCollapsedBall(
+                                onExpand = {
+                                    videoCapsuleInteracted = true
+                                    videoCapsuleExpandedByUser = true
+                                    videoCapsuleCollapsed = false
+                                },
+                                onPlay = {
+                                    videoCapsuleInteracted = true
+                                    BrowserVideoPlaybackService.stop(context)
+                                    context.startActivity(
+                                        BrowserVideoPlayerActivity.intent(context, offer),
+                                    )
+                                },
+                            )
+                        } else {
+                            VideoPlayerPromptCapsule(
+                                onPlay = {
+                                    videoCapsuleInteracted = true
+                                    BrowserVideoPlaybackService.stop(context)
+                                    context.startActivity(
+                                        BrowserVideoPlayerActivity.intent(context, offer),
+                                    )
+                                },
+                                onAudioOnly = {
+                                    videoCapsuleInteracted = true
+                                    BrowserVideoPlaybackService.startAudio(context, offer)
+                                    dismissedVideoPromptUrl = offer.url
+                                    context.toastOnUi("已开始听音频")
+                                },
+                                onPip = {
+                                    videoCapsuleInteracted = true
+                                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                                        context.toastOnUi("当前系统不支持画中画")
+                                    } else {
+                                        BrowserVideoPlaybackService.stop(context)
+                                        context.startActivity(
+                                            BrowserVideoPlayerActivity.intent(
+                                                context,
+                                                offer,
+                                                autoPip = true,
+                                            ),
+                                        )
+                                    }
+                                },
+                                onDismiss = {
+                                    videoCapsuleInteracted = true
+                                    dismissedVideoPromptUrl = offer.url
+                                },
+                                showPlaylist = playlistOffers.size > 1,
+                                playlist = playlistOffers,
+                                onPlayOffer = { item ->
+                                    videoCapsuleInteracted = true
+                                    BrowserVideoPlaybackService.stop(context)
+                                    context.startActivity(
+                                        BrowserVideoPlayerActivity.intent(context, item),
+                                    )
+                                },
+                                widthFraction = 0.315f,
+                                // SPEC-201: 平板宽度 0.45→0.315（70%）+ 紧凑高度。
+                                compact = true,
+                            )
+                        }
+                        }
                     }
                 }
                 // SPEC-045/066/132 tablet: prompts near bottom of content (shell has top chrome only).
@@ -2878,6 +3088,8 @@ private fun PhoneWebChromeIcon(
         Box(
             modifier = Modifier
                 .size(slot)
+                // SPEC-199: 涟漪随 32dp 图标槽圆形（替代 SPEC-198 统一 24dp）。
+                .clip(CircleShape)
                 .then(
                     if (onLongClick != null) {
                         Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
@@ -2943,6 +3155,44 @@ private fun ReaderLoadingCapsule(
 }
 
 /**
+ * SPEC-217: collapsed 净视 ball — left expands full capsule, right plays.
+ */
+@Composable
+private fun VideoPlayerCollapsedBall(
+    onExpand: () -> Unit,
+    onPlay: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = LegadoTheme.colorScheme
+    val motionPlaySymbol = remember { MaterialSymbol("motion_play", autoMirror = false) }
+    Row(
+        modifier = modifier
+            .clip(ContinuousCapsule)
+            .background(scheme.surface)
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        IconButton(onClick = onExpand, modifier = Modifier.size(40.dp)) {
+            SymbolIcon(
+                Symbols.ArrowBack,
+                contentDescription = "展开净视胶囊",
+                tint = scheme.onSurface,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+        IconButton(onClick = onPlay, modifier = Modifier.size(40.dp)) {
+            SymbolIcon(
+                motionPlaySymbol,
+                contentDescription = "播放",
+                tint = scheme.primary,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+    }
+}
+
+/**
  * SPEC-135/136: mini capsule (~75% width) — Play / Audio / PiP / Close.
  * Icons enlarged (32/28); capsule width unchanged.
  */
@@ -2955,6 +3205,11 @@ private fun VideoPlayerPromptCapsule(
     modifier: Modifier = Modifier,
     /** SPEC-136: phone ~0.75; tablet corner can be narrower. */
     widthFraction: Float = 0.75f,
+    /**
+     * SPEC-201: 紧凑高度——按钮 48→44dp、上下留白 8→6dp（高 64→56dp）。
+     * 手机横屏（操作者指定降高）与平板（0.315 宽下多视频 5 键防溢出）启用。
+     */
+    compact: Boolean = false,
     /** SPEC-145 R6: 页面检测到多个视频时显示列表键，菜单宽度与胶囊一致。 */
     showPlaylist: Boolean = false,
     playlist: List<BrowserVideoOffer> = emptyList(),
@@ -2977,12 +3232,18 @@ private fun VideoPlayerPromptCapsule(
             modifier = Modifier
                 .width(capsuleWidth)
                 .clip(ContinuousCapsule)
-                .background(scheme.surfaceContainerHigh)
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+            // SPEC-215 A: 与网页顶栏同色 surface。
+            .background(scheme.surface)
+                // SPEC-201: compact 高 56dp（原 64dp）。
+                .padding(horizontal = 10.dp, vertical = if (compact) 6.dp else 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            IconButton(onClick = onPlay) {
+            IconButton(
+                onClick = onPlay,
+                // SPEC-201: compact 按钮 44dp（原最小触控 48dp）。
+                modifier = Modifier.size(if (compact) 44.dp else 48.dp),
+            ) {
                 SymbolIcon(
                     motionPlaySymbol,
                     contentDescription = "播放",
@@ -2990,7 +3251,10 @@ private fun VideoPlayerPromptCapsule(
                     modifier = Modifier.size(32.dp),
                 )
             }
-            IconButton(onClick = onAudioOnly) {
+            IconButton(
+                onClick = onAudioOnly,
+                modifier = Modifier.size(if (compact) 44.dp else 48.dp),
+            ) {
                 SymbolIcon(
                     Symbols.Headphones,
                     contentDescription = "听音频",
@@ -2998,7 +3262,10 @@ private fun VideoPlayerPromptCapsule(
                     modifier = Modifier.size(28.dp),
                 )
             }
-            IconButton(onClick = onPip) {
+            IconButton(
+                onClick = onPip,
+                modifier = Modifier.size(if (compact) 44.dp else 48.dp),
+            ) {
                 SymbolIcon(
                     pipSymbol,
                     contentDescription = "画中画",
@@ -3008,7 +3275,10 @@ private fun VideoPlayerPromptCapsule(
             }
             // SPEC-145 R6: 多视频列表键（菜单现锚定胶囊底边中点，见下方）。
             if (showPlaylist && playlist.size > 1) {
-                IconButton(onClick = { playlistMenuOpen = true }) {
+                IconButton(
+                    onClick = { playlistMenuOpen = true },
+                    modifier = Modifier.size(if (compact) 44.dp else 48.dp),
+                ) {
                     SymbolIcon(
                         playlistSymbol,
                         contentDescription = "视频列表",
@@ -3017,7 +3287,10 @@ private fun VideoPlayerPromptCapsule(
                     )
                 }
             }
-            IconButton(onClick = onDismiss) {
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.size(if (compact) 44.dp else 48.dp),
+            ) {
                 SymbolIcon(
                     Symbols.Close,
                     contentDescription = "关闭",

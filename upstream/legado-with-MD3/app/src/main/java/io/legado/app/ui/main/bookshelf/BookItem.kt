@@ -694,6 +694,8 @@ fun BookItem(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)?
 ) {
+    // SPEC-195: 组合归因打点（Perfetto 可见每本书 item 的组合跨度，未开 tracing 零开销早退）。
+    ShelfPerfTrace.marker("bookItem")
     val lockedHiddenLabel = stringResource(R.string.private_hidden_label)
     // 锁定 ⇄ 解锁：封面走模糊深度、其余文字直接隐藏。
     // 之所以不整体模糊卡片，是因为整体 blur 会把封面的圆角与阴影一起糊掉。

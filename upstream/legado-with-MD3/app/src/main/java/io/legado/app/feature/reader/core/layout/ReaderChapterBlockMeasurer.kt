@@ -1,5 +1,6 @@
 package io.legado.app.feature.reader.core.layout
 
+import io.legado.app.browser.reader.WebArticleDebugLineFilter
 import io.legado.app.feature.reader.core.model.ReaderTextStyle
 import io.legado.app.feature.reader.core.source.ReaderChapterInlineSource
 import io.legado.app.feature.reader.core.source.ReaderChapterSource
@@ -379,6 +380,10 @@ class ReaderChapterBlockMeasurer(
                         val placeholderExtent = (lineHeight ?: baseStyle.fontSizePx).coerceAtLeast(1f)
                         val originalSize = imageDimensionsResolver.resolve(item.source)
                             ?: ReaderImageDimensions(placeholderExtent, placeholderExtent)
+                        // SPEC-216: 0×0（失败图）不占位、不排破图。
+                        if (originalSize.widthPx < 1f || originalSize.heightPx < 1f) {
+                            return@forEach
+                        }
                         val requestedWidth = options?.requestedWidthFraction?.let { fraction ->
                             style.imageAvailableWidthPx?.times(fraction)
                         } ?: options?.requestedWidthPx
@@ -445,6 +450,10 @@ class ReaderChapterBlockMeasurer(
         source.blocks.forEachIndexed { index, block ->
             when (block) {
                 is ReaderChapterSourceBlock.Text -> {
+                    // SPEC-216: 跳过图片尺寸调试行（已入库正文也清）。
+                    if (WebArticleDebugLineFilter.isDebugDimLine(block.value)) {
+                        return@forEachIndexed
+                    }
                     addStyledParagraph(
                         listOf(ReaderChapterInlineSource.Text(block.value, block.chapterPosition)),
                         block.isTitle,
@@ -483,6 +492,9 @@ class ReaderChapterBlockMeasurer(
                         .coerceAtLeast(1f)
                     val originalSize = imageDimensionsResolver.resolve(block.source)
                         ?: ReaderImageDimensions(placeholderExtent, placeholderExtent)
+                    if (originalSize.widthPx < 1f || originalSize.heightPx < 1f) {
+                        return@forEachIndexed
+                    }
                     val requestedWidth = options?.requestedWidthFraction?.let { fraction ->
                         style.imageAvailableWidthPx?.times(fraction)
                     } ?: options?.requestedWidthPx

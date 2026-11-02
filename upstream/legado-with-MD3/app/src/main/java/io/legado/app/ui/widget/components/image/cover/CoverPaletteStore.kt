@@ -21,6 +21,7 @@ object CoverPaletteStore {
 
     fun setRandomMatch(context: Context, value: Boolean) {
         prefs(context).edit { putBoolean(KEY_RANDOM, value) }
+        poolCache = null
     }
 
     /** Empty set while random is on means “all presets”. */
@@ -34,6 +35,7 @@ object CoverPaletteStore {
         prefs(context).edit {
             putString(KEY_ENABLED_IDS, ids.joinToString(","))
         }
+        poolCache = null
     }
 
     fun galleryUris(context: Context): List<String> {
@@ -46,6 +48,7 @@ object CoverPaletteStore {
         prefs(context).edit {
             putString(KEY_GALLERY, uris.joinToString("\n"))
         }
+        poolCache = null
     }
 
     fun addGalleryUri(context: Context, uri: String) {
@@ -60,8 +63,14 @@ object CoverPaletteStore {
         setGalleryUris(context, galleryUris(context).filterNot { it == uri })
     }
 
+    /** SPEC-197: 池结果内存缓存——bookshelf 快滑时每个 item 组合都会调 pickForSeed，
+     *  不缓存则每次都做 3 次 SharedPreferences 读 + 字符串切分。写操作即失效。 */
+    @Volatile
+    private var poolCache: List<String>? = null
+
     /** URIs eligible for [GeneratedCover.fromSeed]. */
     fun availablePool(context: Context): List<String> {
+        poolCache?.let { return it }
         val gallery = galleryUris(context)
         val random = isRandomMatch(context)
         val enabled = enabledPresetIds(context)
@@ -71,7 +80,7 @@ object CoverPaletteStore {
             GeneratedCover.presets.filter { it.id in enabled }.map { it.uri }
                 .ifEmpty { GeneratedCover.presets.map { it.uri } }
         }
-        return presets + gallery
+        return (presets + gallery).also { poolCache = it }
     }
 
     fun pickForSeed(context: Context, seed: String): String =

@@ -23,6 +23,7 @@ import com.kyant.capsule.ContinuousCapsule
 import io.legado.app.ui.animation.InteractiveHighlight
 import io.legado.app.ui.theme.ChromeSurfaceStyle
 import io.legado.app.ui.theme.ChromeSurfaceStylePolicy
+import io.legado.app.ui.theme.GlassMotionGate
 import io.legado.app.ui.theme.GlassReadiness
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.LocalAppUiConfiguration
@@ -39,9 +40,10 @@ import kotlin.math.tanh
  */
 internal object BrowserChromeGlassStyle {
     fun barSurfaceAlpha(isDark: Boolean): Float = if (isDark) 0.42f else 0.16f
-    fun fabSurfaceAlpha(isDark: Boolean): Float = if (isDark) 0.55f else 0.28f
+    /** SPEC-221: 净读 FAB 跟 AppTheme primary，玻璃态仍用较高着色以免洗成灰。 */
+    fun fabSurfaceAlpha(isDark: Boolean): Float = if (isDark) 0.78f else 0.72f
     fun barFallbackAlpha(isDark: Boolean): Float = if (isDark) 0.55f else 0.38f
-    fun fabFallbackAlpha(isDark: Boolean): Float = if (isDark) 0.72f else 0.48f
+    fun fabFallbackAlpha(isDark: Boolean): Float = if (isDark) 0.92f else 0.88f
     fun shadowAlpha(isDark: Boolean): Float = if (isDark) 0.20f else 0.10f
 
 }
@@ -53,11 +55,13 @@ internal fun currentChromeSurfaceStyle(): ChromeSurfaceStyle =
 /**
  * SPEC-071: alpha for solid tints drawn on NTP liquid-glass controls.
  * Liquid glass → light 0.4 / dark 0.35 (SPEC-072); filled → opaque 1.
+ * SPEC-221: 滚动/IME 抑制玻璃时退不透明，避免卡片闪成半透明。
  */
 @Composable
 fun ntpGlassOverlayAlpha(forceDark: Boolean? = null): Float {
     val style = currentChromeSurfaceStyle()
     if (style != ChromeSurfaceStyle.LiquidGlass) return 1f
+    if (GlassMotionGate.suppressed) return 1f
     val dark = forceDark ?: LegadoTheme.isDark
     return if (dark) BrowserUiTokens.NtpGlassOverlayDark else BrowserUiTokens.NtpGlassOverlayLight
 }
@@ -75,8 +79,11 @@ fun Modifier.browserFloatingChromeGlass(
     }
     return when (style) {
         ChromeSurfaceStyle.LiquidGlass -> {
-            // SPEC-148 R3: 就绪门闸——ready 前走 fallback，避免首帧建特效层
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && GlassReadiness.ready) {
+            // SPEC-148 R3: 就绪门闸；SPEC-219: 运动/IME 抑制时退 fallback。
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                GlassReadiness.ready &&
+                !GlassMotionGate.suppressed
+            ) {
                 drawBackdrop(
                     backdrop = scaffoldBackdrop ?: localBackdrop,
                     shape = { shape },
@@ -122,8 +129,11 @@ fun Modifier.browserReaderFabGlass(
     }
     return when (style) {
         ChromeSurfaceStyle.LiquidGlass -> {
-            // SPEC-148 R3: 就绪门闸——ready 前走 fallback，避免首帧建特效层
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && GlassReadiness.ready) {
+            // SPEC-148 R3 / SPEC-219: readiness + motion/IME gate.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                GlassReadiness.ready &&
+                !GlassMotionGate.suppressed
+            ) {
                 drawBackdrop(
                     backdrop = scaffoldBackdrop ?: localBackdrop,
                     shape = { CircleShape },
@@ -188,21 +198,26 @@ fun Modifier.browserControlLiquidGlass(
         isDark -> 0.50f
         else -> 0.42f
     }
-    val fallbackAlpha = when (style) {
-        ChromeSurfaceStyle.Filled -> 1f
-        ChromeSurfaceStyle.Translucent, ChromeSurfaceStyle.LiquidGlass -> {
+    // SPEC-221: 运动抑制时 fallback 用不透明 surface，避免 NTP 卡片闪半透明。
+    val fallbackAlpha = when {
+        style == ChromeSurfaceStyle.Filled -> 1f
+        GlassMotionGate.suppressed -> 1f
+        style == ChromeSurfaceStyle.Translucent || style == ChromeSurfaceStyle.LiquidGlass -> {
             if (overlayAlpha != null) surfaceAlpha
             else if (readableOverlay) surfaceAlpha
             else BrowserChromeGlassStyle.barFallbackAlpha(isDark)
         }
+        else -> 1f
     }
     val fallback = clip(shape).background(
         surface.copy(alpha = fallbackAlpha),
         shape,
     )
+    // SPEC-219: respect GlassMotionGate (scroll / IME / search focus).
     val liquidActive = style == ChromeSurfaceStyle.LiquidGlass &&
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-        GlassReadiness.ready
+        GlassReadiness.ready &&
+        !GlassMotionGate.suppressed
     if (!liquidActive) return fallback
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) { InteractiveHighlight(animationScope) }

@@ -6,6 +6,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +32,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -39,6 +42,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -656,6 +660,12 @@ private fun BookmarksModeTopBar(
                         style = TopBarButtonStyle.Tonal,
                     )
                 } else {
+                    // SPEC-197: 书签页排序占加号原位（中槽）、新建保持最右，左槽留空——
+                    // 右侧三槽与收藏页等宽对齐，切换控件宽度两页恒定
+                    // （取代 SPEC-196 在排序与新建之间加隐形占位的方案）。
+                    if (!showAddFavorite) {
+                        Spacer(modifier = Modifier.size(36.dp))
+                    }
                     Box {
                         TopBarActionButton(
                             onClick = { onShowSortChange(true) },
@@ -692,7 +702,7 @@ private fun BookmarksModeTopBar(
                             }
                         }
                     }
-                    // SPEC-121: 书签 Tab 不留 Add 空槽；排序与新建文件夹 spacedBy(4.dp)。
+                    // SPEC-197: 收藏页=[排序][加号][新建]；书签页=[空槽][排序][新建]。
                     if (showAddFavorite) {
                         TopBarActionButton(
                             onClick = onAddFavorite,
@@ -725,7 +735,8 @@ private fun BookmarksModeSegmentedControl(
     val shape = RoundedCornerShape(50)
     BoxWithConstraints(
         modifier = modifier
-            .height(28.dp)
+            // SPEC-196: 36dp 与顶栏 Tonal 按钮/标签页分段控件同高（原 28dp）。
+            .height(36.dp)
             .clip(shape)
             .background(scheme.surfaceContainerHighest)
             .padding(3.dp),
@@ -772,19 +783,33 @@ private fun RowScope.BookmarksModeSegment(
     onClick: () -> Unit,
 ) {
     val scheme = LegadoTheme.colorScheme
-    Box(
-        modifier = Modifier
-            .weight(1f)
-            .fillMaxHeight()
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (selected) scheme.onSurface else scheme.onSurfaceVariant,
-            maxLines = 1,
+    // SPEC-202: 按压高亮随控件外形（原矩形涟漪）——涟漪画在与内容分离的覆盖层，
+    // 15dp 圆角（段高 30dp 胶囊圆角），不裁文字。
+    val interaction = remember { MutableInteractionSource() }
+    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = interaction,
+                    indication = null,
+                    onClick = onClick,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                fontSize = 13.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (selected) scheme.onSurface else scheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(15.dp))
+                .indication(interaction, ripple(bounded = true)),
         )
     }
 }
@@ -826,6 +851,8 @@ private fun FolderRow(
             contentDescription = "删除文件夹",
             modifier = Modifier
                 .size(22.dp)
+                // SPEC-199: 小图标涟漪随圆形。
+                .clip(CircleShape)
                 .clickable(onClick = onDelete),
             tint = scheme.onSurfaceVariant,
         )
@@ -910,6 +937,8 @@ private fun BookmarkRow(
                 contentDescription = "菜单",
                 modifier = Modifier
                     .size(22.dp)
+                    // SPEC-199: 小图标涟漪随圆形。
+                    .clip(CircleShape)
                     .clickable(onClick = onMenu),
                 tint = scheme.onSurfaceVariant,
             )
@@ -1014,6 +1043,8 @@ private fun MenuLine(label: String, onClick: () -> Unit) {
         label,
         modifier = Modifier
             .fillMaxWidth()
+            // SPEC-199: 弹出菜单行涟漪 16dp 圆角。
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .padding(
                 horizontal = BrowserUiTokens.SpaceLg,

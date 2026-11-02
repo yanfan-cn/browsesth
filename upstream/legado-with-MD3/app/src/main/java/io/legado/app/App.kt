@@ -169,6 +169,24 @@ class App : Application(), SingletonImageLoader.Factory {
                 AppConfigStore.putInt(PreferKey.readMenuBottomCornerRadius, 24)
                 ntp.edit().putBoolean("read_ui_defaults_spec119_v1", true).apply()
             }
+            // SPEC-208: 默认平板/横屏双页（含已装用户一次迁移）。
+            if (!ntp.getBoolean("read_double_page_spec208_v1", false)) {
+                AppConfigStore.putString(PreferKey.doublePageHorizontal, "3")
+                ntp.edit().putBoolean("read_double_page_spec208_v1", true).apply()
+            }
+            // SPEC-216: 滚动动画专用点击区默认（上无/中菜单/下无）。
+            if (!ntp.getBoolean("read_click_scroll_spec216_v1", false)) {
+                AppConfigStore.putInt(PreferKey.clickActionScrollTL, -1)
+                AppConfigStore.putInt(PreferKey.clickActionScrollTC, -1)
+                AppConfigStore.putInt(PreferKey.clickActionScrollTR, -1)
+                AppConfigStore.putInt(PreferKey.clickActionScrollML, 0)
+                AppConfigStore.putInt(PreferKey.clickActionScrollMC, 0)
+                AppConfigStore.putInt(PreferKey.clickActionScrollMR, 0)
+                AppConfigStore.putInt(PreferKey.clickActionScrollBL, -1)
+                AppConfigStore.putInt(PreferKey.clickActionScrollBC, -1)
+                AppConfigStore.putInt(PreferKey.clickActionScrollBR, -1)
+                ntp.edit().putBoolean("read_click_scroll_spec216_v1", true).apply()
+            }
             // SPEC-112: 阅读/朗读默认强制覆盖（含已装机用户）。
             if (!ntp.getBoolean("read_ui_defaults_spec112_v1", false)) {
                 AppConfigStore.putString(PreferKey.titleBarMode, "2")
@@ -253,6 +271,24 @@ class App : Application(), SingletonImageLoader.Factory {
                 ntp.edit().putBoolean("read_ui_header_off_spec112_v1", true).apply()
             }
         }
+        // SPEC-202: 页眉强制关闭再执行一次——SPEC-112 的覆盖只跑一次，之后样式被
+        // 调整/导入会让页眉回来（真机截图：页眉章节名以约 4sp 渲染）。
+        run {
+            val ntp = getSharedPreferences("browsesth_ntp_prefs", MODE_PRIVATE)
+            if (!ntp.getBoolean("read_ui_header_off_spec202_v1", false)) {
+                get<ReadStyleGateway>().applyHeaderHiddenDefault()
+                ntp.edit().putBoolean("read_ui_header_off_spec202_v1", true).apply()
+            }
+        }
+        // SPEC-203: 正文章节标题一律隐藏（含已装用户）；异常 titleSize(<8) 纠正为 20。
+        // 净读临时书在分页路径 forceShow，不受此迁移影响。
+        run {
+            val ntp = getSharedPreferences("browsesth_ntp_prefs", MODE_PRIVATE)
+            if (!ntp.getBoolean("read_ui_title_off_spec203_v1", false)) {
+                get<ReadStyleGateway>().applyTitleHiddenDefault()
+                ntp.edit().putBoolean("read_ui_title_off_spec203_v1", true).apply()
+            }
+        }
         // SPEC-117: 阅读列表默认打开「已读」，并确保该系统分组可见。
         run {
             val ntp = getSharedPreferences("browsesth_ntp_prefs", MODE_PRIVATE)
@@ -266,6 +302,17 @@ class App : Application(), SingletonImageLoader.Factory {
                         .enableGroup(io.legado.app.data.entities.BookGroup.IdReadFinished)
                 }
                 ntp.edit().putBoolean("read_list_default_read_spec117_v1", true).apply()
+            }
+        }
+        // SPEC-205: 分组管理「本地」默认开启；不改默认 Tab。
+        run {
+            val ntp = getSharedPreferences("browsesth_ntp_prefs", MODE_PRIVATE)
+            if (!ntp.getBoolean("read_list_local_group_on_spec205_v1", false)) {
+                runCatching {
+                    io.legado.app.data.appDb.bookGroupDao
+                        .enableGroup(io.legado.app.data.entities.BookGroup.IdLocal)
+                }
+                ntp.edit().putBoolean("read_list_local_group_on_spec205_v1", true).apply()
             }
         }
         if (legacyLanguage != null) {

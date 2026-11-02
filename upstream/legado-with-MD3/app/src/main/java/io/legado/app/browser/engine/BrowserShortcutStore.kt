@@ -7,29 +7,35 @@ import io.legado.app.R
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** SPEC-049/071/119: prefer high-res resolvers before tiny /favicon.ico. */
+/**
+ * SPEC-049/071/119/221: remote favicon candidates.
+ * Prefer site PNG + China-reachable resolvers; Google s2 last (often blocked).
+ */
 fun siteFaviconCandidates(pageUrl: String): List<String> {
+    // SPEC-221: java.net.URI so JVM unit tests (no android.net.Uri) share the same path.
     val host = try {
-        Uri.parse(pageUrl).host?.removePrefix("www.").orEmpty()
+        java.net.URI(pageUrl.trim()).host?.removePrefix("www.").orEmpty()
     } catch (_: Throwable) {
         ""
     }
     if (host.isBlank()) return emptyList()
     val origin = try {
-        val u = Uri.parse(pageUrl)
+        val u = java.net.URI(pageUrl.trim())
         val scheme = u.scheme?.takeIf { it == "http" || it == "https" } ?: "https"
         "$scheme://${u.host}"
     } catch (_: Throwable) {
         "https://$host"
     }
     return listOf(
-        "https://www.google.com/s2/favicons?sz=256&domain_url=$origin",
-        "https://www.google.com/s2/favicons?sz=128&domain=$host",
-        "https://icons.duckduckgo.com/ip3/$host.ico",
         "$origin/apple-touch-icon.png",
         "$origin/apple-touch-icon-precomposed.png",
+        "$origin/favicon.png",
+        "https://favicon.yandex.net/favicon/v2/$host?size=120",
+        "https://icons.duckduckgo.com/ip3/$host.ico",
         "$origin/favicon.ico",
         "https://$host/favicon.ico",
+        "https://www.google.com/s2/favicons?sz=256&domain_url=$origin",
+        "https://www.google.com/s2/favicons?sz=128&domain=$host",
     )
 }
 
@@ -49,17 +55,10 @@ data class BrowserShortcut(
 
     fun faviconUrl(): String = faviconCandidates().firstOrNull().orEmpty()
 
-    /** SPEC-117/160: bundled high-res icons (avoid blurry remote favicons). */
+    /** SPEC-117/160: bundled high-res icons; SPEC-196: matched by host so
+     *  history / favorites / link menus share the same ability as NTP shortcuts. */
     @DrawableRes
-    fun localIconRes(): Int? = when (id) {
-        "baidu" -> R.drawable.ic_engine_baidu
-        "bilibili" -> R.drawable.ic_shortcut_bilibili
-        "rebang" -> R.drawable.ic_shortcut_rebang
-        "ithome" -> R.drawable.ic_shortcut_ithome
-        "thepaper" -> R.drawable.ic_shortcut_thepaper
-        "xunye" -> R.drawable.ic_shortcut_xunye
-        else -> null
-    }
+    fun localIconRes(): Int? = BrowserShortcutStore.localIconResForHost(host())
 }
 
 /** Customizable NTP shortcuts (Chrome-like speed dial). */
@@ -161,6 +160,24 @@ class BrowserShortcutStore(context: Context) {
         private const val KEY = "shortcuts"
         private const val KEY_SPEC117 = "shortcuts_spec117_v1"
         private const val KEY_SPEC160_XUNYE = "shortcuts_spec160_xunye_v1"
+
+        /** SPEC-196: bundled high-res icons matched by domain (host or subdomain),
+         *  shared by NTP shortcuts / history / favorites / link menus. */
+        @DrawableRes
+        fun localIconResForHost(host: String): Int? {
+            val h = host.lowercase().removePrefix("www.")
+            if (h.isBlank()) return null
+            return when {
+                h == "baidu.com" || h.endsWith(".baidu.com") -> R.drawable.ic_engine_baidu
+                h == "bilibili.com" || h.endsWith(".bilibili.com") -> R.drawable.ic_shortcut_bilibili
+                h == "rebang.open2hub.com" || h.endsWith(".rebang.open2hub.com") ->
+                    R.drawable.ic_shortcut_rebang
+                h == "ithome.com" || h.endsWith(".ithome.com") -> R.drawable.ic_shortcut_ithome
+                h == "thepaper.cn" || h.endsWith(".thepaper.cn") -> R.drawable.ic_shortcut_thepaper
+                h == "feijipan.com" || h.endsWith(".feijipan.com") -> R.drawable.ic_shortcut_xunye
+                else -> null
+            }
+        }
 
         /** SPEC-152: 快捷书签变更版本号；NTP 订阅此流实现跨界面即时刷新。 */
         val version = kotlinx.coroutines.flow.MutableStateFlow(0L)

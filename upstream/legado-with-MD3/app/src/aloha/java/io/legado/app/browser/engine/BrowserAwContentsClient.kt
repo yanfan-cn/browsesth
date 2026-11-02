@@ -73,8 +73,8 @@ class BrowserAwContentsClient(
      * (e.g. HTTPS→HTTP fallback) so the default error snack is skipped.
      */
     private val onMainFrameError: ((url: String, netError: Int, description: String) -> Boolean)? = null,
-    /** SPEC-131: HTML5 / Chromium custom fullscreen view. */
-    private val customViewShowHandler: ((View, CustomViewCallback) -> Unit)? = null,
+    /** SPEC-131/222: HTML5 custom fullscreen view (flavor-agnostic callback). */
+    private val customViewShowHandler: ((View, BrowserCustomViewCallback) -> Unit)? = null,
     private val customViewHideHandler: (() -> Unit)? = null,
     /** SPEC-132: playable stream sniffed (HLS / media URL). */
     private val onPlayableMedia: ((
@@ -298,16 +298,21 @@ class BrowserAwContentsClient(
     override fun onPermissionRequestCanceled(awPermissionRequest: AwPermissionRequest) {}
     override fun onScaleChangedScaled(oldScale: Float, newScale: Float) {}
     override fun onReceivedTouchIconUrl(url: String, precomposed: Boolean) {}
-    override fun onReceivedIcon(bitmap: Bitmap) {}
+    override fun onReceivedIcon(bitmap: Bitmap) {
+        // SPEC-221: persist host favicon for NTP shortcuts / history.
+        BrowserFaviconCache.put(lastUrl, bitmap)
+    }
     override fun onPageCommitVisible(url: String) {}
     override fun onReceivedHttpError(request: AwWebResourceRequest, response: WebResourceResponseInfo) {}
     override fun onShowCustomView(view: View, callback: CustomViewCallback) {
         // SPEC-131: host must attach [view] and later invoke callback / onHideCustomView.
-        customViewShowHandler?.invoke(view, callback)
-            ?: run {
-                Log.w(TAG, "onShowCustomView: no host handler")
-                runCatching { callback.onCustomViewHidden() }
-            }
+        customViewShowHandler?.invoke(
+            view,
+            BrowserCustomViewCallback { callback.onCustomViewHidden() },
+        ) ?: run {
+            Log.w(TAG, "onShowCustomView: no host handler")
+            runCatching { callback.onCustomViewHidden() }
+        }
     }
 
     override fun onHideCustomView() {

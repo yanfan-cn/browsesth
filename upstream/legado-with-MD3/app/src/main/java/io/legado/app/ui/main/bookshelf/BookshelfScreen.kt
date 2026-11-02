@@ -53,6 +53,7 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -70,6 +71,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import io.legado.app.help.config.LocalConfig
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -79,6 +81,7 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -87,6 +90,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -117,6 +121,9 @@ import io.legado.app.ui.widget.components.card.TextCard
 import io.legado.app.ui.widget.components.divider.PillHeaderDivider
 import io.legado.app.ui.widget.components.filePicker.FilePickerSheet
 import io.legado.app.ui.widget.components.icon.AppIcons
+import io.legado.app.ui.widget.components.modalBottomSheet.OptionCard
+import io.legado.app.ui.widget.components.modalBottomSheet.OptionSheet
+import io.legado.app.ui.main.MainRouteImportLocal
 import io.legado.app.ui.widget.components.image.cover.bookshelfSharedCoverSourceId
 import io.legado.app.ui.widget.components.importComponents.SourceInputDialog
 import io.legado.app.ui.widget.components.lazylist.FastScrollLazyVerticalGrid
@@ -161,7 +168,7 @@ fun BookshelfRouteScreen(
     /** SPEC-025: tablet bookshelf ← back to browser Home. */
     onNavigateBackToBrowser: (() -> Unit)? = null,
     onNavigateToRemoteImport: () -> Unit,
-    onNavigateToLocalImport: () -> Unit,
+    onNavigateToLocalImport: (autoPick: String?) -> Unit,
     onNavigateToCache: (Long) -> Unit,
     onNavigateToSettings: () -> Unit = {},
     sharedTransitionScope: SharedTransitionScope? = null,
@@ -219,7 +226,7 @@ fun BookshelfScreen(
     onNavigateToSearch: (String) -> Unit,
     onNavigateBackToBrowser: (() -> Unit)? = null,
     onNavigateToRemoteImport: () -> Unit,
-    onNavigateToLocalImport: () -> Unit,
+    onNavigateToLocalImport: (autoPick: String?) -> Unit,
     onNavigateToCache: (Long) -> Unit,
     // 私密功能需要本地密码，未设置时引导去设置页
     onNavigateToSettings: () -> Unit = {},
@@ -540,6 +547,7 @@ fun BookshelfScreen(
 
     val scrollBehavior = GlassTopAppBarDefaults.defaultScrollBehavior()
     var showTopBarMenu by remember { mutableStateOf(false) }
+    var showAddSheet by remember { mutableStateOf(false) }
     val onSearchClick = {
         if (uiState.settings.bookshelfSearchActionDirectToSearch) {
             onNavigateToSearch(uiState.searchKey.trim())
@@ -588,11 +596,20 @@ fun BookshelfScreen(
                             contentDescription = stringResource(R.string.select_all)
                         )
                     }
+                    // SPEC-206: 删除选中书籍（确认对话框）。
                     AnimatedVisibility(visible = isEditMode) {
                         TopBarActionButton(
-                            onClick = { onIntent(BookshelfIntent.InvertVisibleSelection) },
-                            symbol = Symbols.Refresh,
-                            contentDescription = stringResource(R.string.revert_selection)
+                            onClick = {
+                                if (selectedBookUrls.isNotEmpty()) {
+                                    onIntent(
+                                        BookshelfIntent.ShowOverlay(
+                                            BookshelfOverlay.DeleteBooksConfirmDialog
+                                        )
+                                    )
+                                }
+                            },
+                            symbol = Symbols.Delete,
+                            contentDescription = stringResource(R.string.delete)
                         )
                     }
                     AnimatedVisibility(visible = isEditMode) {
@@ -643,11 +660,24 @@ fun BookshelfScreen(
                     }
 
                     if (!isEditMode) {
-                        // SPEC-104: add-local between search and overflow menu.
+                        // SPEC-205: Add → bottom sheet (folder / books); 添加本地已迁至「我的·文件管理」。
                         TopBarActionButton(
-                            onClick = onNavigateToLocalImport,
-                            symbol = Symbols.Save,
-                            contentDescription = stringResource(R.string.book_local)
+                            onClick = { showAddSheet = true },
+                            symbol = Symbols.Add,
+                            contentDescription = stringResource(R.string.add)
+                        )
+                        // SPEC-204: layout + selection between add and overflow menu.
+                        TopBarActionButton(
+                            onClick = {
+                                onIntent(BookshelfIntent.ShowOverlay(BookshelfOverlay.ConfigSheet))
+                            },
+                            symbol = Symbols.GridView,
+                            contentDescription = stringResource(R.string.layout_setting)
+                        )
+                        TopBarActionButton(
+                            onClick = { toggleEditMode() },
+                            symbol = Symbols.Edit,
+                            contentDescription = stringResource(R.string.selection_mode)
                         )
                         Box {
                             TopBarActionButton(
@@ -657,7 +687,9 @@ fun BookshelfScreen(
                             )
                             RoundDropdownMenu(
                                 expanded = showTopBarMenu,
-                                onDismissRequest = { showTopBarMenu = false }
+                                onDismissRequest = { showTopBarMenu = false },
+                                // SPEC-209: menu at least 4dp below top-bar buttons.
+                                offset = DpOffset(0.dp, 4.dp),
                             ) { dismiss ->
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.add_remote_book),
@@ -671,14 +703,6 @@ fun BookshelfScreen(
                                         dismiss()
                                     },
                                     leadingIcon = { SymbolIcon(Symbols.Refresh, null) }
-                                )
-                                RoundDropdownMenuItem(
-                                    text = stringResource(R.string.layout_setting),
-                                    onClick = {
-                                        onIntent(BookshelfIntent.ShowOverlay(BookshelfOverlay.ConfigSheet))
-                                        dismiss()
-                                    },
-                                    leadingIcon = { SymbolIcon(Symbols.GridView, null) }
                                 )
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.group_manage),
@@ -695,14 +719,6 @@ fun BookshelfScreen(
                                         dismiss()
                                     },
                                     leadingIcon = { SymbolIcon(Symbols.Link, null) }
-                                )
-                                RoundDropdownMenuItem(
-                                    text = stringResource(R.string.selection_mode),
-                                    onClick = {
-                                        toggleEditMode()
-                                        dismiss()
-                                    },
-                                    leadingIcon = { SymbolIcon(Symbols.Edit, null) }
                                 )
                                 RoundDropdownMenuItem(
                                     text = stringResource(R.string.bookshelf_management),
@@ -879,6 +895,22 @@ fun BookshelfScreen(
             )
         }
     ) { paddingValues ->
+        // SPEC-197 R2: 归因打点——Scaffold 顶栏 padding 逐帧变化会重跑本 lambda，
+        // 长帧里出现此 marker 即证实「折叠推挤重测」路径仍在生效。
+        ShelfPerfTrace.marker("shelfScaffoldPadding")
+        // SPEC-197: 顶栏折叠/展开时 Scaffold 的顶部 padding 逐帧变化，会让整个
+        // LazyVerticalGrid 每帧全量重测（真机 trace 实测 40–78ms 突发）。把内容顶
+        // 边距固定为「顶栏完全展开」高度：当前 padding = 状态栏+当前栏高，而
+        // heightOffset ∈ [-limit, 0]，二者相减恒等于展开高度 → 下游布局输入恒定，
+        // 折叠只动顶栏本身。折叠行为保留；视觉差异 = 收缩瞬间内容从栏下滑过
+        // （M3 标准折叠交互，操作者 2026-10-28 确认）。
+        val stableTopPadding = with(LocalDensity.current) {
+            paddingValues.calculateTopPadding() - scrollBehavior.heightOffset.toDp()
+        }
+        val stablePaddingValues = PaddingValues(
+            top = stableTopPadding,
+            bottom = paddingValues.calculateBottomPadding(),
+        )
         val currentGroup by remember {
             derivedStateOf {
                 if (uiState.isSearch) {
@@ -897,7 +929,7 @@ fun BookshelfScreen(
                 isRefreshing = uiState.isRefreshing,
                 onRefresh = { onIntent(BookshelfIntent.RefreshBooks(uiState.items)) },
                 enabled = pullToRefreshEnabled,
-                topPadding = paddingValues.calculateTopPadding(),
+                topPadding = stableTopPadding,
                 scrollBehavior = scrollBehavior
             ) {
                 folderTransition.AnimatedContent(
@@ -937,7 +969,7 @@ fun BookshelfScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(
-                                    top = paddingValues.calculateTopPadding(),
+                                    top = stableTopPadding,
                                     bottom = 120.dp
                                 ),
                             messageResId = R.string.bookshelf_empty
@@ -958,17 +990,19 @@ fun BookshelfScreen(
                                 }
                             ),
                         contentPadding = adaptiveContentPaddingBookshelf(
-                            top = paddingValues.calculateTopPadding(),
+                            top = stableTopPadding,
                             bottom = if (uiState.useRaisedBottomInset) 120.dp else 8.dp,
                             horizontal = 4.dp
                         ),
-                        verticalArrangement = Arrangement.spacedBy(if (isGridMode) 8.dp else 0.dp),
-                        horizontalArrangement = Arrangement.spacedBy(if (isGridMode) 8.dp else 0.dp),
-                        showFastScroll = uiState.settings.showBookshelfFastScroller
-                    ) {
-                        itemsIndexed(
-                            uiState.groups,
-                            key = { _, it -> it.groupId }) { index, group ->
+            verticalArrangement = Arrangement.spacedBy(if (isGridMode) 8.dp else 0.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (isGridMode) 8.dp else 0.dp),
+            showFastScroll = uiState.settings.showBookshelfFastScroller
+        ) {
+            itemsIndexed(
+                uiState.groups,
+                key = { _, it -> it.groupId },
+                            // SPEC-197: 同类 item 复用，降低快滑时逐 item 组合/测量成本
+                            contentType = { _, _ -> "group" }) { index, group ->
                             // 私密分组在文件夹根目录也不露出预览封面与书籍数量
                             val groupLocked = uiState.isGroupLocked(group)
                             val countText = if (uiState.settings.showBookCount && !groupLocked) {
@@ -1036,7 +1070,7 @@ fun BookshelfScreen(
                         } else {
                             BookshelfPage(
                                 gridState = standaloneSearchGridState,
-                                paddingValues = paddingValues,
+                                paddingValues = stablePaddingValues,
                                 books = uiState.items,
                                 uiState = uiState,
                                 selectedBookUrls = selectedBookUrls,
@@ -1096,7 +1130,7 @@ fun BookshelfScreen(
                                                 isSelectedGroup
                                         BookshelfPage(
                                             gridState = groupGridStates.getValue(group.groupId),
-                                            paddingValues = paddingValues,
+                                            paddingValues = stablePaddingValues,
                                             books = books,
                                             uiState = uiState,
                                             selectedBookUrls = selectedBookUrls,
@@ -1155,7 +1189,7 @@ fun BookshelfScreen(
                 item = editStickySummary,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = paddingValues.calculateTopPadding() + 6.dp),
+                    .padding(top = stableTopPadding + 6.dp),
             ) { summary ->
                 val closeDescription = stringResource(R.string.close)
                 Box {
@@ -1262,6 +1296,30 @@ fun BookshelfScreen(
         }
     }
 
+    // SPEC-205: Add → 选择文件夹 / 选择书籍
+    OptionSheet(
+        show = showAddSheet,
+        onDismissRequest = { showAddSheet = false },
+        title = stringResource(R.string.select_operation),
+    ) {
+        OptionCard(
+            icon = Symbols.FolderOpen,
+            text = stringResource(R.string.select_folder),
+            onClick = {
+                showAddSheet = false
+                onNavigateToLocalImport(MainRouteImportLocal.AUTO_PICK_FOLDER)
+            },
+        )
+        OptionCard(
+            icon = Symbols.InsertDriveFile,
+            text = stringResource(R.string.select_book),
+            onClick = {
+                showAddSheet = false
+                onNavigateToLocalImport(MainRouteImportLocal.AUTO_PICK_BOOKS)
+            },
+        )
+    }
+
     BookshelfOverlays(
         activeOverlay = activeOverlay,
         uiState = uiState,
@@ -1309,14 +1367,18 @@ private fun BookshelfTopBar(
                 }
             }
         },
-        title = if (uiState.isLoading) {
-            stringResource(R.string.loading)
-        } else {
-            uiState.title.ifEmpty { stringResource(R.string.bookshelf) }
+        // SPEC-209: 选择态用「已选…」作 title（与圆钮同行），勿作 Flexible 副标题。
+        title = when {
+            uiState.isLoading -> stringResource(R.string.loading)
+            uiState.isEditMode -> uiState.subtitle.orEmpty().ifEmpty {
+                uiState.title.ifEmpty { stringResource(R.string.bookshelf) }
+            }
+            else -> uiState.title.ifEmpty { stringResource(R.string.bookshelf) }
         },
         useCharMode = uiState.isLoading,
-        subtitle = uiState.subtitle,
+        subtitle = if (uiState.isEditMode) null else uiState.subtitle,
         scrollBehavior = scrollBehavior,
+        pinnedTitleRow = uiState.isEditMode,
         actions = {
             TopBarActionButton(
                 onClick = onSearchClick,
@@ -1491,6 +1553,51 @@ private fun BookshelfOverlays(
         onDismiss = { onIntent(BookshelfIntent.DismissOverlay) }
     )
 
+    // SPEC-206: 选择模式批量删除确认（含本地源文件勾选）。
+    if (activeOverlay == BookshelfOverlay.DeleteBooksConfirmDialog) {
+        val hasLocalInSelection = remember(uiState.items, selectedBookUrls) {
+            uiState.items.any { it.book.bookUrl in selectedBookUrls && it.book.isLocal }
+        }
+        var deleteOriginal by remember {
+            mutableStateOf(LocalConfig.deleteBookOriginal)
+        }
+        AppAlertDialog(
+            show = true,
+            onDismissRequest = { onIntent(BookshelfIntent.DismissOverlay) },
+            title = stringResource(R.string.draw),
+            content = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AppText(text = stringResource(R.string.sure_del))
+                    if (hasLocalInSelection) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Start,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(
+                                checked = deleteOriginal,
+                                onCheckedChange = { deleteOriginal = it },
+                            )
+                            AppText(text = stringResource(R.string.delete_book_file))
+                        }
+                    }
+                }
+            },
+            confirmText = stringResource(android.R.string.ok),
+            onConfirm = {
+                onIntent(BookshelfIntent.DismissOverlay)
+                onIntent(
+                    BookshelfIntent.DeleteBooks(
+                        bookUrls = selectedBookUrls,
+                        deleteOriginal = deleteOriginal,
+                    )
+                )
+            },
+            dismissText = stringResource(android.R.string.cancel),
+            onDismiss = { onIntent(BookshelfIntent.DismissOverlay) },
+        )
+    }
+
     if (uiState.isLoading) {
         val loadingDescription = uiState.loadingText ?: stringResource(R.string.loading)
         Dialog(onDismissRequest = {}) {
@@ -1659,6 +1766,14 @@ fun BookshelfPage(
         }
     }
 
+    // SPEC-195: 滚动帧统计（纯观测打点，无行为变化）；滚动结束在 logcat 输出一行汇总。
+    val scrollJankMonitor = remember { ScrollJankMonitor("shelfPage") }
+    LaunchedEffect(gridState) {
+        snapshotFlow { gridState.isScrollInProgress }.collect { scrolling ->
+            if (scrolling) scrollJankMonitor.start() else scrollJankMonitor.stopAndReport()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1692,17 +1807,20 @@ fun BookshelfPage(
             horizontalArrangement = Arrangement.spacedBy(if (isGridMode) 8.dp else 0.dp),
             showFastScroll = showFastScroll
         ) {
-            itemsIndexed(displayBooks, key = { _, item -> item.book.bookUrl }) { index, bookUi ->
+            itemsIndexed(
+                displayBooks,
+                key = { _, item -> item.book.bookUrl },
+                // SPEC-197: 同类 item 复用，降低快滑时逐 item 组合/测量成本
+                contentType = { _, _ -> "book" }) { index, bookUi ->
                 val isSelected = selectedBookUrls.contains(bookUi.book.bookUrl)
                 val sharedCoverKey = bookCoverSharedElementKey(
                     bookUi.book.bookUrl,
                     bookshelfSharedCoverSourceId(sharedCoverGroupId)
                 )
-                ReorderableItem(
-                    state = reorderableState,
-                    key = bookUi.book.bookUrl,
-                    enabled = canReorderBooks
-                ) { isDragging ->
+                // SPEC-198: 参照 legado 阅读列表的浅 item 哲学——非编辑态不包
+                // ReorderableItem（每 item 一层排序库包装在正常浏览时纯属开销，
+                // fling 起步的 40~78ms 组合突发里有它一份）；编辑态保留完整拖拽。
+                val itemContent: @Composable (Boolean, Modifier) -> Unit = { isDragging, extraModifier ->
                     val bookLocked = uiState.isBookLocked(bookUi)
                     // 锁定 ⇄ 解锁的过渡在 BookItem 内部完成：封面走模糊深度、文字走占位替换。
                     // 不在这一层整体模糊，是因为整体 blur 会把封面圆角与阴影一起糊掉。
@@ -1724,25 +1842,7 @@ fun BookshelfPage(
                                 onMoveBook(from, to, displayBooks)
                                 onDragFinished()
                             }
-                            .then(
-                                if (canReorderBooks) {
-                                    Modifier.longPressDraggableHandle(
-                                        onDragStarted = {
-                                            onDragStarted(displayBooks)
-                                            hapticFeedback.performHapticFeedback(
-                                                HapticFeedbackType.GestureThresholdActivate
-                                            )
-                                        },
-                                        onDragStopped = {
-                                            hapticFeedback.performHapticFeedback(
-                                                HapticFeedbackType.GestureEnd
-                                            )
-                                        }
-                                    )
-                                } else {
-                                    Modifier
-                                }
-                            )
+                            .then(extraModifier)
                             .graphicsLayer {
                                 alpha = if (isDragging) 0.5f else 1f
                             },
@@ -1784,6 +1884,32 @@ fun BookshelfPage(
                             }
                         }
                     )
+                }
+                if (canReorderBooks) {
+                    ReorderableItem(
+                        state = reorderableState,
+                        key = bookUi.book.bookUrl,
+                        enabled = true,
+                    ) { isDragging ->
+                        itemContent(
+                            isDragging,
+                            Modifier.longPressDraggableHandle(
+                                onDragStarted = {
+                                    onDragStarted(displayBooks)
+                                    hapticFeedback.performHapticFeedback(
+                                        HapticFeedbackType.GestureThresholdActivate
+                                    )
+                                },
+                                onDragStopped = {
+                                    hapticFeedback.performHapticFeedback(
+                                        HapticFeedbackType.GestureEnd
+                                    )
+                                },
+                            ),
+                        )
+                    }
+                } else {
+                    itemContent(false, Modifier)
                 }
             }
         }

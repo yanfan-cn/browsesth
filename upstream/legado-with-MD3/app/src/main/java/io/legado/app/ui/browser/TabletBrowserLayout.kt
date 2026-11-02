@@ -1,10 +1,27 @@
 package io.legado.app.ui.browser
 
+import io.legado.app.ui.theme.ChromeSurfaceStyle
+
 /**
  * SPEC-036: tablet chrome rules kept as pure functions for tests.
  * SPEC-133: phone landscape NTP / nav helpers live here too (shared browser layout).
  */
 object TabletBrowserLayout {
+
+    /**
+     * SPEC-214 ②: tablet function-bar liquid glass stays **off** (even omnibox/净读).
+     * 2.1.3/2.1.4 tombstones: RenderThread DirtyStack overflow with NTP + any chrome glass.
+     * Phone chrome glass unchanged. [style] kept for call-site compatibility / future gate.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun tabletFunctionBarUsesLiquidGlass(style: ChromeSurfaceStyle): Boolean = false
+
+    /**
+     * SPEC-214 ② / SPEC-111: tablet toolbox always solid fills (glass+NTP/chrome overflows HWUI).
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun tabletToolboxUsesSolidSurfaces(style: ChromeSurfaceStyle): Boolean = true
+
 
     /** SPEC-133/160: phone NTP content width — landscape ~58% (fine-tune), portrait full. */
     fun phoneNtpContentWidthFraction(landscape: Boolean): Float =
@@ -35,14 +52,20 @@ object TabletBrowserLayout {
      * Do not park the pager from a touch flag — that recomposes the pager a frame
      * late and makes in-card flicks both janky and able to change pages.
      */
+    /**
+     * SPEC-221: also park while phone NTP search overlay is open
+     * (same as session — do not swipe to 阅读列表 / 我的).
+     */
     @Suppress("UNUSED_PARAMETER")
     fun pagerUserScrollEnabled(
         isTablet: Boolean,
         onBrowserHome: Boolean,
         sessionActive: Boolean,
+        phoneNtpSearchActive: Boolean = false,
     ): Boolean = when {
         isTablet -> false
         sessionActive -> false
+        phoneNtpSearchActive -> false
         else -> true
     }
 
@@ -69,13 +92,18 @@ object TabletBrowserLayout {
         }
     }
 
-    /** SPEC-060: tablet hides body chapter title block. */
+    /**
+     * SPEC-060: tablet hides body chapter title block.
+     * SPEC-203: [forceShow] 净读临时书强制显示正文章节标题（覆盖 titleMode 与平板隐藏）。
+     */
     fun showBodyTitle(
         isTablet: Boolean,
         titleMode: Int,
         isVolume: Boolean,
         textEmpty: Boolean,
+        forceShow: Boolean = false,
     ): Boolean {
+        if (forceShow) return true
         if (isTablet) return false
         return titleMode != 2 || isVolume || textEmpty
     }

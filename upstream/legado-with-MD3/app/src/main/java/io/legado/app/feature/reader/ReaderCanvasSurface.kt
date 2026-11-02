@@ -1891,18 +1891,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawScrollPageConte
             native.drawText(e.value, e.bounds.left, e.baselinePx, paint)
         }
 
-        is ReaderElement.Image -> cachedImage(e)?.let { bitmap ->
-            ReaderImageDrawLayout.forElement(e, bitmap.width, bitmap.height)?.let { layout ->
-                drawImage(
-                    image = bitmap.asImageBitmap(),
-                    dstOffset = IntOffset(layout.leftPx.roundToInt(), layout.topPx.roundToInt()),
-                    dstSize = IntSize(
-                        layout.widthPx.roundToInt().coerceAtLeast(1),
-                        layout.heightPx.roundToInt().coerceAtLeast(1),
-                    ),
-                )
-            }
-        } ?: drawRect(Color.Gray.copy(alpha = .18f), Offset(e.bounds.left, e.bounds.top), Size(e.bounds.width, e.bounds.height))
+        is ReaderElement.Image -> drawReaderContentImage(e, cachedImage(e))
         is ReaderElement.Review -> if (e.count > 0) drawReview(native, e, data.paints.values.firstOrNull()?.color ?: android.graphics.Color.GRAY)
         is ReaderElement.Action -> Unit
         is ReaderElement.Spacer -> Unit
@@ -2335,18 +2324,7 @@ private fun ReaderPageCanvas(
                         e.drawsLinkUnderline
                 native.drawText(e.value, e.bounds.left, e.baselinePx, paint)
             }
-            is ReaderElement.Image -> images[e]?.let { bitmap ->
-                ReaderImageDrawLayout.forElement(e, bitmap.width, bitmap.height)?.let { layout ->
-                    drawImage(
-                        image = bitmap.asImageBitmap(),
-                        dstOffset = IntOffset(layout.leftPx.roundToInt(), layout.topPx.roundToInt()),
-                        dstSize = IntSize(
-                            layout.widthPx.roundToInt().coerceAtLeast(1),
-                            layout.heightPx.roundToInt().coerceAtLeast(1),
-                        ),
-                    )
-                }
-            } ?: drawRect(Color.Gray.copy(alpha = .18f), Offset(e.bounds.left, e.bounds.top), Size(e.bounds.width, e.bounds.height))
+            is ReaderElement.Image -> drawReaderContentImage(e, images[e])
             is ReaderElement.Review -> if (e.count > 0) drawReview(native, e, paints.values.firstOrNull()?.color ?: android.graphics.Color.GRAY)
             is ReaderElement.Action -> Unit
             is ReaderElement.Spacer -> Unit
@@ -2700,6 +2678,59 @@ private fun drawNineSliceBackground(
             paint,
         )
     }
+}
+
+/** SPEC-212: jingshi 缩略图标记（与 WebArticleVideoThumb.MARKER 对齐）。 */
+private fun isJingshiThumbSrc(src: String): Boolean =
+    src.contains("#browsesth-jingshi", ignoreCase = true) ||
+        src.startsWith("browsesth-jingshi://", ignoreCase = true)
+
+/**
+ * SPEC-212/213: 普通图按旧逻辑；jingshi 仅在海报位图可用时绘制并叠播放键——缺图不画深灰假块。
+ */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawReaderContentImage(
+    element: ReaderElement.Image,
+    bitmap: Bitmap?,
+) {
+    val jingshi = isJingshiThumbSrc(element.source)
+    val usable = bitmap?.takeUnless { it.isRecycled }
+    // SPEC-212/216: 缺图/破图不画感叹号占位，也不画灰块。
+    if (usable == null) return
+    val layout = ReaderImageDrawLayout.forElement(element, usable.width, usable.height) ?: return
+    val left = layout.leftPx
+    val top = layout.topPx
+    val width = layout.widthPx.coerceAtLeast(1f)
+    val height = layout.heightPx.coerceAtLeast(1f)
+    drawImage(
+        image = usable.asImageBitmap(),
+        dstOffset = IntOffset(left.roundToInt(), top.roundToInt()),
+        dstSize = IntSize(
+            width.roundToInt().coerceAtLeast(1),
+            height.roundToInt().coerceAtLeast(1),
+        ),
+    )
+    if (jingshi) {
+        drawJingshiPlayIcon(left, top, width, height)
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawJingshiPlayIcon(
+    left: Float,
+    top: Float,
+    width: Float,
+    height: Float,
+) {
+    val cx = left + width / 2f
+    val cy = top + height / 2f
+    val r = minOf(width, height) * 0.16f
+    drawCircle(Color.Black.copy(alpha = 0.48f), radius = r, center = Offset(cx, cy))
+    val path = Path().apply {
+        moveTo(cx - r * 0.22f, cy - r * 0.38f)
+        lineTo(cx - r * 0.22f, cy + r * 0.38f)
+        lineTo(cx + r * 0.48f, cy)
+        close()
+    }
+    drawPath(path, Color.White)
 }
 
 private fun drawReview(canvas: android.graphics.Canvas, review: ReaderElement.Review, colorArgb: Int) {

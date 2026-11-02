@@ -1,8 +1,8 @@
 # SPEC-154 release 长按闪退正式修法（Bromium R 防 R8 内联）
 
-状态：已记下待实施（2026-10-21 操作者：「记住怎么改，然后先改别的打 debug」；装机 1.5.7-beta 仍复现长按闪退）
-日期：2026-10-21
-关联：SPEC-153（关 shrinkResources + AwSettings 直调，不足以修长按）、SPEC-148（release/R8）
+状态：Implemented（随 SPEC-220 release **2.2.1-beta**；真机长按待验）
+日期：2026-10-21；实施 2026-11-02
+关联：SPEC-153（关 shrinkResources + AwSettings 直调，不足以修长按）、SPEC-148（release/R8）、SPEC-220
 
 ## 根因（装机 log 实锤）
 

@@ -7,6 +7,9 @@ package io.legado.app.browser.reader
  *
  * SPEC-044: nested containers recurse; never flatten via innerText (that dropped imgs).
  * SPEC-123: ad tokens are bounded so `image-reload` is not treated as an ad.
+ * SPEC-211: prefer portal article roots; drop QR/share widgets and near-square control imgs.
+ * SPEC-212: skip media nodes; emit jingshi poster thumbs for &lt;video&gt;; player chrome hints.
+ * SPEC-217: optional strong extract (extra roots + chrome node hints); default off via prefs.
  */
 object WebArticleExtractJs {
     /**
@@ -19,19 +22,21 @@ object WebArticleExtractJs {
         function isBadImg(el,src,fromLazy){
         if(!src||src.indexOf('data:')===0)return true;
         var low=src.toLowerCase();
-        if(/avatar|icon|logo|banner|pixel|1x1|spacer|blank\.gif|pagead|doubleclick|googlesyndication|adsbygoogle/.test(low))return true;
+        if(/avatar|icon|logo|banner|pixel|1x1|spacer|blank\.gif|pagead|doubleclick|googlesyndication|adsbygoogle|qrcode|qr_code|qr-code|wxcode|miniprogram/.test(low))return true;
         if(/(?:^|[^a-z0-9])ads?(?![a-z0-9])/.test(low))return true;
         if(/(?:^|[^a-z0-9])advert/.test(low))return true;
         var cls=((el.className||'')+' '+(el.id||'')).toLowerCase();
-        if(/avatar|icon|logo|emoji|sprite|banner|pixel|track|adsbygoogle|thumb|thumbnail/.test(cls))return true;
+        if(/avatar|icon|logo|emoji|sprite|banner|pixel|track|adsbygoogle|thumb|thumbnail|qrcode|qr_code|wxcode|share|v\-icon|verified/.test(cls))return true;
         if(/(?:^|[^a-z0-9])ads?(?![a-z0-9])/.test(cls))return true;
         if(/(?:^|[^a-z0-9])advert/.test(cls))return true;
         var aw=parseInt(el.getAttribute('width'),10)||0,ah=parseInt(el.getAttribute('height'),10)||0;
         if(fromLazy){
         if((aw>1&&aw<120)||(ah>1&&ah<120))return true;
+        if(aw>=120&&ah>=120&&aw<=400&&ah<=400){var r=aw/ah;if(r>=0.85&&r<=1.15)return true;}
         }else{
         var w=el.naturalWidth||aw||el.width||0,h=el.naturalHeight||ah||el.height||0;
         if((w>0&&w<120)||(h>0&&h<120)||(w>0&&h>0&&w*h<14400))return true;
+        if(w>=120&&h>=120&&w<=400&&h<=400){var rr=w/h;if(rr>=0.85&&rr<=1.15)return true;}
         }
         return false;
         }
@@ -49,20 +54,62 @@ object WebArticleExtractJs {
         }
         """.trimIndent()
 
-    val SCRIPT: String =
+    /** Baseline extract (SPEC-211/212). Prefer [script] with prefs. */
+    val SCRIPT: String get() = script(strongExtract = false)
+
+    private val baseChromeHints =
+        "nav|navbar|menu|breadcrumb|sidebar|aside|footer|header|toolbar|tabbar|comment|reply|" +
+            "advert|ads?|banner|popup|modal|recommend|related|paginator|page-nav|chapter-nav|" +
+            "read-nav|topnav|bottomnav|share|social|qrcode|qr-code|float|action-bar|tool-bar|" +
+            "follow|ask-ai|yuanbao|txp-|tenvideo|tvp-|xgplayer|dplayer|video-js|vjs-|" +
+            "player-info|video-info|videoinfo|media-info|video-player|tp-video|player-btn|" +
+            "playback|quality|controls|svg-icon|volume|progress-bar|control-bar"
+
+    /** SPEC-217/220: extra chrome when「极致净化」on. */
+    private val strongChromeHints =
+        "open-app|openapp|app-open|download-app|app-download|guide-download|promote|" +
+            "listen-all|listen-full|askai|ai-ask|hot-news|hotnews|bottom-bar|top-bar|" +
+            "fixed-bar|sticky-bar|float-btn|open-client|client-open|app-guide|download-bar|" +
+            "share-bar|tool-box|toolbox|side-tool|widget|promo|incentive"
+
+    private val baseRootSelectors =
+        "#ArticleContent,.content-article,.qq-article,.article-content"
+
+    /** SPEC-217: more portal / WeChat / news roots when strong. */
+    private val strongRootSelectors =
+        "#ArticleContent,.content-article,.qq-article,.article-content," +
+            ".rich_media_content,#js_content,.post-content,.article-body,.news_txt," +
+            ".content_area,.article__content,.article-detail,.main-content,#main-content," +
+            ".post_body,.entry-content,#contentTxt,.contentTxt"
+
+    /**
+     * SPEC-217: [strongExtract]=true → stronger root prefer + more chrome node skip.
+     */
+    fun script(strongExtract: Boolean): String {
+        val chrome = if (strongExtract) {
+            "$baseChromeHints|$strongChromeHints"
+        } else {
+            baseChromeHints
+        }
+        val rootFirst = if (strongExtract) strongRootSelectors else baseRootSelectors
+        return buildScript(chromeHints = chrome, rootFirstSelectors = rootFirst)
+    }
+
+    private fun buildScript(chromeHints: String, rootFirstSelectors: String): String =
         "(function(){" +
             imageFilterJs +
             "function meta(sel){var el=document.querySelector(sel);if(!el)return '';return el.getAttribute('content')||'';}" +
             "function textOf(el){if(!el)return '';return (el.innerText||el.textContent||'').replace(/\\s+\\n/g,'\\n').trim();}" +
             "function isSkip(tag){" +
             "return tag==='script'||tag==='style'||tag==='noscript'||tag==='svg'||tag==='button'" +
-            "||tag==='nav'||tag==='footer'||tag==='header'||tag==='aside'||tag==='form'||tag==='iframe';" +
+            "||tag==='nav'||tag==='footer'||tag==='header'||tag==='aside'||tag==='form'||tag==='iframe'" +
+            "||tag==='audio'||tag==='source'||tag==='object'||tag==='embed'||tag==='track';" +
             "}" +
-            // SPEC-057: skip common chrome containers by class/id hints.
+            // SPEC-057/211/212/217: skip chrome containers (share/QR + player + optional strong).
             "function isChromeNode(el){" +
             "if(!el||!el.getAttribute)return false;" +
             "var s=((el.className||'')+' '+(el.id||'')+' '+(el.getAttribute('role')||'')).toLowerCase();" +
-            "return /\\b(nav|navbar|menu|breadcrumb|sidebar|aside|footer|header|toolbar|tabbar|comment|reply|advert|ads?|banner|popup|modal|recommend|related|paginator|page-nav|chapter-nav|read-nav|topnav|bottomnav)\\b/.test(s);" +
+            "return /\\b($chromeHints)\\b/.test(s);" +
             "}" +
             "function isBlock(tag){" +
             "return tag==='p'||tag==='div'||tag==='section'||tag==='article'||tag==='li'" +
@@ -81,6 +128,24 @@ object WebArticleExtractJs {
             "if(nt===3){if(buf)buf.push(node.nodeValue||'');else pushText(node.nodeValue);return;}" +
             "if(nt!==1)return;" +
             "var tag=(node.tagName||'').toLowerCase();" +
+            // SPEC-212/213: video → 原海报 jingshi；无 poster 时找子图/前一张图，否则 pending 交 Kotlin 绑定。
+            "if(tag==='video'){" +
+            "if(buf&&buf.length){pushText(buf.join(''));buf.length=0;}" +
+            "var poster=abs(node.getAttribute('poster')||node.getAttribute('data-poster')||'');" +
+            "if(!poster||poster.indexOf('http')!==0){" +
+            "var pi=node.querySelector?node.querySelector('img'):null;" +
+            "if(pi){var pit=imgTag(pi);var pm=pit&&pit.match(/src=\"([^\"]+)\"/);if(pm)poster=pm[1];}" +
+            "}" +
+            "if((!poster||poster.indexOf('http')!==0)&&node.previousElementSibling){" +
+            "var ps=node.previousElementSibling;" +
+            "var psi=(ps.tagName||'').toLowerCase()==='img'?ps:(ps.querySelector?ps.querySelector('img'):null);" +
+            "if(psi){var pst=imgTag(psi);var psm=pst&&pst.match(/src=\"([^\"]+)\"/);if(psm)poster=psm[1];}" +
+            "}" +
+            "if(poster&&poster.indexOf('http')===0){" +
+            "out.push('<img src=\"'+poster.replace(/\"/g,'')+'#browsesth-jingshi\">');" +
+            "}else{out.push('<img src=\"browsesth-jingshi://pending\">');}" +
+            "return;" +
+            "}" +
             "if(isSkip(tag)||isChromeNode(node))return;" +
             "if(tag==='img'){" +
             "if(buf&&buf.length){pushText(buf.join(''));buf.length=0;}" +
@@ -107,7 +172,9 @@ object WebArticleExtractJs {
             "}" +
             "var title=(document.title||'').trim();" +
             "var h1=document.querySelector('h1');if(h1){var h1t=textOf(h1);if(h1t)title=h1t;}" +
-            "var root=document.querySelector('article')||document.querySelector('[role=\"main\"]')" +
+            // SPEC-211/217: portal article roots before generic article/main/body.
+            "var root=document.querySelector('$rootFirstSelectors')" +
+            "||document.querySelector('article')||document.querySelector('[role=\"main\"]')" +
             "||document.querySelector('main')||document.querySelector('#content, .content, .article, .post, .entry-content, .chapter, .chapter-content, #chaptercontent, .read-content')" +
             "||document.body;" +
             "var html=walk(root);" +

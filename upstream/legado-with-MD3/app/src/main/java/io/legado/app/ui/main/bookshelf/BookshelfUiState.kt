@@ -39,6 +39,8 @@ sealed interface BookshelfOverlay {
     data object GroupSelectSheet : BookshelfOverlay
     data class GroupEditSheet(val groupId: Long) : BookshelfOverlay
     data object BatchDownloadConfirmDialog : BookshelfOverlay
+    /** SPEC-206: 选择模式批量删除确认。 */
+    data object DeleteBooksConfirmDialog : BookshelfOverlay
 }
 
 sealed interface BookshelfIntent {
@@ -50,9 +52,10 @@ sealed interface BookshelfIntent {
     data object ToggleEditMode : BookshelfIntent
     data object ExitEditMode : BookshelfIntent
     data object ClearSelection : BookshelfIntent
+    /** SPEC-206: 可见项全选/全不选切换。 */
     data object SelectAllVisible : BookshelfIntent
-    data object InvertVisibleSelection : BookshelfIntent
     data class ToggleBookSelection(val bookUrl: String) : BookshelfIntent
+    data class DeleteBooks(val bookUrls: Set<String>, val deleteOriginal: Boolean) : BookshelfIntent
     data class SetInFolderRoot(val value: Boolean) : BookshelfIntent
     data class MoveBooksToGroup(val bookUrls: Set<String>, val groupId: Long) : BookshelfIntent
     data class DownloadBooks(val bookUrls: Set<String>, val allChapters: Boolean = false) : BookshelfIntent

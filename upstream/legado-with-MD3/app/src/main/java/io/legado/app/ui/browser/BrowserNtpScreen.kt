@@ -17,6 +17,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -59,6 +61,7 @@ import io.legado.app.ui.main.bookCoverSharedElementKey
 import io.legado.app.ui.theme.LocalTopBarBackdrop
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ripple
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -85,6 +88,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
@@ -133,12 +137,15 @@ import io.legado.app.domain.gateway.AppShellSettingsGateway
 import io.legado.app.ui.book.info.ChangeCoverSheet
 import io.legado.app.ui.config.themeConfig.ThemeModeSelector
 import io.legado.app.ui.qrcode.QrCodeResult
+import io.legado.app.ui.theme.GlassMotionGate
 import io.legado.app.ui.theme.LegadoTheme
 import java.io.File
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.image.cover.CoilBookCover
 import io.legado.app.ui.widget.components.icon.Symbols
+import io.legado.app.ui.widget.components.menu.AnimatedMenuPopup
+import io.legado.app.ui.widget.components.menu.MenuPopupAlignment
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.utils.toastOnUi
 import android.net.Uri
@@ -162,7 +169,11 @@ private data class NtpColors(
     val divider: Color,
 )
 
-/** SPEC-067/161: NTP follows App ColorScheme (same as「我的」); incognito no longer overrides. */
+/** SPEC-203: 预置/渐变壁纸为浅色背景，logo 固定用深色（与快捷书签浅底文字色一致）。 */
+private val NtpDarkWordmark = Color(0xFF1C1B19)
+
+/** SPEC-067/161: NTP follows App ColorScheme (same as「我的」); incognito no longer overrides.
+ *  SPEC-203: 浅/深外观切换时整组颜色带 400ms 过渡（原仅 pageBg 有过渡，其余瞬时跳变）。 */
 @Composable
 private fun rememberNtpColors(forceDark: Boolean?): NtpColors {
     val scheme = LegadoTheme.colorScheme
@@ -172,7 +183,7 @@ private fun rememberNtpColors(forceDark: Boolean?): NtpColors {
         null -> LegadoTheme.isDark || isSystemInDarkTheme()
     }
     // Prefer App scheme for both light/dark so NTP matches settings pages.
-    return NtpColors(
+    val target = NtpColors(
         pageBg = scheme.background,
         fieldBg = scheme.surfaceContainerLow,
         cardBg = scheme.surfaceContainerLow,
@@ -183,7 +194,22 @@ private fun rememberNtpColors(forceDark: Boolean?): NtpColors {
         ctaText = scheme.onPrimary,
         divider = scheme.outlineVariant.copy(alpha = if (dark) 0.40f else 0.60f),
     )
+    return NtpColors(
+        pageBg = animateNtpColor(target.pageBg, "ntpPageBg"),
+        fieldBg = animateNtpColor(target.fieldBg, "ntpFieldBg"),
+        cardBg = animateNtpColor(target.cardBg, "ntpCardBg"),
+        primaryText = animateNtpColor(target.primaryText, "ntpPrimaryText"),
+        secondaryText = animateNtpColor(target.secondaryText, "ntpSecondaryText"),
+        ntpWordmark = animateNtpColor(target.ntpWordmark, "ntpWordmark"),
+        cta = animateNtpColor(target.cta, "ntpCta"),
+        ctaText = animateNtpColor(target.ctaText, "ntpCtaText"),
+        divider = animateNtpColor(target.divider, "ntpDivider"),
+    )
 }
+
+@Composable
+private fun animateNtpColor(target: Color, label: String): Color =
+    animateColorAsState(targetValue = target, animationSpec = tween(400), label = label).value
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -219,6 +245,14 @@ fun BrowserNtpScreen(
     val fullscreenSearch = BrowserNtpSearchRows.opensFullscreen(tabletLayout)
     var phoneSearchMounted by remember { mutableStateOf(false) }
     var phoneSearchExpanded by remember { mutableStateOf(false) }
+    // SPEC-219: suppress liquid-glass backdrop while search/IME is active (Android 17 lag).
+    LaunchedEffect(queryFocused, phoneSearchExpanded) {
+        if (queryFocused || phoneSearchExpanded) {
+            GlassMotionGate.suppress()
+        } else {
+            GlassMotionGate.release()
+        }
+    }
     /** SPEC-179: keep search cover while session slides in; no collapse-to-NTP flash. */
     var phoneSearchDismissAfterNav by remember { mutableStateOf(false) }
     var ntpRootTop by remember { mutableFloatStateOf(0f) }
@@ -524,12 +558,9 @@ fun BrowserNtpScreen(
         }
     }
 
-    // SPEC-161: incognito keeps the same page appearance as normal (no forced dark skin).
-    val pageBg by animateColorAsState(
-        targetValue = colors.pageBg,
-        animationSpec = tween(400),
-        label = "ntpPageBg",
-    )
+    // SPEC-161/203: incognito keeps the same page appearance; pageBg itself now animates
+    // inside rememberNtpColors (whole-palette 400ms transition on light/dark switch).
+    val pageBg = colors.pageBg
     // SPEC-059/161: follow app theme only (incognito no longer forces dark).
     val ntpDark = LegadoTheme.isDark || isSystemInDarkTheme()
     // SPEC-158/161: wallpaper stays visible in incognito.
@@ -544,7 +575,12 @@ fun BrowserNtpScreen(
         else -> 0f
     }
     val shortcutLightText = ntpDark || wallpaperScrim > 0f
-    val shortcutLabelColor = if (shortcutLightText) Color.White else Color(0xFF1C1B19)
+    // SPEC-203: 快捷书签文字色随浅/深过渡，避免瞬时跳变。
+    val shortcutLabelColor by animateColorAsState(
+        targetValue = if (shortcutLightText) Color.White else Color(0xFF1C1B19),
+        animationSpec = tween(400),
+        label = "ntpShortcutLabelColor",
+    )
     // SPEC-129: dark wallpaper / dark NTP → light status-bar icons (readable on dark).
     // SPEC-147 R12: 改走 StatusBarAppearance 仲裁器——nav3 重锚页面时 effect 会在
     // 同一帧销毁重建，仲裁器延迟一帧恢复默认，可被重新登记取消，避免图标翻转。
@@ -612,27 +648,30 @@ fun BrowserNtpScreen(
         }
 
         // SPEC-160: top gradient translucent mask (no blur) for chrome readability.
-        val scrimBase = if (LegadoTheme.isDark) {
-            BrowserUiTokens.PageBgDark
-        } else {
-            BrowserUiTokens.PageBgLight
-        }
-        val scrimEdge = BrowserUiTokens.ntpScrimEdgeAlpha(isDark = LegadoTheme.isDark)
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .zIndex(1.5f)
-                .fillMaxWidth()
-                .height(BrowserUiTokens.NtpScrimHeightTop)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            scrimBase.copy(alpha = scrimEdge),
-                            scrimBase.copy(alpha = 0f),
+        // SPEC-203: tablet NTP skips the top scrim; phone keeps it.
+        if (!tabletLayout) {
+            val scrimBase = if (LegadoTheme.isDark) {
+                BrowserUiTokens.PageBgDark
+            } else {
+                BrowserUiTokens.PageBgLight
+            }
+            val scrimEdge = BrowserUiTokens.ntpScrimEdgeAlpha(isDark = LegadoTheme.isDark)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .zIndex(1.5f)
+                    .fillMaxWidth()
+                    .height(BrowserUiTokens.NtpScrimHeightTop)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                scrimBase.copy(alpha = scrimEdge),
+                                scrimBase.copy(alpha = 0f),
+                            ),
                         ),
                     ),
-                ),
-        )
+            )
+        }
 
         // SPEC-049: compact 54dp chrome + glass customize panel (sibling of sample source)
         val chromeTint = colors.primaryText
@@ -821,12 +860,25 @@ fun BrowserNtpScreen(
                     dailyWallpaper = dailyWallpaper,
                 )
             }
+            // SPEC-203: logo 深浅按背景判断，不随外观主题——预置/渐变壁纸（均为浅色
+            // 背景）固定深色 logo；自定义图片壁纸沿用主题色；无壁纸随页面背景。
+            // 颜色随浅/深过渡动画变化。
+            val logoTargetColor = when {
+                userWallpaperVisible -> colors.ntpWordmark
+                presetWallpaperVisible -> NtpDarkWordmark
+                else -> colors.ntpWordmark
+            }
+            val logoColor by animateColorAsState(
+                targetValue = logoTargetColor,
+                animationSpec = tween(400),
+                label = "ntpLogoColor",
+            )
             if (showLogo) {
                 Image(
                     painter = painterResource(R.drawable.ic_ntp_logo),
                     contentDescription = stringResource(R.string.app_name),
                     contentScale = ContentScale.Fit,
-                    colorFilter = ColorFilter.tint(colors.ntpWordmark),
+                    colorFilter = ColorFilter.tint(logoColor),
                     modifier = Modifier.height(44.dp),
                 )
                 // SPEC-060: Logo ↔ search spacing 24dp on tablet; phone keeps 16dp
@@ -899,6 +951,8 @@ fun BrowserNtpScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp)
+                                // SPEC-199: 48dp 高热区涟漪随胶囊（父容器只裁两端）。
+                                .clip(RoundedCornerShape(24.dp))
                                 .clickable { openPhoneSearch() },
                             contentAlignment = Alignment.CenterStart,
                         ) {
@@ -1128,15 +1182,21 @@ fun BrowserNtpScreen(
                                 contentPadding = PaddingValues(horizontal = BrowserUiTokens.SpaceXs),
                             ) {
                                 items(books, key = { it.bookUrl }) { book ->
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier
-                                            .width(72.dp)
-                                            .combinedClickable(
+                                    // SPEC-199/203: 封面格涟漪 16dp 圆角改画在覆盖层——
+                                    // 整格 clip 会叠在封面自身 12dp 圆角上，把顶角裁成
+                                    // 16dp、底角仍是 12dp（上大下小）。覆盖层只裁涟漪，
+                                    // 封面恢复统一圆角。
+                                    val interaction = remember { MutableInteractionSource() }
+                                    Box(modifier = Modifier.width(72.dp)) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.combinedClickable(
+                                                interactionSource = interaction,
+                                                indication = null,
                                                 onClick = { onOpenBook(book) },
                                                 onLongClick = { coverBook = book },
                                             ),
-                                    ) {
+                                        ) {
                                         // SPEC-160: CoilBookCover renders color/gradient covers too.
                                         CoilBookCover(
                                             name = book.name,
@@ -1162,6 +1222,14 @@ fun BrowserNtpScreen(
                                             textAlign = TextAlign.Center,
                                             modifier = Modifier.padding(top = 6.dp),
                                         )
+                                        }
+                                        // SPEC-203: 涟漪覆盖层（16dp 圆角，不裁内容）。
+                                        Box(
+                                            modifier = Modifier
+                                                .matchParentSize()
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .indication(interaction, ripple(bounded = true)),
+                                        )
                                     }
                                 }
                             }
@@ -1171,23 +1239,21 @@ fun BrowserNtpScreen(
             }
 
             // SPEC-084/087: optional news feed (hidden in incognito).
+            // SPEC-219: same sibling glass stack as 阅读列表 — Surface+glass on Android 17
+            // liquid glass painted a solid gray slab.
             if (!incognito && newsFeedEnabled) {
                 Spacer(modifier = Modifier.height(BrowserUiTokens.SpaceXl))
                 val newsFill = ntpGlassOverlayAlpha()
                 val newsBg = colors.fieldBg.copy(alpha = newsFill)
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(BrowserUiTokens.CardCorner))
-                        .browserControlLiquidGlass(
-                            RoundedCornerShape(BrowserUiTokens.CardCorner),
-                            interactive = false,
-                        ),
-                    shape = RoundedCornerShape(BrowserUiTokens.CardCorner),
-                    color = newsBg,
-                    shadowElevation = 0.dp,
-                    tonalElevation = 0.dp,
-                ) {
+                val newsShape = RoundedCornerShape(BrowserUiTokens.CardCorner)
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(newsShape)
+                            .background(newsBg, newsShape)
+                            .browserControlLiquidGlass(newsShape, interactive = false),
+                    )
                     Column(modifier = Modifier.padding(BrowserUiTokens.SpaceLg)) {
                         Row(
                             modifier = Modifier
@@ -1588,11 +1654,10 @@ private fun NtpNewsSourceMenu(
                 16.dp
             ).roundToPx()
     }
-    Popup(
-        alignment = Alignment.BottomEnd,
+    AnimatedMenuPopup(
+        alignment = MenuPopupAlignment.AboveEnd,
         offset = IntOffset(x = with(density) { (-16).dp.roundToPx() }, y = -bottomLift),
         onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.PopupProperties(focusable = true),
     ) {
         val shape = RoundedCornerShape(BrowserUiTokens.CardCorner)
         Column(
@@ -1726,8 +1791,8 @@ private fun NtpCustomizePanel(
     val appShell by appShellGateway.settings.collectAsStateWithLifecycle(
         initialValue = appShellGateway.currentSettings,
     )
-    Popup(
-        alignment = Alignment.TopStart,
+    AnimatedMenuPopup(
+        alignment = MenuPopupAlignment.BelowStart,
         offset = IntOffset(
             x = 0,
             y = with(density) {
@@ -1739,7 +1804,6 @@ private fun NtpCustomizePanel(
             },
         ),
         onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.PopupProperties(focusable = true),
     ) {
         val shape = RoundedCornerShape(BrowserUiTokens.CardCorner)
         Column(
@@ -1890,17 +1954,22 @@ private fun ShortcutChip(
     onOpen: () -> Unit,
     onEdit: () -> Unit,
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .width(cellWidth)
-            .combinedClickable(
+    // SPEC-198/202: 涟漪 24dp 圆角改画在与内容分离的覆盖层——整格 clip 会把
+    // 底部标签文字切进圆角弧线（四字标签首字被斜切），覆盖层只裁涟漪不裁内容。
+    val interaction = remember { MutableInteractionSource() }
+    Box(modifier = Modifier.width(cellWidth)) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.combinedClickable(
+                interactionSource = interaction,
+                indication = null,
                 onClick = onOpen,
                 onLongClick = onEdit,
             ),
-    ) {
-        FaviconBubble(
+        ) {
+            FaviconBubble(
             title = shortcut.title,
+            pageUrl = shortcut.url,
             urls = if (loadFavicon) shortcut.faviconCandidates() else emptyList(),
             localIconRes = shortcut.localIconRes(),
             darkBubble = darkBubble,
@@ -1921,6 +1990,14 @@ private fun ShortcutChip(
             ),
             modifier = Modifier.padding(top = 8.dp),
         )
+        }
+        // SPEC-202: 涟漪覆盖层——随内容尺寸，24dp 圆角，只裁涟漪不裁文字。
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(24.dp))
+                .indication(interaction, ripple(bounded = true)),
+        )
     }
 }
 
@@ -1932,12 +2009,17 @@ private fun AddShortcutChip(
     cellWidth: androidx.compose.ui.unit.Dp,
     onClick: () -> Unit,
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .width(cellWidth)
-            .clickable(onClick = onClick),
-    ) {
+    // SPEC-198/202: 与 ShortcutChip 同款——涟漪画在覆盖层，整格 clip 不再裁文字。
+    val interaction = remember { MutableInteractionSource() }
+    Box(modifier = Modifier.width(cellWidth)) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            ),
+        ) {
         val bubbleFill = ntpGlassOverlayAlpha(forceDark = if (darkBubble) true else null)
         Box(
             modifier = Modifier
@@ -1975,12 +2057,21 @@ private fun AddShortcutChip(
             ),
             modifier = Modifier.padding(top = BrowserUiTokens.SpaceSm),
         )
+        }
+        // SPEC-202: 涟漪覆盖层（同 ShortcutChip）。
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(24.dp))
+                .indication(interaction, ripple(bounded = true)),
+        )
     }
 }
 
 @Composable
 private fun FaviconBubble(
     title: String,
+    pageUrl: String,
     urls: List<String>,
     darkBubble: Boolean,
     @androidx.annotation.DrawableRes localIconRes: Int? = null,
@@ -1988,6 +2079,9 @@ private fun FaviconBubble(
     val letter = title.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "#"
     var index by remember(title, urls.size) { mutableIntStateOf(0) }
     val url = urls.getOrNull(index).orEmpty()
+    val cachedBitmap = remember(pageUrl) {
+        io.legado.app.browser.engine.BrowserFaviconCache.get(pageUrl)
+    }
     val bubbleFill = ntpGlassOverlayAlpha(forceDark = if (darkBubble) true else null)
     Box(
         modifier = Modifier
@@ -2022,9 +2116,17 @@ private fun FaviconBubble(
             modifier = Modifier.fillMaxWidth(),
         )
         // SPEC-117: prefer bundled high-res icon (e.g. Baidu) over blurry remote favicon.
+        // SPEC-221: Chromium onReceivedIcon cache before remote resolvers.
         if (localIconRes != null) {
             Image(
                 painter = painterResource(localIconRes),
+                contentDescription = title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else if (cachedBitmap != null && !cachedBitmap.isRecycled) {
+            Image(
+                bitmap = cachedBitmap.asImageBitmap(),
                 contentDescription = title,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,

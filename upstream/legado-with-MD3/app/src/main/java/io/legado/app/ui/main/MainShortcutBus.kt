@@ -9,6 +9,8 @@ object MainShortcutBus {
     sealed interface Event {
         data object NewTab : Event
         data object BookshelfTab : Event
+        /** SPEC-221: 切到浏览器主页（软件更新/开发人员等内开链）。 */
+        data object BrowserHome : Event
     }
 
     private val _events = MutableSharedFlow<Event>(extraBufferCapacity = 4)

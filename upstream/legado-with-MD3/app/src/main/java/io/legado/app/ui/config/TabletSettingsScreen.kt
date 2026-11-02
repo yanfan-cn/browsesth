@@ -26,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.legado.app.R
 import io.legado.app.ui.config.ai.AiConfigRouteScreen
@@ -42,6 +41,7 @@ import io.legado.app.ui.config.translation.TranslationConfigRouteScreen
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.SplicedColumnDivider
+import io.legado.app.ui.widget.components.SplicedColumnGroup
 import io.legado.app.ui.widget.components.privacy.PrivateVerifyGate
 import io.legado.app.ui.widget.components.settingItem.SettingItem
 import io.legado.app.ui.widget.components.topbar.LocalSuppressTopBarNavigation
@@ -66,6 +66,7 @@ enum class TabletSettingsPane {
 fun TabletSettingsScreen(
     onBackClick: () -> Unit,
     initialPane: TabletSettingsPane = TabletSettingsPane.Browser,
+    onOpenSoftwareUpdate: () -> Unit = {},
     onNavigateToCoverAlbums: () -> Unit,
     onNavigateToCustomTheme: () -> Unit,
     onNavigateToThemeManage: () -> Unit,
@@ -97,7 +98,8 @@ fun TabletSettingsScreen(
                     .fillMaxHeight()
                     .statusBarsPadding(),
             ) {
-                // SPEC-168: expressive medium bar — title sits on the lower edge.
+                // SPEC-168/203: match MediumFlexibleTopAppBar expanded title (headlineSmall)
+                // and baseline on the lower edge of the 112dp expressive bar.
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -112,8 +114,7 @@ fun TabletSettingsScreen(
                     Spacer(modifier = Modifier.weight(1f))
                     Text(
                         text = stringResource(R.string.setting),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.headlineSmall,
                         color = LegadoTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(start = 12.dp, bottom = 12.dp),
                     )
@@ -122,30 +123,39 @@ fun TabletSettingsScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
+                    contentAlignment = Alignment.TopCenter,
                 ) {
-                Column(
-                    modifier = Modifier
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                ) {
-                    // SPEC-080: M3 ListItem-in-card style matching secondary settings.
-                    TabletSettingsPane.entries.forEach { pane ->
-                        val isSelected = pane == selectedPane
+                    // SPEC-203: Expressive spliced group (same as phone ConfigNav / right pane).
+                    SplicedColumnGroup(
+                        modifier = Modifier
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp),
+                    ) {
+                        // SPEC-205: 软件更新在浏览器上方，无 leading icon。
                         SplicedColumnDivider()
                         SettingItem(
-                            title = paneLabel(pane),
+                            title = stringResource(R.string.software_update),
                             modifier = Modifier.fillMaxWidth(),
-                            color = if (isSelected) {
-                                LegadoTheme.colorScheme.primary.copy(alpha = 0.12f)
-                            } else {
-                                MaterialTheme.colorScheme.surfaceContainerLow
-                            },
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
                             trailingContent = {},
-                            onClick = { selected = pane.name },
+                            onClick = onOpenSoftwareUpdate,
                         )
+                        TabletSettingsPane.entries.forEach { pane ->
+                            val isSelected = pane == selectedPane
+                            SplicedColumnDivider()
+                            SettingItem(
+                                title = paneLabel(pane),
+                                modifier = Modifier.fillMaxWidth(),
+                                color = if (isSelected) {
+                                    LegadoTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceContainerLow
+                                },
+                                trailingContent = {},
+                                onClick = { selected = pane.name },
+                            )
+                        }
                     }
-                }
                 }
             }
             VerticalDivider()

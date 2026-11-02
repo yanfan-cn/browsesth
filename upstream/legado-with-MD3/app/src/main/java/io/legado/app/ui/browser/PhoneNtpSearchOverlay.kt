@@ -404,6 +404,8 @@ private fun SearchSuggestRow(
         Box(
             modifier = Modifier
                 .size(48.dp)
+                // SPEC-199: 填充钮涟漪随圆形。
+                .clip(CircleShape)
                 .clickable(onClick = onFill),
             contentAlignment = Alignment.Center,
         ) {

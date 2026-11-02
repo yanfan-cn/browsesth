@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -43,7 +45,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
@@ -68,9 +72,18 @@ import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
 fun BrowserTabsScreen(
     onBack: () -> Unit,
     onOpenActiveTab: () -> Unit = {},
+    /**
+     * SPEC-210: tablet shell Column already reserves statusBars — pass false when
+     * embedded under [TabletBrowserShell] to avoid a double gap.
+     */
+    applyStatusBarInsets: Boolean = true,
 ) {
     BrowserTheme {
-        BrowserTabsBody(onBack = onBack, onOpenActiveTab = onOpenActiveTab)
+        BrowserTabsBody(
+            onBack = onBack,
+            onOpenActiveTab = onOpenActiveTab,
+            applyStatusBarInsets = applyStatusBarInsets,
+        )
     }
 }
 
@@ -78,6 +91,7 @@ fun BrowserTabsScreen(
 private fun BrowserTabsBody(
     onBack: () -> Unit,
     onOpenActiveTab: () -> Unit,
+    applyStatusBarInsets: Boolean = true,
 ) {
     val tabs by BrowserTabManager.tabs.collectAsStateWithLifecycle()
     val activeId by BrowserTabManager.activeTabId.collectAsStateWithLifecycle()
@@ -109,6 +123,7 @@ private fun BrowserTabsBody(
                 onShowIncognitoChange = { showIncognito = it },
                 onBack = onBack,
                 showCloseAll = isTablet,
+                applyStatusBarInsets = applyStatusBarInsets,
                 onCloseAll = {
                     // SPEC-080: close every tab (normal + incognito).
                     BrowserTabManager.closeAll()
@@ -160,6 +175,37 @@ private fun BrowserTabsBody(
                     }
                 }
             }
+            // SPEC-196: 手机底部居中「全部关闭」（仅 icon、Close、距底 32dp、中靠下阴影）。
+            // 平板已有顶栏 CloseAll（SPEC-080），不重复。常规+无痕一起关，语义同顶栏键。
+            if (!isTablet && tabs.isNotEmpty()) {
+                val scheme = LegadoTheme.colorScheme
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(bottom = 32.dp)
+                        .size(48.dp)
+                        .shadow(
+                            elevation = 6.dp,
+                            shape = CircleShape,
+                            ambientColor = Color.Transparent,
+                            spotColor = Color.Black.copy(alpha = 0.35f),
+                        )
+                        .clip(CircleShape)
+                        .background(scheme.surfaceContainerLow)
+                        .clickable {
+                            BrowserTabManager.closeAll()
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    SymbolIcon(
+                        Symbols.Close,
+                        contentDescription = "全部关闭",
+                        tint = scheme.onSurface,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
         }
     }
 }
@@ -175,13 +221,20 @@ private fun TabsModeTopBar(
     onNewTab: () -> Unit,
     showCloseAll: Boolean = false,
     onCloseAll: () -> Unit = {},
+    applyStatusBarInsets: Boolean = true,
 ) {
     val scheme = LegadoTheme.colorScheme
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(scheme.surface)
-            .windowInsetsPadding(WindowInsets.statusBars),
+            .then(
+                if (applyStatusBarInsets) {
+                    Modifier.windowInsetsPadding(WindowInsets.statusBars)
+                } else {
+                    Modifier
+                },
+            ),
     ) {
         Box(
             modifier = Modifier
@@ -208,12 +261,14 @@ private fun TabsModeTopBar(
                     .align(Alignment.CenterEnd)
                     .padding(end = BrowserUiTokens.PagePaddingH),
                 verticalAlignment = Alignment.CenterVertically,
+                // SPEC-196: 关闭键与新建标签页至少 4dp 间距（原来无间距参数）。
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                // SPEC-080: tablet CloseAll immediately left of New.
+                // SPEC-080: tablet CloseAll immediately left of New. SPEC-196: icon = Close.
                 if (showCloseAll) {
                     TopBarActionButton(
                         onClick = onCloseAll,
-                        symbol = Symbols.ClearAll,
+                        symbol = Symbols.Close,
                         contentDescription = "全部关闭",
                         style = TopBarButtonStyle.Tonal,
                     )

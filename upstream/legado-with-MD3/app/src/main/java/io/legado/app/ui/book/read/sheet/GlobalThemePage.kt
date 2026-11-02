@@ -38,6 +38,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,6 +65,7 @@ import io.legado.app.ui.widget.components.menuItem.RoundDropdownMenuItem
 import io.legado.app.ui.widget.components.settingItem.TinySettingItem
 import io.legado.app.ui.widget.components.settingItem.TinySliderSettingItem
 import io.legado.app.ui.widget.components.text.AppText
+import io.legado.app.utils.isPad
 
 // ========== Page 0: Global & Theme ==========
 
@@ -328,6 +331,12 @@ fun GlobalThemePage(
         var showPageAnimSpeedMenu by remember { mutableStateOf(false) }
         val pageAnimSpeedEntries = pageAnimSpeedOptions.map { stringResource(it) }.toTypedArray()
 
+        // SPEC-208: dual-page quick entry (tablet only — SPEC-216 hides on phone).
+        var showDoublePageMenu by remember { mutableStateOf(false) }
+        val doublePageEntries = stringArrayResource(R.array.double_page_title)
+        val doublePageValues = stringArrayResource(R.array.double_page_value)
+        val showDoublePageEntry = LocalContext.current.isPad
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -361,6 +370,47 @@ fun GlobalThemePage(
                                 dismiss()
                             },
                         )
+                    }
+                }
+            }
+            // SPEC-208/216: 平板/横屏双页 — phone 不展示入口。
+            if (showDoublePageEntry) {
+                Box {
+                    NormalCard(
+                        onClick = { showDoublePageMenu = true },
+                        modifier = Modifier
+                            .height(56.dp)
+                            .aspectRatio(1f),
+                        containerColor = LegadoTheme.colorScheme.surfaceContainerLow,
+                        cornerRadius = 12.dp,
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                            SymbolIcon(
+                                symbol = Symbols.ViewHeadline,
+                                contentDescription = stringResource(R.string.double_page_horizontal),
+                                tint = LegadoTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    RoundDropdownMenu(
+                        expanded = showDoublePageMenu,
+                        onDismissRequest = { showDoublePageMenu = false },
+                    ) { dismiss ->
+                        doublePageEntries.forEachIndexed { index, display ->
+                            val value = doublePageValues.getOrNull(index) ?: return@forEachIndexed
+                            RoundDropdownMenuItem(
+                                text = display,
+                                onClick = {
+                                    onIntent(
+                                        ReadBookIntent.UpdateConfig(
+                                            ConfigUpdate.DoubleHorizontalPage(value),
+                                        ),
+                                    )
+                                    dismiss()
+                                },
+                                isSelected = value == preferences.doubleHorizontalPage,
+                            )
+                        }
                     }
                 }
             }

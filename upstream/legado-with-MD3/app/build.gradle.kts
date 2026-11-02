@@ -169,9 +169,21 @@ android {
 
     flavorDimensions += "mode"
     productFlavors {
-        create("app") {
+        // Default product: bundled Aloha Chromium (决策基线 §3.5).
+        // Named `aloha` (not `app`) so AGP wires src/aloha — flavor==module name
+        // `:app` breaks default src/<flavor> discovery (SPEC-222).
+        create("aloha") {
             dimension = "mode"
+            isDefault = true
             manifestPlaceholders["APP_CHANNEL_VALUE"] = "app"
+            buildConfigField("boolean", "USE_SYSTEM_WEBVIEW", "false")
+        }
+        // SPEC-222: side-path without Aloha — system WebView only.
+        create("systemWv") {
+            dimension = "mode"
+            manifestPlaceholders["APP_CHANNEL_VALUE"] = "systemWv"
+            versionNameSuffix = "-systemwv"
+            buildConfigField("boolean", "USE_SYSTEM_WEBVIEW", "true")
         }
     }
 
@@ -259,8 +271,8 @@ dependencies {
     implementation(libs.androidx.swiperefreshlayout)
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.viewpager2)
-    // Browsesth: Aloha already ships org.chromium.support_lib_boundary — do not pull androidx.webkit
-    // implementation(libs.androidx.webkit)
+    // SPEC-222: androidx.webkit only on systemWv (Aloha ships support_lib_boundary).
+    "systemWvImplementation"(libs.androidx.webkit)
     implementation(libs.material)
     implementation(libs.flexbox)
     implementation(libs.gson)
@@ -293,8 +305,8 @@ dependencies {
     implementation(libs.okhttp)
     // Aloha embeds org.chromium.base — keep only Cronet API stubs to avoid duplicate classes.
     implementation(files("cronetlib/cronet_api.jar"))
-    // Aloha Core 150 (B2); AAR gitignored locally
-    implementation(files("libs/aloha-bromium-localbuild.aar"))
+    // SPEC-222: Aloha Core only on default `aloha` flavor (not systemWv).
+    "alohaImplementation"(files("libs/aloha-bromium-localbuild.aar"))
     implementation("com.google.guava:guava:33.3.1-android")
     // Cimoc A adapters (SPEC-016)
     implementation("com.alibaba:fastjson:1.2.83")
@@ -396,8 +408,15 @@ val renameBrowsesthApks = tasks.register("renameBrowsesthApks") {
             }
     }
 }
-listOf("assembleAppDebug", "assembleAppRelease", "assembleAppNoR8").forEach { assembleName ->
+listOf(
+    "assembleAlohaDebug",
+    "assembleAlohaRelease",
+    "assembleAlohaNoR8",
+    "assembleSystemWvDebug",
+    "assembleSystemWvRelease",
+).forEach { assembleName ->
     tasks.matching { it.name == assembleName }.configureEach {
         finalizedBy(renameBrowsesthApks)
     }
 }
+

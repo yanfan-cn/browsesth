@@ -365,7 +365,8 @@ class ReadSettingsRepository(
             brightnessAuto = compatDsValue(Keys.BrightnessAuto, true),
             useUnderline = compatDsValue(Keys.UseUnderline, false),
             readSliderMode = compatDsValue(Keys.ReadSliderMode, "0"),
-            doubleHorizontalPage = compatDsValue(Keys.DoubleHorizontalPage, "0"),
+            // SPEC-208: default tablet/landscape dual page.
+            doubleHorizontalPage = compatDsValue(Keys.DoubleHorizontalPage, "3"),
             progressBarBehavior = compatDsValue(Keys.ProgressBarBehavior, "page"),
             mouseWheelPage = compatDsValue(Keys.MouseWheelPage, true),
             volumeKeyPage = compatDsValue(Keys.VolumeKeyPage, true),
@@ -415,6 +416,15 @@ class ReadSettingsRepository(
             clickActionBL = compatDsValue(Keys.ClickActionBL, 2),
             clickActionBC = compatDsValue(Keys.ClickActionBC, 1),
             clickActionBR = compatDsValue(Keys.ClickActionBR, 1),
+            clickActionScrollTL = compatDsValue(Keys.ClickActionScrollTL, -1),
+            clickActionScrollTC = compatDsValue(Keys.ClickActionScrollTC, -1),
+            clickActionScrollTR = compatDsValue(Keys.ClickActionScrollTR, -1),
+            clickActionScrollML = compatDsValue(Keys.ClickActionScrollML, 0),
+            clickActionScrollMC = compatDsValue(Keys.ClickActionScrollMC, 0),
+            clickActionScrollMR = compatDsValue(Keys.ClickActionScrollMR, 0),
+            clickActionScrollBL = compatDsValue(Keys.ClickActionScrollBL, -1),
+            clickActionScrollBC = compatDsValue(Keys.ClickActionScrollBC, -1),
+            clickActionScrollBR = compatDsValue(Keys.ClickActionScrollBR, -1),
             fontFolder = compatDsValue(Keys.FontFolder, ""),
             readMenuBgColor = compatDsValue(Keys.ReadMenuBgColor, 0),
             readMenuAccentColor = compatDsValue(Keys.ReadMenuAccentColor, 0),
@@ -537,6 +547,15 @@ class ReadSettingsRepository(
         val ClickActionBL = intPreferencesKey(PreferKey.clickActionBL)
         val ClickActionBC = intPreferencesKey(PreferKey.clickActionBC)
         val ClickActionBR = intPreferencesKey(PreferKey.clickActionBR)
+        val ClickActionScrollTL = intPreferencesKey(PreferKey.clickActionScrollTL)
+        val ClickActionScrollTC = intPreferencesKey(PreferKey.clickActionScrollTC)
+        val ClickActionScrollTR = intPreferencesKey(PreferKey.clickActionScrollTR)
+        val ClickActionScrollML = intPreferencesKey(PreferKey.clickActionScrollML)
+        val ClickActionScrollMC = intPreferencesKey(PreferKey.clickActionScrollMC)
+        val ClickActionScrollMR = intPreferencesKey(PreferKey.clickActionScrollMR)
+        val ClickActionScrollBL = intPreferencesKey(PreferKey.clickActionScrollBL)
+        val ClickActionScrollBC = intPreferencesKey(PreferKey.clickActionScrollBC)
+        val ClickActionScrollBR = intPreferencesKey(PreferKey.clickActionScrollBR)
         val FontFolder = stringPreferencesKey(PreferKey.fontFolder)
         val ReadMenuBgColor = intPreferencesKey(PreferKey.readMenuBgColor)
         val ReadMenuAccentColor = intPreferencesKey(PreferKey.readMenuAccentColor)
@@ -669,6 +688,15 @@ internal fun ReadSettings.toGatewayPrefMap(): Map<String, Any?> = mapOf(
     PreferKey.clickActionBL to clickActionBL,
     PreferKey.clickActionBC to clickActionBC,
     PreferKey.clickActionBR to clickActionBR,
+    PreferKey.clickActionScrollTL to clickActionScrollTL,
+    PreferKey.clickActionScrollTC to clickActionScrollTC,
+    PreferKey.clickActionScrollTR to clickActionScrollTR,
+    PreferKey.clickActionScrollML to clickActionScrollML,
+    PreferKey.clickActionScrollMC to clickActionScrollMC,
+    PreferKey.clickActionScrollMR to clickActionScrollMR,
+    PreferKey.clickActionScrollBL to clickActionScrollBL,
+    PreferKey.clickActionScrollBC to clickActionScrollBC,
+    PreferKey.clickActionScrollBR to clickActionScrollBR,
     PreferKey.fontFolder to fontFolder,
     PreferKey.readMenuBgColor to readMenuBgColor,
     PreferKey.readMenuAccentColor to readMenuAccentColor,

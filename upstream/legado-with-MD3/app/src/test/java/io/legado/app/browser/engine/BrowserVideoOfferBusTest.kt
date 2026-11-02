@@ -139,4 +139,25 @@ class BrowserVideoOfferBusTest {
         )
         assertNull(BrowserVideoOfferBus.offer.value)
     }
+
+    @Test
+    fun sameKeyLaterHeaders_mergeCookieIntoOffer() {
+        // SPEC-217: empty-header publish must not block Cookie from a later sniff.
+        val page = "https://news.qq.com/rain/a/1"
+        val media = "https://cdn.example.com/news/a.m3u8"
+        BrowserVideoOfferBus.publish(
+            BrowserVideoOffer(url = media, pageUrl = page, headers = emptyMap()),
+        )
+        BrowserVideoOfferBus.publish(
+            BrowserVideoOffer(
+                url = media,
+                pageUrl = page,
+                headers = mapOf("Cookie" to "uin=1", "Referer" to page),
+            ),
+        )
+        val offer = BrowserVideoOfferBus.offer.value
+        assertEquals(media, offer?.url)
+        assertEquals("uin=1", offer?.headers?.get("Cookie"))
+        assertEquals(page, offer?.headers?.get("Referer"))
+    }
 }

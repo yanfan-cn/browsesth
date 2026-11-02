@@ -168,16 +168,12 @@ fun MyScreen(
                         onNavigate(PrefClickEvent.OpenBrowserDownloads)
                     }
                 )
-                // SPEC-115: software update opens Feipan share; ads still placeholder
+                // SPEC-205: 原阅读列表「添加本地」迁此，更名文件管理；软件更新改到设置页。
                 ClickableSettingItem(
-                    title = stringResource(R.string.software_update),
-                    symbol = Symbols.Update,
+                    title = stringResource(R.string.file_manage),
+                    symbol = Symbols.FolderOpen,
                     onClick = {
-                        onNavigate(
-                            PrefClickEvent.OpenUrl(
-                                context.getString(R.string.software_update_url)
-                            )
-                        )
+                        onNavigate(PrefClickEvent.OpenLocalImport)
                     }
                 )
                 ClickableSettingItem(

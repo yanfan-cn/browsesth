@@ -15,6 +15,7 @@ import io.legado.app.data.appDb
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.source.SourceHelp
 import io.legado.app.model.analyzeRule.AnalyzeUrl
+import io.legado.app.ui.main.bookshelf.ShelfPerfTrace
 import io.legado.app.utils.isAbsUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -57,6 +58,13 @@ class CoverInterceptor(
     }
 
     override suspend fun intercept(chain: Interceptor.Chain): ImageResult {
+        // SPEC-195: 封面管线整体异步 section（Perfetto 可见网络+解码跨度，辅助滑动掉帧归因）。
+        return ShelfPerfTrace.suspendSection("coverIntercept") {
+            interceptInner(chain)
+        }
+    }
+
+    private suspend fun interceptInner(chain: Interceptor.Chain): ImageResult {
         val request = chain.request
         val data = request.data
 

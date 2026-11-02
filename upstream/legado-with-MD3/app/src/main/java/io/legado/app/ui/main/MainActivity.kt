@@ -575,7 +575,11 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack,
                     )
                 }
             }
-            ReadAloudPlayerOverlayBus.events.collect { openPlayer(it) }
+            // SPEC-221: 阅读器独立 Activity 前台时由其挂 morph；Main 勿在背后抢事件。
+            ReadAloudPlayerOverlayBus.events.collect { request ->
+                if (ReaderForegroundTracker.readerActivityInForeground) return@collect
+                openPlayer(request)
+            }
         }
         val playerVisible = readAloudPlayerVisible || audioPlayerVisible
         val matchingCapsule = !playerVisible || capsuleMatchesPlayer(

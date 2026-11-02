@@ -6,28 +6,47 @@ import android.util.Log
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.base.BaseComposeActivity
+import io.legado.app.data.repository.ReadAloudSettingsRepository
+import io.legado.app.domain.model.PlaybackCapsuleSource
+import io.legado.app.domain.model.settings.effectivePredictiveBackEnabled
 import io.legado.app.model.ReadAloudSessionStore
 import io.legado.app.model.ReadBook
 import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.book.read.page.entities.PageDirection
-import io.legado.app.ui.main.MainActivity
+import io.legado.app.ui.book.readaloud.ReadAloudPlayerMorphHost
+import io.legado.app.ui.book.readaloud.ReadAloudPlayerOverlayBus
+import io.legado.app.ui.book.readaloud.ReadAloudShellHost
+import io.legado.app.ui.book.readaloud.morph.LocalReadAloudMorph
+import io.legado.app.ui.book.readaloud.morph.rememberReadAloudMorphState
+import io.legado.app.ui.book.readaloud.player.ReadAloudPlayerViewModel
 import io.legado.app.ui.main.MainIntent
 import io.legado.app.ui.main.MainRouteConst
+import io.legado.app.ui.theme.LocalAppUiConfiguration
 import io.legado.app.ui.widget.components.privacy.PrivateReadGate
-import io.legado.app.utils.startActivity
 import io.legado.app.utils.toggleSystemBar
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
@@ -140,33 +159,85 @@ class ReadBookActivity : BaseComposeActivity(imageBg = false) {
                 controller.onPause()
             }
 
-            ReadBookRouteScreen(
-                viewModel = readBookViewModel,
-                readerSessionViewModel = readerSessionViewModel,
-                host = controller,
-                controller = controller,
-                onEffectsReady = { effectsReady.complete(Unit) },
-                onOpenSearch = { word, searchBookUrl, autoFocus ->
-                    startActivity(
-                        MainIntent.createSearchContentIntent(
-                            this,
-                            bookUrl = searchBookUrl,
-                            searchWord = word,
-                            searchResultIndex = readBookViewModel.uiState.value.searchResultIndex,
-                            autoFocus = autoFocus,
+            // SPEC-221: 听书胶囊 + 播放器 morph 挂在本 Activity（SPEC-190 后 Main 在背后不可见）。
+            val playerViewModel: ReadAloudPlayerViewModel = koinInject()
+            val playerState by playerViewModel.uiState.collectAsStateWithLifecycle()
+            val aloudSettings by playerViewModel.readAloudSettings.collectAsStateWithLifecycle()
+            val showCapsule = aloudSettings.showReadAloudCapsule
+            val morph = rememberReadAloudMorphState()
+            var playerVisible by rememberSaveable { mutableStateOf(false) }
+            val capsuleScope = rememberCoroutineScope()
+            val readAloudSettingsRepository: ReadAloudSettingsRepository = koinInject()
+            val configuration = LocalAppUiConfiguration.current
+            LaunchedEffect(Unit) {
+                ReadAloudPlayerOverlayBus.events.collect { request ->
+                    if (request.source == PlaybackCapsuleSource.AudioBook) return@collect
+                    playerVisible = true
+                }
+            }
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                ReadBookRouteScreen(
+                    viewModel = readBookViewModel,
+                    readerSessionViewModel = readerSessionViewModel,
+                    host = controller,
+                    controller = controller,
+                    onEffectsReady = { effectsReady.complete(Unit) },
+                    onOpenSearch = { word, searchBookUrl, autoFocus ->
+                        startActivity(
+                            MainIntent.createSearchContentIntent(
+                                this@ReadBookActivity,
+                                bookUrl = searchBookUrl,
+                                searchWord = word,
+                                searchResultIndex = readBookViewModel.uiState.value.searchResultIndex,
+                                autoFocus = autoFocus,
+                            )
                         )
+                    },
+                    onOpenVoiceCasting = { voiceBookUrl ->
+                        startActivity(
+                            MainIntent.createBookVoiceCastingIntent(
+                                this@ReadBookActivity,
+                                voiceBookUrl,
+                            )
+                        )
+                    },
+                    onOpenTtsEnginesAndVoices = {
+                        startActivity(
+                            MainIntent.createCloudTtsEnginesIntent(this@ReadBookActivity, bookUrl)
+                        )
+                    },
+                    onOpenTtsCache = {
+                        startActivity(MainIntent.createTtsCacheIntent(this@ReadBookActivity))
+                    },
+                )
+                CompositionLocalProvider(LocalReadAloudMorph provides morph) {
+                    ReadAloudShellHost(
+                        showCapsule = showCapsule,
+                        hidden = false,
+                        onCapsulePositionChanged = { x, y ->
+                            capsuleScope.launch {
+                                readAloudSettingsRepository.putCapsulePosition(x, y)
+                            }
+                        },
+                        onOpenPlayer = { ReadAloudPlayerOverlayBus.request(it) },
                     )
-                },
-                onOpenVoiceCasting = { voiceBookUrl ->
-                    startActivity(MainIntent.createBookVoiceCastingIntent(this, voiceBookUrl))
-                },
-                onOpenTtsEnginesAndVoices = {
-                    startActivity(MainIntent.createCloudTtsEnginesIntent(this, bookUrl))
-                },
-                onOpenTtsCache = {
-                    startActivity(MainIntent.createTtsCacheIntent(this))
-                },
-            )
+                }
+                ReadAloudPlayerMorphHost(
+                    playerViewModel = playerViewModel,
+                    playerState = playerState,
+                    morph = morph,
+                    visible = playerVisible,
+                    awaitCapsuleAnchor = showCapsule,
+                    predictiveBackEnabled =
+                        configuration.appShell.effectivePredictiveBackEnabled(),
+                    onDismiss = { playerVisible = false },
+                    onSwitchToClassic = {
+                        playerVisible = false
+                        ReadAloudControlsRequestBus.request()
+                    },
+                )
+            }
 
             DisposableEffect(controller, lifecycleOwner, readAloud) {
                 activeInputHandler = controller

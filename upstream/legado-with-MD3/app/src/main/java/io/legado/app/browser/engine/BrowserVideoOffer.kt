@@ -53,10 +53,29 @@ object BrowserVideoOfferBus {
         val key = sniff.dedupeKey
         val rank = sniff.rank
         val prev = ranks[key]
-        if (prev != null && rank <= prev) return
+        // SPEC-217: same key + equal/lower rank — still merge Cookie/Referer into the kept offer
+        // (JS video-src hooks often publish first with empty headers and would block intercept).
+        if (prev != null && rank < prev) {
+            mergeHeadersIntoExisting(key, offer.headers)
+            return
+        }
+        if (prev != null && rank == prev) {
+            mergeHeadersIntoExisting(key, offer.headers)
+            return
+        }
         ranks[key] = rank
+        val prior = _offers.value.firstOrNull { existing ->
+            val existingKey = classifyPlayableUrl(existing.url, existing.pageUrl)?.dedupeKey
+                ?: normalizeVideoKey(existing.url)
+            existingKey == key
+        }
         val published = offer.copy(
             url = url,
+            headers = if (prior != null) {
+                BrowserVideoMedia.mergeHeaders(prior.headers, offer.headers)
+            } else {
+                offer.headers
+            },
             isHls = offer.isHls || sniff.isHls || url.contains(".m3u8", ignoreCase = true),
         )
         // SPEC-143: maintain the per-page list (dedupe, newest first).
@@ -73,6 +92,32 @@ object BrowserVideoOfferBus {
         _offers.value = (listOf(published) + deduped).take(20)
         lastPublishedUrl = url
         _offer.value = published
+    }
+
+    /** SPEC-217: fold useful request headers into the offer already kept for [key]. */
+    private fun mergeHeadersIntoExisting(key: String, incoming: Map<String, String>) {
+        if (incoming.isEmpty()) return
+        val list = _offers.value.toMutableList()
+        val idx = list.indexOfFirst { existing ->
+            val existingKey = classifyPlayableUrl(existing.url, existing.pageUrl)?.dedupeKey
+                ?: normalizeVideoKey(existing.url)
+            existingKey == key
+        }
+        if (idx < 0) return
+        val cur = list[idx]
+        val merged = BrowserVideoMedia.mergeHeaders(cur.headers, incoming)
+        if (merged == cur.headers) return
+        val updated = cur.copy(headers = merged)
+        list[idx] = updated
+        _offers.value = list
+        if (_offer.value?.let {
+                val k = classifyPlayableUrl(it.url, it.pageUrl)?.dedupeKey
+                    ?: normalizeVideoKey(it.url)
+                k == key
+            } == true
+        ) {
+            _offer.value = updated
+        }
     }
 
     /** SPEC-145 R8: fragment 去除 + query 参数排序，弱化嗅探双路径的 URL 细节差异。

@@ -1,7 +1,6 @@
 package io.legado.app.browser.engine
 
 import android.util.Log
-import org.chromium.base.Callback
 
 /**
  * SPEC-123 diagnostic: per-page viewport + layout probe.
@@ -13,7 +12,10 @@ object BrowserDiagProbe {
     private const val TAG = "Diag123"
 
     fun run(host: AwContentsHostView, url: String) {
-        host.evaluateJavaScript(PROBE, Callback { v -> Log.i(TAG, "probe url=$url -> $v") })
+        host.evaluateJavaScript(
+            PROBE,
+            BrowserJsCallback { v -> Log.i(TAG, "probe url=$url -> $v") },
+        )
     }
 
     private const val PROBE =

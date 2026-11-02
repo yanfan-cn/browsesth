@@ -165,6 +165,7 @@ object BrowserTabManager {
         if (tabId == _activeId.value || list.size <= 1) {
             BrowserMediaSessionHooks.notifyWebContextLeft()
         }
+        BrowserTabEmbeddedReaderStore.clear(tabId)
         BrowserTabThumbnailStore.remove(tabId)
         BrowserSessionHolder.destroyKey(tabId)
         if (list.size <= 1) {
@@ -188,6 +189,7 @@ object BrowserTabManager {
         BrowserMediaSessionHooks.notifyWebContextLeft()
         BrowserSessionHolder.captureActiveThumbnail()
         BrowserTabThumbnailStore.clear()
+        BrowserTabEmbeddedReaderStore.clearAll()
         BrowserSessionHolder.destroy()
         _tabs.value = emptyList()
         _activeId.value = ""
@@ -200,6 +202,7 @@ object BrowserTabManager {
         val closedIds = list.filter { it.incognito == incognito }.map { it.id }.toSet()
         if (closedIds.isEmpty()) return
         closedIds.forEach {
+            BrowserTabEmbeddedReaderStore.clear(it)
             BrowserTabThumbnailStore.remove(it)
             BrowserSessionHolder.destroyKey(it)
         }

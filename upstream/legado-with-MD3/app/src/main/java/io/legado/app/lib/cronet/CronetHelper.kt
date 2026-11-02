@@ -17,7 +17,6 @@ import org.chromium.net.CronetEngine.Builder.HTTP_CACHE_DISK
 import org.chromium.net.ExperimentalCronetEngine
 import org.chromium.net.UploadDataProvider
 import org.chromium.net.UrlRequest
-import org.chromium.net.X509Util
 import org.json.JSONObject
 import splitties.init.appCtx
 
@@ -108,13 +107,15 @@ fun buildRequest(request: Request, callback: UrlRequest.Callback): UrlRequest? {
 }
 
 private fun disableCertificateVerify() {
+    // SPEC-222: X509Util ships with Aloha; systemWv may lack it — reflect by name.
+    val clazz = runCatching { Class.forName("org.chromium.net.X509Util") }.getOrNull() ?: return
     runCatching {
-        val sDefaultTrustManager = X509Util::class.java.getDeclaredField("sDefaultTrustManager")
+        val sDefaultTrustManager = clazz.getDeclaredField("sDefaultTrustManager")
         sDefaultTrustManager.isAccessible = true
         sDefaultTrustManager.set(null, SSLHelper.unsafeTrustManagerExtensions)
     }
     runCatching {
-        val sTestTrustManager = X509Util::class.java.getDeclaredField("sTestTrustManager")
+        val sTestTrustManager = clazz.getDeclaredField("sTestTrustManager")
         sTestTrustManager.isAccessible = true
         sTestTrustManager.set(null, SSLHelper.unsafeTrustManagerExtensions)
     }

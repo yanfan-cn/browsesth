@@ -636,6 +636,7 @@
     <string name="indent_3">三字元縮排</string>
     <string name="indent_4">四字元縮排</string>
     <string name="select_folder">選擇資料夾</string>
+    <string name="select_book">選擇書籍</string>
     <string name="select_file">選擇文件</string>
     <string name="no_find">沒有發現，可以在書源裡新增。</string>
     <string name="restore_default">復原預設</string>
@@ -1053,6 +1054,8 @@
     <string name="open_in_browser">瀏覽器打開</string>
     <string name="copy_url">複製url</string>
     <string name="full_screen">全屏</string>
+    <string name="hide_browser_chrome_in_reader">全螢幕顯示（隱藏瀏覽器頂欄）</string>
+    <string name="exit_full_screen">退出全螢幕</string>
     <string name="open_fun">打開方式</string>
     <string name="use_browser_open">是否使用外部瀏覽器打開？</string>
     <string name="see">查看</string>

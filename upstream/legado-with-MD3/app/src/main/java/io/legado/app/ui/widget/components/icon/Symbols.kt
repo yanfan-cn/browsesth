@@ -29,6 +29,8 @@ object Symbols {
     val Autorenew = MaterialSymbol("autorenew", autoMirror = false)
     val BarChart = MaterialSymbol("bar_chart", autoMirror = false)
     val Block = MaterialSymbol("block", autoMirror = false)
+    /** SPEC-214: browser toolbox ad block. */
+    val Ad = MaterialSymbol("ad", autoMirror = false)
     val Book = MaterialSymbol("book", autoMirror = false)
     /** SPEC-096: reading mode chrome entry (Material Symbols book_2). */
     val Book2 = MaterialSymbol("book_2", autoMirror = false)
@@ -156,6 +158,9 @@ object Symbols {
     val NoteAdd = MaterialSymbol("note_add", autoMirror = true)
     val Numbers = MaterialSymbol("numbers", autoMirror = false)
     val OpenInBrowser = MaterialSymbol("open_in_browser", autoMirror = false)
+    /** SPEC-208: tablet embedded reader fullscreen (hide browser chrome). */
+    val OpenInFull = MaterialSymbol("open_in_full", autoMirror = false)
+    val CloseFullscreen = MaterialSymbol("close_fullscreen", autoMirror = false)
     val OpenInNew = MaterialSymbol("open_in_new", autoMirror = true)
     val Palette = MaterialSymbol("palette", autoMirror = false)
     val Pause = MaterialSymbol("pause", autoMirror = false)

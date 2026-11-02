@@ -77,7 +77,12 @@ import io.legado.app.receiver.TimeBatteryReceiver
 import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.association.OpenUrlConfirmActivity
 import io.legado.app.ui.book.read.page.entities.PageDirection
+import io.legado.app.browser.engine.BrowserVideoOfferBus
+import io.legado.app.browser.reader.WebArticleBookFactory
+import io.legado.app.browser.reader.WebArticleVideoThumb
 import io.legado.app.ui.browser.TabletBrowserLayout
+import io.legado.app.ui.browser.video.BrowserVideoPlaybackService
+import io.legado.app.ui.browser.video.BrowserVideoPlayerActivity
 import io.legado.app.ui.login.SourceLoginJsExtensions
 import io.legado.app.ui.widget.PopupAction
 import io.legado.app.utils.ColorUtils
@@ -284,14 +289,26 @@ class ReadBookController(
             ?.let { return it }
         val candidate = CoroutineScope(readerImageLoadJob + IO).async(start = CoroutineStart.LAZY) {
             readerImageCache.get(key)?.takeUnless(android.graphics.Bitmap::isRecycled) ?: ReadBook.book?.let { book ->
-                ImageProvider.getImage(
-                    book = book,
-                    src = element.source,
-                    width = element.bounds.width.toInt().coerceAtLeast(1),
-                    height = element.bounds.height.toInt().coerceAtLeast(1),
-                ).takeUnless(android.graphics.Bitmap::isRecycled)?.also { bitmap ->
-                    readerImageCache.put(key, bitmap)
+                // SPEC-212/216: jingshi 剥 fragment；失败（含感叹号 errorBitmap）一律不缓存位图。
+                val jingshi = WebArticleVideoThumb.isJingshiThumb(element.source)
+                val loadSrc = if (jingshi) {
+                    WebArticleVideoThumb.displayUrl(element.source)
+                } else {
+                    element.source
                 }
+                val w = element.bounds.width.toInt().coerceAtLeast(1)
+                val h = element.bounds.height.toInt().coerceAtLeast(1)
+                val loaded = ImageProvider.getImage(
+                    book = book,
+                    src = loadSrc,
+                    width = w,
+                    height = h,
+                ).takeUnless(android.graphics.Bitmap::isRecycled)
+                val bitmap = when {
+                    loaded == null || ImageProvider.isErrorBitmap(loaded) -> null
+                    else -> loaded
+                }
+                bitmap?.also { readerImageCache.put(key, it) }
             }
         }
         val shared = readerImageLoads.putIfAbsent(key, candidate) ?: candidate.also { created ->
@@ -653,26 +670,35 @@ class ReadBookController(
     }
 
     private fun handleComposeImageClick(image: ReaderElement.Image): Boolean {
+        // SPEC-212/215: 净视缩略图单击进播放器；无可用海报位图时不响应（防空白占位点播）。
+        if (WebArticleVideoThumb.isJingshiThumb(image.source)) {
+            val key = readerImageCacheKey(image)
+            val bmp = readerImageCache.get(key)?.takeUnless(android.graphics.Bitmap::isRecycled)
+            if (bmp == null) return true
+            openJingshiPlayerFromReader()
+            return true
+        }
+        // SPEC-216: 仅保留双击预览（默认开）；单击普通图不进图库。
         val now = System.currentTimeMillis()
         val debounce = now - composeImageClickAt < 300L
         composeImageClickAt = now
         composeImageDoubleClick = if (debounce) !composeImageDoubleClick else false
-        // SPEC-057: double-tap (or legacy clickImgWay=1) opens fullscreen gallery.
-        if (composeImageDoubleClick || readSettingsGateway.currentSettings.clickImgWay == "1") {
+        if (composeImageDoubleClick) {
             openImageGallery(image.source)
             return true
         }
-        return when (readSettingsGateway.currentSettings.clickImgWay) {
-            "2" -> if (!debounce && ReadBook.book?.isOnLineTxt == true) {
-                image.action?.takeIf(String::isNotBlank)?.let { clickImg(it, image.source); true }
-                    ?: oldClickImg(image.source)
-            } else false
-            "3" -> false
-            "4" -> false
-            else -> if (!debounce) {
-                image.action?.takeIf(String::isNotBlank)?.let { clickImg(it, image.source); true } ?: false
-            } else false
+        return false
+    }
+
+    private fun openJingshiPlayerFromReader() {
+        val pageUrl = ReadBook.book?.customIntro.orEmpty()
+        val offer = BrowserVideoOfferBus.offer.value
+        if (offer == null || !BrowserVideoOfferBus.belongsToPage(offer, pageUrl)) {
+            activity.toastOnUi("暂无可播放视频")
+            return
         }
+        BrowserVideoPlaybackService.stop(activity)
+        activity.startActivity(BrowserVideoPlayerActivity.intent(activity, offer))
     }
 
     private fun openImageGallery(currentSrc: String) {
@@ -695,7 +721,7 @@ class ReadBookController(
             .asSequence()
             .flatMap { page -> page.elements.asSequence().filterIsInstance<ReaderElement.Image>() }
             .map { it.source }
-            .filter { it.isNotBlank() }
+            .filter { it.isNotBlank() && !WebArticleVideoThumb.isJingshiThumb(it) }
             .distinct()
             .toList()
     }
@@ -1133,12 +1159,15 @@ class ReadBookController(
         val query = result.query.ifBlank { viewModel.uiState.value.searchContentQuery }
         // Full-text search uses the exact document “display title + newline + body” when the
         // title is enabled. Resolve in that document, then map to title/body Canvas coordinates.
+        val forceShowTitle = input.book.origin == WebArticleBookFactory.ORIGIN ||
+            input.book.bookUrl.startsWith("browsesth-novel://")
         val searchTitle = input.displayTitle.takeIf {
             TabletBrowserLayout.showBodyTitle(
                 isTablet = activity.isPad,
                 titleMode = ReadBookConfig.titleMode,
                 isVolume = input.chapter.isVolume,
                 textEmpty = input.content.textList.isEmpty(),
+                forceShow = forceShowTitle,
             )
         }
         val match = ReaderSearchMatcher.find(

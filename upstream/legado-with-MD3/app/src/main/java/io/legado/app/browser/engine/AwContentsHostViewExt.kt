@@ -1,15 +1,14 @@
 package io.legado.app.browser.engine
 
 import kotlinx.coroutines.suspendCancellableCoroutine
-import org.chromium.base.Callback
 import kotlin.coroutines.resume
 
-/** Suspend helpers for Aloha host JS / navigation (SPEC-015). */
+/** Suspend helpers for browser host JS / navigation (SPEC-015 / SPEC-222). */
 suspend fun AwContentsHostView.evalJs(script: String): String? =
     suspendCancellableCoroutine { cont ->
         evaluateJavaScript(
             script,
-            Callback { value ->
+            BrowserJsCallback { value ->
                 if (cont.isActive) cont.resume(value)
             },
         )

@@ -98,6 +98,20 @@ class ReadBookStyleConfigRepository(
         save()
     }
 
+    override fun applyTitleHiddenDefault() {
+        val transform: (ReadBookConfig.Config) -> ReadBookConfig.Config = { cfg ->
+            cfg.copy(
+                titleMode = 2,
+                titleSize = if (cfg.titleSize < 8) 20 else cfg.titleSize,
+            )
+        }
+        configStore.configsSnapshot().indices.forEach { index ->
+            configStore.updateStyleAt(index, transform)
+        }
+        configStore.updateEffective(0, useShare = true, transform = transform)
+        save()
+    }
+
     override fun clearMissingTextFont() {
         updateCurrentStyle(ReadStyleMutation.StringValue(ReadStyleStringKey.TextFont, ""))
         save()

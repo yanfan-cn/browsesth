@@ -1,11 +1,32 @@
 package io.legado.app.ui.browser
 
+import io.legado.app.ui.theme.ChromeSurfaceStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TabletBrowserLayoutTest {
+
+    @Test
+    fun spec214_tabletLiquidGlassChromePolicies() {
+        // SPEC-214 ②: tablet chrome/toolbox glass gated off after DirtyStack SIGSEGV.
+        assertFalse(
+            TabletBrowserLayout.tabletFunctionBarUsesLiquidGlass(ChromeSurfaceStyle.LiquidGlass),
+        )
+        assertFalse(
+            TabletBrowserLayout.tabletFunctionBarUsesLiquidGlass(ChromeSurfaceStyle.Filled),
+        )
+        assertTrue(
+            TabletBrowserLayout.tabletToolboxUsesSolidSurfaces(ChromeSurfaceStyle.LiquidGlass),
+        )
+        assertTrue(
+            TabletBrowserLayout.tabletToolboxUsesSolidSurfaces(ChromeSurfaceStyle.Filled),
+        )
+        assertFalse(toolboxWebBgUsesNestedSurface(ChromeSurfaceStyle.LiquidGlass))
+        assertTrue(toolboxWebBgUsesNestedSurface(ChromeSurfaceStyle.Filled))
+    }
+
 
     @Test
     fun submitInProgressDoesNotRestoreOmnibox() {
@@ -62,6 +83,15 @@ class TabletBrowserLayoutTest {
                 isTablet = false,
                 onBrowserHome = true,
                 sessionActive = false,
+            ),
+        )
+        // SPEC-221: phone NTP search overlay parks pager swipe.
+        assertFalse(
+            TabletBrowserLayout.pagerUserScrollEnabled(
+                isTablet = false,
+                onBrowserHome = true,
+                sessionActive = false,
+                phoneNtpSearchActive = true,
             ),
         )
     }
@@ -141,6 +171,24 @@ class TabletBrowserLayoutTest {
                 titleMode = 0,
                 isVolume = false,
                 textEmpty = false,
+            ),
+        )
+        // SPEC-203: titleMode=2 hides on phone; forceShow (净读) still shows.
+        assertFalse(
+            TabletBrowserLayout.showBodyTitle(
+                isTablet = false,
+                titleMode = 2,
+                isVolume = false,
+                textEmpty = false,
+            ),
+        )
+        assertTrue(
+            TabletBrowserLayout.showBodyTitle(
+                isTablet = true,
+                titleMode = 2,
+                isVolume = false,
+                textEmpty = false,
+                forceShow = true,
             ),
         )
         assertEquals(0, TabletBrowserLayout.bodyPaddingTopDp(isTablet = true, configuredDp = 24))

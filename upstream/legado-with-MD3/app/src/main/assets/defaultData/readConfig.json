@@ -44,8 +44,8 @@
     "tipHeaderMiddle": 0,
     "tipHeaderRight": 2,
     "titleBottomSpacing": 0,
-    "titleMode": 0,
-    "titleSize": 4,
+    "titleMode": 2,
+    "titleSize": 20,
     "titleTopSpacing": 0
   },
   {

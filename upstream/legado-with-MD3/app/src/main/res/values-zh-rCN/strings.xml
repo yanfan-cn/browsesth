@@ -699,6 +699,7 @@
     <string name="indent_3">三字符</string>
     <string name="indent_4">四字符</string>
     <string name="select_folder">选择文件夹</string>
+    <string name="select_book">选择书籍</string>
     <string name="select_file">选择文件</string>
     <string name="no_find">没有发现，可以在书源里添加。</string>
     <string name="restore_default">恢复默认</string>
@@ -1223,6 +1224,8 @@
     <string name="open_in_browser">浏览器打开</string>
     <string name="copy_url">拷贝 URL</string>
     <string name="full_screen">全屏</string>
+    <string name="hide_browser_chrome_in_reader">全屏显示（隐藏浏览器顶栏）</string>
+    <string name="exit_full_screen">退出全屏</string>
     <string name="open_fun">打开方式</string>
     <string name="use_browser_open">是否使用外部浏览器打开？</string>
     <string name="cannot_open_url">该URL无法直接打开</string>

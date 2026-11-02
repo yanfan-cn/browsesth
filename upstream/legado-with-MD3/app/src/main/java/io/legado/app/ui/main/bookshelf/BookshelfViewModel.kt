@@ -28,11 +28,13 @@ import io.legado.app.domain.model.isPrivateBook
 import io.legado.app.domain.model.settings.PrivateAccessSettings
 import io.legado.app.domain.usecase.AddBookUseCase
 import io.legado.app.domain.usecase.BatchCacheDownloadUseCase
+import io.legado.app.domain.usecase.DeleteBooksUseCase
 import io.legado.app.domain.usecase.ExportBookshelfUseCase
 import io.legado.app.domain.usecase.ImportBookshelfUseCase
 import io.legado.app.domain.usecase.RefreshTocUseCase
 import io.legado.app.domain.usecase.UpdateBooksGroupUseCase
 import io.legado.app.exception.NoStackTraceException
+import io.legado.app.help.config.LocalConfig
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.model.CacheBook
 import io.legado.app.model.SourceCallBack
@@ -95,6 +97,7 @@ class BookshelfViewModel(
     private val addBookUseCase: AddBookUseCase,
     private val importBookshelfUseCase: ImportBookshelfUseCase,
     private val exportBookshelfUseCase: ExportBookshelfUseCase,
+    private val deleteBooksUseCase: DeleteBooksUseCase,
     private val bookshelfSettingsGateway: BookshelfSettingsGateway,
     private val appShellSettingsGateway: AppShellSettingsGateway,
     private val themeSettingsGateway: ThemeSettingsGateway,
@@ -799,8 +802,8 @@ class BookshelfViewModel(
             BookshelfIntent.ExitEditMode -> exitEditMode()
             BookshelfIntent.ClearSelection -> clearSelection()
             BookshelfIntent.SelectAllVisible -> selectAllVisible()
-            BookshelfIntent.InvertVisibleSelection -> invertVisibleSelection()
             is BookshelfIntent.ToggleBookSelection -> toggleBookSelection(intent.bookUrl)
+            is BookshelfIntent.DeleteBooks -> deleteBooks(intent.bookUrls, intent.deleteOriginal)
             is BookshelfIntent.SetInFolderRoot -> setInFolderRoot(intent.value)
             is BookshelfIntent.MoveBooksToGroup -> moveBooksToGroup(intent.bookUrls, intent.groupId)
             is BookshelfIntent.DownloadBooks -> downloadBooks(intent.bookUrls, intent.allChapters)
@@ -1006,13 +1009,28 @@ class BookshelfViewModel(
         selectedBookUrlsFlow.value = emptySet()
     }
 
+    /** SPEC-206: 可见项已全选则清空，否则全选。 */
     fun selectAllVisible() {
-        selectedBookUrlsFlow.value = uiState.value.items.mapTo(hashSetOf()) { it.book.bookUrl }
+        val visibleBookUrls = uiState.value.items.mapTo(hashSetOf()) { it.book.bookUrl }
+        selectedBookUrlsFlow.value =
+            if (visibleBookUrls.isNotEmpty() &&
+                selectedBookUrlsFlow.value.containsAll(visibleBookUrls)
+            ) {
+                emptySet()
+            } else {
+                visibleBookUrls
+            }
     }
 
-    fun invertVisibleSelection() {
-        val visibleBookUrls = uiState.value.items.mapTo(hashSetOf()) { it.book.bookUrl }
-        selectedBookUrlsFlow.value = visibleBookUrls - selectedBookUrlsFlow.value
+    private fun deleteBooks(bookUrls: Set<String>, deleteOriginal: Boolean) {
+        if (bookUrls.isEmpty()) return
+        execute {
+            LocalConfig.deleteBookOriginal = deleteOriginal
+            deleteBooksUseCase.execute(bookUrls, deleteOriginal)
+        }.onSuccess {
+            clearSelection()
+            exitEditMode()
+        }
     }
 
     fun toggleBookSelection(bookUrl: String) {

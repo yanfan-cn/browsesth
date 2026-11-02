@@ -3,6 +3,7 @@ package io.legado.app.ui.browser
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.menu.MenuBarBoundsProvider
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedVisibility
@@ -35,6 +36,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -136,6 +138,7 @@ fun TabletBrowserShell(
     var showEyeConfigSheet by remember { mutableStateOf(false) }
     var readerModeMenu by remember { mutableStateOf(false) }
     var readerAutoOpenUi by remember { mutableStateOf(false) }
+    var extremePurgeUi by remember { mutableStateOf(true) }
     BackHandler(enabled = readerModeMenu) { readerModeMenu = false }
     val themeSettingsGateway = remember {
         GlobalContext.get().get<ThemeSettingsGateway>()
@@ -174,11 +177,15 @@ fun TabletBrowserShell(
                 .statusBarsPadding(),
         )
         if (pinChromeInLayout && showBrowserChrome) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(scheme.surfaceContainer),
-            ) {
+            // SPEC-200 R2: 栏边界=标签条+功能栏整块，长按菜单整体置于顶栏下 4dp。
+            // SPEC-214 A: 液态玻璃时仅标签条保留实色带，功能栏悬浮玻璃控件。
+            MenuBarBoundsProvider {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(scheme.surfaceContainer),
+                ) {
                 TabletTabStrip(
                     onSelectTab = { id ->
                         BrowserTabManager.switchTo(id)
@@ -201,6 +208,7 @@ fun TabletBrowserShell(
                             ?: context.toastOnUi("请先打开网页")
                     },
                 )
+                }
                 TabletFunctionBar(
                     address = address,
                     onAddressChange = onAddressChange,
@@ -233,11 +241,15 @@ fun TabletBrowserShell(
                     onReaderLongClick = {
                         readerAutoOpenUi =
                             sessionActions?.readerAutoOpenEnabled?.invoke() == true
+                        extremePurgeUi =
+                            sessionActions?.extremePurgeEnabled?.invoke() != false
                         readerModeMenu = true
                     },
                     readerModeMenu = readerModeMenu,
                     readerAutoOpenUi = readerAutoOpenUi,
                     onReaderAutoOpenUiChange = { readerAutoOpenUi = it },
+                    extremePurgeUi = extremePurgeUi,
+                    onExtremePurgeUiChange = { extremePurgeUi = it },
                     onReaderModeMenuDismiss = { readerModeMenu = false },
                     sessionActions = sessionActions,
                     onOpenToolbox = {
@@ -250,6 +262,7 @@ fun TabletBrowserShell(
                         )
                     },
                 )
+            }
             }
         }
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -409,6 +422,8 @@ fun TabletBrowserShell(
                     BrowserTabsScreen(
                         onBack = { onSidePanelChange(TabletSidePanel.None) },
                         onOpenActiveTab = { onSidePanelChange(TabletSidePanel.None) },
+                        // SPEC-210: shell already applied statusBarsPadding.
+                        applyStatusBarInsets = false,
                     )
                 }
             }
@@ -430,11 +445,15 @@ fun TabletBrowserShell(
                 exit = slideOutVertically(animationSpec = tween(160)) { -it } +
                     fadeOut(animationSpec = tween(140)),
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(scheme.surfaceContainer),
-                ) {
+                // SPEC-200 R2: 栏边界=标签条+功能栏整块，长按菜单整体置于顶栏下 4dp。
+                // SPEC-214 A: 液态玻璃时仅标签条实色带。
+                MenuBarBoundsProvider {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(scheme.surfaceContainer),
+                    ) {
                     TabletTabStrip(
                         onSelectTab = { id ->
                             BrowserTabManager.switchTo(id)
@@ -457,6 +476,7 @@ fun TabletBrowserShell(
                                 ?: context.toastOnUi("请先打开网页")
                         },
                     )
+                    }
                     TabletFunctionBar(
                         address = address,
                         onAddressChange = onAddressChange,
@@ -489,11 +509,15 @@ fun TabletBrowserShell(
                         onReaderLongClick = {
                             readerAutoOpenUi =
                                 sessionActions?.readerAutoOpenEnabled?.invoke() == true
+                            extremePurgeUi =
+                                sessionActions?.extremePurgeEnabled?.invoke() != false
                             readerModeMenu = true
                         },
                         readerModeMenu = readerModeMenu,
                         readerAutoOpenUi = readerAutoOpenUi,
                         onReaderAutoOpenUiChange = { readerAutoOpenUi = it },
+                        extremePurgeUi = extremePurgeUi,
+                        onExtremePurgeUiChange = { extremePurgeUi = it },
                         onReaderModeMenuDismiss = { readerModeMenu = false },
                         sessionActions = sessionActions,
                         onOpenToolbox = {
@@ -506,6 +530,7 @@ fun TabletBrowserShell(
                             )
                         },
                     )
+                }
                 }
             }
         }
@@ -635,7 +660,8 @@ private fun TabletTabStrip(
                     SymbolIcon(
                         symbol = Symbols.Close,
                         contentDescription = "关闭",
-                        modifier = Modifier.size(16.dp).clickable { onCloseTab(tab.id) },
+                        // SPEC-199: 关闭小钮涟漪随圆形。
+                        modifier = Modifier.size(16.dp).clip(CircleShape).clickable { onCloseTab(tab.id) },
                         tint = scheme.onSurfaceVariant,
                     )
                 }
@@ -700,21 +726,23 @@ private fun TabletToolboxFloatingCard(
     // Do NOT wrap BrowserToolboxBody in verticalScroll (conflicts with the grid).
     val toolboxHeight = LocalConfiguration.current.screenHeightDp.dp *
         TabletBrowserLayout.tabletToolboxHeightFraction()
+    // SPEC-214 ②: tablet toolbox always solid (slide-only enter; no panel glass).
+    val solidToolbox = TabletBrowserLayout.tabletToolboxUsesSolidSurfaces(
+        currentChromeSurfaceStyle(),
+    )
     AnimatedVisibility(
         visible = visible,
         modifier = Modifier
             .fillMaxSize()
             .padding(top = 16.dp + extraTopPadding, end = 16.dp),
-        enter = fadeIn(animationSpec = tween(220)) +
-            slideInHorizontally(
-                animationSpec = tween(220),
-                initialOffsetX = { it / 4 },
-            ),
-        exit = fadeOut(animationSpec = tween(180)) +
-            slideOutHorizontally(
-                animationSpec = tween(180),
-                targetOffsetX = { it / 4 },
-            ),
+        enter = slideInHorizontally(
+            animationSpec = tween(220),
+            initialOffsetX = { it / 4 },
+        ),
+        exit = slideOutHorizontally(
+            animationSpec = tween(180),
+            targetOffsetX = { it / 4 },
+        ),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -753,7 +781,7 @@ private fun TabletToolboxFloatingCard(
                     onOrderChange = { toolboxOrder = it },
                     editing = toolboxEditing,
                     onEditingChange = { toolboxEditing = it },
-                    solidSurfaces = true,
+                    solidSurfaces = solidToolbox,
                     actions = BrowserToolboxActions(
                         onOpenBookmarks = { onSidePanelChange(TabletSidePanel.Bookmarks) },
                         onOpenHistory = { onSidePanelChange(TabletSidePanel.History) },
@@ -845,6 +873,8 @@ private fun TabletFunctionBar(
     readerModeMenu: Boolean,
     readerAutoOpenUi: Boolean,
     onReaderAutoOpenUiChange: (Boolean) -> Unit,
+    extremePurgeUi: Boolean,
+    onExtremePurgeUiChange: (Boolean) -> Unit,
     onReaderModeMenuDismiss: () -> Unit,
     sessionActions: BrowserSessionActions?,
     onOpenToolbox: () -> Unit,
@@ -862,14 +892,20 @@ private fun TabletFunctionBar(
     var backHistoryItems by remember { mutableStateOf<List<BrowserNavHistory.Item>>(emptyList()) }
     var forwardHistoryItems by remember { mutableStateOf<List<BrowserNavHistory.Item>>(emptyList()) }
     val readerCapsuleShape = RoundedCornerShape(24.dp)
+    val omniboxShape = RoundedCornerShape(24.dp)
     val omniboxHeight = TabletBrowserLayout.TabletOmniboxHeightDp.dp
     val itemGap = TabletBrowserLayout.ChromeItemGapDp.dp
+    // SPEC-214 ①：液态玻璃仅 omnibox + 净读（图标不上玻璃，避免 RenderThread DirtyStack 溢出）。
+    val liquidGlass = TabletBrowserLayout.tabletFunctionBarUsesLiquidGlass(
+        currentChromeSurfaceStyle(),
+    )
 
     // SPEC-168: one gap between every control. Omnibox and 净读 are 40dp.
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(BrowserUiTokens.TopBarHeight)
+            // ①: keep solid strip under icons; only field/capsule are glass.
             .background(scheme.surface)
             .padding(horizontal = itemGap),
         verticalAlignment = Alignment.CenterVertically,
@@ -936,8 +972,19 @@ private fun TabletFunctionBar(
             modifier = Modifier
                 .weight(1f)
                 .height(omniboxHeight)
-                .clip(RoundedCornerShape(24.dp))
-                .background(scheme.surfaceContainerHighest)
+                .then(
+                    if (liquidGlass) {
+                        Modifier.browserControlLiquidGlass(
+                            shape = omniboxShape,
+                            interactive = false,
+                            showShadow = false,
+                        )
+                    } else {
+                        Modifier
+                            .clip(omniboxShape)
+                            .background(scheme.surfaceContainerHighest)
+                    },
+                )
                 .padding(start = 10.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -945,7 +992,8 @@ private fun TabletFunctionBar(
                 Box(
                     modifier = Modifier
                         .size(26.dp)
-                        .clip(RoundedCornerShape(13.dp))
+                        // SPEC-199: 26dp 方槽涟漪随圆形。
+                        .clip(CircleShape)
                         .background(scheme.surface)
                         .clickable { engineMenu = true },
                     contentAlignment = Alignment.Center,
@@ -982,6 +1030,7 @@ private fun TabletFunctionBar(
                 cursorBrush = SolidColor(BrowserUiTokens.Primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                 keyboardActions = KeyboardActions(onGo = {
+                    // SPEC-219: submit before hide/clearFocus so draft is not restored empty.
                     if (address.text.isNotBlank()) {
                         onSubmitAddress()
                         keyboardController?.hide()
@@ -1027,8 +1076,19 @@ private fun TabletFunctionBar(
             Row(
                 modifier = Modifier
                     .height(omniboxHeight)
-                    .clip(readerCapsuleShape)
-                    .background(scheme.surfaceContainerHighest, readerCapsuleShape)
+                    .then(
+                        if (liquidGlass) {
+                            Modifier.browserControlLiquidGlass(
+                                shape = readerCapsuleShape,
+                                interactive = false,
+                                showShadow = false,
+                            )
+                        } else {
+                            Modifier
+                                .clip(readerCapsuleShape)
+                                .background(scheme.surfaceContainerHighest, readerCapsuleShape)
+                        },
+                    )
                     .combinedClickable(
                         onClick = onReader,
                         onLongClick = onReaderLongClick,
@@ -1064,6 +1124,19 @@ private fun TabletFunctionBar(
                     actions.setReaderAutoOpen(enabled)
                     context.toastOnUi(
                         if (enabled) "已开启自动净读模式" else "已关闭自动净读模式",
+                    )
+                },
+                extremePurgeEnabled = extremePurgeUi,
+                onExtremePurgeChange = { enabled ->
+                    val actions = sessionActions
+                    if (actions == null) {
+                        context.toastOnUi("请先打开网页")
+                        return@BrowserReaderModeMenu
+                    }
+                    onExtremePurgeUiChange(enabled)
+                    actions.setExtremePurge(enabled)
+                    context.toastOnUi(
+                        if (enabled) "已开启极致净化" else "已关闭极致净化",
                     )
                 },
                 onTextMode = {
@@ -1102,6 +1175,9 @@ private fun ChromeIcon(
         Box(
             modifier = Modifier
                 .size(TabletChromeIconSlot)
+                // SPEC-199: 平板功能键涟漪随圆形。
+                // SPEC-214 ①: icons stay non-glass (omnibox/净读 only).
+                .clip(CircleShape)
                 .then(
                     if (onLongClick != null) {
                         Modifier.combinedClickable(

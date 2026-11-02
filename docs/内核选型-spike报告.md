@@ -57,4 +57,5 @@
 1. 嵌入 API 可能不是标准 `android.webkit.WebView` 一换即用，需适配层（Aloha 公开博文已提示）。  
 2. AAR 含多 ABI，需按「仅 arm64-v8a」裁剪以控体积。  
 3. 跟版依赖 Aloha 发 Release；L1 = 跟踪其最新 Stable 对应标签。  
-4. Adblock 组件存在 ≠ 产品规则已配置；阶段 C 仍要自建规则与验收。
+4. Adblock 组件存在 ≠ 产品规则已配置；阶段 C 仍要自建规则与验收。  
+5. **系统版本：** Aloha Core / 现行 Chromium 以 **Android 10（API 29）** 为最低支持（Aloha 浏览器发行页与上游 Chromium 说明一致）。默认产品对外按 Android 10+ 说明；勿按 Android 8/9 承诺 Aloha 可用性。

@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -50,9 +51,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kyant.backdrop.Backdrop
 import dev.chrisbanes.haze.HazeState
 import io.legado.app.R
+import io.legado.app.browser.engine.BrowserChromePrefs
+import io.legado.app.browser.engine.HideBrowserChromeInReaderState
 import io.legado.app.constant.ReadMenuBlurMode
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.icon.AppIcons
@@ -88,11 +92,15 @@ internal fun MenuTitleBar(
     // SPEC-061: filled chrome → opaque solid top bar (not transparent).
     val forceFilledChrome =
         io.legado.app.ui.theme.ChromeSurfaceStylePolicy.isFilledActive(chromeSurfaceStyle)
-    val topBarSurfaceAlpha =
+    // SPEC-209: fill mode uses same floating layout as liquid glass — no full-width strip.
+    val topBarSurfaceAlpha = if (forceFilledChrome) {
+        0
+    } else {
         io.legado.app.ui.theme.ChromeSurfaceStylePolicy.effectiveReadMenuSurfaceAlpha(
             chromeSurfaceStyle,
             state.menuConfig.readMenuBlurAlpha,
         )
+    }
     val dragTopBarAlpha = topBarSurfaceAlpha.coerceAtMost(30)
     val animatedTopBarAlpha by animateFloatAsState(
         targetValue = if (isSliderDragging && !forceFilledChrome) {
@@ -108,11 +116,7 @@ internal fun MenuTitleBar(
         !forceFilledChrome && readMenuTopBarHazeEnabled(hazeState, state.menuConfig)
     val topBarVisualState = ReaderMenuVisualState(
         effect = if (useTopBarBlur) ReaderMenuEffect.Haze else ReaderMenuEffect.None,
-        tintStyle = if (forceFilledChrome) {
-            ReaderMenuTintStyle.Fill
-        } else {
-            state.menuConfig.readMenuTopBarBlurStyle.toReaderMenuTintStyle()
-        },
+        tintStyle = state.menuConfig.readMenuTopBarBlurStyle.toReaderMenuTintStyle(),
         styleEnabled = true,
         tintAllowed = true,
         tintFill = true,
@@ -125,6 +129,11 @@ internal fun MenuTitleBar(
         shadow = menuTextShadow
     )
     val useTitleCapsule = state.menuConfig.readMenuTopBarTitleCapsule
+    // SPEC-208: tablet shell host + optional hide of browser chrome.
+    val underBrowserShell = LocalReaderUnderBrowserChrome.current
+    val hideBrowserChrome by HideBrowserChromeInReaderState.value.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val chromePrefs = remember(context) { BrowserChromePrefs(context) }
 
     Column(
         modifier = Modifier
@@ -174,9 +183,10 @@ internal fun MenuTitleBar(
                 } else Modifier
             )
             .then(
-                // SPEC-122: under tablet omnibox → 16dp gap, do not double-apply statusBars.
-                if (LocalReaderUnderBrowserChrome.current) {
-                    Modifier.padding(top = 16.dp)
+                // SPEC-122/210: tablet shell Column already reserves statusBars — never
+                // double-apply here. Small gap under omnibox; 0 when chrome hidden.
+                if (underBrowserShell) {
+                    Modifier.padding(top = if (hideBrowserChrome) 0.dp else 4.dp)
                 } else {
                     Modifier.windowInsetsPadding(
                         WindowInsets.safeDrawing.only(WindowInsetsSides.Top),
@@ -240,81 +250,78 @@ internal fun MenuTitleBar(
             }
 
             // Right group: actions
-            if (state.menuConfig.readMenuTopBarMergeButtons) {
-                MenuTitleBarMergedGlassButton(
-                    state = state,
-                    colors = colors,
-                    onIntent = onIntent,
-                    backdrop = backdrop,
-                    glassEnabled = readMenuTopBarButtonLiquidGlassEnabled(
-                        backdrop,
-                        state.menuConfig,
-                        io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle,
-                    ),
-                )
-            } else {
+            // SPEC-209: always independent circular keys (same layout fill / liquid glass).
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 val compact = state.menuConfig.titleBarCompact
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (!state.isLocalBook) {
-                        if (!compact && state.bookSource?.customButton == true) {
-                            SourceCustomActionButton(
-                                state = state,
-                                colors = colors,
-                                onIntent = onIntent,
-                                backdrop = backdrop,
-                            )
-                        }
-                        if (!compact) {
-                            SourceActionButton(
-                                state = state,
-                                colors = colors,
-                                onIntent = onIntent,
-                                backdrop = backdrop,
-                            )
-                            RefreshActionButton(
-                                state = state,
-                                colors = colors,
-                                onIntent = onIntent,
-                                backdrop = backdrop,
-                            )
-                            DownloadActionButton(
-                                state = state,
-                                colors = colors,
-                                onIntent = onIntent,
-                                backdrop = backdrop,
-                            )
-                        }
-                    } else if (state.isLocalBook && !compact) {
-                        if (state.isLocalTxt) {
-                            TxtTocRuleActionButton(
-                                state = state,
-                                colors = colors,
-                                onIntent = onIntent,
-                                backdrop = backdrop,
-                            )
-                        }
-                        CharsetActionButton(
+                if (!state.isLocalBook) {
+                    if (!compact && state.bookSource?.customButton == true) {
+                        SourceCustomActionButton(
                             state = state,
                             colors = colors,
                             onIntent = onIntent,
                             backdrop = backdrop,
                         )
                     }
-                    // SPEC-155: 右上角 → MoreConfigSheet「更多设置」（不再开 MoreActions）。
-                    MenuTitleGlassButton(
-                        onClick = {
-                            onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreConfig))
-                        },
-                        icon = Symbols.MoreVert,
-                        contentDescription = stringResource(R.string.more_setting),
+                    if (!compact) {
+                        SourceActionButton(
+                            state = state,
+                            colors = colors,
+                            onIntent = onIntent,
+                            backdrop = backdrop,
+                        )
+                        RefreshActionButton(
+                            state = state,
+                            colors = colors,
+                            onIntent = onIntent,
+                            backdrop = backdrop,
+                        )
+                        DownloadActionButton(
+                            state = state,
+                            colors = colors,
+                            onIntent = onIntent,
+                            backdrop = backdrop,
+                        )
+                    }
+                } else if (state.isLocalBook && !compact) {
+                    if (state.isLocalTxt) {
+                        TxtTocRuleActionButton(
+                            state = state,
+                            colors = colors,
+                            onIntent = onIntent,
+                            backdrop = backdrop,
+                        )
+                    }
+                    CharsetActionButton(
+                        state = state,
+                        colors = colors,
+                        onIntent = onIntent,
+                        backdrop = backdrop,
+                    )
+                }
+                // SPEC-208: left of more; same MenuTitleGlassButton style.
+                if (underBrowserShell) {
+                    TabletReaderFullscreenButton(
+                        hideBrowserChrome = hideBrowserChrome,
+                        chromePrefs = chromePrefs,
                         state = state,
                         colors = colors,
                         backdrop = backdrop,
                     )
                 }
+                // SPEC-155: 右上角 → MoreConfigSheet「更多设置」（不再开 MoreActions）。
+                MenuTitleGlassButton(
+                    onClick = {
+                        onIntent(ReadBookIntent.ShowSheet(ReadBookSheet.MoreConfig))
+                    },
+                    icon = Symbols.MoreVert,
+                    contentDescription = stringResource(R.string.more_setting),
+                    state = state,
+                    colors = colors,
+                    backdrop = backdrop,
+                )
             }
         }
 
@@ -430,6 +437,26 @@ internal fun MenuTitleBar(
     }
 }
 
+@Composable
+private fun TabletReaderFullscreenButton(
+    hideBrowserChrome: Boolean,
+    chromePrefs: BrowserChromePrefs,
+    state: ReadBookUiState,
+    colors: ReadMenuColors,
+    backdrop: Backdrop?,
+) {
+    MenuTitleGlassButton(
+        onClick = { chromePrefs.hideBrowserChromeInReader = !hideBrowserChrome },
+        icon = if (hideBrowserChrome) Symbols.CloseFullscreen else Symbols.OpenInFull,
+        contentDescription = stringResource(
+            if (hideBrowserChrome) R.string.exit_full_screen else R.string.hide_browser_chrome_in_reader,
+        ),
+        state = state,
+        colors = colors,
+        backdrop = backdrop,
+    )
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MenuTitleGlassButton(
@@ -442,18 +469,24 @@ private fun MenuTitleGlassButton(
     onLongClick: (() -> Unit)? = null,
     contentDescription: String? = null,
 ) {
+    val glassEnabled = readMenuTopBarButtonLiquidGlassEnabled(
+        backdrop,
+        state.menuConfig,
+        io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle,
+    )
     ReadMenuGlassIconButton(
         onClick = onClick,
         icon = icon,
         colors = colors,
         backdrop = backdrop,
         menuConfig = state.menuConfig,
-        glassEnabled = readMenuTopBarButtonLiquidGlassEnabled(
-            backdrop,
-            state.menuConfig,
-            io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle,
-        ),
-        iconStyle = state.menuConfig.titleBarIconStyle,
+        glassEnabled = glassEnabled,
+        // SPEC-209: fill mode keeps circular tonal discs like liquid-glass keys.
+        iconStyle = if (glassEnabled) {
+            state.menuConfig.titleBarIconStyle
+        } else {
+            1
+        },
         modifier = modifier,
         onLongClick = onLongClick,
         menuBorderEnabled = state.menuConfig.readMenuBorderWidth > 0 &&
@@ -594,7 +627,8 @@ private fun RowScope.TitleCapsuleGlassLayout(
     backdrop: Backdrop?,
     titleTextColor: Color,
 ) {
-    val pillShape = RoundedCornerShape(50)
+    // SPEC-210: 24dp round-rect capsule (fill + liquid glass share layout).
+    val pillShape = RoundedCornerShape(24.dp)
     val glassEnabled = readerMenuLiquidGlassAvailable(
         backdrop,
         io.legado.app.ui.theme.LocalAppUiConfiguration.current.theme.chromeSurfaceStyle,
@@ -606,7 +640,7 @@ private fun RowScope.TitleCapsuleGlassLayout(
             Color(readMenuBorderColor(state.menuConfig)),
         )
 
-        iconStyle == 2 -> BorderStroke(
+        !glassEnabled && iconStyle == 2 -> BorderStroke(
             1.dp,
             LegadoTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
         )
@@ -631,13 +665,10 @@ private fun RowScope.TitleCapsuleGlassLayout(
                         menuConfig = state.menuConfig,
                     )
                 } else {
-                    val containerColor = when (iconStyle) {
-                        1 -> LegadoTheme.colorScheme.surfaceContainerLow
-                        else -> Color.Transparent
-                    }
+                    // SPEC-210: fill mode always has tonal capsule background.
                     Modifier
                         .clip(pillShape)
-                        .background(containerColor, pillShape)
+                        .background(LegadoTheme.colorScheme.surfaceContainerLow, pillShape)
                 }
             )
             .then(if (border != null) Modifier.border(border, pillShape) else Modifier)

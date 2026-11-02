@@ -1,11 +1,10 @@
 package io.legado.app.browser.engine
 
 import android.content.Context
-import org.chromium.android_webview.client_hints.AwUserAgentMetadata
 
 /**
- * Browser UA profiles (SPEC-018 / SPEC-029).
- * Strings must match bundled Aloha Chromium 150.0.7871.46; no product brand tokens.
+ * Browser UA profiles (SPEC-018 / SPEC-029 / SPEC-222).
+ * Aloha Client Hints live in app-flavor [BrowserUaHints].
  */
 object BrowserUa {
     const val CHROME_MAJOR = "150"
@@ -41,30 +40,24 @@ object BrowserUa {
     }
 
     /**
-     * [AwSettings.setUserAgentMetadataFromMap] requires `String[][]` for brands.
+     * SPEC-221: 腾讯新闻系在手机 UA 下常不出可播媒体 / CDN 拒移动 UA。
+     * 对这些 host 浏览与播放都抬升到桌面 UA。
      */
-    fun clientHintMap(mobile: Boolean): Map<String, Any> {
-        val brands = arrayOf(
-            arrayOf("Google Chrome", CHROME_MAJOR, CHROME_FULL),
-            arrayOf("Chromium", CHROME_MAJOR, CHROME_FULL),
-            arrayOf("Not_A Brand", "8", "10.0.0.4"),
-        )
-        val form = if (mobile) {
-            AwUserAgentMetadata.FormFactors.MOBILE
-        } else {
-            AwUserAgentMetadata.FormFactors.DESKTOP
-        }
-        return mapOf(
-            AwUserAgentMetadata.MetadataKeys.BRAND_VERSION_LIST to brands,
-            AwUserAgentMetadata.MetadataKeys.FULL_VERSION to CHROME_FULL,
-            AwUserAgentMetadata.MetadataKeys.PLATFORM to if (mobile) "Android" else "Windows",
-            AwUserAgentMetadata.MetadataKeys.PLATFORM_VERSION to if (mobile) "13.0.0" else "15.0.0",
-            AwUserAgentMetadata.MetadataKeys.ARCHITECTURE to if (mobile) "" else "x86",
-            AwUserAgentMetadata.MetadataKeys.MODEL to if (mobile) "Pixel 7" else "",
-            AwUserAgentMetadata.MetadataKeys.MOBILE to mobile,
-            AwUserAgentMetadata.MetadataKeys.BITNESS to if (mobile) 0 else 64,
-            AwUserAgentMetadata.MetadataKeys.WOW64 to false,
-            AwUserAgentMetadata.MetadataKeys.FORM_FACTORS to arrayOf(form),
-        )
+    fun needsDesktopForVideo(urlOrHost: String): Boolean {
+        val host = runCatching {
+            val raw = urlOrHost.trim()
+            val h = if (raw.contains("://")) {
+                java.net.URI(raw).host
+            } else {
+                raw.substringBefore('/').substringBefore('?')
+            }
+            h?.lowercase()?.removePrefix("www.")
+        }.getOrNull().orEmpty()
+        if (host.isBlank()) return false
+        return host == "qq.com" ||
+            host.endsWith(".qq.com") ||
+            host.endsWith(".qpic.cn") ||
+            host.endsWith(".gtimg.com") ||
+            host.contains("inews")
     }
 }

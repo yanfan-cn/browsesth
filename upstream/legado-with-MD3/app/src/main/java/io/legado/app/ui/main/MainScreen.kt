@@ -161,7 +161,7 @@ fun MainScreen(
     onNavigateToSearch: (String?) -> Unit,
     onNavigateToScopedSearch: (String) -> Unit,
     onNavigateToRemoteImport: () -> Unit,
-    onNavigateToLocalImport: () -> Unit,
+    onNavigateToLocalImport: (autoPick: String?) -> Unit,
     onNavigateToCache: (Long) -> Unit,
     onNavigateToBookCacheManage: () -> Unit,
     onOpenBookshelfBook: (BookShelfItem, String?) -> Unit,
@@ -288,6 +288,10 @@ fun MainScreen(
                     if (bookshelfPageIndex >= 0) {
                         pagerState.animateScrollToPage(bookshelfPageIndex)
                     }
+                }
+                // SPEC-221: 软件更新/开发人员 → 强制落在浏览器主页标签。
+                MainShortcutBus.Event.BrowserHome -> {
+                    pagerState.animateScrollToPage(homePageIndex)
                 }
             }
         }
@@ -570,15 +574,19 @@ fun MainScreen(
                             ),
                         // SPEC-021: restore finger-follow tab swipe (Legado MD3 parity).
                         // Nested scroll stays idle on browser Home so vertical web scroll is not stolen.
+                        // SPEC-221: NTP 搜索页打开时禁止左右滑到阅读列表/我的。
                         userScrollEnabled = TabletBrowserLayout.pagerUserScrollEnabled(
                             isTablet = isTabletFormFactor,
                             onBrowserHome = onBrowserHome,
                             sessionActive = browserSessionActive,
+                            phoneNtpSearchActive = phoneNtpSearchActive,
                         ),
-                        // SPEC-193 R2: 热邻居回调为 1（操作者真机判定 warm=0 时切标签非常卡）。
-                        // 滑动掉帧与热邻居无直接关系（warm=0 时滑动依旧掉帧），元凶待
-                        // 真机 Perfetto 定位；warm=1 保留相邻页预组合以救回标签切换手感。
-                        beyondViewportPageCount = 1,
+                        // SPEC-195: 回归原版参数 4（原版 legado-with-MD3 同位置 = 4）。
+                        // 决策链：193 归零的理由（热邻居抢占主线程致滑动掉帧）已被 LOG-194 真机
+                        // 推翻（warm=0 滑动依旧掉帧）；194 回调 1 后切标签仍非常卡（真机）。
+                        // 详情已搬出 Main（SPEC-193），193 冻结归因的前提不复存在。
+                        // 巡页 3 标签页：4 与 2 效果等价（全部常驻），取 4 保持与原版一致。
+                        beyondViewportPageCount = 4,
                     ) { page ->
                         val destination = destinations.getOrNull(page) ?: return@HorizontalPager
                         val pageLifecycleOwner = rememberMainPageLifecycleOwner(
@@ -713,6 +721,7 @@ fun MainScreen(
                                         PrefClickEvent.OpenBrowserBookmarks -> onNavigateToBrowserBookmarks()
                                         PrefClickEvent.OpenBookSourceManage -> onNavigateToBookSourceManage()
                                         PrefClickEvent.OpenReadRecord -> onNavigateToReadRecord()
+                                        PrefClickEvent.OpenLocalImport -> onNavigateToLocalImport(null)
                                         else -> onIntent(MainUiIntent.HandlePreferenceClick(event))
                                     }
                                 }

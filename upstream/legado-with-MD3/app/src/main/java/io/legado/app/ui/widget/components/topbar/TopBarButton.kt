@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -228,6 +229,8 @@ private fun TopBarButton(
             modifier = modifier
                 .size(style.buttonSize)
                 .mergedDivider()
+                // SPEC-199: 涟漪随控件形状（36dp 方槽 → 圆形），替代 SPEC-198 统一 24dp。
+                .clip(CircleShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = if (liquidGlassEnabled) null else ripple(bounded = true),
@@ -350,6 +353,8 @@ fun TopBarAnimatedActionButton(
             button = { buttonModifier, onToggle, content ->
                 val dividerModifier = buttonModifier
                     .then(if (isMerged) Modifier.mergedDivider() else Modifier)
+                    // SPEC-199: 合并路径涟漪随 36dp 胶囊（原为有界矩形）。
+                    .then(if (isMerged) Modifier.clip(RoundedCornerShape(50)) else Modifier)
                 if (isMerged) {
                     Box(
                         contentAlignment = Alignment.Center,

@@ -41,6 +41,9 @@ import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
+import io.legado.app.ui.widget.components.menu.AnimatedMenuPopup
+import io.legado.app.ui.widget.components.menu.MenuPopupAlignment
+import io.legado.app.ui.widget.components.menu.MenuPopupBarEdge
 
 /** SPEC-055: circular tab-count badge on NTP / bottom bar. */
 private val TabCountShape = CircleShape
@@ -49,6 +52,7 @@ private val TabCountShape = CircleShape
 val TabletTabCountShape = RoundedCornerShape(24.dp)
 val TabletTabCountSize = BrowserUiTokens.ControlSmall
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BrowserTabCountBadge(
     count: Int,
@@ -67,6 +71,9 @@ fun BrowserTabCountBadge(
     borderWidth: Dp = 1.dp,
     /** SPEC-181: scale digit text with a smaller badge (1f = SPEC-069 baseline). */
     textSizeScale: Float = 1f,
+    /** SPEC-199: 点击/长按挂在 clip 之后，涟漪随徽章形状（原调用方经 modifier 注入时 clip 在后，涟漪未被裁剪）。 */
+    onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val digitCount = count.toString().length
     val textSize = (when {
@@ -98,6 +105,15 @@ fun BrowserTabCountBadge(
                     Modifier.background(containerColor)
                 } else {
                     Modifier
+                },
+            )
+            // SPEC-199: clickable 置于 clip/背景之后，涟漪随徽章形状且浮于底色之上。
+            .then(
+                when {
+                    onClick != null && onLongClick != null ->
+                        Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                    onClick != null -> Modifier.clickable(onClick = onClick)
+                    else -> Modifier
                 },
             ),
         contentAlignment = Alignment.Center,
@@ -133,24 +149,33 @@ fun BrowserTabCountMenu(
     val scheme = LegadoTheme.colorScheme
     val shape = RoundedCornerShape(BrowserUiTokens.CardCorner)
     val density = LocalDensity.current
-    val gapPx = with(density) { 8.dp.roundToPx() }
+    val gapPx = with(density) { 4.dp.roundToPx() }
     val yOffset = when {
         aboveAnchor -> -gapPx
         belowTopBar -> with(density) {
             (
                 (BrowserUiTokens.NtpTopBarHeight - BrowserUiTokens.ControlMedium) / 2 +
                     BrowserUiTokens.ControlMedium +
-                    8.dp
+                    // SPEC-200: 顶栏之下间距 4dp。
+                    4.dp
                 ).roundToPx()
         }
-        else -> 0
+        // SPEC-200: 通用下弹（横屏顶栏标签菜单）间距 4dp。
+        else -> gapPx
     }
-    val popupAlignment = if (aboveAnchor) Alignment.BottomEnd else Alignment.TopEnd
-    Popup(
+    val popupAlignment = if (aboveAnchor) {
+        // SPEC-198: Material Motion 弹出（淡入+自锚点角缩放）。
+        MenuPopupAlignment.AboveEnd
+    } else {
+        MenuPopupAlignment.BelowEnd
+    }
+    AnimatedMenuPopup(
         alignment = popupAlignment,
+        // SPEC-200 R2: 菜单整体置于栏外 4dp（上/下随 aboveAnchor）。
+        barEdge = if (aboveAnchor) MenuPopupBarEdge.Up else MenuPopupBarEdge.Down,
+        alignEnd = true,
         offset = IntOffset(0, yOffset),
         onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = true),
     ) {
         Column(
             modifier = Modifier
@@ -208,6 +233,8 @@ private fun TabCountMenuRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(BrowserUiTokens.ControlLarge)
+            // SPEC-199: 弹出菜单行涟漪 16dp 圆角。
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = BrowserUiTokens.SpaceLg),
         verticalAlignment = Alignment.CenterVertically,
@@ -254,10 +281,9 @@ fun BrowserTabCountButton(
             size = size,
             shape = shape,
             drawBorder = drawBorder,
-            modifier = Modifier.combinedClickable(
-                onClick = onOpenTabs,
-                onLongClick = { menu = true },
-            ),
+            // SPEC-199: 经参数传入，clickable 位于 clip 之后。
+            onClick = onOpenTabs,
+            onLongClick = { menu = true },
         )
         BrowserTabCountMenu(
             expanded = menu,

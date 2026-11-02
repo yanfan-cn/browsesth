@@ -1,10 +1,18 @@
 package io.legado.app.browser.engine
 
 import android.content.Context
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /** Tablet chrome / UA / wallpaper prefs (SPEC-018). */
 class BrowserChromePrefs(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    init {
+        // Keep reactive snapshot in sync for Compose collectors (SPEC-208).
+        HideBrowserChromeInReaderState.publish(prefs.getBoolean(KEY_HIDE_CHROME_IN_READER, false))
+    }
 
     /** null = follow form-factor default. */
     var uaMode: BrowserUa.Mode?
@@ -93,6 +101,17 @@ class BrowserChromePrefs(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_RESTORE_SESSION, value).apply()
 
     /**
+     * SPEC-208: tablet shell embedded reader — hide browser tab+omnibox chrome.
+     * Default OFF. Phone standalone reader ignores this.
+     */
+    var hideBrowserChromeInReader: Boolean
+        get() = prefs.getBoolean(KEY_HIDE_CHROME_IN_READER, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_HIDE_CHROME_IN_READER, value).apply()
+            HideBrowserChromeInReaderState.publish(value)
+        }
+
+    /**
      * SPEC-132: show bottom-chrome prompt 「用播放器打开」 when a playable stream
      * is detected. Default ON.
      */
@@ -134,6 +153,7 @@ class BrowserChromePrefs(context: Context) {
         private const val KEY_ACCEPT_3P_COOKIES = "accept_third_party_cookies"
         private const val KEY_SAFE_BROWSING = "safe_browsing_enabled"
         private const val KEY_RESTORE_SESSION = "restore_session_on_launch"
+        private const val KEY_HIDE_CHROME_IN_READER = "hide_browser_chrome_in_reader"
         private const val KEY_VIDEO_PLAYER_PROMPT = "video_player_prompt_enabled"
         private const val KEY_NTP_WALLPAPER_ID = "ntp_wallpaper_id"
         private const val KEY_NTP_USER_WALLS = "ntp_user_wallpapers"

@@ -419,7 +419,9 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
             },
         )
         val bookUrl = book.bookUrl
-        val showChapterTitle = ReadBookConfig.titleMode != 2
+        val forceShowTitle = book.origin == WebArticleBookFactory.ORIGIN ||
+            bookUrl.startsWith("browsesth-novel://")
+        val showChapterTitle = forceShowTitle || ReadBookConfig.titleMode != 2
         val wholeBookAverageChapterLength = book.wordCount.toContentLength()
             ?.div(chapterSize.coerceAtLeast(1))
         val layoutGeneration = wholeBookPageCoordinator.requestEstimate(
@@ -507,11 +509,16 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
                 },
                 layoutGeneration = layoutGeneration,
             )
+            val forceShowTitle = book.origin == WebArticleBookFactory.ORIGIN ||
+                book.bookUrl.startsWith("browsesth-novel://")
             val source = ReaderChapterSourceParser.parse(
                 chapterIndex = chapter.index,
                 title = displayTitle,
                 paragraphs = processed.textList,
-                includeTitle = ReadBookConfig.titleMode != 2 || chapter.isVolume || processed.textList.isEmpty(),
+                includeTitle = forceShowTitle ||
+                    ReadBookConfig.titleMode != 2 ||
+                    chapter.isVolume ||
+                    processed.textList.isEmpty(),
                 adaptSpecialStyle = readSettingsGateway.currentSettings.adaptSpecialStyle,
                 htmlSemanticTextResolver = AndroidReaderHtmlSemanticTextResolver,
             )
@@ -1707,12 +1714,17 @@ object ReadBook : CoroutineScope by MainScope(), KoinComponent {
             },
             layoutGeneration = pageEstimateGeneration,
         )
+        val forceShowTitle = book.origin == WebArticleBookFactory.ORIGIN ||
+            book.bookUrl.startsWith("browsesth-novel://")
         val readerSource = ReaderPerfTrace.section("content.source-parse") {
             ReaderChapterSourceParser.parse(
                 chapterIndex = chapter.index,
                 title = displayTitle,
                 paragraphs = contents.textList,
-                includeTitle = ReadBookConfig.titleMode != 2 || chapter.isVolume || contents.textList.isEmpty(),
+                includeTitle = forceShowTitle ||
+                    ReadBookConfig.titleMode != 2 ||
+                    chapter.isVolume ||
+                    contents.textList.isEmpty(),
                 adaptSpecialStyle = readSettingsGateway.currentSettings.adaptSpecialStyle,
                 htmlSemanticTextResolver = AndroidReaderHtmlSemanticTextResolver,
             )

@@ -21,6 +21,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.ProvideAppContentColor
@@ -39,6 +40,8 @@ fun RoundDropdownMenu(
     shape: Shape = MaterialTheme.shapes.medium,
     shadowElevation: Dp = 4.dp,
     verticalSpacing: Dp = 8.dp,
+    /** SPEC-209: gap below anchor (e.g. 4.dp under top-bar buttons). */
+    offset: DpOffset = DpOffset.Zero,
     content: @Composable ColumnScope.(dismiss: () -> Unit) -> Unit
 ) {
     val popupContainerColor = LegadoTheme.colorScheme.surfaceContainerLow
@@ -48,6 +51,7 @@ fun RoundDropdownMenu(
             expanded = expanded,
             onDismissRequest = onDismissRequest,
             modifier = modifier,
+            offset = offset,
             shape = shape,
             shadowElevation = shadowElevation,
             containerColor = popupContainerColor

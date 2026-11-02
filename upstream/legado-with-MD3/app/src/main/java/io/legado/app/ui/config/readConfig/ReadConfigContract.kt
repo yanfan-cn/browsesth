@@ -24,7 +24,7 @@ data class ReadConfigUiState(
     val brightnessAuto: Boolean = true,
     val useUnderline: Boolean = false,
     val readSliderMode: String = "0",
-    val doubleHorizontalPage: String = "0",
+    val doubleHorizontalPage: String = "3",
     val progressBarBehavior: String = "page",
     val mouseWheelPage: Boolean = true,
     val volumeKeyPage: Boolean = true,

@@ -123,6 +123,27 @@ class SettingsActivity : BaseComposeActivity() {
             entryProvider = settingsFamilyEntryProvider(
                 backStack = backStack,
                 onNavigateBack = { navigateBack() },
+                onOpenSoftwareUpdate = {
+                    // SPEC-205 / SPEC-119 / SPEC-221: 飞盘链在巡页浏览器页内打开并切到主页。
+                    io.legado.app.browser.engine.BrowserOpenBridge.offer(
+                        getString(io.legado.app.R.string.software_update_url),
+                    )
+                    io.legado.app.ui.main.MainShortcutBus.offer(
+                        io.legado.app.ui.main.MainShortcutBus.Event.BrowserHome,
+                    )
+                    startActivity(
+                        android.content.Intent(
+                            this,
+                            io.legado.app.ui.main.MainActivity::class.java,
+                        ).apply {
+                            addFlags(
+                                android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                                    android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                            )
+                        },
+                    )
+                    finish()
+                },
             ),
         )
     }
@@ -156,6 +177,7 @@ class SettingsActivity : BaseComposeActivity() {
 private fun settingsFamilyEntryProvider(
     backStack: MutableList<io.legado.app.ui.main.MainRoute>,
     onNavigateBack: () -> Unit,
+    onOpenSoftwareUpdate: () -> Unit,
 ) = entryProvider {
     entry<MainRouteSettings>(metadata = settingsSharedAxisMetadata()) {
         val isTablet = BrowserFormFactor.isTablet(LocalConfiguration.current)
@@ -163,6 +185,7 @@ private fun settingsFamilyEntryProvider(
             TabletSettingsScreen(
                 onBackClick = onNavigateBack,
                 initialPane = TabletSettingsPane.Browser,
+                onOpenSoftwareUpdate = onOpenSoftwareUpdate,
                 onNavigateToCoverAlbums = { backStack.add(MainRouteSettingsCoverAlbums) },
                 onNavigateToCustomTheme = { backStack.add(MainRouteSettingsCustomTheme) },
                 onNavigateToThemeManage = { backStack.add(MainRouteSettingsThemeManage) },
@@ -187,6 +210,7 @@ private fun settingsFamilyEntryProvider(
         } else {
             ConfigNavScreen(
                 onBackClick = onNavigateBack,
+                onOpenSoftwareUpdate = onOpenSoftwareUpdate,
                 onNavigateToBrowser = { backStack.add(MainRouteSettingsBrowser) },
                 onNavigateToOther = { backStack.add(MainRouteSettingsOther) },
                 onNavigateToRead = { backStack.add(MainRouteSettingsRead) },

@@ -14,7 +14,11 @@ import android.os.Handler
 import android.os.Looper
 import android.util.AttributeSet
 import android.util.Log
+import android.view.ActionMode
+import android.view.GestureDetector
 import android.view.KeyEvent
+import android.view.Menu
+import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.PixelCopy
 import android.view.View
@@ -34,6 +38,7 @@ import org.chromium.base.Callback
  * SPEC-011/020: prefer hardware DrawFn; failure → SOFTWARE for this process only
  * (no sticky prefs; SPEC-009 blank-page rollback path).
  * SPEC-073: forward window insets; align touch/draw scroll path with Chromium host.
+ * SPEC-218: track floating text ActionMode; clear on tap / page scroll (tablet stuck selection).
  */
 class AwContentsHostView @JvmOverloads constructor(
     context: Context,
@@ -50,6 +55,23 @@ class AwContentsHostView @JvmOverloads constructor(
     private var diagLastCanvasW = -1
     private var diagLastCanvasH = -1
     private var diagLastInsets = ""
+
+    /** SPEC-218: Chromium floating text-selection ActionMode (copy/share bar). */
+    private var activeActionMode: ActionMode? = null
+    private val selectionGestureDetector = GestureDetector(
+        context,
+        object : GestureDetector.SimpleOnGestureListener() {
+            override fun onSingleTapUp(e: MotionEvent): Boolean {
+                // Finish tracked mode when present; always drop DOM ranges (zombie highlight).
+                if (activeActionMode != null) {
+                    clearTextSelection()
+                } else {
+                    evaluateJavaScript(CLEAR_SELECTION_JS, null)
+                }
+                return false
+            }
+        },
+    )
 
     init {
         applyLayerForDrawMode()
@@ -71,8 +93,8 @@ class AwContentsHostView @JvmOverloads constructor(
         val t0 = android.os.SystemClock.uptimeMillis()
         destroyContents()
         applyLayerForDrawMode()
-        BrowserNtpPrefs.activateCookieJar(incognito)
-        val browserContext = BrowserNtpPrefs.browserContext(incognito)
+        BrowserIncognitoRuntime.activateCookieJar(incognito)
+        val browserContext = BrowserIncognitoRuntime.browserContext(incognito)
         val settings = AwSettings(
             context,
             /* isAccessFromFileUrlsGrantedByDefault= */ false,
@@ -109,7 +131,7 @@ class AwContentsHostView @JvmOverloads constructor(
             settings.setUserAgentIsMobile(uaMobile)
         }
         runCatching {
-            settings.setUserAgentMetadataFromMap(BrowserUa.clientHintMap(uaMobile))
+            settings.setUserAgentMetadataFromMap(BrowserUaHints.clientHintMap(uaMobile))
         }.onFailure { Log.w(TAG, "UA metadata: ${it.message}") }
         // SPEC-120: privacy + force zoom from prefs.
         BrowserPrivacyControls.applyCookieManagers(context)
@@ -217,7 +239,29 @@ class AwContentsHostView @JvmOverloads constructor(
     }
 
     fun loadUrl(url: String) {
+        // SPEC-221: 腾讯新闻等站手机 UA 难播视频 → 该次导航抬升桌面 UA。
+        maybeElevateUaForVideoHost(url)
         awContents?.loadUrl(url) ?: Log.w(TAG, "loadUrl before attach: $url")
+    }
+
+    private var elevatedDesktopForVideo = false
+
+    private fun maybeElevateUaForVideoHost(url: String) {
+        val prefs = BrowserChromePrefs(context)
+        val defaultMode = prefs.uaModeOrDefault(BrowserFormFactor.isTablet(context))
+        if (defaultMode != BrowserUa.Mode.Mobile) {
+            elevatedDesktopForVideo = false
+            return
+        }
+        if (BrowserUa.needsDesktopForVideo(url)) {
+            if (!elevatedDesktopForVideo) {
+                applyUserAgent(BrowserUa.Mode.Desktop)
+                elevatedDesktopForVideo = true
+            }
+        } else if (elevatedDesktopForVideo) {
+            applyUserAgent(BrowserUa.Mode.Mobile)
+            elevatedDesktopForVideo = false
+        }
     }
 
     fun loadDataWithBaseURL(
@@ -230,18 +274,24 @@ class AwContentsHostView @JvmOverloads constructor(
         awContents?.loadDataWithBaseURL(baseUrl, data, mimeType, encoding, historyUrl)
     }
 
-    fun evaluateJavaScript(script: String, callback: Callback<String>?) {
-        awContents?.evaluateJavaScript(script, callback)
+    fun evaluateJavaScript(script: String, callback: BrowserJsCallback?) {
+        awContents?.evaluateJavaScript(
+            script,
+            callback?.let { c -> Callback<String> { value -> c.onResult(value) } },
+        )
     }
 
     /** SPEC-064: save current page as MHTML (.mht), Chrome/Edge offline style. */
     fun saveWebArchive(
         basename: String,
         autoname: Boolean,
-        callback: Callback<String>?,
+        callback: BrowserJsCallback?,
     ) {
-        awContents?.saveWebArchive(basename, autoname, callback)
-            ?: callback?.onResult(null)
+        awContents?.saveWebArchive(
+            basename,
+            autoname,
+            callback?.let { c -> Callback<String> { value -> c.onResult(value) } },
+        ) ?: callback?.onResult(null)
     }
 
     fun canGoBack(): Boolean = awContents?.canGoBack() == true
@@ -314,7 +364,7 @@ class AwContentsHostView @JvmOverloads constructor(
         runCatching { settings.setUserAgentString(BrowserUa.stringFor(mode)) }
         runCatching { settings.setUserAgentIsMobile(mobile) }
         runCatching {
-            settings.setUserAgentMetadataFromMap(BrowserUa.clientHintMap(mobile))
+            settings.setUserAgentMetadataFromMap(BrowserUaHints.clientHintMap(mobile))
         }.onFailure { Log.w(TAG, "applyUserAgent metadata: ${it.message}") }
     }
 
@@ -322,7 +372,7 @@ class AwContentsHostView @JvmOverloads constructor(
      * SPEC-121: find-in-page via TreeWalker + mark highlights (window.find unreliable).
      * Callback receives JSON `{n,i}` or legacy digit string.
      */
-    fun findInPage(query: String, findNext: Boolean, forward: Boolean, callback: Callback<String>?) {
+    fun findInPage(query: String, findNext: Boolean, forward: Boolean, callback: BrowserJsCallback?) {
         evaluateJavaScript(
             BrowserFindInPageScript.build(query, findNext = findNext, forward = forward),
             callback,
@@ -439,8 +489,14 @@ class AwContentsHostView @JvmOverloads constructor(
         }.getOrNull()
     }
 
+    /**
+     * SPEC-221: pause rendering/timers before destroy to cut races when the user
+     * rapidly taps/swipes while the host is being torn down (偶发闪退加固).
+     */
     fun destroyContents() {
-        awContents?.destroy()
+        val contents = awContents ?: return
+        runCatching { contents.onPause() }
+        runCatching { contents.destroy() }
         awContents = null
         awSettings = null
     }
@@ -544,6 +600,85 @@ class AwContentsHostView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * SPEC-218: finish floating selection ActionMode and drop DOM ranges.
+     * Safe to call when no selection is active.
+     */
+    fun clearTextSelection() {
+        val mode = activeActionMode
+        activeActionMode = null
+        runCatching { mode?.finish() }
+        evaluateJavaScript(CLEAR_SELECTION_JS, null)
+    }
+
+    /** SPEC-218: only when a floating selection bar is tracked. */
+    fun clearTextSelectionIfActive() {
+        if (activeActionMode == null) return
+        clearTextSelection()
+    }
+
+    override fun startActionMode(callback: ActionMode.Callback?): ActionMode? {
+        val mode = super.startActionMode(wrapActionModeCallback(callback))
+        if (mode != null) activeActionMode = mode
+        return mode
+    }
+
+    override fun startActionMode(callback: ActionMode.Callback?, type: Int): ActionMode? {
+        val mode = super.startActionMode(wrapActionModeCallback(callback), type)
+        if (mode != null) activeActionMode = mode
+        return mode
+    }
+
+    override fun startActionModeForChild(
+        originalView: View?,
+        callback: ActionMode.Callback?,
+    ): ActionMode? {
+        val mode = super.startActionModeForChild(originalView, wrapActionModeCallback(callback))
+        if (mode != null) activeActionMode = mode
+        return mode
+    }
+
+    override fun startActionModeForChild(
+        originalView: View?,
+        callback: ActionMode.Callback?,
+        type: Int,
+    ): ActionMode? {
+        val mode = super.startActionModeForChild(
+            originalView,
+            wrapActionModeCallback(callback),
+            type,
+        )
+        if (mode != null) activeActionMode = mode
+        return mode
+    }
+
+    private fun wrapActionModeCallback(original: ActionMode.Callback?): ActionMode.Callback? {
+        if (original == null) return null
+        return object : ActionMode.Callback2() {
+            override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean =
+                original.onCreateActionMode(mode, menu)
+
+            override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean =
+                original.onPrepareActionMode(mode, menu)
+
+            override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean =
+                original.onActionItemClicked(mode, item)
+
+            override fun onDestroyActionMode(mode: ActionMode) {
+                if (activeActionMode === mode) activeActionMode = null
+                original.onDestroyActionMode(mode)
+            }
+
+            override fun onGetContentRect(mode: ActionMode, view: View?, outRect: Rect) {
+                if (original is ActionMode.Callback2) {
+                    original.onGetContentRect(mode, view, outRect)
+                } else {
+                    super.onGetContentRect(mode, view, outRect)
+                }
+            }
+        }
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         // Keep vertical/horizontal scrolls inside AwContents; do not let HorizontalPager steal them.
         when (event.actionMasked) {
@@ -552,6 +687,8 @@ class AwContentsHostView @JvmOverloads constructor(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
                 parent?.requestDisallowInterceptTouchEvent(false)
         }
+        // SPEC-218: tap-up clears stuck floating selection (before/alongside Chromium).
+        selectionGestureDetector.onTouchEvent(event)
         // SPEC-073: match AwTestContainerView — super first, then AwContents.
         super.onTouchEvent(event)
         return awContents?.viewMethods?.onTouchEvent(event) == true
@@ -645,6 +782,10 @@ class AwContentsHostView @JvmOverloads constructor(
         }
 
         override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
+            // SPEC-218: page scroll should dismiss stuck text selection (tap-scroll path).
+            if (l != oldl || t != oldt) {
+                clearTextSelectionIfActive()
+            }
             super@AwContentsHostView.onScrollChanged(l, t, oldl, oldt)
         }
 
@@ -660,6 +801,11 @@ class AwContentsHostView @JvmOverloads constructor(
 
     companion object {
         private const val TAG = "BrowsesthAwHost"
+
+        /** SPEC-218: drop DOM selection ranges when finishing ActionMode (no input blur). */
+        const val CLEAR_SELECTION_JS =
+            "(function(){try{var s=window.getSelection();if(s&&s.rangeCount)s.removeAllRanges();}" +
+                "catch(e){}})();"
 
         /**
          * SPEC-043: map pref → AwSettings Force Dark.

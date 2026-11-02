@@ -2,6 +2,7 @@ package io.legado.app.ui.book.read
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -77,6 +78,8 @@ import io.legado.app.feature.reader.core.model.readerBackgroundAlpha
 import io.legado.app.feature.reader.core.transition.ReaderPageTurnSpeed
 import io.legado.app.feature.reader.core.transition.ReaderTransitionMode
 import io.legado.app.feature.reader.core.transition.ReaderViewportLayerPolicy
+import io.legado.app.feature.reader.legacy.ReaderClickActionResolver
+import io.legado.app.feature.reader.legacy.ReaderOrientationPageAnim
 import io.legado.app.feature.reader.platform.ReaderPerfTrace
 import io.legado.app.help.IntentHelp
 import io.legado.app.model.ReadBook
@@ -170,6 +173,28 @@ fun ReadBookRouteScreen(
     val readerBackground = readerRenderState.background
     val localDensity = LocalDensity.current
     val density = localDensity.density
+    // SPEC-208/210/216: dual modes 2/3 auto scroll↔slide on orientation change only.
+    // Do NOT depend on pageAnim — otherwise user picks are immediately forced back.
+    val orientation = LocalConfiguration.current.orientation
+    LaunchedEffect(
+        readPreferences.doubleHorizontalPage,
+        orientation,
+        ReadBook.book?.bookUrl,
+    ) {
+        val preferred = ReaderOrientationPageAnim.preferredPageAnim(
+            doubleHorizontalPage = readPreferences.doubleHorizontalPage,
+            isLandscape = orientation == Configuration.ORIENTATION_LANDSCAPE,
+        ) ?: return@LaunchedEffect
+        if (!ReaderOrientationPageAnim.shouldApply(
+                preferred = preferred,
+                effectivePageAnim = ReadBook.pageAnim(),
+            )
+        ) {
+            return@LaunchedEffect
+        }
+        ReadBook.book?.setPageAnim(null)
+        viewModel.onIntent(ReadBookIntent.UpdateConfig(ConfigUpdate.PageAnim(preferred)))
+    }
     // 正文避让是配置驱动的（ReaderContentAvoidancePolicy，对照原版 PageView 占位 View）：
     // 菜单开关翻转系统栏可见性时，本 padding 保持恒定，正文不随 overlay 重排。
     val readerSystemBarInsets = rememberReaderSystemBarInsets()
@@ -749,17 +774,16 @@ fun ReadBookRouteScreen(
                 onElementLongPress = controller::onComposeReaderElementLongPress,
                 selectionEnabled = readPreferences.selectText,
                 selectionHapticsEnabled = readPreferences.selectVibrator,
-                tapActionGrid = ReaderTapActionGrid.fromLegacyValues(
-                    readPreferences.clickActionTL,
-                    readPreferences.clickActionTC,
-                    readPreferences.clickActionTR,
-                    readPreferences.clickActionML,
-                    readPreferences.clickActionMC,
-                    readPreferences.clickActionMR,
-                    readPreferences.clickActionBL,
-                    readPreferences.clickActionBC,
-                    readPreferences.clickActionBR,
-                ),
+                tapActionGrid = ReaderClickActionResolver.resolve(
+                    pageAnim = controller.pageAnim,
+                    preferences = readPreferences,
+                ).let { grid ->
+                    ReaderTapActionGrid.fromLegacyValues(
+                        grid.tl, grid.tc, grid.tr,
+                        grid.ml, grid.mc, grid.mr,
+                        grid.bl, grid.bc, grid.br,
+                    )
+                },
                 onTapAction = controller::onComposeTapAction,
                 onReaderInteraction = controller::screenOffTimerStart,
                 configuredTouchSlopPx = readPreferences.pageTouchSlop,

@@ -32,6 +32,8 @@ sealed class PrefClickEvent {
     object OpenBrowserBookmarks : PrefClickEvent()
     object OpenBookSourceManage : PrefClickEvent()
     object OpenHighlightTagRule : PrefClickEvent()
+    /** SPEC-205: 原阅读列表「添加本地」→ 我的「文件管理」。 */
+    object OpenLocalImport : PrefClickEvent()
     object OpenAbout : PrefClickEvent()
     object ToggleWebService : PrefClickEvent()
     object ExitApp : PrefClickEvent()

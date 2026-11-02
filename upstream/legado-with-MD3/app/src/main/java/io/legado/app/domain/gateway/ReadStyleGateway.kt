@@ -26,6 +26,11 @@ interface ReadStyleGateway {
     fun applyHeaderHiddenDefault()
 
     /**
+     * SPEC-203: 强制隐藏正文章节标题（全部样式 + 共享排版）；异常小 titleSize 纠正为 20。
+     */
+    fun applyTitleHiddenDefault()
+
+    /**
      * 排版时发现当前字体文件已不存在——清空字体设置并落盘，下次排版回落到系统字体。
      */
     fun clearMissingTextFont()

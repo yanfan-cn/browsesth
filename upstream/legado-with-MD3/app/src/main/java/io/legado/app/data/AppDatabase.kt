@@ -265,9 +265,10 @@ abstract class AppDatabase : RoomDatabase() {
                 """.trimIndent()
                 db.execSQL(insertBookGroupAllSql)
                 @Language("sql")
+                // SPEC-205: 本地分组默认开启（show=1）；默认 Tab 仍由 saveTabPosition 控制。
                 val insertBookGroupLocalSql = """
                     insert into book_groups(groupId, groupName, 'order', enableRefresh, show) 
-                    select ${BookGroup.IdLocal}, '本地', -9, 0, 0
+                    select ${BookGroup.IdLocal}, '本地', -9, 0, 1
                     where not exists (select * from book_groups where groupId = ${BookGroup.IdLocal})
                 """.trimIndent()
                 db.execSQL(insertBookGroupLocalSql)

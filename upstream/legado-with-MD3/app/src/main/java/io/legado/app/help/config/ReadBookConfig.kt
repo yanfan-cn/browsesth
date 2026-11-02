@@ -265,8 +265,9 @@ object ReadBookConfig {
      */
     val titleMode: Int
         get() = config.titleMode
+    /** SPEC-203: 钳制字号，避免「微信读书」等历史预设 titleSize=4 渲染成极小字。 */
     val titleSize: Int
-        get() = config.titleSize
+        get() = config.titleSize.coerceIn(8, 60)
 
     val titleSegType: Int
         get() = config.titleSegType

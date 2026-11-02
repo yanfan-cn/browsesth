@@ -26,6 +26,8 @@ import io.legado.app.R
 import io.legado.app.constant.PreferKey
 import io.legado.app.data.repository.ReadPreferences
 import io.legado.app.data.repository.ReadSettingsRepository
+import io.legado.app.feature.reader.legacy.ReaderClickActionResolver
+import io.legado.app.model.ReadBook
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.widget.components.alert.AppAlertDialog
 import io.legado.app.ui.widget.components.card.GlassCard
@@ -44,6 +46,8 @@ fun ClickActionConfigSheet(
         initialValue = ReadPreferences()
     )
     val scope = rememberCoroutineScope()
+    val scrollProfile = ReaderClickActionResolver.isScrollProfile(ReadBook.pageAnim())
+    val grid = ReaderClickActionResolver.resolve(ReadBook.pageAnim(), preferences)
 
     val actions = linkedMapOf(
         -1 to stringResource(R.string.non_action),
@@ -63,6 +67,23 @@ fun ClickActionConfigSheet(
         13 to stringResource(R.string.read_aloud_pause_resume),
     )
 
+    fun prefKey(base: String): String = if (scrollProfile) {
+        when (base) {
+            PreferKey.clickActionTL -> PreferKey.clickActionScrollTL
+            PreferKey.clickActionTC -> PreferKey.clickActionScrollTC
+            PreferKey.clickActionTR -> PreferKey.clickActionScrollTR
+            PreferKey.clickActionML -> PreferKey.clickActionScrollML
+            PreferKey.clickActionMC -> PreferKey.clickActionScrollMC
+            PreferKey.clickActionMR -> PreferKey.clickActionScrollMR
+            PreferKey.clickActionBL -> PreferKey.clickActionScrollBL
+            PreferKey.clickActionBC -> PreferKey.clickActionScrollBC
+            PreferKey.clickActionBR -> PreferKey.clickActionScrollBR
+            else -> base
+        }
+    } else {
+        base
+    }
+
     var selectingPrefKey by remember { mutableStateOf<String?>(null) }
 
     Box(
@@ -76,37 +97,35 @@ fun ClickActionConfigSheet(
                 .fillMaxSize()
                 .padding(12.dp),
         ) {
-            Spacer(
-                modifier = Modifier.padding(top = 36.dp)
-            )
+            Spacer(modifier = Modifier.padding(top = 36.dp))
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
             ) {
                 ClickAreaCell(
-                    label = actions[preferences.clickActionTL] ?: "",
+                    label = actions[grid.tl] ?: "",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxSize()
                         .padding(3.dp),
-                    onClick = { selectingPrefKey = PreferKey.clickActionTL },
+                    onClick = { selectingPrefKey = prefKey(PreferKey.clickActionTL) },
                 )
                 ClickAreaCell(
-                    label = actions[preferences.clickActionTC] ?: "",
+                    label = actions[grid.tc] ?: "",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxSize()
                         .padding(3.dp),
-                    onClick = { selectingPrefKey = PreferKey.clickActionTC },
+                    onClick = { selectingPrefKey = prefKey(PreferKey.clickActionTC) },
                 )
                 ClickAreaCell(
-                    label = actions[preferences.clickActionTR] ?: "",
+                    label = actions[grid.tr] ?: "",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxSize()
                         .padding(3.dp),
-                    onClick = { selectingPrefKey = PreferKey.clickActionTR },
+                    onClick = { selectingPrefKey = prefKey(PreferKey.clickActionTR) },
                 )
             }
             Row(
@@ -115,28 +134,28 @@ fun ClickActionConfigSheet(
                     .fillMaxWidth(),
             ) {
                 ClickAreaCell(
-                    label = actions[preferences.clickActionML] ?: "",
+                    label = actions[grid.ml] ?: "",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxSize()
                         .padding(3.dp),
-                    onClick = { selectingPrefKey = PreferKey.clickActionML },
+                    onClick = { selectingPrefKey = prefKey(PreferKey.clickActionML) },
                 )
                 ClickAreaCell(
-                    label = actions[preferences.clickActionMC] ?: "",
+                    label = actions[grid.mc] ?: "",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxSize()
                         .padding(3.dp),
-                    onClick = { selectingPrefKey = PreferKey.clickActionMC },
+                    onClick = { selectingPrefKey = prefKey(PreferKey.clickActionMC) },
                 )
                 ClickAreaCell(
-                    label = actions[preferences.clickActionMR] ?: "",
+                    label = actions[grid.mr] ?: "",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxSize()
                         .padding(3.dp),
-                    onClick = { selectingPrefKey = PreferKey.clickActionMR },
+                    onClick = { selectingPrefKey = prefKey(PreferKey.clickActionMR) },
                 )
             }
             Row(
@@ -145,34 +164,33 @@ fun ClickActionConfigSheet(
                     .fillMaxWidth(),
             ) {
                 ClickAreaCell(
-                    label = actions[preferences.clickActionBL] ?: "",
+                    label = actions[grid.bl] ?: "",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxSize()
                         .padding(3.dp),
-                    onClick = { selectingPrefKey = PreferKey.clickActionBL },
+                    onClick = { selectingPrefKey = prefKey(PreferKey.clickActionBL) },
                 )
                 ClickAreaCell(
-                    label = actions[preferences.clickActionBC] ?: "",
+                    label = actions[grid.bc] ?: "",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxSize()
                         .padding(3.dp),
-                    onClick = { selectingPrefKey = PreferKey.clickActionBC },
+                    onClick = { selectingPrefKey = prefKey(PreferKey.clickActionBC) },
                 )
                 ClickAreaCell(
-                    label = actions[preferences.clickActionBR] ?: "",
+                    label = actions[grid.br] ?: "",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxSize()
                         .padding(3.dp),
-                    onClick = { selectingPrefKey = PreferKey.clickActionBR },
+                    onClick = { selectingPrefKey = prefKey(PreferKey.clickActionBR) },
                 )
             }
         }
     }
 
-    // Action selector dialog
     val actionKeys = actions.keys.toList()
     val actionValues = actions.values.toList()
     AppAlertDialog(

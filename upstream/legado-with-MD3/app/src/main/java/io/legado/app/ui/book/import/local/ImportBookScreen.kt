@@ -31,7 +31,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import io.legado.app.ui.main.MainRouteImportLocal
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -236,6 +238,7 @@ private fun ImportBookContent(
 
 @Composable
 fun ImportBookRouteScreen(
+    autoPick: String? = null,
     onBackClick: () -> Unit,
     viewModel: ImportBookViewModel = koinViewModel()
 ) {
@@ -246,6 +249,17 @@ fun ImportBookRouteScreen(
     var pendingSingleAddBook by remember { mutableStateOf<ImportBook?>(null) }
     var fileNameJs by remember { mutableStateOf("") }
     var pickerTarget by remember { mutableStateOf(ImportFolderPickTarget.IMPORT_FOLDER) }
+    var didAutoPick by rememberSaveable { mutableStateOf(false) }
+    // SPEC-205: autoPick 进入时先挡住 Initialize 自动弹窗，等下方 LaunchedEffect 接管后再放行。
+    var allowFolderPicker by remember { mutableStateOf(autoPick.isNullOrBlank()) }
+    val bookMimeTypes = remember {
+        arrayOf(
+            "text/plain", "application/epub+zip", "application/pdf",
+            "application/x-mobipocket-ebook", "application/vnd.amazon.ebook",
+            "application/zip", "application/x-rar-compressed",
+            "application/x-7z-compressed", "application/octet-stream",
+        )
+    }
     val selectDocTree = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
@@ -269,6 +283,7 @@ fun ImportBookRouteScreen(
         viewModel.effects.collect { effect ->
             when (effect) {
                 is ImportBookEffect.RequestFolderPicker -> {
+                    if (!allowFolderPicker) return@collect
                     pickerTarget = effect.target
                     selectDocTree.launch(effect.initialUri)
                 }
@@ -308,6 +323,22 @@ fun ImportBookRouteScreen(
         }
     }
 
+    // SPEC-205: 顶栏 Add 二选一进入后自动弹出对应系统选择器。
+    LaunchedEffect(autoPick) {
+        if (didAutoPick || autoPick.isNullOrBlank()) return@LaunchedEffect
+        didAutoPick = true
+        when (autoPick) {
+            MainRouteImportLocal.AUTO_PICK_FOLDER -> {
+                allowFolderPicker = true
+                viewModel.dispatch(ImportBookIntent.SelectFolderClick)
+            }
+            MainRouteImportLocal.AUTO_PICK_BOOKS -> {
+                selectBookFiles.launch(bookMimeTypes)
+                allowFolderPicker = true
+            }
+        }
+    }
+
     ImportBookScreen(
         state = uiState,
         onIntent = viewModel::dispatch,
@@ -321,14 +352,7 @@ fun ImportBookRouteScreen(
         pendingSingleAddBook = pendingSingleAddBook,
         onPendingSingleAddBookChange = { pendingSingleAddBook = it },
         onSelectBookFiles = {
-            selectBookFiles.launch(
-                arrayOf(
-                    "text/plain", "application/epub+zip", "application/pdf",
-                    "application/x-mobipocket-ebook", "application/vnd.amazon.ebook",
-                    "application/zip", "application/x-rar-compressed",
-                    "application/x-7z-compressed", "application/octet-stream",
-                )
-            )
+            selectBookFiles.launch(bookMimeTypes)
         },
     )
 }

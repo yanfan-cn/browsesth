@@ -2,12 +2,15 @@ package io.legado.app.ui.widget.components.image.cover
 
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
+import android.annotation.SuppressLint
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.os.SystemClock
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -169,6 +172,10 @@ fun BookCoverImage(
     var isOnlineCoverLoaded by remember(finalPath) { mutableStateOf(false) }
     var onlineCoverLoadFailed by remember(finalPath) { mutableStateOf(false) }
 
+    // SPEC-195: 封面加载全程计时（组合→成功/失败）；≥50ms 输出一行 logcat，
+    // 用于判断滑动掉帧是否由封面网络/解码挤占主线程引起。纯观测，无行为变化。
+    val coverLoadStartMs = remember(finalPath) { SystemClock.elapsedRealtime() }
+
     // SPEC-194: 网络封面加载失败也回落配色封面（操作者 2026-10-28 重申：
     // 网页/本地书籍无图可提取时一律配色封面，含阅读列表卡/页与阅读记录）。
     val failurePalette = remember(finalPath) {
@@ -264,12 +271,14 @@ fun BookCoverImage(
                     contentScale = contentScale,
                     modifier = Modifier.fillMaxSize(),
                     onSuccess = {
+                        logSlowCoverLoad(finalPath, coverLoadStartMs, success = true)
                         isOnlineCoverLoaded = true
                         onlineCoverLoadFailed = false
                         onSuccess?.invoke()
                         onLoadFinish?.invoke()
                     },
                     onError = {
+                        logSlowCoverLoad(finalPath, coverLoadStartMs, success = false)
                         isOnlineCoverLoaded = false
                         onlineCoverLoadFailed = true
                         onError?.invoke()
@@ -282,6 +291,18 @@ fun BookCoverImage(
                 onLoadFinish?.invoke()
             }
         }
+    }
+}
+
+// SPEC-195: 慢封面加载观测（≥50ms 才输出，避免刷屏）。
+@SuppressLint("LogNotTimber")
+private fun logSlowCoverLoad(path: String?, startMs: Long, success: Boolean) {
+    val costMs = SystemClock.elapsedRealtime() - startMs
+    if (path != null && costMs >= 50) {
+        Log.i(
+            "CoverPerf",
+            "load ${if (success) "ok" else "err"} ${costMs}ms …${path.takeLast(40)}"
+        )
     }
 }
 
