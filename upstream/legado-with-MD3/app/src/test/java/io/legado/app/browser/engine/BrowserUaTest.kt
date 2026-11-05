@@ -35,13 +35,17 @@ class BrowserUaTest {
 
     @Test
     fun clientHintBrandsAreStringMatrix() {
-        val map = BrowserUa.clientHintMap(mobile = true)
-        val brands = map["BRAND_VERSION_LIST"]
+        // SPEC-222: Client Hints live in flavor BrowserUaHints (not BrowserUa).
+        val map = BrowserUaHints.clientHintMap(mobile = true)
+        val brands = map[org.chromium.android_webview.client_hints.AwUserAgentMetadata.MetadataKeys.BRAND_VERSION_LIST]
         assertTrue(brands is Array<*>)
         val first = (brands as Array<*>)[0]
         assertTrue(first is Array<*>)
         assertEquals("Google Chrome", (first as Array<*>)[0])
         assertEquals(BrowserUa.CHROME_FULL, first[2])
-        assertEquals(true, map["MOBILE"])
+        assertEquals(
+            true,
+            map[org.chromium.android_webview.client_hints.AwUserAgentMetadata.MetadataKeys.MOBILE],
+        )
     }
 }

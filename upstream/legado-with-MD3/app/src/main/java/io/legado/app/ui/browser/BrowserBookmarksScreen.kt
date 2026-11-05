@@ -1,6 +1,9 @@
 package io.legado.app.ui.browser
 
 import android.content.ClipData
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -64,7 +67,9 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.legado.app.browser.engine.BookmarkFolderTree
 import io.legado.app.browser.engine.BrowseStore
+import io.legado.app.browser.engine.BrowserBookmarkHtmlImport
 import io.legado.app.browser.engine.BrowserShortcut
 import io.legado.app.browser.engine.BrowserShortcutStore
 import io.legado.app.browser.engine.BrowserTabManager
@@ -82,7 +87,9 @@ import io.legado.app.ui.widget.components.topbar.TopBarButtonStyle
 import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
 import io.legado.app.utils.toastOnUi
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 
 /** SPEC-082/090/113/116: 收藏=BrowseStore；书签=Room；顶栏胶囊分段 + 阅读书签文件夹. */
@@ -91,12 +98,15 @@ fun BrowserBookmarksScreen(
     onBack: () -> Unit,
     onOpenUrl: (String) -> Unit,
     onOpenBook: (Book) -> Unit = {},
+    /** SPEC-238: 平板侧栏内已处于浏览器 chrome 下方，不再吃 statusBars inset。 */
+    inSidePanel: Boolean = false,
 ) {
     BrowserTheme {
         BrowserBookmarksBody(
             onBack = onBack,
             onOpenUrl = onOpenUrl,
             onOpenBook = onOpenBook,
+            inSidePanel = inSidePanel,
         )
     }
 }
@@ -107,6 +117,7 @@ private fun BrowserBookmarksBody(
     onBack: () -> Unit,
     onOpenUrl: (String) -> Unit,
     onOpenBook: (Book) -> Unit,
+    inSidePanel: Boolean,
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
@@ -135,6 +146,12 @@ private fun BrowserBookmarksBody(
     var editing by remember { mutableStateOf<BrowseStore.Entry?>(null) }
     var moving by remember { mutableStateOf<BrowseStore.Entry?>(null) }
     var menuFor by remember { mutableStateOf<BrowseStore.Entry?>(null) }
+    // SPEC-236: 删除含内容文件夹的确认框（连带删除前必须确认）。
+    var deletingFolder by remember { mutableStateOf<BrowseStore.Folder?>(null) }
+    // SPEC-236: 导入其他浏览器书签（Netscape HTML）。
+    var importPreview by remember { mutableStateOf<BrowserBookmarkHtmlImport.ParsedNode?>(null) }
+    var importOverwrite by remember { mutableStateOf(false) }
+    var importing by remember { mutableStateOf(false) }
 
     fun reload() {
         items = store.sortedBookmarks()
@@ -183,13 +200,51 @@ private fun BrowserBookmarksBody(
         }
     }
     val activeFolders = if (onFavoritesTab) folders else readingFolders
+    // SPEC-236: 顶栏返回与系统返回键都逐级返回上一层文件夹（原来直接跳根）。
+    val currentFolderParentId = BookmarkFolderTree.pathOf(activeFolders, currentFolderId)
+        .dropLast(1).lastOrNull()?.id.orEmpty()
+    BackHandler(enabled = currentFolderId.isNotEmpty()) {
+        currentFolderId = currentFolderParentId
+    }
+    val importPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch(Dispatchers.IO) {
+            val parsed = runCatching {
+                val size = context.contentResolver.openAssetFileDescriptor(uri, "r")?.use {
+                    it.length
+                } ?: 0L
+                if (size > 8L * 1024 * 1024) {
+                    context.toastOnUi("文件过大（上限 8MB）")
+                    return@launch
+                }
+                val html = context.contentResolver.openInputStream(uri)?.use { input ->
+                    input.readBytes().toString(Charsets.UTF_8)
+                }.orEmpty()
+                BrowserBookmarkHtmlImport.parse(html)
+            }.getOrElse {
+                context.toastOnUi("无法读取所选文件")
+                return@launch
+            }
+            if (parsed.countBookmarks() == 0) {
+                context.toastOnUi("未在文件中解析到书签")
+                return@launch
+            }
+            withContext(Dispatchers.Main) {
+                importOverwrite = false
+                importPreview = parsed
+            }
+        }
+    }
+    // SPEC-236: 多层文件夹——文件夹行按「父=当前目录」显示，任意层级可进入。
     val favoriteFolderRows = remember(folders, favoriteFolderId, query) {
-        if (favoriteFolderId.isNotEmpty() || query.isNotBlank()) emptyList()
-        else folders.sortedBy { it.order }
+        if (query.isNotBlank()) emptyList()
+        else BookmarkFolderTree.childrenOf(folders, favoriteFolderId)
     }
     val readingFolderRows = remember(readingFolders, readingFolderId, query) {
-        if (readingFolderId.isNotEmpty() || query.isNotBlank()) emptyList()
-        else readingFolders.sortedBy { it.order }
+        if (query.isNotBlank()) emptyList()
+        else BookmarkFolderTree.childrenOf(readingFolders, readingFolderId)
     }
     val favoritesCount = remember(items) { items.size }
     val bookmarksCount = remember(readingBookmarks) { readingBookmarks.size }
@@ -271,6 +326,7 @@ private fun BrowserBookmarksBody(
                 selecting = selecting,
                 selectedCount = selectedUrls.size,
                 inFolder = currentFolderId.isNotEmpty(),
+                inSidePanel = inSidePanel,
                 folderTitle = activeFolders.firstOrNull { it.id == currentFolderId }?.name
                     ?: if (onFavoritesTab) "收藏" else "书签",
                 showFavorites = onFavoritesTab,
@@ -287,7 +343,7 @@ private fun BrowserBookmarksBody(
                             selecting = false
                             selectedUrls = emptySet()
                         }
-                        currentFolderId.isNotEmpty() -> currentFolderId = ""
+                        currentFolderId.isNotEmpty() -> currentFolderId = currentFolderParentId
                         else -> onBack()
                     }
                 },
@@ -345,11 +401,7 @@ private fun BrowserBookmarksBody(
                             FolderRow(
                                 name = folder.name,
                                 onOpen = { currentFolderId = folder.id },
-                                onDelete = {
-                                    if (pageFavorites) store.removeFolder(folder.id)
-                                    else readingOrg.removeFolder(folder.id)
-                                    reload()
-                                },
+                                onDelete = { deletingFolder = folder },
                             )
                             HorizontalDivider(color = scheme.outlineVariant.copy(alpha = 0.4f))
                         }
@@ -475,6 +527,12 @@ private fun BrowserBookmarksBody(
                 reload()
                 showAdd = false
             },
+            // SPEC-236: 导入其他浏览器书签入口，放在「加入收藏」标题字样下方。
+            showImportEntry = true,
+            onImportClick = {
+                showAdd = false
+                importPicker.launch(arrayOf("*/*"))
+            },
         )
     }
     editing?.let { entry ->
@@ -511,8 +569,9 @@ private fun BrowserBookmarksBody(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (onFavoritesTab) store.addFolder(name)
-                        else readingOrg.addFolder(name)
+                        // SPEC-236: 新建文件夹建在当前所在目录（多层）。
+                        if (onFavoritesTab) store.addFolder(name, currentFolderId)
+                        else readingOrg.addFolder(name, currentFolderId)
                         reload()
                         showNewFolder = false
                     },
@@ -523,9 +582,116 @@ private fun BrowserBookmarksBody(
             },
         )
     }
+    // SPEC-236: 连带删除确认——写明将删除的子文件夹与书签数量。
+    deletingFolder?.let { folder ->
+        val stats = if (onFavoritesTab) {
+            store.folderCascadeStats(folder.id)
+        } else {
+            readingOrg.folderCascadeStats(folder.id)
+        }
+        AlertDialog(
+            onDismissRequest = { deletingFolder = null },
+            title = { Text("删除文件夹") },
+            text = {
+                Text(
+                    "将删除「${folder.name}」及其下 ${stats.first} 个子文件夹、" +
+                        "${stats.second} 条书签，且不可恢复。",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (onFavoritesTab) store.removeFolder(folder.id)
+                        else readingOrg.removeFolder(folder.id)
+                        reload()
+                        deletingFolder = null
+                    },
+                ) { Text("删除") }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingFolder = null }) { Text("取消") }
+            },
+        )
+    }
+    // SPEC-236: 导入预览——解析结果计数 + 覆盖选项，确认后落收藏页。
+    importPreview?.let { parsed ->
+        AlertDialog(
+            onDismissRequest = { if (!importing) importPreview = null },
+            title = { Text("导入书签") },
+            text = {
+                Column {
+                    Text(
+                        "从「${parsed.name.ifBlank { "书签文件" }}」解析到 " +
+                            "${parsed.countBookmarks()} 条书签、${parsed.countFolders()} 个文件夹。" +
+                            "\n网址已存在的将跳过，其余导入收藏页。",
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { importOverwrite = !importOverwrite }
+                            .padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = importOverwrite, onCheckedChange = { importOverwrite = it })
+                        Text("覆盖已存在的网址（更新标题并移入对应文件夹）")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !importing,
+                    onClick = {
+                        importing = true
+                        val rootFolderId = if (onFavoritesTab) currentFolderId else ""
+                        scope.launch(Dispatchers.IO) {
+                            val result = runCatching {
+                                BrowserBookmarkHtmlImport.importTree(
+                                    parsed,
+                                    rootFolderId,
+                                    store.importSink(),
+                                    overwrite = importOverwrite,
+                                )
+                            }.getOrNull()
+                            withContext(Dispatchers.Main) {
+                                importing = false
+                                importPreview = null
+                                if (result == null) {
+                                    context.toastOnUi("导入失败")
+                                } else {
+                                    val msg = buildString {
+                                        append("已导入 ${result.imported} 条")
+                                        if (result.skipped > 0) append("，跳过重复 ${result.skipped} 条")
+                                        if (result.overwritten > 0) append("，覆盖 ${result.overwritten} 条")
+                                        if (result.truncated) append("；已达上限，剩余未导入")
+                                    }
+                                    context.toastOnUi(msg)
+                                }
+                                reload()
+                            }
+                        }
+                    },
+                ) { Text("导入") }
+            },
+            dismissButton = {
+                TextButton(enabled = !importing, onClick = { importPreview = null }) { Text("取消") }
+            },
+        )
+    }
     moving?.let { entry ->
         val reading = entry.url.isReadingBookmarkUrl()
         val moveFolders = if (reading) readingFolders else folders
+        // SPEC-236: 树形选择——全层级按路径缩进展示。
+        val treeRows = remember(moveFolders) {
+            buildList {
+                fun walk(parentId: String, depth: Int) {
+                    BookmarkFolderTree.childrenOf(moveFolders, parentId).forEach { folder ->
+                        add(folder to depth)
+                        walk(folder.id, depth + 1)
+                    }
+                }
+                walk("", 0)
+            }
+        }
         AlertDialog(
             onDismissRequest = { moving = null },
             title = { Text("移动到…") },
@@ -544,7 +710,7 @@ private fun BrowserBookmarksBody(
                             moving = null
                         },
                     ) { Text("根目录") }
-                    moveFolders.forEach { folder ->
+                    treeRows.forEach { (folder, depth) ->
                         TextButton(
                             onClick = {
                                 if (reading) {
@@ -557,9 +723,15 @@ private fun BrowserBookmarksBody(
                                 reload()
                                 moving = null
                             },
-                        ) { Text(folder.name) }
+                        ) {
+                            Text(
+                                text = "　".repeat(depth) + folder.name,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
-                    if (moveFolders.isEmpty()) {
+                    if (treeRows.isEmpty()) {
                         Text("暂无文件夹，请先新建", color = scheme.onSurfaceVariant)
                     }
                 }
@@ -578,6 +750,7 @@ private fun BookmarksModeTopBar(
     selecting: Boolean,
     selectedCount: Int,
     inFolder: Boolean,
+    inSidePanel: Boolean = false,
     folderTitle: String,
     showFavorites: Boolean,
     favoritesCount: Int,
@@ -598,7 +771,11 @@ private fun BookmarksModeTopBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(scheme.surface)
-            .windowInsetsPadding(WindowInsets.statusBars),
+            // SPEC-238: 平板侧栏已在浏览器 chrome 下方，statusBars 避让只留给手机全屏。
+            .then(
+                if (inSidePanel) Modifier
+                else Modifier.windowInsetsPadding(WindowInsets.statusBars),
+            ),
     ) {
         // SPEC-127: top bar content row = TopBarHeight (54dp); was 32dp in SPEC-121.
         Row(
@@ -1061,16 +1238,45 @@ private fun BookmarkEditDialog(
     initialUrl: String,
     onDismiss: () -> Unit,
     onSave: (title: String, url: String) -> Unit,
+    /** SPEC-236: 仅「加入收藏」态显示导入其他浏览器书签入口。 */
+    showImportEntry: Boolean = false,
+    onImportClick: () -> Unit = {},
 ) {
     var title by remember { mutableStateOf(initialTitle) }
     var url by remember { mutableStateOf(initialUrl) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(
-                if (initialUrl.startsWith("http") && initialTitle.isNotBlank()) "编辑收藏"
-                else "加入收藏",
-            )
+            Column {
+                Text(
+                    if (initialUrl.startsWith("http") && initialTitle.isNotBlank()) "编辑收藏"
+                    else "加入收藏",
+                )
+                if (showImportEntry) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable(onClick = onImportClick)
+                            .padding(vertical = 6.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        SymbolIcon(
+                            Symbols.UploadFile,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = LegadoTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "导入其他浏览器书签",
+                            fontSize = 14.sp,
+                            color = LegadoTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
         },
         text = {
             Column {

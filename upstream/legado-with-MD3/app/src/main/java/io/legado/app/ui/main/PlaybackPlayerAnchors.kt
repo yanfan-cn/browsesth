@@ -11,13 +11,20 @@ internal fun capsuleMatchesPlayer(
 ): Boolean = capsule.source == source &&
         (source == PlaybackCapsuleSource.ReadAloud || bookUrl.isBlank() || capsule.bookUrl == bookUrl)
 
-/** 与主页底栏的实际组合条件一致，隐藏底栏时由全局胶囊提供锚点。 */
+/**
+ * 与主页底栏的实际组合条件一致，隐藏底栏时由全局胶囊提供锚点。
+ * SPEC-235: [homeBarPresent] 表示悬浮底栏真的会被渲染；平板形态因子下主界面
+ * 不渲染底栏（MainScreen `!isTabletFormFactor`），必须回落到全局胶囊，
+ * 否则平板朗读没有任何胶囊。
+ */
 internal fun shouldUseHomePlaybackCapsule(
     onMainRoute: Boolean,
     showBottomView: Boolean,
     useFloatingBottomBar: Boolean,
     useRail: Boolean,
-): Boolean = onMainRoute && showBottomView && useFloatingBottomBar && !useRail
+    homeBarPresent: Boolean = true,
+): Boolean =
+    homeBarPresent && onMainRoute && showBottomView && useFloatingBottomBar && !useRail
 
 /** 播放浮层（包括进出场）优先处理返回，不能弹掉下层页面。 */
 internal fun shouldHandleActivityBack(

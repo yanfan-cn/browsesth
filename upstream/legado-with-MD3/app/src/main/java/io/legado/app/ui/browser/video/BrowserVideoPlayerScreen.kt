@@ -158,6 +158,8 @@ fun BrowserVideoPlayerScreen(
     val moreSymbol = remember { MaterialSymbol("more_vert", autoMirror = false) }
     // SPEC-166: recreate the player after the surface callback is dropped.
     var playerEpoch by remember { mutableIntStateOf(0) }
+    /** SPEC-224: 当前 UA 失败后改桌面 UA 重建播放器（每条 offer 只重试一次）。 */
+    var desktopUaRetry by remember(currentOffer.url) { mutableStateOf(false) }
     var pendingResumeMs by remember { mutableLongStateOf(0L) }
     var pendingAutoStart by remember { mutableStateOf(true) }
     var activeDownloadId by remember { mutableStateOf<String?>(null) }
@@ -352,7 +354,7 @@ fun BrowserVideoPlayerScreen(
     ) {
         // SPEC-143: key by URL so picking another sniffed video tears down the
         // old player instead of feeding it a new source.
-        key(currentOffer.url, playerEpoch) {
+        key(currentOffer.url, playerEpoch, desktopUaRetry) {
             // SPEC-152: 换视频复位画面旋转与截图比例（feed 类连播避免用上一部的比例裁错）。
             LaunchedEffect(currentOffer.url) {
                 videoSize = null
@@ -367,6 +369,7 @@ fun BrowserVideoPlayerScreen(
                         }
                     }
                     videoViewRef = null
+                    val forceUa = if (desktopUaRetry) BrowserUa.DESKTOP else null
                     VideoView(ctx).also { vv ->
                         vv.releaseOnDetachFromWindow = false
                         vv.handleAudioFocus = true
@@ -394,12 +397,35 @@ fun BrowserVideoPlayerScreen(
                         })
                         vv.setOnErrorListener(object : OnErrorListener {
                             override fun onError(e: Exception?): Boolean {
+                                // SPEC-225: capture CDN body before UA retry / final fail UI.
+                                BrowserVideoMedia.peekLastBuildFailure(
+                                    e?.message ?: e?.javaClass?.simpleName,
+                                )
+                                // SPEC-224: 任意视频 — 当前 UA 失败后自动桌面 UA 重试一次。
+                                if (!desktopUaRetry) {
+                                    desktopUaRetry = true
+                                    return true
+                                }
                                 errorText = "播放失败，请返回网页重试"
                                 return true
                             }
                         })
-                        runCatching { vv.setMedia(BrowserVideoMedia.buildSource(ctx, currentOffer)) }
-                            .onFailure { errorText = it.message ?: "无法打开视频" }
+                        runCatching {
+                            vv.setMedia(
+                                BrowserVideoMedia.buildSource(
+                                    ctx,
+                                    currentOffer,
+                                    forceUserAgent = forceUa,
+                                ),
+                            )
+                        }.onFailure { err ->
+                            BrowserVideoMedia.peekLastBuildFailure(err.message)
+                            if (!desktopUaRetry) {
+                                desktopUaRetry = true
+                            } else {
+                                errorText = err.message ?: "无法打开视频"
+                            }
+                        }
                         videoViewRef = vv
                         onVideoViewReady(vv)
                     }

@@ -76,7 +76,11 @@ object BrowserVideoOfferBus {
             } else {
                 offer.headers
             },
-            isHls = offer.isHls || sniff.isHls || url.contains(".m3u8", ignoreCase = true),
+        // SPEC-226: path-only .m3u8（query 内含 tracking beacon）；SPEC-232: 恢复 query
+        // 匹配——大量站点流地址写在查询参数里，收窄导致判非视频；trace/beacon 由
+        // isRejectedMediaUrl 黑名单挡掉，两不冲突。
+        isHls = offer.isHls || sniff.isHls ||
+            url.contains(".m3u8", ignoreCase = true),
         )
         // SPEC-143: maintain the per-page list (dedupe, newest first).
         // SPEC-145 R8 / SPEC-166: same normalized key, or the same YouTube watch id.
@@ -89,9 +93,21 @@ object BrowserVideoOfferBus {
             DIAG_TAG,
             "publish key=$key rank=$rank size=${deduped.size + 1}",
         )
-        _offers.value = (listOf(published) + deduped).take(20)
+        val next = (listOf(published) + deduped).take(20)
+        _offers.value = next
         lastPublishedUrl = url
-        _offer.value = published
+        // SPEC-226: default capsule/player target = highest rank (腾讯高清优先), not newest.
+        _offer.value = bestOffer(next) ?: published
+    }
+
+    /** SPEC-226: pick the highest-ranked sniff among current page offers. */
+    private fun bestOffer(list: List<BrowserVideoOffer>): BrowserVideoOffer? {
+        if (list.isEmpty()) return null
+        return list.maxWithOrNull(
+            compareBy<BrowserVideoOffer> {
+                classifyPlayableUrl(it.url, it.pageUrl)?.rank ?: 0
+            }.thenBy { it.url },
+        )
     }
 
     /** SPEC-217: fold useful request headers into the offer already kept for [key]. */
@@ -186,18 +202,22 @@ object BrowserVideoOfferBus {
         if (isRejectedMediaUrl(u)) return null
         val path = u.substringBefore('#').substringBefore('?')
         val youtube = u.contains("googlevideo.com") && u.contains("videoplayback")
+        // SPEC-226: query 曾误报 trace beacon；SPEC-232: 恢复 query 匹配，误报源已入黑名单。
         val isHls = path.contains(".m3u8") || u.contains(".m3u8")
-        val isDash = path.endsWith(".mpd") || u.contains(".mpd")
+        val isDash = path.endsWith(".mpd") || path.contains(".mpd")
         val isFile = path.endsWith(".mp4") || path.endsWith(".webm") || path.endsWith(".mkv") ||
             u.contains(".mp4") || u.contains(".webm") || u.contains(".mkv")
         val itag = queryParam(trimmed, "itag")
         // SPEC-178: keep listing googlevideo streams (prefer progressive). SPEC-176's
         // "progressive only" filter made ordinary YouTube pages show no capsule.
         if (!youtube && !isHls && !isDash && !isFile) return null
+        val tencentFmt = tencentHlsFormatCode(path)
         val rank = when {
             itag == "22" -> 100
             itag == "18" -> 90
             itag != null && itag in PROGRESSIVE_ITAGS -> 80
+            // SPEC-226: 腾讯 f307110 > f306110 > f304110 → 默认高清。
+            tencentFmt != null -> 70 + (tencentFmt / 1000).coerceIn(0, 99)
             isHls -> 70
             isDash -> 60
             isFile -> 50
@@ -214,6 +234,13 @@ object BrowserVideoOfferBus {
         return VideoSniff(trimmed, isHls, rank, key)
     }
 
+    /** SPEC-226: `….f307110.ts.m3u8` → 307110；非腾讯档位返回 null。 */
+    internal fun tencentHlsFormatCode(pathOrUrl: String): Int? {
+        val path = pathOrUrl.lowercase().substringBefore('#').substringBefore('?')
+        val m = TENCENT_FMT_REGEX.find(path) ?: return null
+        return m.groupValues[1].toIntOrNull()
+    }
+
     internal data class VideoSniff(
         val url: String,
         val isHls: Boolean,
@@ -223,10 +250,14 @@ object BrowserVideoOfferBus {
 
     private val PROGRESSIVE_ITAGS = setOf("18", "22", "37", "38", "59", "78")
 
+    private val TENCENT_FMT_REGEX = Regex("""\.f(\d{5,6})\.(?:ts\.)?m3u8""")
+
     private fun isRejectedMediaUrl(url: String): Boolean {
         val u = url.lowercase()
         if (u.contains("mime=audio") || u.contains("mime%3daudio")) return true
         if (u.contains("mime=image") || u.contains("mime%3dimage") || u.contains("mime=text")) return true
+        // SPEC-226: Tencent play-beacon returns a 1×1 gif; must never be a 净视 offer.
+        if (u.contains("trace.qq.com") || u.contains("/bosskv")) return true
         val path = u.substringBefore('#').substringBefore('?')
         return path.endsWith(".ts") ||
             path.endsWith(".m4s") ||
@@ -236,7 +267,8 @@ object BrowserVideoOfferBus {
             path.endsWith(".jpeg") ||
             path.endsWith(".png") ||
             path.endsWith(".js") ||
-            path.endsWith(".css")
+            path.endsWith(".css") ||
+            path.endsWith(".gif")
     }
 
     private fun queryParam(url: String, name: String): String? {

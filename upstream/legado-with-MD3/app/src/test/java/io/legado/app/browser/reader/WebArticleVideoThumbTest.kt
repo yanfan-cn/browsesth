@@ -11,9 +11,54 @@ class WebArticleVideoThumbTest {
     fun recognizesMarkerAndPending() {
         assertTrue(WebArticleVideoThumb.isJingshiThumb("https://cdn.example.com/p.jpg#browsesth-jingshi"))
         assertTrue(WebArticleVideoThumb.isJingshiThumb("browsesth-jingshi://pending"))
+        assertTrue(WebArticleVideoThumb.isJingshiThumb(WebArticleVideoThumb.PLACEHOLDER_SRC))
         assertFalse(WebArticleVideoThumb.isJingshiThumb("https://cdn.example.com/story.jpg"))
         assertTrue(WebArticleVideoThumb.hasHttpPoster("https://cdn.example.com/p.jpg#browsesth-jingshi"))
         assertFalse(WebArticleVideoThumb.hasHttpPoster("browsesth-jingshi://pending"))
+        assertTrue(WebArticleVideoThumb.isPlaceholder(WebArticleVideoThumb.PLACEHOLDER_SRC))
+    }
+
+    @Test
+    fun rejectsArticlePageAsImagePoster() {
+        // SPEC-227: CoverPerf 曾把 view.inews.qq.com/a/… 当封面加载失败。
+        assertFalse(
+            WebArticleVideoThumb.isLikelyImageUrl("https://view.inews.qq.com/a/20261103A08GH100"),
+        )
+        assertFalse(
+            WebArticleVideoThumb.hasHttpPoster(
+                "https://view.inews.qq.com/a/20261103A08GH100#browsesth-jingshi",
+            ),
+        )
+        assertTrue(
+            WebArticleVideoThumb.isLikelyImageUrl("https://inews.gtimg.com/newsapp_bt/0/x/0.jpg"),
+        )
+    }
+
+    @Test
+    fun insertsPlaceholderWhenNoUsablePoster() {
+        val html = """
+            <p>正文段落在这里，足够长应该保留。</p>
+        """.trimIndent()
+        val out = WebArticleVideoThumb.ensureThumb(
+            html,
+            coverUrl = "https://view.inews.qq.com/a/20261103A08GH100",
+            minThumbs = 1,
+        )
+        assertTrue(out.contains(WebArticleVideoThumb.PLACEHOLDER_SRC))
+        assertFalse(out.contains("view.inews.qq.com/a/"))
+    }
+
+    @Test
+    fun sanitizeDropsArticlePageImgKeepRealImages() {
+        // SPEC-228
+        val html = """
+            <img src="https://view.inews.qq.com/a/20261103A094LI00">
+            <img src="https://inews.gtimg.com/newsapp_bt/0/x/0.jpg">
+            <p>正文段落在这里，足够长应该保留。</p>
+        """.trimIndent()
+        val out = WebArticleVideoThumb.sanitizeContentImages(html)
+        assertFalse(out.contains("view.inews.qq.com/a/"))
+        assertTrue(out.contains("inews.gtimg.com"))
     }
 
     @Test

@@ -169,7 +169,8 @@ object BrowserTabManager {
         BrowserTabThumbnailStore.remove(tabId)
         BrowserSessionHolder.destroyKey(tabId)
         if (list.size <= 1) {
-            closeAll()
+            // SPEC-234: 不允许 0 标签——关最后一个后保底一个主页标签。
+            resetToSingleHomeTab()
             return
         }
         val idx = list.indexOfFirst { it.id == tabId }
@@ -184,16 +185,25 @@ object BrowserTabManager {
         persist()
     }
 
-    /** SPEC-053: empty tab list is allowed; count shows 0. */
-    fun closeAll() {
+    /**
+     * SPEC-234: 重置为单个主页标签（取代 SPEC-053 的允许空列表）。
+     * 清空全部会话/缩略图/内嵌净读存档后，保底一个「新标签页」（浏览器主页）。
+     */
+    private fun resetToSingleHomeTab() {
         BrowserMediaSessionHooks.notifyWebContextLeft()
         BrowserSessionHolder.captureActiveThumbnail()
         BrowserTabThumbnailStore.clear()
         BrowserTabEmbeddedReaderStore.clearAll()
         BrowserSessionHolder.destroy()
-        _tabs.value = emptyList()
-        _activeId.value = ""
+        val home = BrowserTab(newId(), null, "新标签页", false, showHome = true)
+        _tabs.value = listOf(home)
+        _activeId.value = home.id
         persist()
+    }
+
+    /** SPEC-234: 全部关闭后保底一个主页标签，计数不为 0。 */
+    fun closeAll() {
+        resetToSingleHomeTab()
     }
 
     /** SPEC-055: close only tabs in the given mode (常规 / 无痕 list). */
@@ -208,6 +218,11 @@ object BrowserTabManager {
         }
         val next = list.filter { it.incognito != incognito }
         val activeWasClosed = _activeId.value in closedIds
+        if (next.isEmpty()) {
+            // SPEC-234: 全模式清空后保底一个主页标签。
+            resetToSingleHomeTab()
+            return
+        }
         _tabs.value = next
         if (activeWasClosed) {
             BrowserSessionHolder.captureActiveThumbnail()

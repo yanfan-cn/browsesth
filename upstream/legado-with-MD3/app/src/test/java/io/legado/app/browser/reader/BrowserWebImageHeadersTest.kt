@@ -17,7 +17,7 @@ class BrowserWebImageHeadersTest {
         )
         assertEquals("https://view.inews.qq.com/a/CH2", headers?.get("Referer"))
         assertEquals(BrowserUa.MOBILE, headers?.get("User-Agent"))
-        assertEquals("image/avif,image/webp,image/apng,image/*,*/*;q=0.8", headers?.get("Accept"))
+        assertEquals("image/webp,image/jpeg,image/png,image/*;q=0.8,*/*;q=0.8", headers?.get("Accept"))
     }
 
     @Test

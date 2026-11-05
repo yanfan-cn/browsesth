@@ -1,118 +1,95 @@
 package io.legado.app.feature.onboarding
 
-import io.legado.app.ui.widget.components.icon.Symbols
+import android.content.res.Configuration
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.legado.app.R
+import io.legado.app.browser.engine.BrowserFormFactor
+import io.legado.app.ui.config.themeConfig.ThemeCard
 import io.legado.app.ui.config.themeConfig.ThemeColorSelector
+import io.legado.app.ui.config.themeConfig.ThemeModeSelector
+import io.legado.app.ui.theme.ChromeSurfaceStyle
 import io.legado.app.ui.theme.ChromeSurfaceStylePolicy
 import io.legado.app.ui.theme.LegadoTheme
-import io.legado.app.ui.widget.components.alert.AppAlertDialog
 import io.legado.app.ui.widget.components.button.series.MediumTonalButton
-import io.legado.app.ui.widget.components.card.GlassCard
-import io.legado.app.ui.widget.components.progressIndicator.AppCircularProgressIndicator
-import io.legado.app.ui.widget.components.progressIndicator.AppLinearProgressIndicator
+import io.legado.app.ui.widget.components.icon.Symbols
+import io.legado.app.ui.widget.components.SplicedColumnGroup
 import io.legado.app.ui.widget.components.settingItem.SwitchSettingItem
-import io.legado.app.ui.widget.components.text.AppText
+import io.legado.app.ui.widget.components.text.MarkdownBlock
+import io.legado.app.ui.widget.components.topbar.GlassMediumFlexibleTopAppBar
 
 @Composable
 fun OnboardingScreen(
     state: OnboardingUiState,
     onIntent: (OnboardingIntent) -> Unit,
 ) {
-    BackHandler {
-        onIntent(OnboardingIntent.Prev)
-    }
+    BackHandler { onIntent(OnboardingIntent.Prev) }
+
+    val configuration = LocalConfiguration.current
+    val isTablet = remember(configuration) { BrowserFormFactor.isTablet(configuration) }
+    val landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ic_launcher_foreground),
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .padding(top = 16.dp)
-                    .height(96.dp)
-                    .width(96.dp)
-            )
-            AppText(
-                text = pageTitle(),
-                style = LegadoTheme.typography.headlineLargeEmphasized,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-            )
-            AppText(
-                text = pageSummary(),
-                style = LegadoTheme.typography.bodyLargeEmphasized,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp, bottom = 12.dp)
-            )
-            AppLinearProgressIndicator(
-                progress = 1f,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
+        GlassMediumFlexibleTopAppBar(
+            title = pageTitle(state.page),
+            navigationIcon = {},
+        )
 
-        Crossfade(
-            targetState = state.page,
-            label = "onboarding-page",
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
                 .weight(1f)
-        ) { _ ->
-            Box(
+                .fillMaxWidth(),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            Crossfade(
+                targetState = state.page,
+                label = "onboarding-page",
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                GlassCard(modifier = Modifier.fillMaxWidth()) {
-                    // SPEC-165: light theme page only.
-                    ThemePage(state, onIntent)
+                    .widthIn(max = if (isTablet) 960.dp else 720.dp)
+                    .padding(horizontal = 16.dp),
+            ) { page ->
+                when (page) {
+                    0 -> WelcomePage(
+                        privacyPolicy = state.privacyPolicy,
+                        featuresIntro = state.featuresIntro,
+                        sideBySide = isTablet && landscape,
+                    )
+                    else -> PersonalizePage(
+                        state = state,
+                        onIntent = onIntent,
+                        sideBySide = isTablet && landscape,
+                    )
                 }
             }
         }
@@ -120,84 +97,95 @@ fun OnboardingScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            contentAlignment = Alignment.CenterEnd
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            contentAlignment = Alignment.CenterEnd,
         ) {
             MediumTonalButton(
                 onClick = { onIntent(OnboardingIntent.Next) },
                 text = nextButtonText(state.page, state.pageCount),
-                icon = Symbols.ArrowForward
+                icon = if (state.page >= state.pageCount - 1) {
+                    Symbols.Check
+                } else {
+                    Symbols.ArrowForward
+                },
             )
         }
     }
-
-    BusyDialog(state, onIntent)
-    BackupSelectorDialog(state, onIntent)
-    RestoreErrorDialog(state, onIntent)
 }
 
 @Composable
-private fun BusyDialog(state: OnboardingUiState, onIntent: (OnboardingIntent) -> Unit) {
-    val busyText = state.busyText ?: return
-    AppAlertDialog(
-        show = true,
-        onDismissRequest = { onIntent(OnboardingIntent.CancelBusy) },
-        content = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                AppCircularProgressIndicator(modifier = Modifier.size(28.dp))
-                AppText(text = busyText)
-            }
+private fun WelcomePage(
+    privacyPolicy: String,
+    featuresIntro: String,
+    sideBySide: Boolean,
+) {
+    if (sideBySide) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            MarkdownSection(
+                markdown = privacyPolicy,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+            )
+            MarkdownSection(
+                markdown = featuresIntro,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+            )
         }
-    )
-}
-
-@Composable
-private fun BackupSelectorDialog(state: OnboardingUiState, onIntent: (OnboardingIntent) -> Unit) {
-    val backupNames = state.backupNames ?: return
-    AppAlertDialog(
-        show = true,
-        onDismissRequest = { onIntent(OnboardingIntent.DismissBackupSelector) },
-        title = stringResource(R.string.select_restore_file),
-        onDismiss = { onIntent(OnboardingIntent.DismissBackupSelector) },
-        content = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                backupNames.forEach { name ->
-                    AppText(
-                        text = name,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onIntent(OnboardingIntent.RestoreBackup(name)) }
-                            .padding(vertical = 10.dp, horizontal = 4.dp)
-                    )
-                }
-            }
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 8.dp)
+                .widthIn(max = 640.dp),
+        ) {
+            MarkdownSection(
+                markdown = privacyPolicy,
+                modifier = Modifier.fillMaxWidth(),
+                scrollable = false,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            MarkdownSection(
+                markdown = featuresIntro,
+                modifier = Modifier.fillMaxWidth(),
+                scrollable = false,
+            )
         }
-    )
+    }
 }
 
 @Composable
-private fun RestoreErrorDialog(state: OnboardingUiState, onIntent: (OnboardingIntent) -> Unit) {
-    val message = state.restoreErrorMessage ?: return
-    AppAlertDialog(
-        show = true,
-        onDismissRequest = { onIntent(OnboardingIntent.DismissRestoreError) },
-        title = stringResource(R.string.restore),
-        text = message,
-        confirmText = stringResource(R.string.ok),
-        onConfirm = { onIntent(OnboardingIntent.StartLocalRestore) },
-        onDismiss = { onIntent(OnboardingIntent.DismissRestoreError) }
-    )
+private fun MarkdownSection(
+    markdown: String,
+    modifier: Modifier = Modifier,
+    scrollable: Boolean = true,
+) {
+    val bodyModifier = if (scrollable) {
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+    } else {
+        Modifier.fillMaxWidth()
+    }
+    Column(modifier = modifier) {
+        Column(modifier = bodyModifier) {
+            MarkdownBlock(content = markdown)
+        }
+    }
 }
 
 @Composable
-private fun ThemePage(state: OnboardingUiState, onIntent: (OnboardingIntent) -> Unit) {
+private fun PersonalizePage(
+    state: OnboardingUiState,
+    onIntent: (OnboardingIntent) -> Unit,
+    sideBySide: Boolean,
+) {
     val context = LocalContext.current
     val isDark = LegadoTheme.isDark
     val themeItems = stringArrayResource(R.array.themes_item)
@@ -205,46 +193,112 @@ private fun ThemePage(state: OnboardingUiState, onIntent: (OnboardingIntent) -> 
     val themes = remember(themeItems, themeValues) {
         themeItems.zip(themeValues).toList()
     }
-    Column(
-        modifier = Modifier
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
-    ) {
-        Box {
+    val visibleThemes = themes.filter { (_, value) ->
+        value != "4" || state.theme.eInkDisplay
+    }
+    val liquidSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    val liquidOn = ChromeSurfaceStylePolicy.resolve(state.theme.chromeSurfaceStyle) ==
+        ChromeSurfaceStyle.LiquidGlass
+
+    val preview = @Composable {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            ThemeCard(
+                context = context,
+                value = state.theme.appTheme,
+                isDark = isDark,
+                isAmoled = state.theme.isPureBlack,
+                paletteStyle = state.theme.paletteStyle,
+                customLightSeedColor = state.theme.customPrimary,
+                customNightSeedColor = state.theme.customNightPrimary,
+            )
+        }
+    }
+
+    val controls = @Composable {
+        SplicedColumnGroup(title = stringResource(R.string.theme)) {
+            ThemeModeSelector(
+                selectedMode = state.themeMode,
+                onModeSelected = { onIntent(OnboardingIntent.SetThemeMode(it)) },
+            )
+            Spacer(modifier = Modifier.height(16.dp))
             ThemeColorSelector(
                 context = context,
-                themes = themes,
+                themes = visibleThemes,
                 selectedTheme = state.theme.appTheme,
                 isDark = isDark,
                 isAmoled = state.theme.isPureBlack,
                 paletteStyle = state.theme.paletteStyle,
                 customLightSeedColor = state.theme.customPrimary,
                 customNightSeedColor = state.theme.customNightPrimary,
-                onThemeSelected = { onIntent(OnboardingIntent.SelectTheme(it)) }
+                onThemeSelected = { onIntent(OnboardingIntent.SelectTheme(it)) },
             )
         }
-        // SPEC-091: liquid glass toggle (API 33+); default on API 35+ via policy.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val liquidOn = ChromeSurfaceStylePolicy.isLiquidGlassActive(
-                state.theme.chromeSurfaceStyle,
+        SplicedColumnGroup {
+            SwitchSettingItem(
+                title = stringResource(R.string.pure_black),
+                checked = state.theme.isPureBlack,
+                onCheckedChange = { onIntent(OnboardingIntent.SetPureBlack(it)) },
             )
-            Column(modifier = Modifier.padding(top = 16.dp)) {
-                SwitchSettingItem(
-                    title = stringResource(R.string.chrome_surface_style_liquid),
-                    description = stringResource(R.string.onboarding_liquid_glass_summary),
-                    checked = liquidOn,
-                    onCheckedChange = { onIntent(OnboardingIntent.SetLiquidGlass(it)) },
-                )
+            SwitchSettingItem(
+                title = stringResource(R.string.chrome_surface_style_liquid),
+                description = stringResource(R.string.onboarding_liquid_glass_summary),
+                checked = liquidOn,
+                enabled = liquidSupported,
+                onCheckedChange = { onIntent(OnboardingIntent.SetLiquidGlass(it)) },
+            )
+        }
+    }
+
+    if (sideBySide) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(0.4f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState()),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                preview()
             }
+            Column(
+                modifier = Modifier
+                    .weight(0.6f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                controls()
+            }
+        }
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 8.dp)
+                .widthIn(max = 640.dp),
+        ) {
+            preview()
+            Spacer(modifier = Modifier.height(16.dp))
+            controls()
         }
     }
 }
 
 @Composable
-private fun pageTitle(): String = stringResource(R.string.onboarding_title_theme)
-
-@Composable
-private fun pageSummary(): String = stringResource(R.string.onboarding_summary_theme)
+private fun pageTitle(page: Int): String = stringResource(
+    when (page) {
+        0 -> R.string.onboarding_title_welcome
+        else -> R.string.onboarding_title_theme
+    }
+)
 
 @Composable
 private fun nextButtonText(page: Int, pageCount: Int): String = stringResource(

@@ -67,7 +67,6 @@ import io.legado.app.ui.main.MainRouteSettingsRead
 import io.legado.app.ui.main.MainRouteSettingsTheme
 import io.legado.app.ui.main.MainRouteSettingsThemeManage
 import io.legado.app.ui.main.MainRouteSettingsTranslation
-import io.legado.app.ui.theme.NavTransitionGlassSuppressor
 import io.legado.app.ui.widget.components.privacy.PrivateVerifyGate
 
 /**
@@ -112,8 +111,7 @@ class SettingsActivity : BaseComposeActivity() {
                 finish()
             }
         }
-        // SPEC-192: 转场期间玻璃自动降级，静止后恢复。
-        NavTransitionGlassSuppressor(trigger = backStack.size to backStack.lastOrNull())
+        // SPEC-224: 废除导航转场玻璃抑制。
 
         NavDisplay(
             backStack = backStack,

@@ -142,6 +142,7 @@ class AwContentsHostView @JvmOverloads constructor(
     }
 
     fun loadUrl(url: String) {
+        // SPEC-221/232: 恢复按站抬升浏览 UA（SPEC-224 删除后手机/平板 UA 下嗅探不到视频）。
         maybeElevateUaForVideoHost(url)
         webView?.loadUrl(url) ?: Log.w(TAG, "loadUrl before attach: $url")
     }

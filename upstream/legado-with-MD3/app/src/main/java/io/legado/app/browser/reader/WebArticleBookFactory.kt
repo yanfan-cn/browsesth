@@ -53,9 +53,17 @@ object WebArticleBookFactory {
                 bodyRaw.contains('<') -> WebArticleChromeFilter.filterHtml(bodyRaw)
                 else -> WebArticleChromeFilter.filter(bodyRaw)
             }
+            // SPEC-228: cover must be a real image URL (not the article page).
             val cover = o.cover?.trim()
-                ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
-            if (body.length < 40) null else Extracted(title.ifBlank { "网页正文" }, body, cover)
+                ?.takeIf { WebArticleVideoThumb.isLikelyImageUrl(it) }
+            val sanitizedBody = if (body.contains("<img", ignoreCase = true)) {
+                WebArticleVideoThumb.sanitizeContentImages(body)
+            } else {
+                body
+            }
+            if (sanitizedBody.length < 40) null else {
+                Extracted(title.ifBlank { "网页正文" }, sanitizedBody, cover)
+            }
         } catch (_: Throwable) {
             null
         }
@@ -115,7 +123,9 @@ object WebArticleBookFactory {
         appDb.bookChapterDao.insert(*entities.toTypedArray())
         // SPEC-044/216: normalize kept <img src>; drop image-dimension debug lines.
         val body = WebArticleDebugLineFilter.stripLines(
-            normalizeMixedHtml(extracted.text, pageUrl),
+            WebArticleVideoThumb.sanitizeContentImages(
+                normalizeMixedHtml(extracted.text, pageUrl),
+            ),
         )
         BookHelp.saveText(book, entities[durIndex], body)
         prefetchNeighborChapters(book)
@@ -128,8 +138,18 @@ object WebArticleBookFactory {
             return raw
         }
         val base = runCatching { URL(pageUrl) }.getOrNull()
-        return HtmlFormatter.formatKeepImg(raw, base).ifBlank { raw }
+        // SPEC-228: HtmlFormatter resolves relative srcs via java.net.URL, which throws
+        // "unknown protocol: browsesth-jingshi" on our pseudo-scheme thumbs and aborts book
+        // creation. Mask them, format, then restore.
+        val masked = raw.replace(JINGSHI_SCHEME, JINGSHI_MASK)
+        val formatted = runCatching {
+            HtmlFormatter.formatKeepImg(masked, base)
+        }.getOrDefault(masked)
+        return formatted.replace(JINGSHI_MASK, JINGSHI_SCHEME).ifBlank { raw }
     }
+
+    private const val JINGSHI_SCHEME = "browsesth-jingshi://"
+    private const val JINGSHI_MASK = "https://jingshi.browsesth.invalid/"
 
     fun prefetchNeighborChapters(book: Book) {
         val chapters = appDb.bookChapterDao.getChapterList(book.bookUrl)

@@ -139,7 +139,11 @@ object ImageProvider {
     ): File {
         return withContext(IO) {
             val vFile = BookHelp.getImage(book, src)
-            if (!BookHelp.isImageExist(book, src)) {
+            // SPEC-228: treat undecodable cached files (e.g. AVIF cached as .jpg) as missing
+            // so they re-download with a decodable Accept header.
+            val exists = BookHelp.isImageExist(book, src) &&
+                (!src.startsWith("http") || BookHelp.isImageValid(vFile))
+            if (!exists) {
                 val inputStream = when {
                     book.isEpub -> EpubFile.getImage(book, src)
                     book.isPdf -> PdfFile.getImage(book, src)
@@ -170,20 +174,44 @@ object ImageProvider {
         bookSource: BookSource?,
         chapter: BookChapter? = null,
     ): Size {
+        // SPEC-228: jingshi pseudo-scheme thumbs never hit the network; the bitmap is
+        // synthesized in ReadBookController.loadReaderImage. Give the paginator a 16:9 slot.
+        if (src.startsWith("browsesth-jingshi://")) {
+            return Size(800, 450)
+        }
         val file = cacheImage(book, src, bookSource, chapter)
         val op = BitmapFactory.Options()
         // inJustDecodeBounds如果设置为true,仅仅返回图片实际的宽和高,宽和高是赋值给opts.outWidth,opts.outHeight;
         op.inJustDecodeBounds = true
         BitmapFactory.decodeFile(file.absolutePath, op)
-        if (op.outWidth < 1 && op.outHeight < 1) {
-            //svg size
-            val size = SvgUtils.getSize(file.absolutePath)
-            if (size != null) return size
-            putDebug("ImageProvider: $src Unsupported image type")
-            // SPEC-216: 失败不再用感叹号破图尺寸占位，避免净读排出破图块。
-            return Size(0, 0)
+        if (op.outWidth >= 1 && op.outHeight >= 1) {
+            return Size(op.outWidth, op.outHeight)
         }
-        return Size(op.outWidth, op.outHeight)
+        // SPEC-228: HEIF/HEIC size via ImageDecoder.
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            val heif = runCatching {
+                var w = 0
+                var h = 0
+                android.graphics.ImageDecoder.decodeBitmap(
+                    android.graphics.ImageDecoder.createSource(file),
+                ) { decoder, info, _ ->
+                    w = info.size.width
+                    h = info.size.height
+                    decoder.setTargetSize(1, 1)
+                }
+                if (w > 0 && h > 0) Size(w, h) else null
+            }.getOrNull()
+            if (heif != null) return heif
+        }
+        //svg size
+        val size = SvgUtils.getSize(file.absolutePath)
+        if (size != null) return size
+        putDebug("ImageProvider: $src Unsupported image type")
+        // SPEC-228: undecodable cached file (e.g. AVIF bytes) — drop it so the next pass
+        // re-downloads a decodable format (Accept no longer advertises avif).
+        if (src.startsWith("http")) runCatching { file.delete() }
+        // SPEC-216: 失败不再用感叹号破图尺寸占位，避免净读排出破图块。
+        return Size(0, 0)
     }
 
     /**

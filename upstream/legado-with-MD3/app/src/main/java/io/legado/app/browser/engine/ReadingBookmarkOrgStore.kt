@@ -24,19 +24,46 @@ class ReadingBookmarkOrgStore(context: Context) {
         writeMembership(map)
     }
 
-    fun addFolder(name: String): BrowseStore.Folder {
+    /** SPEC-236: 多层文件夹——当前目录子级。 */
+    fun childFolders(parentId: String): List<BrowseStore.Folder> =
+        BookmarkFolderTree.childrenOf(folders(), parentId)
+
+    /** SPEC-236: 从根到该文件夹的路径链。 */
+    fun folderPath(folderId: String): List<BrowseStore.Folder> =
+        BookmarkFolderTree.pathOf(folders(), folderId)
+
+    /** SPEC-236: 新建在 [parentId] 目录下；父不存在回落根目录。 */
+    fun addFolder(name: String, parentId: String = ""): BrowseStore.Folder {
+        val parent = parentId.trim().takeIf { it.isNotEmpty() }
+            ?.takeIf { id -> folders().any { it.id == id } }
+            .orEmpty()
         val folder = BrowseStore.Folder(
             id = UUID.randomUUID().toString(),
             name = name.trim().ifBlank { "新建文件夹" },
             order = (folders().maxOfOrNull { it.order } ?: -1) + 1,
+            parentId = parent,
         )
         writeFolders(folders() + folder)
         return folder
     }
 
+    /**
+     * SPEC-236: 连带删除——文件夹及其全部子文件夹，归属这些文件夹的阅读书签
+     * 全部移回根目录（阅读书签本体不删，只清归属）。
+     */
     fun removeFolder(id: String) {
-        writeFolders(folders().filterNot { it.id == id })
-        writeMembership(readMembership().filterValues { it != id })
+        val ids = BookmarkFolderTree.descendantIds(folders(), id)
+        if (ids.isEmpty()) return
+        writeFolders(folders().filterNot { it.id in ids })
+        writeMembership(readMembership().filterValues { it !in ids })
+    }
+
+    /** SPEC-236: 子树规模统计（确认框文案用）。 */
+    fun folderCascadeStats(id: String): Pair<Int, Int> {
+        val ids = BookmarkFolderTree.descendantIds(folders(), id)
+        val folderCount = folders().count { it.id in ids } - 1
+        val bookmarkCount = readMembership().count { it.value in ids }
+        return folderCount.coerceAtLeast(0) to bookmarkCount
     }
 
     private fun readFolders(): List<BrowseStore.Folder> {
@@ -51,6 +78,7 @@ class ReadingBookmarkOrgStore(context: Context) {
                             id = o.getString("id"),
                             name = o.optString("name"),
                             order = o.optInt("order", i),
+                            parentId = o.optString("parentId", ""),
                         ),
                     )
                 }
@@ -67,7 +95,8 @@ class ReadingBookmarkOrgStore(context: Context) {
                 JSONObject()
                     .put("id", f.id)
                     .put("name", f.name)
-                    .put("order", f.order),
+                    .put("order", f.order)
+                    .put("parentId", f.parentId),
             )
         }
         prefs.edit().putString(KEY_FOLDERS, arr.toString()).apply()

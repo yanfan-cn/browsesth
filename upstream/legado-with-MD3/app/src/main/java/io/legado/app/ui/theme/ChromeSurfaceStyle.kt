@@ -37,11 +37,10 @@ object ChromeSurfaceStylePolicy {
         return if (requested in available) requested else defaultStyle(sdk)
     }
 
+    /** SPEC-224: 不再受 GlassMotionGate 抑制；开启液态玻璃即保持激活。 */
     fun isLiquidGlassActive(stored: String?, sdk: Int = Build.VERSION.SDK_INT): Boolean =
         resolve(stored, sdk) == ChromeSurfaceStyle.LiquidGlass &&
-            sdk >= Build.VERSION_CODES.TIRAMISU &&
-            // SPEC-192: 运动中（滚动/转场）玻璃退 fallback，静止后恢复。
-            !GlassMotionGate.suppressed
+            sdk >= Build.VERSION_CODES.TIRAMISU
 
     fun isFilledActive(stored: String?, sdk: Int = Build.VERSION.SDK_INT): Boolean =
         resolve(stored, sdk) == ChromeSurfaceStyle.Filled

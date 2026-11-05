@@ -102,6 +102,9 @@ class BrowserAwContentsClient(
     @Volatile var lastTitle: String = ""
     @Volatile var lastUrl: String = ""
     @Volatile var lastError: String? = null
+    /** SPEC-235: 疑似媒体但分类不认的 URL 去重（每 URL 只记一次，防刷屏）。 */
+    private val diagMediaishLogged: MutableSet<String> =
+        java.util.concurrent.ConcurrentHashMap.newKeySet()
     /** SPEC-073: true when this main-frame load is back/forward history navigation. */
     @Volatile var historyNavigationThisLoad: Boolean = false
         private set
@@ -122,6 +125,9 @@ class BrowserAwContentsClient(
                 "$k:$v"
             }
             onPlayableMedia?.invoke(url, headerLines, lastUrl, url.contains(".m3u8", true))
+        } else if (diagMediaishLogged.add(url)) {
+            // SPEC-235 诊断：分类不认但疑似媒体的请求留痕，用于定位「检测不到视频」站点。
+            Log.i("Diag146", "media-ish rejected url=$url")
         }
         return null
     }
@@ -237,6 +243,11 @@ class BrowserAwContentsClient(
             if (src.startsWith("http://") || src.startsWith("https://")) {
                 onPlayableMedia?.invoke(src, "", lastUrl, src.contains(".m3u8", true))
             }
+            return true
+        }
+        if (msg.startsWith(VIDEO_SRC_BLOB_PREFIX)) {
+            // SPEC-235 诊断：页面视频走 MSE（blob: 源）时留痕，解释「检测不到视频」。
+            Log.i("Diag146", "videoSrcBlob src=${msg.removePrefix(VIDEO_SRC_BLOB_PREFIX).trim()} doc=$lastUrl")
             return true
         }
         if (msg.startsWith(SCROLL_PREFIX)) {
@@ -486,12 +497,15 @@ class BrowserAwContentsClient(
         const val SCROLL_Y_PREFIX = "BROWSESTH_SCROLLY:"
         /** SPEC-166: http(s) currentSrc from an in-page video element. */
         const val VIDEO_SRC_PREFIX = "BROWSESTH_VIDEO:"
+        /** SPEC-235: MSE 播放器的 blob: 源（ExoPlayer 不可播，仅日志用于定位「检测不到视频」）。 */
+        const val VIDEO_SRC_BLOB_PREFIX = "BROWSESTH_VIDEO_BLOB:"
         const val VIDEO_HOOK_JS =
             "(function(){if(window.__browsesthVideoHook)return;window.__browsesthVideoHook=1;" +
                 "document.addEventListener('play',function(e){var t=e.target;" +
                 "if(!t||String(t.tagName)!=='VIDEO')return;" +
                 "var s=t.currentSrc||t.src||'';" +
                 "if(s.indexOf('http')===0)console.log('BROWSESTH_VIDEO:'+s);" +
+                "else if(s.indexOf('blob:')===0)console.log('BROWSESTH_VIDEO_BLOB:'+s);" +
                 "},true);})();"
         const val SCROLL_HOOK_JS =
             "(function(){if(window.__browsesthScrollHook)return;window.__browsesthScrollHook=1;" +

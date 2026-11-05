@@ -154,6 +154,9 @@ import io.legado.app.feature.reader.platform.ReaderTextBackgroundLoader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
@@ -377,7 +380,8 @@ fun ReaderCanvasSurface(
     ) {
         // Paged modes do not compose the adjacent page until a gesture starts. Warm its images
         // while the window is idle so the first animation frame never falls back to placeholders.
-        val prefetchSemaphore = Semaphore(2)
+        // SPEC-228: slightly higher concurrency for web article inline images.
+        val prefetchSemaphore = Semaphore(4)
         listOfNotNull(pages.current, pages.next, pages.previous, pages.nextPlus)
             .asSequence()
             .flatMap { page -> page.elements.asSequence().filterIsInstance<ReaderElement.Image>() }
@@ -2207,13 +2211,18 @@ private fun ReaderPageCanvas(
         mutableStateOf(cachedImages)
     }
     LaunchedEffect(page.id, page.layoutRevision, page.revision, pageImages) {
-        pageImages.forEach { element ->
-            val bitmap = (cachedImage(element) ?: loadImage(element))
-                ?.takeUnless(Bitmap::isRecycled)
-                ?: return@forEach
-            if (images[element] !== bitmap) {
-                images = images + (element to bitmap)
-            }
+        // SPEC-228: load images in parallel (was sequential — felt like "scroll to show").
+        val loaded = coroutineScope {
+            pageImages.map { element ->
+                async {
+                    val bitmap = (cachedImage(element) ?: loadImage(element))
+                        ?.takeUnless(Bitmap::isRecycled)
+                    bitmap?.let { element to it }
+                }
+            }.awaitAll().filterNotNull()
+        }
+        if (loaded.isNotEmpty()) {
+            images = images + loaded.toMap()
         }
     }
     val textBackgrounds = remember(page.elements) { page.textBackgroundRuns() }

@@ -23,7 +23,6 @@ import com.kyant.capsule.ContinuousCapsule
 import io.legado.app.ui.animation.InteractiveHighlight
 import io.legado.app.ui.theme.ChromeSurfaceStyle
 import io.legado.app.ui.theme.ChromeSurfaceStylePolicy
-import io.legado.app.ui.theme.GlassMotionGate
 import io.legado.app.ui.theme.GlassReadiness
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.LocalAppUiConfiguration
@@ -55,13 +54,12 @@ internal fun currentChromeSurfaceStyle(): ChromeSurfaceStyle =
 /**
  * SPEC-071: alpha for solid tints drawn on NTP liquid-glass controls.
  * Liquid glass → light 0.4 / dark 0.35 (SPEC-072); filled → opaque 1.
- * SPEC-221: 滚动/IME 抑制玻璃时退不透明，避免卡片闪成半透明。
+ * SPEC-224: 不再因滑动门闸改 alpha。
  */
 @Composable
 fun ntpGlassOverlayAlpha(forceDark: Boolean? = null): Float {
     val style = currentChromeSurfaceStyle()
     if (style != ChromeSurfaceStyle.LiquidGlass) return 1f
-    if (GlassMotionGate.suppressed) return 1f
     val dark = forceDark ?: LegadoTheme.isDark
     return if (dark) BrowserUiTokens.NtpGlassOverlayDark else BrowserUiTokens.NtpGlassOverlayLight
 }
@@ -79,10 +77,9 @@ fun Modifier.browserFloatingChromeGlass(
     }
     return when (style) {
         ChromeSurfaceStyle.LiquidGlass -> {
-            // SPEC-148 R3: 就绪门闸；SPEC-219: 运动/IME 抑制时退 fallback。
+            // SPEC-148 R3: 就绪门闸；SPEC-224: 废除运动抑制。
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                GlassReadiness.ready &&
-                !GlassMotionGate.suppressed
+                GlassReadiness.ready
             ) {
                 drawBackdrop(
                     backdrop = scaffoldBackdrop ?: localBackdrop,
@@ -129,10 +126,9 @@ fun Modifier.browserReaderFabGlass(
     }
     return when (style) {
         ChromeSurfaceStyle.LiquidGlass -> {
-            // SPEC-148 R3 / SPEC-219: readiness + motion/IME gate.
+            // SPEC-148 R3 / SPEC-224: readiness only（无运动抑制）。
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                GlassReadiness.ready &&
-                !GlassMotionGate.suppressed
+                GlassReadiness.ready
             ) {
                 drawBackdrop(
                     backdrop = scaffoldBackdrop ?: localBackdrop,
@@ -198,10 +194,8 @@ fun Modifier.browserControlLiquidGlass(
         isDark -> 0.50f
         else -> 0.42f
     }
-    // SPEC-221: 运动抑制时 fallback 用不透明 surface，避免 NTP 卡片闪半透明。
     val fallbackAlpha = when {
         style == ChromeSurfaceStyle.Filled -> 1f
-        GlassMotionGate.suppressed -> 1f
         style == ChromeSurfaceStyle.Translucent || style == ChromeSurfaceStyle.LiquidGlass -> {
             if (overlayAlpha != null) surfaceAlpha
             else if (readableOverlay) surfaceAlpha
@@ -213,11 +207,10 @@ fun Modifier.browserControlLiquidGlass(
         surface.copy(alpha = fallbackAlpha),
         shape,
     )
-    // SPEC-219: respect GlassMotionGate (scroll / IME / search focus).
+    // SPEC-224: 废除 GlassMotionGate；仅就绪门闸。
     val liquidActive = style == ChromeSurfaceStyle.LiquidGlass &&
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-        GlassReadiness.ready &&
-        !GlassMotionGate.suppressed
+        GlassReadiness.ready
     if (!liquidActive) return fallback
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) { InteractiveHighlight(animationScope) }

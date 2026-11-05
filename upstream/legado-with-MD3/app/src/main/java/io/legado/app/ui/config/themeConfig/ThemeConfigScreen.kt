@@ -230,39 +230,32 @@ fun ThemeConfigScreen(
                             }
                         )
                     }
-                    // SPEC-150 R4: 表面样式上移到纯黑深色模式下方。
+                    // SPEC-223: 表面样式改为液态玻璃开关（与引导第 2 页一致）。
                     run {
-                        val available = remember {
-                            io.legado.app.ui.theme.ChromeSurfaceStylePolicy.availableStyles()
-                        }
-                        val resolved = io.legado.app.ui.theme.ChromeSurfaceStylePolicy.resolve(
-                            theme.chromeSurfaceStyle,
-                        )
-                        val labels = available.map { style ->
-                            when (style) {
-                                io.legado.app.ui.theme.ChromeSurfaceStyle.Translucent ->
-                                    stringResource(R.string.chrome_surface_style_translucent)
-                                io.legado.app.ui.theme.ChromeSurfaceStyle.Filled ->
-                                    stringResource(R.string.chrome_surface_style_filled)
-                                io.legado.app.ui.theme.ChromeSurfaceStyle.LiquidGlass ->
-                                    stringResource(R.string.chrome_surface_style_liquid)
-                            }
-                        }.toTypedArray()
-                        val values = available.map { it.storageValue }.toTypedArray()
-                        DropdownListSettingItem(
-                            title = stringResource(R.string.chrome_surface_style),
+                        val liquidSupported =
+                            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU
+                        val liquidOn =
+                            io.legado.app.ui.theme.ChromeSurfaceStylePolicy.resolve(
+                                theme.chromeSurfaceStyle,
+                            ) == io.legado.app.ui.theme.ChromeSurfaceStyle.LiquidGlass
+                        SwitchSettingItem(
+                            title = stringResource(R.string.chrome_surface_style_liquid),
                             description = stringResource(R.string.chrome_surface_style_summary),
-                            selectedValue = resolved.storageValue,
-                            displayEntries = labels,
-                            entryValues = values,
-                            onValueChange = { value ->
-                                // SPEC-061: surface style drives top-bar button style.
+                            checked = liquidOn,
+                            enabled = liquidSupported,
+                            onCheckedChange = { enabled ->
+                                val style = if (enabled) {
+                                    io.legado.app.ui.theme.ChromeSurfaceStyle.LiquidGlass
+                                } else {
+                                    io.legado.app.ui.theme.ChromeSurfaceStyle.Filled
+                                }
+                                val storage = style.storageValue
                                 updateTheme {
                                     it.copy(
-                                        chromeSurfaceStyle = value,
+                                        chromeSurfaceStyle = storage,
                                         topBarButtonStyle =
                                             io.legado.app.ui.theme.ChromeSurfaceStylePolicy
-                                                .effectiveTopBarButtonStyle(value),
+                                                .effectiveTopBarButtonStyle(storage),
                                     )
                                 }
                             },

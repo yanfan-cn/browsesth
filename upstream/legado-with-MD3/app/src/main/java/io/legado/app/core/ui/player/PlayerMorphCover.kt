@@ -38,6 +38,8 @@ fun PlayerMorphCover(
     appearance: PlayerMorphAppearance,
     modifier: Modifier = Modifier,
     circular: Boolean = false,
+    /** SPEC-235: 分栏布局的旋转封面；锚点在旋转之前上报，旋转不改变形变几何。 */
+    rotationDegrees: Float = 0f,
 ) {
     val morph = LocalReadAloudMorph.current
     val radiusPx = with(LocalDensity.current) { 8.dp.toPx() }
@@ -61,6 +63,7 @@ fun PlayerMorphCover(
             }
             .clip(if (circular) CircleShape else RoundedCornerShape(8.dp))
             .graphicsLayer {
+                rotationZ = rotationDegrees
                 alpha =
                     if (morph == null || morph.expanded || !morph.hasCapsuleAnchors || !morph.capsuleCoverLinked || morph.coverEndBounds.isEmpty) 1f else 0f
             },

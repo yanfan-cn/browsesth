@@ -49,6 +49,7 @@ import io.legado.app.browser.engine.BrowserDrawMode
 import io.legado.app.browser.engine.BrowserNtpNews
 import io.legado.app.browser.engine.BrowserReaderPrefs
 import io.legado.app.browser.engine.BrowsesthBromiumBootstrap
+import io.legado.app.browser.engine.StorageCacheAutoTrim
 import io.legado.app.help.AppFreezeMonitor
 import android.util.Log
 import io.legado.app.help.AppWebDav
@@ -220,6 +221,9 @@ class App : Application(), SingletonImageLoader.Factory {
             }
         }
         // Browsesth: cold-start Aloha before any UI that might touch WebView.
+        // SPEC-230: 内核缓存自动控制须在内核启动前执行，避免运行中删缓存目录。
+        runCatching { StorageCacheAutoTrim.trimIfNeededAtStartup(this) }
+            .onFailure { Log.w("StorageCacheAutoTrim", "startup trim failed: ${it.message}") }
         try {
             BrowsesthBromiumBootstrap.initializeAll(this, R.array.config_key_system_uuid_map)
             BrowserDrawMode.init(this)

@@ -107,8 +107,8 @@ private fun BrowserConfigBody(
             item {
                 SplicedColumnGroup(title = "浏览") {
                     ClickableSettingItem(
-                        title = "User-Agent",
-                        description = "当前：${uaMode.label}（点击切换手机 / 电脑；刷新页面后生效）",
+                        title = "浏览器UA标识",
+                        description = "当前：${uaMode.label}，点击切换，刷新后生效",
                         onClick = {
                             uaMode = when (uaMode) {
                                 BrowserUa.Mode.Mobile -> BrowserUa.Mode.Desktop
@@ -122,7 +122,7 @@ private fun BrowserConfigBody(
                         description = if (isTablet) {
                             "网页向下滚动时自动收起标签栏与功能栏"
                         } else {
-                            "默认关闭。开启后，网页向下滚动时自动收起顶栏和底栏"
+                            "网页向下滚动时自动收起顶栏和底栏"
                         },
                         checked = autoHideTop,
                         onCheckedChange = {
@@ -136,7 +136,7 @@ private fun BrowserConfigBody(
                     }
                     SwitchSettingItem(
                         title = "启动时恢复上次浏览页面",
-                        description = "重新打开应用时恢复上次未关闭的标签页",
+                        description = "恢复上次未关闭的标签页",
                         checked = restoreSession,
                         onCheckedChange = {
                             restoreSession = it
@@ -152,11 +152,24 @@ private fun BrowserConfigBody(
                     }
                     SwitchSettingItem(
                         title = "检测到视频时提示用播放器打开",
-                        description = "网页出现可播放视频流时，在底栏上方显示「用播放器打开」",
+                        description = "网页出现可播放视频时提示",
                         checked = videoPlayerPrompt,
                         onCheckedChange = {
                             videoPlayerPrompt = it
                             chromePrefs.videoPlayerPromptEnabled = it
+                        },
+                    )
+                    // SPEC-224: 默认悬浮球；关则先胶囊再收球。
+                    var videoFloatingBall by remember {
+                        mutableStateOf(chromePrefs.videoFloatingBallPreferred)
+                    }
+                    SwitchSettingItem(
+                        title = "净视悬浮球",
+                        description = "检测到视频时直接显示悬浮球",
+                        checked = videoFloatingBall,
+                        onCheckedChange = {
+                            videoFloatingBall = it
+                            chromePrefs.videoFloatingBallPreferred = it
                         },
                     )
                     // SPEC-177: phone fullscreen search empty-state recent queries.
@@ -165,7 +178,7 @@ private fun BrowserConfigBody(
                     }
                     SwitchSettingItem(
                         title = "显示搜索记录",
-                        description = "手机主页全屏搜索未输入时，显示最近 5 条搜索记录",
+                        description = "主页搜索框显示最近 5 条搜索记录",
                         checked = showSearchHistory,
                         onCheckedChange = {
                             showSearchHistory = it
@@ -196,7 +209,7 @@ private fun BrowserConfigBody(
                     )
                     SwitchSettingItem(
                         title = "打开净读时自动翻译",
-                        description = "从浏览器进入小说净读时开启章节翻译（需已配置翻译）",
+                        description = "进入净读时自动翻译章节",
                         checked = autoTranslate,
                         onCheckedChange = {
                             autoTranslate = it
@@ -209,7 +222,7 @@ private fun BrowserConfigBody(
                     }
                     SwitchSettingItem(
                         title = "极致净化",
-                        description = "优先抽取文章主区域并忽略更多控件区；关闭后仅用基础抽取与文字过滤",
+                        description = "优先抽取正文主区域",
                         checked = strongExtract,
                         onCheckedChange = {
                             strongExtract = it
@@ -223,12 +236,12 @@ private fun BrowserConfigBody(
                 SplicedColumnGroup(title = "隐私与安全") {
                     ClickableSettingItem(
                         title = "隐私与安全",
-                        description = "Cookie、第三方 Cookie、安全浏览、清除数据",
+                        description = "Cookie 与安全浏览设置",
                         onClick = onOpenPrivacy,
                     )
                     ClickableSettingItem(
                         title = "清除浏览数据",
-                        description = "Cookie、缓存、历史等（跳转清除页）",
+                        description = "Cookie、缓存、历史等",
                         onClick = onOpenClearBrowsingData,
                     )
                 }
@@ -255,7 +268,7 @@ private fun BrowserConfigBody(
                     )
                     SwitchSettingItem(
                         title = "阻止打开其它应用",
-                        description = "开启后拦截 intent:// 与自定义 scheme；关闭则弹出系统应用选择器（SPEC-155 默认关）",
+                        description = "拦截网页跳转其它应用",
                         checked = blockExternal,
                         onCheckedChange = {
                             blockExternal = it

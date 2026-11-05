@@ -4,6 +4,10 @@ import android.annotation.SuppressLint
 import android.app.SearchManager
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.text.Layout
@@ -289,15 +293,21 @@ class ReadBookController(
             ?.let { return it }
         val candidate = CoroutineScope(readerImageLoadJob + IO).async(start = CoroutineStart.LAZY) {
             readerImageCache.get(key)?.takeUnless(android.graphics.Bitmap::isRecycled) ?: ReadBook.book?.let { book ->
-                // SPEC-212/216: jingshi 剥 fragment；失败（含感叹号 errorBitmap）一律不缓存位图。
-                val jingshi = WebArticleVideoThumb.isJingshiThumb(element.source)
-                val loadSrc = if (jingshi) {
-                    WebArticleVideoThumb.displayUrl(element.source)
-                } else {
-                    element.source
-                }
+                // SPEC-212/216: 失败（含感叹号 errorBitmap）一律不缓存位图。
+                // SPEC-227: placeholder 合成可点位图，避免净读视频位空白。
+                // SPEC-228(2.3.2): 保留原 src（含 #browsesth-jingshi 片段）查缓存——
+                // 排版 getImageSize 用的是带片段 src，缓存 key 是 MD5(带片段)；
+                // 以前这里剥掉片段再查 → key 错位 → 永远 miss → 视频位黑块。
+                val loadSrc = element.source
                 val w = element.bounds.width.toInt().coerceAtLeast(1)
                 val h = element.bounds.height.toInt().coerceAtLeast(1)
+                if (WebArticleVideoThumb.isPlaceholder(element.source) ||
+                    loadSrc.equals(WebArticleVideoThumb.PLACEHOLDER_SRC, ignoreCase = true)
+                ) {
+                    return@async createJingshiPlaceholderBitmap(w, h).also {
+                        readerImageCache.put(key, it)
+                    }
+                }
                 val loaded = ImageProvider.getImage(
                     book = book,
                     src = loadSrc,
@@ -670,8 +680,12 @@ class ReadBookController(
     }
 
     private fun handleComposeImageClick(image: ReaderElement.Image): Boolean {
-        // SPEC-212/215: 净视缩略图单击进播放器；无可用海报位图时不响应（防空白占位点播）。
+        // SPEC-212/215/227: 净视缩略图单击进播放器；无海报位图不响应，占位符始终可点。
         if (WebArticleVideoThumb.isJingshiThumb(image.source)) {
+            if (WebArticleVideoThumb.isPlaceholder(image.source)) {
+                openJingshiPlayerFromReader()
+                return true
+            }
             val key = readerImageCacheKey(image)
             val bmp = readerImageCache.get(key)?.takeUnless(android.graphics.Bitmap::isRecycled)
             if (bmp == null) return true
@@ -699,6 +713,41 @@ class ReadBookController(
         }
         BrowserVideoPlaybackService.stop(activity)
         activity.startActivity(BrowserVideoPlayerActivity.intent(activity, offer))
+    }
+
+    /** SPEC-227: dark 16:9-ish block + play triangle so 净读视频位不空白且可点。 */
+    private fun createJingshiPlaceholderBitmap(reqW: Int, reqH: Int): Bitmap {
+        val width = when {
+            reqW >= 48 -> reqW
+            else -> 720
+        }.coerceIn(48, 1600)
+        val height = when {
+            reqH >= 48 -> reqH
+            else -> (width * 9 / 16).coerceAtLeast(48)
+        }.coerceIn(48, 1600)
+        val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        canvas.drawColor(0xFF2A2A2A.toInt())
+        val cx = width / 2f
+        val cy = height / 2f
+        val r = minOf(width, height) * 0.16f
+        val circle = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x7A000000
+            style = Paint.Style.FILL
+        }
+        canvas.drawCircle(cx, cy, r, circle)
+        val tri = Path().apply {
+            moveTo(cx - r * 0.22f, cy - r * 0.38f)
+            lineTo(cx - r * 0.22f, cy + r * 0.38f)
+            lineTo(cx + r * 0.48f, cy)
+            close()
+        }
+        val white = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFFFFFFFF.toInt()
+            style = Paint.Style.FILL
+        }
+        canvas.drawPath(tri, white)
+        return bmp
     }
 
     private fun openImageGallery(currentSrc: String) {

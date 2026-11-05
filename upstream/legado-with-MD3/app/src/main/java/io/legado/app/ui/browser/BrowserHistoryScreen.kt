@@ -52,12 +52,15 @@ fun BrowserHistoryScreen(
     onOpenUrl: (String) -> Unit,
     /** SPEC-082: open clear-browsing-data page (replaces instant clear dialog). */
     onOpenClearData: () -> Unit = {},
+    /** SPEC-238: 平板侧栏内已处于浏览器 chrome 下方，不再吃 statusBars inset。 */
+    inSidePanel: Boolean = false,
 ) {
     BrowserTheme {
         BrowserHistoryBody(
             onBack = onBack,
             onOpenUrl = onOpenUrl,
             onOpenClearData = onOpenClearData,
+            inSidePanel = inSidePanel,
         )
     }
 }
@@ -68,6 +71,7 @@ private fun BrowserHistoryBody(
     onBack: () -> Unit,
     onOpenUrl: (String) -> Unit,
     onOpenClearData: () -> Unit,
+    inSidePanel: Boolean,
 ) {
     val context = LocalContext.current
     val store = remember { BrowseStore(context) }
@@ -99,7 +103,11 @@ private fun BrowserHistoryBody(
                 Modifier
                     .fillMaxWidth()
                     .background(scheme.surface)
-                    .windowInsetsPadding(WindowInsets.statusBars),
+                    // SPEC-238: 平板侧栏已在浏览器 chrome 下方，statusBars 避让只留给手机全屏。
+                    .then(
+                        if (inSidePanel) Modifier
+                        else Modifier.windowInsetsPadding(WindowInsets.statusBars),
+                    ),
             ) {
                 Row(
                     Modifier

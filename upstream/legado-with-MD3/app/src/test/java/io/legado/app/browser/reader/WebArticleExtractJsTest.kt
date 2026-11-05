@@ -144,7 +144,7 @@ class WebArticleExtractJsTest {
 
     @Test
     fun skipsMediaTagsAndEmitsJingshiVideoThumb() {
-        // SPEC-212
+        // SPEC-212/227
         val script = WebArticleExtractJs.SCRIPT
         assertTrue(script.contains("tag==='video'"))
         assertTrue(script.contains("tag==='audio'"))
@@ -153,6 +153,9 @@ class WebArticleExtractJsTest {
         assertTrue(script.contains("browsesth-jingshi://pending"))
         assertTrue(script.contains("txp-") || script.contains("tenvideo"))
         assertTrue(script.contains("player-info") || script.contains("video-info"))
+        assertTrue(script.contains("isVideoPlayerChrome"))
+        assertTrue(script.contains("videoPosterFrom"))
+        assertTrue(script.contains("emitJingshi"))
     }
 
     @Test

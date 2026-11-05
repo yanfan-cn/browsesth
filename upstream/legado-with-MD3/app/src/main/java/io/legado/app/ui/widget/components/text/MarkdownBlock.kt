@@ -490,6 +490,7 @@ private fun MarkdownListItem(
             Row {
                 AppText(
                     text = bulletText,
+                    style = LocalTextStyle.current,
                     color = LegadoTheme.colorScheme.primary,
                     modifier = Modifier.alignByBaseline(),
                 )

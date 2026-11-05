@@ -137,7 +137,6 @@ import io.legado.app.domain.gateway.AppShellSettingsGateway
 import io.legado.app.ui.book.info.ChangeCoverSheet
 import io.legado.app.ui.config.themeConfig.ThemeModeSelector
 import io.legado.app.ui.qrcode.QrCodeResult
-import io.legado.app.ui.theme.GlassMotionGate
 import io.legado.app.ui.theme.LegadoTheme
 import java.io.File
 import io.legado.app.ui.widget.components.icon.MaterialSymbol
@@ -245,14 +244,7 @@ fun BrowserNtpScreen(
     val fullscreenSearch = BrowserNtpSearchRows.opensFullscreen(tabletLayout)
     var phoneSearchMounted by remember { mutableStateOf(false) }
     var phoneSearchExpanded by remember { mutableStateOf(false) }
-    // SPEC-219: suppress liquid-glass backdrop while search/IME is active (Android 17 lag).
-    LaunchedEffect(queryFocused, phoneSearchExpanded) {
-        if (queryFocused || phoneSearchExpanded) {
-            GlassMotionGate.suppress()
-        } else {
-            GlassMotionGate.release()
-        }
-    }
+    // SPEC-224: 废除搜索/IME 玻璃抑制。
     /** SPEC-179: keep search cover while session slides in; no collapse-to-NTP flash. */
     var phoneSearchDismissAfterNav by remember { mutableStateOf(false) }
     var ntpRootTop by remember { mutableFloatStateOf(0f) }
@@ -325,7 +317,7 @@ fun BrowserNtpScreen(
     val ntpScrollState = rememberScrollState()
     val newsScope = rememberCoroutineScope()
     // SPEC-192: 滚动期间抑制液态玻璃采样，静止后恢复。
-    io.legado.app.ui.theme.ScrollGlassSuppressor(ntpScrollState)
+    // SPEC-224: 废除 NTP 滚动玻璃抑制。
     // SPEC-098: arm before sync; remount at 0 must not wipe saved offset (web ScrollMemory pattern).
     DisposableEffect(Unit) {
         BrowserNtpScrollMemory.armRestore()

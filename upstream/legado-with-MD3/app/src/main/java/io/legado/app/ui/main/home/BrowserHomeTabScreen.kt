@@ -56,7 +56,6 @@ import io.legado.app.ui.browser.TabletBrowserShell
 import io.legado.app.ui.browser.TabletEmbeddedReaderHost
 import io.legado.app.ui.browser.TabletEmbeddedReaderKind
 import io.legado.app.ui.browser.TabletSidePanel
-import io.legado.app.ui.theme.GlassMotionGate
 import io.legado.app.ui.theme.LegadoTheme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -83,6 +82,8 @@ fun BrowserHomeTabScreen(
     onOpenTabs: () -> Unit = {},
     onOpenReader: (bookUrl: String) -> Unit = {},
     onOpenMangaReader: (bookUrl: String) -> Unit = {},
+    /** SPEC-238: 平板侧栏阅读书签 → 阅读器定位书签章节（区别于 onOpenBook→详情页）。 */
+    onOpenReadingBookmark: (Book) -> Unit = {},
     onOpenBookshelf: () -> Unit = {},
     onOpenMy: () -> Unit = {},
     /** SPEC-183: shared-element scopes for the reading-list card covers. */
@@ -102,6 +103,7 @@ fun BrowserHomeTabScreen(
             onOpenTabs = onOpenTabs,
             onOpenReader = onOpenReader,
             onOpenMangaReader = onOpenMangaReader,
+            onOpenReadingBookmark = onOpenReadingBookmark,
             onOpenBookshelf = onOpenBookshelf,
             onOpenMy = onOpenMy,
             sharedTransitionScope = sharedTransitionScope,
@@ -123,6 +125,7 @@ private fun BrowserHomeTabBody(
     onOpenTabs: () -> Unit,
     onOpenReader: (bookUrl: String) -> Unit,
     onOpenMangaReader: (bookUrl: String) -> Unit,
+    onOpenReadingBookmark: (Book) -> Unit,
     onOpenBookshelf: () -> Unit,
     onOpenMy: () -> Unit,
     sharedTransitionScope: SharedTransitionScope? = null,
@@ -274,8 +277,6 @@ private fun BrowserHomeTabBody(
         onAddressChange = { address = it },
         onAddressFocusChange = { focused ->
             if (!addressFocused && focused) {
-                // SPEC-219: IME/focus — suppress liquid-glass backdrop rebuilds.
-                GlassMotionGate.suppress()
                 // SPEC-125/146 R3: NTP (showHome) stays empty for search; web → URL.
                 // SPEC-146 R1 / SPEC-207: select all（获焦后再补一次，避免点击落点盖选区）。
                 if (active?.showHome == true) {
@@ -321,9 +322,6 @@ private fun BrowserHomeTabBody(
             addressFocused = focused
             if (focused) {
                 submittingAddress = false
-            } else if (wasFocused) {
-                // SPEC-219: pair suppress on focus gain.
-                GlassMotionGate.release()
             }
         },
         addressFocused = addressFocused,
@@ -370,6 +368,8 @@ private fun BrowserHomeTabBody(
         sidePanel = sidePanel,
         onSidePanelChange = { sidePanel = it },
         onOpenUrl = { BrowserTabManager.openUrlInActive(it) },
+        // SPEC-238: 侧栏阅读书签 → 阅读器（onOpenBook 已被书籍详情语义占用）。
+        onOpenBook = onOpenReadingBookmark,
         onOpenBrowserSettings = onOpenBrowserSettings,
         onOpenClearBrowsingData = onOpenClearBrowsingData,
         onOpenDownloads = onOpenDownloads,

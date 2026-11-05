@@ -618,6 +618,8 @@ fun MainScreen(
                                 onOpenTabs = onNavigateToBrowserTabs,
                                 onOpenReader = onNavigateToBrowserReader,
                                 onOpenMangaReader = onNavigateToBrowserManga,
+                                // SPEC-238: 平板侧栏阅读书签 → 阅读器定位书签章节（手机端同语义）。
+                                onOpenReadingBookmark = { context.startActivityForBook(it) },
                                 onOpenBookshelf = {
                                     val index = destinations.indexOfFirst {
                                         it == MainDestination.Bookshelf

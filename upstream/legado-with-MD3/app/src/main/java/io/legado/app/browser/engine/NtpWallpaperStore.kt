@@ -17,7 +17,8 @@ object NtpWallpaperIds {
     const val MORNING = "morning"
     const val MIST = "mist"
     const val LINEN = "linen"
-    const val DEFAULT = GRAD_BLUE
+    /** SPEC-223: default preset wallpaper for new installs. */
+    const val DEFAULT = MIST
 
     val builtins = listOf(GRAD_BLUE, GRAD_GREEN, GRAD_PINK, MORNING, MIST, LINEN)
 

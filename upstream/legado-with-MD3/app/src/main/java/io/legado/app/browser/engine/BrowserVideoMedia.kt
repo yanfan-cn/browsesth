@@ -17,19 +17,31 @@ import java.net.URI
  * SPEC-217: inject Cookie/Origin for CDN anti-leech (Tencent/CCTV news regression vs 2.0.8).
  */
 object BrowserVideoMedia {
-    fun buildSource(context: Context, offer: BrowserVideoOffer): MediaSource {
+    /**
+     * @param forceUserAgent SPEC-224: optional override（失败重试用桌面 UA）；
+     *   null 时优先 offer 头里的 UA，否则用当前浏览 UA（不再按站强制桌面）。
+     */
+    fun buildSource(
+        context: Context,
+        offer: BrowserVideoOffer,
+        forceUserAgent: String? = null,
+    ): MediaSource {
         val uri = Uri.parse(offer.url)
         val enriched = enrichHeaders(offer, ::cookieForUrl)
-        // SPEC-221: 腾讯新闻等站手机 UA 页常能嗅探到媒体，但 CDN 拒移动 UA；
-        // 播放请求改用桌面 UA（保留 Cookie/Referer/Origin）。
-        val playUa = headerIgnoreCase(enriched, "User-Agent")
+        val playUa = forceUserAgent?.takeIf { it.isNotBlank() }
+            ?: headerIgnoreCase(enriched, "User-Agent")
             ?: playbackUserAgent(context, offer)
-        val factory = DefaultHttpDataSource.Factory()
-            .setAllowCrossProtocolRedirects(true)
-            .setUserAgent(playUa)
         val headers = enriched.filterKeys {
             !it.equals("User-Agent", true)
         }
+        // SPEC-225: start-of-play diagnostics for Tencent HLS anti-leech cases.
+        BrowserVideoPlayDiag.logBuild(offer, playUa, headers, forceUserAgent)
+        lastDiagOffer = offer
+        lastDiagUa = playUa
+        lastDiagHeaders = headers
+        val factory = DefaultHttpDataSource.Factory()
+            .setAllowCrossProtocolRedirects(true)
+            .setUserAgent(playUa)
         if (headers.isNotEmpty()) {
             factory.setDefaultRequestProperties(headers)
         }
@@ -118,7 +130,22 @@ object BrowserVideoMedia {
         return BrowserCookies.getCookie(url)
     }
 
-    /** SPEC-221: Tencent news / QQ video CDNs often require desktop UA for media. */
+    /** SPEC-225: last build inputs for failure peek (single-process player). */
+    @Volatile
+    private var lastDiagOffer: BrowserVideoOffer? = null
+
+    @Volatile
+    private var lastDiagUa: String = ""
+
+    @Volatile
+    private var lastDiagHeaders: Map<String, String> = emptyMap()
+
+    fun peekLastBuildFailure(reason: String?) {
+        val offer = lastDiagOffer ?: return
+        BrowserVideoPlayDiag.peekOnFailure(offer, lastDiagUa, lastDiagHeaders, reason)
+    }
+
+    /** SPEC-221/232: 恢复播放端按站抬升桌面 UA（CDN 拒移动 UA 的站点）。 */
     private fun playbackUserAgent(context: Context, offer: BrowserVideoOffer): String {
         return if (
             BrowserUa.needsDesktopForVideo(offer.pageUrl) ||

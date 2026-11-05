@@ -58,6 +58,15 @@ class PlaybackPlayerAnchorsTest {
         assertFalse(shouldUseHomePlaybackCapsule(true, true, false, false))
     }
 
+    /** SPEC-235: 平板不渲染悬浮底栏，home 胶囊不可用，必须回落全局胶囊。 */
+    @Test
+    fun missingHomeBarAlwaysUsesGlobalCapsule() {
+        assertFalse(shouldUseHomePlaybackCapsule(true, true, true, false, homeBarPresent = false))
+        assertFalse(shouldUseHomePlaybackCapsule(true, true, true, true, homeBarPresent = false))
+        assertFalse(shouldUseHomePlaybackCapsule(false, false, false, false, homeBarPresent = false))
+        assertTrue(shouldUseHomePlaybackCapsule(true, true, true, false, homeBarPresent = true))
+    }
+
     @Test
     fun backNeverPopsTheCoveredRouteDuringPlayerOpeningOrClosing() {
         assertFalse(shouldHandleActivityBack(false, playerPresent = true))

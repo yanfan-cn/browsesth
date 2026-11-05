@@ -1,14 +1,26 @@
 package io.legado.app.browser.reader
 
 /**
- * SPEC-212/213: 净读正文中的「净视」视频缩略图约定。
- * src 带 `#browsesth-jingshi` → 单击进巡页播放器；必须落在**原海报**上，禁止灰假图。
+ * SPEC-212/213/215/227: 净读正文中的「净视」视频缩略图约定。
+ * src 带 `#browsesth-jingshi` → 单击进巡页播放器；必须落在**原海报**上，禁止灰假图；
+ * 无可用海报时用 [PLACEHOLDER_SRC] 可点占位（SPEC-227）。
  */
 object WebArticleVideoThumb {
     const val MARKER = "#browsesth-jingshi"
     const val PENDING_SRC = "browsesth-jingshi://pending"
+    const val PLACEHOLDER_SRC = "browsesth-jingshi://placeholder"
 
     private val imgTagRegex = Regex("""(?is)<img\b[^>]*\bsrc="([^"]+)"[^>]*/?>""")
+
+    private val imageExt = Regex(
+        """\.(?:jpe?g|png|gif|webp|avif|bmp)(?:$|[?#])""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    private val articlePath = Regex(
+        """/(?:a|rain/a|article|news)/[a-z0-9_-]+/?$""",
+        RegexOption.IGNORE_CASE,
+    )
 
     fun isJingshiThumb(src: String): Boolean {
         val s = src.trim()
@@ -20,21 +32,67 @@ object WebArticleVideoThumb {
                     s.contains("browsesth-jingshi://", ignoreCase = true)))
     }
 
+    fun isPlaceholder(src: String): Boolean {
+        val d = displayUrl(src).trim()
+        return d.equals(PLACEHOLDER_SRC, ignoreCase = true) ||
+            src.trim().equals(PLACEHOLDER_SRC, ignoreCase = true)
+    }
+
     fun displayUrl(src: String): String {
         val noOpt = src.substringBefore(",{").trim()
         val noMark = noOpt.substringBefore(MARKER).trim()
         return noMark.ifBlank { src.trim() }
     }
 
-    fun hasHttpPoster(src: String): Boolean {
-        val d = displayUrl(src)
-        return d.startsWith("http://") || d.startsWith("https://")
+    /**
+     * SPEC-227: only real image URLs — reject article pages used as false "covers".
+     */
+    fun isLikelyImageUrl(url: String): Boolean {
+        val raw = url.trim()
+        if (!raw.startsWith("http://") && !raw.startsWith("https://")) return false
+        val u = raw.lowercase()
+        val path = u.substringBefore('#').substringBefore('?')
+        if (path.endsWith(".html") || path.endsWith(".htm") ||
+            path.endsWith(".php") || path.endsWith(".asp")
+        ) {
+            return false
+        }
+        if (articlePath.containsMatchIn(path)) return false
+        if (imageExt.containsMatchIn(u)) return true
+        val imageHostHints = listOf(
+            "qpic.cn", "gtimg.com", "ytimg.com", "pstatp.com", "byteimg.com",
+            "sinaimg.cn", "alicdn.com", "hdslb.com", "myqcloud.com", "sns-img",
+            "img.", "/thumb", "/cover", "/pic/", "/image", "inews.gtimg",
+        )
+        return imageHostHints.any { u.contains(it) }
+    }
+
+    fun hasHttpPoster(src: String): Boolean =
+        isLikelyImageUrl(displayUrl(src))
+
+    /**
+     * SPEC-228: drop `<img>` whose src is not a real image (e.g. article page URL).
+     * Keeps jingshi placeholders / pending / valid image posters.
+     */
+    fun sanitizeContentImages(html: String): String {
+        if (html.isBlank() || !html.contains("<img", ignoreCase = true)) return html
+        return imgTagRegex.replace(html) { mr ->
+            val src = mr.groupValues[1].trim()
+            when {
+                isPlaceholder(src) -> mr.value
+                src.equals(PENDING_SRC, ignoreCase = true) -> mr.value
+                isJingshiThumb(src) -> if (hasHttpPoster(src) || isPlaceholder(src)) mr.value else ""
+                isLikelyImageUrl(src) -> mr.value
+                else -> ""
+            }
+        }
     }
 
     fun stripThumbs(html: String): String {
         if (html.isBlank()) return html
-        if (!html.contains("browsesth-jingshi", ignoreCase = true)) return html
-        var out = html
+        var out = sanitizeContentImages(html)
+        if (!out.contains("browsesth-jingshi", ignoreCase = true)) return out
+        out = out
             .replace(Regex("""(?is)<img\b[^>]*#browsesth-jingshi[^>]*/?>"""), "")
             .replace(Regex("""(?is)<img\b[^>]*browsesth-jingshi://[^>]*/?>"""), "")
         out = out.lineSequence()
@@ -47,15 +105,14 @@ object WebArticleVideoThumb {
     }
 
     /**
-     * 只保留带真实 http 海报的 jingshi。
-     * [minThumbs] 仅在「还没有任何 jingshi」时，从正文未标记图里最多升这么多张（不再按嗅探数强行补张）。
+     * 只保留带真实图片海报的 jingshi；否则在有 offer 的调用方路径下插入可点占位。
      */
     fun ensureThumb(html: String, coverUrl: String?, minThumbs: Int = 1): String {
         val poster = coverUrl
             ?.trim()
-            ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
-        var out = bindPendingsToNearbyPosters(html)
-        // SPEC-215: 可见未标记海报紧挨 jingshi → 合并为一张可点原海报（消空白占位）。
+            ?.takeIf { isLikelyImageUrl(it) }
+        var out = sanitizeContentImages(html)
+        out = bindPendingsToNearbyPosters(out)
         out = coalesceUnmarkedPosterBeforeJingshi(out)
         out = removeUnmarkedDuplicatesOfJingshi(out)
         out = dedupeJingshiByUrl(out)
@@ -65,13 +122,13 @@ object WebArticleVideoThumb {
             out = dedupeJingshiByUrl(out)
         }
         out = dropJingshiWithoutHttpPoster(out)
+        // SPEC-227: still nothing usable → explicit clickable placeholder (not article URL).
+        if (jingshiCount(out) == 0 && !out.contains(PLACEHOLDER_SRC)) {
+            out = """<img src="$PLACEHOLDER_SRC">""" + "\n" + out
+        }
         return out.replace(Regex("""\n{3,}"""), "\n\n").trim()
     }
 
-    /**
-     * SPEC-215: `<img http>` + 邻近 `<img http…#jingshi>` → 只留「第一张 URL + 标记」。
-     * 避免真海报无键、下方坏/异源 jingshi 留空白可点洞。
-     */
     internal fun coalesceUnmarkedPosterBeforeJingshi(html: String): String {
         if (!html.contains(MARKER, ignoreCase = true)) return html
         val pairRe = Regex(
@@ -83,8 +140,7 @@ object WebArticleVideoThumb {
         while (guard++ < 32) {
             val m = pairRe.find(out) ?: break
             val unmarkedSrc = m.groupValues[2]
-            if (isJingshiThumb(unmarkedSrc)) {
-                // 不应匹配已标记图；跳过该次以免死循环。
+            if (isJingshiThumb(unmarkedSrc) || !isLikelyImageUrl(unmarkedSrc)) {
                 out = out.replaceFirst(m.value, m.groupValues[1] + m.groupValues[3] + "<!--skip-->")
                 continue
             }
@@ -103,7 +159,7 @@ object WebArticleVideoThumb {
         for (m in pendingRe.findAll(html)) {
             sb.append(html, cursor, m.range.first)
             val nearby = nearestUnmarkedHttpBefore(sb.toString()) { src ->
-                baseKey(src) !in usedKeys
+                isLikelyImageUrl(src) && baseKey(src) !in usedKeys
             }
             if (nearby != null) {
                 val clean = displayUrl(nearby)
@@ -150,7 +206,7 @@ object WebArticleVideoThumb {
         while (count < minThumbs) {
             val match = imgTagRegex.findAll(out).firstOrNull { mr ->
                 val s = mr.groupValues[1]
-                s.startsWith("http") && !isJingshiThumb(s)
+                isLikelyImageUrl(s) && !isJingshiThumb(s)
             }
             if (match != null) {
                 val src = match.groupValues[1]
@@ -160,7 +216,7 @@ object WebArticleVideoThumb {
                 count++
                 continue
             }
-            if (coverFallback != null && count == 0) {
+            if (coverFallback != null && isLikelyImageUrl(coverFallback) && count == 0) {
                 out = """<img src="$coverFallback$MARKER">""" + "\n" + out
                 count++
             }
@@ -171,7 +227,8 @@ object WebArticleVideoThumb {
 
     private fun jingshiCount(html: String): Int =
         imgTagRegex.findAll(html).count {
-            isJingshiThumb(it.groupValues[1]) && hasHttpPoster(it.groupValues[1])
+            val src = it.groupValues[1]
+            (isJingshiThumb(src) && hasHttpPoster(src)) || isPlaceholder(src)
         }
 
     private fun baseKey(src: String): String =
@@ -194,12 +251,12 @@ object WebArticleVideoThumb {
         }
     }
 
-    /** 同 URL 只留一张 jingshi。 */
     private fun dedupeJingshiByUrl(html: String): String {
         val seen = mutableSetOf<String>()
         return imgTagRegex.replace(html) { mr ->
             val src = mr.groupValues[1]
             if (!isJingshiThumb(src)) return@replace mr.value
+            if (isPlaceholder(src)) return@replace mr.value
             if (!hasHttpPoster(src)) return@replace ""
             val key = baseKey(src)
             if (key in seen) "" else {
@@ -214,6 +271,7 @@ object WebArticleVideoThumb {
             val src = mr.groupValues[1]
             when {
                 !isJingshiThumb(src) -> mr.value
+                isPlaceholder(src) -> mr.value
                 hasHttpPoster(src) -> mr.value
                 else -> ""
             }

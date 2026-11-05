@@ -574,6 +574,9 @@ object BookHelp {
         return getImage(book, src).exists()
     }
 
+    /** SPEC-228: expose cache validation so stale/undecodable files (e.g. AVIF) re-download. */
+    fun isImageValid(file: File): Boolean = imageFiles.isValid(file)
+
     fun getImageSuffix(src: String): String {
         return UrlUtil.getSuffix(src, "jpg")
     }
@@ -757,14 +760,48 @@ object BookHelp {
     }
 
     private fun checkImage(file: File): Boolean {
+        // SPEC-228: AVIF bytes cached as .jpg can never decode on this device — treat as
+        // invalid so the image re-downloads (Accept header no longer advertises avif).
+        if (isAvifFile(file)) return false
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         file.inputStream().use { BitmapFactory.decodeStream(it, null, options) }
         if (options.outWidth > 0 && options.outHeight > 0) return true
+        // SPEC-228: HEIF/HEIC often fails BitmapFactory bounds; try ImageDecoder (API 28+).
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            val heifOk = runCatching {
+                var ok = false
+                android.graphics.ImageDecoder.decodeBitmap(
+                    android.graphics.ImageDecoder.createSource(file),
+                ) { decoder, info, _ ->
+                    ok = info.size.width > 0 && info.size.height > 0
+                    decoder.setTargetSize(1, 1)
+                }
+                ok
+            }.getOrDefault(false)
+            if (heifOk) return true
+        }
         // SvgUtils 的路径重载不负责关闭输入流；这里明确拥有并关闭。
         return file.inputStream().use { input ->
             SvgUtils.getSize(input)?.let { it.width > 0 && it.height > 0 } == true
         }
     }
+
+    /** SPEC-228: ISO BMFF ftyp box with brand `avif`/`avis`. */
+    private fun isAvifFile(file: File): Boolean = runCatching {
+        file.inputStream().use { input ->
+            val head = ByteArray(12)
+            var n = 0
+            while (n < 12) {
+                val r = input.read(head, n, 12 - n)
+                if (r < 0) break
+                n += r
+            }
+            n >= 12 && head[4] == 'f'.code.toByte() && head[5] == 't'.code.toByte() &&
+                head[6] == 'y'.code.toByte() && head[7] == 'p'.code.toByte() &&
+                head[8] == 'a'.code.toByte() && head[9] == 'v'.code.toByte() &&
+                head[10] == 'i'.code.toByte() && head[11] == 'f'.code.toByte()
+        }
+    }.getOrDefault(false)
 
     /**
      * 读取章节内容

@@ -74,6 +74,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.browser.engine.BrowseStore
 import io.legado.app.browser.engine.BrowserChromePrefs
+import io.legado.app.data.entities.Book
 import io.legado.app.browser.engine.BrowserNavHistory
 import io.legado.app.browser.engine.BrowserNtpPrefs
 import io.legado.app.browser.engine.BrowserOpenBridge
@@ -118,6 +119,8 @@ fun TabletBrowserShell(
     sidePanel: TabletSidePanel,
     onSidePanelChange: (TabletSidePanel) -> Unit,
     onOpenUrl: (String) -> Unit,
+    /** SPEC-238: 侧栏收藏/书签页点阅读书签 → 打开阅读器（对齐手机端 SPEC-090）。 */
+    onOpenBook: (Book) -> Unit = {},
     onOpenBrowserSettings: () -> Unit = {},
     onOpenClearBrowsingData: () -> Unit = {},
     onOpenDownloads: () -> Unit = {},
@@ -384,6 +387,12 @@ fun TabletBrowserShell(
                                 onOpenUrl(it)
                                 onSidePanelChange(TabletSidePanel.None)
                             },
+                            // SPEC-238: 阅读书签原先落默认空 lambda（点了无反应）。
+                            onOpenBook = {
+                                onOpenBook(it)
+                                onSidePanelChange(TabletSidePanel.None)
+                            },
+                            inSidePanel = true,
                         )
                         TabletSidePanel.History -> BrowserHistoryScreen(
                             onBack = { onSidePanelChange(TabletSidePanel.None) },
@@ -395,6 +404,7 @@ fun TabletBrowserShell(
                                 onSidePanelChange(TabletSidePanel.None)
                                 onOpenClearBrowsingData()
                             },
+                            inSidePanel = true,
                         )
                         TabletSidePanel.Downloads -> BrowserDownloadsScreen(
                             onBack = { onSidePanelChange(TabletSidePanel.None) },

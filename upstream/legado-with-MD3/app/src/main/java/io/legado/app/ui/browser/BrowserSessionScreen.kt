@@ -433,16 +433,23 @@ fun BrowserSessionScreen(
         videoOffer != null &&
         videoOffer?.url != dismissedVideoPromptUrl &&
         BrowserVideoOfferBus.belongsToPage(videoOffer, currentPageForVideo)
-    // SPEC-217: 8s idle → collapsed ball; expand once then no auto-collapse again.
+    // SPEC-217/224: 偏好悬浮球则直接球；否则完整胶囊，8s 未交互收球；展开后不自动再收。
     val videoCapsuleOfferUrl = videoOffer?.url
-    var videoCapsuleCollapsed by remember(videoCapsuleOfferUrl) { mutableStateOf(false) }
+    val preferVideoBall = chromePrefs.videoFloatingBallPreferred
+    var videoCapsuleCollapsed by remember(videoCapsuleOfferUrl, preferVideoBall) {
+        mutableStateOf(preferVideoBall)
+    }
     var videoCapsuleInteracted by remember(videoCapsuleOfferUrl) { mutableStateOf(false) }
     var videoCapsuleExpandedByUser by remember(videoCapsuleOfferUrl) { mutableStateOf(false) }
-    LaunchedEffect(videoCapsuleOfferUrl, showVideoPlayerPrompt) {
+    LaunchedEffect(videoCapsuleOfferUrl, showVideoPlayerPrompt, preferVideoBall) {
         if (!showVideoPlayerPrompt || videoCapsuleOfferUrl.isNullOrBlank()) return@LaunchedEffect
-        videoCapsuleCollapsed = false
         videoCapsuleInteracted = false
         videoCapsuleExpandedByUser = false
+        if (preferVideoBall) {
+            videoCapsuleCollapsed = true
+            return@LaunchedEffect
+        }
+        videoCapsuleCollapsed = false
         delay(8_000)
         if (!videoCapsuleInteracted && !videoCapsuleExpandedByUser) {
             videoCapsuleCollapsed = true

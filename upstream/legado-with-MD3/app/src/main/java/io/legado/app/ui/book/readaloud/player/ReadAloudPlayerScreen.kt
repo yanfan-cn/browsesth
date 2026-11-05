@@ -1,10 +1,13 @@
 package io.legado.app.ui.book.readaloud.player
 
+import android.content.res.Configuration
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,6 +25,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
@@ -68,10 +72,12 @@ import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import io.legado.app.R
+import io.legado.app.browser.engine.BrowserFormFactor
 import io.legado.app.constant.ReadAloudBgMode
 import io.legado.app.domain.model.settings.ReadAloudTimerMode
 import io.legado.app.ui.book.readaloud.ReadAloudTimerConfig
 import io.legado.app.ui.book.readaloud.ReadAloudTimerSheet
+import io.legado.app.ui.book.readaloud.morph.LocalReadAloudMorph
 import io.legado.app.ui.theme.LegadoTheme
 import io.legado.app.ui.theme.hazeStyle.HazeLegado
 import io.legado.app.ui.util.BlendColorEntry
@@ -97,11 +103,14 @@ import io.legado.app.ui.widget.components.player.playerBgModeLabel
 import io.legado.app.ui.widget.components.text.AppText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.ui.graphics.BlendMode as ComposeBlendMode
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -112,7 +121,18 @@ fun ReadAloudPlayerScreenContent(
     onOpenConfig: () -> Unit,
 ) {
     val horizontalPagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
-    TrackPlayerMorphCoverPage(horizontalPagerState)
+    val configuration = LocalConfiguration.current
+    // SPEC-235: 平板横屏改为左右分栏（左封面/控制、右正文歌词式滚动）；
+    // 竖屏与手机维持原有三页 pager。
+    val tabletSplitLayout = BrowserFormFactor.isTablet(configuration) &&
+        configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    if (tabletSplitLayout) {
+        // 分栏下封面常驻，直接上报可见性，保证 morph 封面飞行不因 pager 缺席而隐藏。
+        val morph = LocalReadAloudMorph.current
+        LaunchedEffect(morph) { morph?.reportCoverPageVisible(true) }
+    } else {
+        TrackPlayerMorphCoverPage(horizontalPagerState)
+    }
     var isTextPageUserScrolling by remember { mutableStateOf(false) }
     val pagerHazeState = remember { HazeState() }
     val hazeEnabled =
@@ -204,7 +224,8 @@ fun ReadAloudPlayerScreenContent(
             }
         },
         bottomBar = {
-            AnimatedVisibility(
+            // SPEC-235: 分栏布局的控制键移入左栏，底栏只在非分栏布局出现。
+            if (!tabletSplitLayout) AnimatedVisibility(
                 visible = !isTextPageUserScrolling,
                 enter = fadeIn(tween(240)) + slideInVertically(
                     animationSpec = tween(320, easing = FastOutSlowInEasing),
@@ -235,112 +256,7 @@ fun ReadAloudPlayerScreenContent(
                         .padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    PlayerProgressSlider(
-                        modifier = Modifier
-                            .padding(horizontal = 24.dp),
-                        value = state.chapterPosition.coerceIn(0, state.chapterLength).toFloat(),
-                        onValueChange = { onIntent(ReadAloudPlayerIntent.SeekTo(it.toInt())) },
-                        valueRange = 0f..state.chapterLength.coerceAtLeast(1).toFloat(),
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        AppText(
-                            formatPosition(state.chapterPosition),
-                            style = LegadoTheme.typography.labelSmall,
-                            color = LegadoTheme.colorScheme.onSurfaceVariant,
-                        )
-                        AppText(
-                            "${(state.chapterPosition * 100 / state.chapterLength.coerceAtLeast(1))}%",
-                            style = LegadoTheme.typography.labelSmall,
-                            color = LegadoTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp, bottom = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        MediumPlainButton(
-                            onClick = { onIntent(ReadAloudPlayerIntent.PreviousParagraph) },
-                            icon = Symbols.SkipPrevious,
-                            contentDescription = stringResource(R.string.prev_sentence),
-                        )
-                        MediumTonalButton(
-                            onClick = { onIntent(ReadAloudPlayerIntent.PreviousChapter) },
-                            icon = Symbols.FastRewind,
-                            contentDescription = stringResource(R.string.previous_chapter),
-                            modifier = Modifier.size(48.dp),
-                        )
-                        AnimatedPlayPauseButton(
-                            isPlaying = !state.isPaused,
-                            onClick = { onIntent(ReadAloudPlayerIntent.TogglePause) },
-                            contentDescription = stringResource(
-                                if (state.isPaused) R.string.resume else R.string.pause
-                            ),
-                        )
-                        MediumTonalButton(
-                            onClick = { onIntent(ReadAloudPlayerIntent.NextChapter) },
-                            icon = Symbols.FastForward,
-                            contentDescription = stringResource(R.string.next_chapter),
-                            modifier = Modifier.size(48.dp),
-                        )
-                        MediumPlainButton(
-                            onClick = { onIntent(ReadAloudPlayerIntent.NextParagraph) },
-                            icon = Symbols.SkipNext,
-                            contentDescription = stringResource(R.string.next_sentence),
-                        )
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp, horizontal = 24.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                    ) {
-                        SmallAnimatedButton(
-                            containerColor = Color.Transparent,
-                            checked = false,
-                            icon = Symbols.Tune,
-                            text = stringResource(R.string.switch_to_classic_read_aloud),
-                            contentDescription = stringResource(R.string.switch_to_classic_read_aloud),
-                            onCheckedChange = { onIntent(ReadAloudPlayerIntent.SwitchToClassic) },
-                        )
-                        SmallAnimatedButton(
-                            containerColor = Color.Transparent,
-                            checked = false,
-                            icon = Symbols.WbTwilight,
-                            text = playerBgModeLabel(state.bgMode),
-                            contentDescription = playerBgModeLabel(state.bgMode),
-                            onCheckedChange = { onIntent(ReadAloudPlayerIntent.CycleBgMode) },
-                        )
-                        SmallAnimatedButton(
-                            containerColor = Color.Transparent,
-                            checked = false,
-                            icon = Symbols.Speed,
-                            text = stringResource(R.string.read_aloud_adjust_speed),
-                            contentDescription = stringResource(R.string.read_aloud_adjust_speed),
-                            onCheckedChange = {
-                                onIntent(ReadAloudPlayerIntent.OpenSheet(ReadAloudPlayerSheet.Speed))
-                            },
-                        )
-                        SmallAnimatedButton(
-                            containerColor = Color.Transparent,
-                            checked = false,
-                            icon = Symbols.Timer,
-                            text = stringResource(R.string.set_timer),
-                            contentDescription = stringResource(R.string.set_timer),
-                            onCheckedChange = {
-                                onIntent(ReadAloudPlayerIntent.OpenSheet(ReadAloudPlayerSheet.Timer))
-                            },
-                        )
-                    }
+                    PlayerBottomControls(state = state, onIntent = onIntent)
                 }
             }
         },
@@ -357,28 +273,37 @@ fun ReadAloudPlayerScreenContent(
                 bgMode = state.bgMode,
                 modifier = Modifier,
             )
-            HorizontalPager(
-                state = horizontalPagerState,
-                modifier = Modifier.fillMaxSize(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) { page ->
-                when (page) {
-                    0 -> PlayerTocPage(
-                        chapters = state.chapters,
-                        currentIndex = state.chapterIndex,
-                        isPaused = state.isPaused,
-                        onSelect = { onIntent(ReadAloudPlayerIntent.SelectChapter(it)) },
-                        contentPadding = pageContentPadding,
-                    )
+            if (tabletSplitLayout) {
+                TabletSplitPlayerBody(
+                    state = state,
+                    flowingTextModifier = flowingTextModifier,
+                    onIntent = onIntent,
+                    onUserScrollChanged = { isTextPageUserScrolling = it },
+                )
+            } else {
+                HorizontalPager(
+                    state = horizontalPagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) { page ->
+                    when (page) {
+                        0 -> PlayerTocPage(
+                            chapters = state.chapters,
+                            currentIndex = state.chapterIndex,
+                            isPaused = state.isPaused,
+                            onSelect = { onIntent(ReadAloudPlayerIntent.SelectChapter(it)) },
+                            contentPadding = pageContentPadding,
+                        )
 
-                    1 -> CoverPage(state, pageContentPadding, flowingTextModifier)
-                    else -> ChapterTextPage(
-                        state = state,
-                        contentPadding = pageContentPadding,
-                        flowingTextModifier = flowingTextModifier,
-                        onIntent = onIntent,
-                        onUserScrollChanged = { isTextPageUserScrolling = it },
-                    )
+                        1 -> CoverPage(state, pageContentPadding, flowingTextModifier)
+                        else -> ChapterTextPage(
+                            state = state,
+                            contentPadding = pageContentPadding,
+                            flowingTextModifier = flowingTextModifier,
+                            onIntent = onIntent,
+                            onUserScrollChanged = { isTextPageUserScrolling = it },
+                        )
+                    }
                 }
             }
         }
@@ -438,61 +363,13 @@ private fun CoverPage(
                     .aspectRatio(5f / 7f),
             )
         }
-        AnimatedContent(
-            targetState = state.currentText to state.nextText,
-            transitionSpec = {
-                (
-                        fadeIn(
-                            tween(400, easing = FastOutSlowInEasing)
-                        ) + slideInVertically { it / 3 }
-                        ).togetherWith(
-                        fadeOut(
-                            tween(400, easing = FastOutSlowInEasing)
-                        ) + slideOutVertically { -it / 3 }
-                    )
-            },
-            contentAlignment = Alignment.CenterStart,
-            label = "cover_text_transition",
+        CoverSpeechText(
+            state = state,
+            flowingTextModifier = flowingTextModifier,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
-        ) { (current, next) ->
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.Center,
-            ) {
-                AppText(
-                    text = current.ifBlank {
-                        stringResource(R.string.read_aloud_preparing_content)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .then(flowingTextModifier),
-                    style = LegadoTheme.typography.bodyLargeEmphasized,
-                    color = LegadoTheme.colorScheme.onSurface,
-                    minLines = 1,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Start,
-                )
-
-                if (next.isNotBlank()) {
-                    AppText(
-                        text = next,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp)
-                            .then(flowingTextModifier),
-                        style = LegadoTheme.typography.bodyMedium,
-                        color = LegadoTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                        minLines = 1,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Start,
-                    )
-                }
-            }
-        }
+        )
         TextCard(
             text = stringResource(
                 R.string.read_aloud_speaker_engine,
@@ -500,6 +377,264 @@ private fun CoverPage(
                 state.engineName.ifBlank { stringResource(R.string.read_aloud_default_tts) },
             ),
             modifier = Modifier.padding(top = 12.dp)
+        )
+    }
+}
+
+/** 封面页的当前/下一段朗读文本（手机封面页与平板分栏左栏共用）。 */
+@Composable
+private fun CoverSpeechText(
+    state: ReadAloudPlayerUiState,
+    flowingTextModifier: Modifier,
+    modifier: Modifier = Modifier,
+) {
+    AnimatedContent(
+        targetState = state.currentText to state.nextText,
+        transitionSpec = {
+            (
+                    fadeIn(
+                        tween(400, easing = FastOutSlowInEasing)
+                    ) + slideInVertically { it / 3 }
+                    ).togetherWith(
+                    fadeOut(
+                        tween(400, easing = FastOutSlowInEasing)
+                    ) + slideOutVertically { -it / 3 }
+                )
+        },
+        contentAlignment = Alignment.CenterStart,
+        label = "cover_text_transition",
+        modifier = modifier,
+    ) { (current, next) ->
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            AppText(
+                text = current.ifBlank {
+                    stringResource(R.string.read_aloud_preparing_content)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(flowingTextModifier),
+                style = LegadoTheme.typography.bodyLargeEmphasized,
+                color = LegadoTheme.colorScheme.onSurface,
+                minLines = 1,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Start,
+            )
+
+            if (next.isNotBlank()) {
+                AppText(
+                    text = next,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .then(flowingTextModifier),
+                    style = LegadoTheme.typography.bodyMedium,
+                    color = LegadoTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    minLines = 1,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Start,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * SPEC-235: 平板横屏左右分栏——左栏封面（圆形旋转）+ 进度 + 播放控制，
+ * 右栏当前章正文逐段滚动（复用手机正文页的高亮/跟随/点击跳转行为）。
+ */
+@Composable
+private fun TabletSplitPlayerBody(
+    state: ReadAloudPlayerUiState,
+    flowingTextModifier: Modifier,
+    onIntent: (ReadAloudPlayerIntent) -> Unit,
+    onUserScrollChanged: (Boolean) -> Unit,
+) {
+    val coverRotation = remember { Animatable(0f) }
+    LaunchedEffect(state.isPaused) {
+        while (!state.isPaused && isActive) {
+            coverRotation.animateTo(
+                targetValue = coverRotation.value + 360f,
+                animationSpec = tween(durationMillis = 20_000, easing = LinearEasing),
+            )
+        }
+    }
+    // 顶栏以玻璃层叠在内容上，分栏两列都要按状态栏 + 顶栏高度留白（与 pager 内容一致）。
+    val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 88.dp
+    val bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    Row(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .weight(0.42f)
+                .fillMaxHeight()
+                .padding(top = topPadding)
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                PlayerMorphCover(
+                    appearance = PlayerMorphAppearance(
+                        state.bookName, state.author, state.coverPath, state.sourceOrigin, state.bgMode,
+                    ),
+                    circular = true,
+                    rotationDegrees = coverRotation.value,
+                    modifier = Modifier
+                        .fillMaxWidth(0.8f)
+                        .aspectRatio(1f),
+                )
+            }
+            CoverSpeechText(
+                state = state,
+                flowingTextModifier = flowingTextModifier,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = bottomPadding + 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                PlayerBottomControls(state = state, onIntent = onIntent)
+            }
+        }
+        Box(
+            modifier = Modifier
+                .weight(0.58f)
+                .fillMaxHeight(),
+        ) {
+            ChapterTextPage(
+                state = state,
+                contentPadding = PaddingValues(
+                    top = topPadding,
+                    bottom = bottomPadding + 24.dp,
+                ),
+                flowingTextModifier = flowingTextModifier,
+                onIntent = onIntent,
+                onUserScrollChanged = onUserScrollChanged,
+            )
+        }
+    }
+}
+
+/** 播放控制区：进度条 + 时间/百分比 + 五键 + 次级操作（手机底栏与平板左栏共用）。 */
+@Composable
+private fun PlayerBottomControls(
+    state: ReadAloudPlayerUiState,
+    onIntent: (ReadAloudPlayerIntent) -> Unit,
+) {
+    PlayerProgressSlider(
+        modifier = Modifier
+            .padding(horizontal = 24.dp),
+        value = state.chapterPosition.coerceIn(0, state.chapterLength).toFloat(),
+        onValueChange = { onIntent(ReadAloudPlayerIntent.SeekTo(it.toInt())) },
+        valueRange = 0f..state.chapterLength.coerceAtLeast(1).toFloat(),
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        AppText(
+            formatPosition(state.chapterPosition),
+            style = LegadoTheme.typography.labelSmall,
+            color = LegadoTheme.colorScheme.onSurfaceVariant,
+        )
+        AppText(
+            "${(state.chapterPosition * 100 / state.chapterLength.coerceAtLeast(1))}%",
+            style = LegadoTheme.typography.labelSmall,
+            color = LegadoTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp, bottom = 4.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MediumPlainButton(
+            onClick = { onIntent(ReadAloudPlayerIntent.PreviousParagraph) },
+            icon = Symbols.SkipPrevious,
+            contentDescription = stringResource(R.string.prev_sentence),
+        )
+        MediumTonalButton(
+            onClick = { onIntent(ReadAloudPlayerIntent.PreviousChapter) },
+            icon = Symbols.FastRewind,
+            contentDescription = stringResource(R.string.previous_chapter),
+            modifier = Modifier.size(48.dp),
+        )
+        AnimatedPlayPauseButton(
+            isPlaying = !state.isPaused,
+            onClick = { onIntent(ReadAloudPlayerIntent.TogglePause) },
+            contentDescription = stringResource(
+                if (state.isPaused) R.string.resume else R.string.pause
+            ),
+        )
+        MediumTonalButton(
+            onClick = { onIntent(ReadAloudPlayerIntent.NextChapter) },
+            icon = Symbols.FastForward,
+            contentDescription = stringResource(R.string.next_chapter),
+            modifier = Modifier.size(48.dp),
+        )
+        MediumPlainButton(
+            onClick = { onIntent(ReadAloudPlayerIntent.NextParagraph) },
+            icon = Symbols.SkipNext,
+            contentDescription = stringResource(R.string.next_sentence),
+        )
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp, horizontal = 24.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        SmallAnimatedButton(
+            containerColor = Color.Transparent,
+            checked = false,
+            icon = Symbols.Tune,
+            text = stringResource(R.string.switch_to_classic_read_aloud),
+            contentDescription = stringResource(R.string.switch_to_classic_read_aloud),
+            onCheckedChange = { onIntent(ReadAloudPlayerIntent.SwitchToClassic) },
+        )
+        SmallAnimatedButton(
+            containerColor = Color.Transparent,
+            checked = false,
+            icon = Symbols.WbTwilight,
+            text = playerBgModeLabel(state.bgMode),
+            contentDescription = playerBgModeLabel(state.bgMode),
+            onCheckedChange = { onIntent(ReadAloudPlayerIntent.CycleBgMode) },
+        )
+        SmallAnimatedButton(
+            containerColor = Color.Transparent,
+            checked = false,
+            icon = Symbols.Speed,
+            text = stringResource(R.string.read_aloud_adjust_speed),
+            contentDescription = stringResource(R.string.read_aloud_adjust_speed),
+            onCheckedChange = {
+                onIntent(ReadAloudPlayerIntent.OpenSheet(ReadAloudPlayerSheet.Speed))
+            },
+        )
+        SmallAnimatedButton(
+            containerColor = Color.Transparent,
+            checked = false,
+            icon = Symbols.Timer,
+            text = stringResource(R.string.set_timer),
+            contentDescription = stringResource(R.string.set_timer),
+            onCheckedChange = {
+                onIntent(ReadAloudPlayerIntent.OpenSheet(ReadAloudPlayerSheet.Timer))
+            },
         )
     }
 }

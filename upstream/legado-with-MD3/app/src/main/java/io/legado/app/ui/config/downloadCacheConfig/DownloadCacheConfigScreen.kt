@@ -1,37 +1,65 @@
 package io.legado.app.ui.config.downloadCacheConfig
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.legado.app.R
+import io.legado.app.browser.engine.StorageCacheCategory
+import io.legado.app.browser.engine.formatStorageSize
 import io.legado.app.model.CacheBook
+import io.legado.app.ui.browser.StorageCacheEffect
+import io.legado.app.ui.browser.StorageCacheIntent
+import io.legado.app.ui.browser.StorageCacheUiState
+import io.legado.app.ui.browser.StorageCacheViewModel
 import io.legado.app.ui.theme.adaptiveContentPadding
 import io.legado.app.ui.widget.components.AppScaffold
 import io.legado.app.ui.widget.components.SplicedColumnGroup
-import io.legado.app.ui.widget.components.alert.AppAlertDialog
+import io.legado.app.ui.widget.components.button.series.MediumTonalButton
 import io.legado.app.ui.widget.components.settingItem.ClickableSettingItem
-import io.legado.app.ui.widget.components.settingItem.InputSettingItem
 import io.legado.app.ui.widget.components.settingItem.SliderSettingItem
 import io.legado.app.ui.widget.components.settingItem.SwitchSettingItem
 import io.legado.app.ui.widget.components.topbar.GlassMediumFlexibleTopAppBar
 import io.legado.app.ui.widget.components.topbar.GlassTopAppBarDefaults
 import io.legado.app.ui.widget.components.topbar.TopBarNavigationButton
+import io.legado.app.ui.widget.components.icon.Symbols
 import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.legado.app.utils.toastOnUi
 
+/**
+ * SPEC-230 变更后：设置 → 下载与缓存 的统一缓存管理页。
+ * 「缓存清理」六分类 +「自动清理」+「下载」滑块 + 一键清理；
+ * 原「图片缓存」「网络」「高级」组按操作者决定移除。
+ */
 @Composable
 fun DownloadCacheConfigRouteScreen(
     onBackClick: () -> Unit,
     viewModel: DownloadCacheConfigViewModel = koinViewModel(),
+    storageViewModel: StorageCacheViewModel = koinViewModel(),
 ) {
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        storageViewModel.onIntent(StorageCacheIntent.Refresh)
+        storageViewModel.effects.collect { effect ->
+            when (effect) {
+                is StorageCacheEffect.ShowToast -> context.toastOnUi(effect.message)
+            }
+        }
+    }
     DownloadCacheConfigScreen(
         state = viewModel.uiState.collectAsStateWithLifecycle().value,
         onIntent = viewModel::onIntent,
+        storageState = storageViewModel.uiState.collectAsStateWithLifecycle().value,
+        onStorageIntent = storageViewModel::onIntent,
         onBackClick = onBackClick,
     )
 }
@@ -41,6 +69,8 @@ fun DownloadCacheConfigRouteScreen(
 fun DownloadCacheConfigScreen(
     state: DownloadCacheConfigUiState,
     onIntent: (DownloadCacheConfigIntent) -> Unit,
+    storageState: StorageCacheUiState,
+    onStorageIntent: (StorageCacheIntent) -> Unit,
     onBackClick: () -> Unit,
 ) {
     val settings = state.settings
@@ -66,34 +96,37 @@ fun DownloadCacheConfigScreen(
             )
         ) {
             item {
-                SplicedColumnGroup(title = stringResource(R.string.http_cache)) {
-                    ClickableSettingItem(
-                        title = stringResource(R.string.cover_cache),
-                        description = stringResource(
-                            R.string.cache_size_mb,
-                            state.coverCacheSizeMb
-                        ),
-                        onClick = {
-                            onIntent(
-                                DownloadCacheConfigIntent.ShowDialog(
-                                    DownloadCacheConfigDialog.ClearCoverCache
-                                )
-                            )
-                        }
+                SplicedColumnGroup(title = "缓存清理（共 ${formatStorageSize(storageState.totalBytes)}）") {
+                    storageState.items.forEach { item ->
+                        ClickableSettingItem(
+                            title = item.category.title,
+                            description = item.category.description,
+                            option = if (storageState.busyCategory == item.category) {
+                                "清理中…"
+                            } else {
+                                formatStorageSize(item.sizeBytes)
+                            },
+                            onClick = {
+                                if (storageState.busyCategory == null && !storageState.clearingAll) {
+                                    onStorageIntent(StorageCacheIntent.Clear(item.category))
+                                }
+                            },
+                        )
+                    }
+                }
+
+                SplicedColumnGroup(title = "自动清理") {
+                    SwitchSettingItem(
+                        title = "浏览器缓存自动控制",
+                        description = "浏览器缓存超限时下次启动自动清理，不影响登录状态",
+                        checked = storageState.autoTrimEnabled,
+                        onCheckedChange = { onStorageIntent(StorageCacheIntent.SetAutoTrim(it)) },
                     )
                     ClickableSettingItem(
-                        title = stringResource(R.string.manga_cache),
-                        description = stringResource(
-                            R.string.cache_size_mb,
-                            state.mangaCacheSizeMb
-                        ),
-                        onClick = {
-                            onIntent(
-                                DownloadCacheConfigIntent.ShowDialog(
-                                    DownloadCacheConfigDialog.ClearMangaCache
-                                )
-                            )
-                        }
+                        title = "浏览器网页缓存上限",
+                        description = "超过上限时下次启动自动清理",
+                        option = "${storageState.kernelCapMb} MB",
+                        onClick = { onStorageIntent(StorageCacheIntent.CycleKernelCap) },
                     )
                 }
 
@@ -139,123 +172,19 @@ fun DownloadCacheConfigScreen(
                     )
                 }
 
-                SplicedColumnGroup(title = stringResource(R.string.image_cache)) {
-                    SliderSettingItem(
-                        title = stringResource(R.string.bitmap_cache_size),
-                        description = stringResource(
-                            R.string.bitmap_cache_size_summary,
-                            settings.bitmapCacheSize
-                        ),
-                        value = settings.bitmapCacheSize.toFloat(),
-                        defaultValue = 32f,
-                        valueRange = 1f..2047f,
-                        onValueChange = {
-                            onIntent(DownloadCacheConfigIntent.SetBitmapCacheSize(it.toInt()))
+                MediumTonalButton(
+                    onClick = {
+                        if (!storageState.clearingAll && storageState.busyCategory == null) {
+                            onStorageIntent(StorageCacheIntent.ClearAll)
                         }
-                    )
-
-                    SliderSettingItem(
-                        title = stringResource(R.string.image_retain_number),
-                        description = stringResource(
-                            R.string.image_retain_number_summary,
-                            settings.imageRetainNum
-                        ),
-                        value = settings.imageRetainNum.toFloat(),
-                        defaultValue = 10f,
-                        valueRange = 0f..100f,
-                        onValueChange = {
-                            onIntent(DownloadCacheConfigIntent.SetImageRetainNum(it.toInt()))
-                        }
-                    )
-                }
-
-                SplicedColumnGroup(title = stringResource(R.string.network)) {
-                    InputSettingItem(
-                        title = stringResource(R.string.user_agent),
-                        value = settings.userAgent,
-                        onConfirm = { onIntent(DownloadCacheConfigIntent.SetUserAgent(it)) }
-                    )
-
-                    SwitchSettingItem(
-                        title = "Cronet",
-                        description = stringResource(R.string.pref_cronet_summary),
-                        checked = settings.cronetEnabled,
-                        onCheckedChange = {
-                            onIntent(DownloadCacheConfigIntent.SetCronetEnabled(it))
-                        }
-                    )
-                }
-
-                SplicedColumnGroup(title = stringResource(R.string.other_setting)) {
-                    ClickableSettingItem(
-                        title = stringResource(R.string.clear_cache),
-                        description = stringResource(R.string.clear_cache_summary),
-                        onClick = {
-                            onIntent(
-                                DownloadCacheConfigIntent.ShowDialog(
-                                    DownloadCacheConfigDialog.ClearBookCache
-                                )
-                            )
-                        }
-                    )
-
-                    ClickableSettingItem(
-                        title = stringResource(R.string.shrink_database),
-                        description = stringResource(R.string.shrink_database_summary),
-                        onClick = {
-                            onIntent(
-                                DownloadCacheConfigIntent.ShowDialog(
-                                    DownloadCacheConfigDialog.ShrinkDatabase
-                                )
-                            )
-                        }
-                    )
-                }
+                    },
+                    text = if (storageState.clearingAll) "清理中…" else "一键清理全部缓存",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    icon = Symbols.Delete,
+                )
             }
         }
-
-        AppAlertDialog(
-            show = state.dialog == DownloadCacheConfigDialog.ClearBookCache,
-            onDismissRequest = { onIntent(DownloadCacheConfigIntent.DismissDialog) },
-            title = stringResource(R.string.clear_cache),
-            text = stringResource(R.string.sure_del),
-            onConfirm = {
-                onIntent(DownloadCacheConfigIntent.ConfirmDialog)
-            },
-            onDismiss = { onIntent(DownloadCacheConfigIntent.DismissDialog) }
-        )
-
-        AppAlertDialog(
-            show = state.dialog == DownloadCacheConfigDialog.ClearCoverCache,
-            onDismissRequest = { onIntent(DownloadCacheConfigIntent.DismissDialog) },
-            title = stringResource(R.string.cover_cache),
-            text = stringResource(R.string.sure_del),
-            onConfirm = {
-                onIntent(DownloadCacheConfigIntent.ConfirmDialog)
-            },
-            onDismiss = { onIntent(DownloadCacheConfigIntent.DismissDialog) }
-        )
-
-        AppAlertDialog(
-            show = state.dialog == DownloadCacheConfigDialog.ClearMangaCache,
-            onDismissRequest = { onIntent(DownloadCacheConfigIntent.DismissDialog) },
-            title = stringResource(R.string.manga_cache),
-            text = stringResource(R.string.sure_del),
-            onConfirm = {
-                onIntent(DownloadCacheConfigIntent.ConfirmDialog)
-            },
-            onDismiss = { onIntent(DownloadCacheConfigIntent.DismissDialog) }
-        )
-
-        AppAlertDialog(
-            show = state.dialog == DownloadCacheConfigDialog.ShrinkDatabase,
-            onDismissRequest = { onIntent(DownloadCacheConfigIntent.DismissDialog) },
-            title = stringResource(R.string.shrink_database),
-            text = stringResource(R.string.sure),
-            onConfirm = {
-                onIntent(DownloadCacheConfigIntent.ConfirmDialog)
-            },
-            onDismiss = { onIntent(DownloadCacheConfigIntent.DismissDialog) }
-        )
     }
 }

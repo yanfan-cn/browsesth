@@ -3,6 +3,7 @@ package io.legado.app.ui.browser
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -42,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -73,6 +75,7 @@ import io.legado.app.ui.widget.components.icon.Symbols
 import io.legado.app.ui.widget.components.modalBottomSheet.AppModalBottomSheet
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
+import kotlinx.coroutines.delay
 
 /**
  * SPEC-070: Edge-style browser toolbox — pinned accent row + outline grid + reorder.
@@ -135,6 +138,10 @@ private val ToolboxCellLabelSp = 11.sp
 // SPEC-201: 操作者要求缩小工具箱内部上边框（12dp → 4dp；底 sheet 侧同步一致化）。
 private val ToolboxContentTopInset = 4.dp
 private val ToolboxWebBgShape = RoundedCornerShape(20.dp)
+
+/** SPEC-233: Material motion 强调曲线（M3 EmphasizedDecelerate / EmphasizedAccelerate）。 */
+internal val ToolboxEnterEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+internal val ToolboxExitEasing = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
 
 @Composable
 fun Modifier.toolboxPanelSurface(
@@ -298,7 +305,32 @@ private fun BrowserToolboxSideCard(
     onFinishEditing: () -> Unit,
     actions: BrowserToolboxActions,
 ) {
-    if (!show) return
+    // SPEC-233: 侧悬浮卡关闭时先播退出动画再移除 Dialog。原实现 `if (!show) return`
+    // 会在 show=false 的同帧整窗移除（无退出动画，表现为硬切 + 掉帧）。
+    val enterMs = 300
+    val exitMs = 250
+    var composed by remember { mutableStateOf(false) }
+    var contentVisible by remember { mutableStateOf(false) }
+    var exiting by remember { mutableStateOf(false) }
+
+    LaunchedEffect(show) {
+        if (show) {
+            composed = true
+            exiting = false
+            contentVisible = true
+        } else if (composed) {
+            exiting = true
+            contentVisible = false
+        }
+    }
+    LaunchedEffect(exiting) {
+        if (exiting) {
+            delay(exitMs.toLong() + 50)
+            composed = false
+        }
+    }
+    if (!composed) return
+
     val scheme = LegadoTheme.colorScheme
     val panelShape = RoundedCornerShape(24.dp)
     // SPEC-182 R2: operator set width to half the screen.
@@ -319,11 +351,12 @@ private fun BrowserToolboxSideCard(
             contentAlignment = Alignment.TopEnd,
         ) {
             AnimatedVisibility(
-                visible = true,
-                enter = fadeIn(animationSpec = tween(220)) +
-                    slideInHorizontally(animationSpec = tween(220)) { it / 4 },
-                exit = fadeOut(animationSpec = tween(180)) +
-                    slideOutHorizontally(animationSpec = tween(180)) { it / 4 },
+                visible = contentVisible,
+                // SPEC-233: Material motion 强调曲线（EmphasizedDecelerate/EmphasizedAccelerate）。
+                enter = fadeIn(animationSpec = tween(enterMs, easing = ToolboxEnterEasing)) +
+                    slideInHorizontally(animationSpec = tween(enterMs, easing = ToolboxEnterEasing)) { it / 4 },
+                exit = fadeOut(animationSpec = tween(exitMs, easing = ToolboxExitEasing)) +
+                    slideOutHorizontally(animationSpec = tween(exitMs, easing = ToolboxExitEasing)) { it / 4 },
             ) {
                 Column(
                     Modifier

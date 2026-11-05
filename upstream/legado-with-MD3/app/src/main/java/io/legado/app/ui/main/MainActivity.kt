@@ -7,6 +7,7 @@ import android.content.res.Configuration
 import android.os.Bundle
 import android.text.format.DateUtils
 import android.view.InputDevice
+import io.legado.app.browser.engine.BrowserFormFactor
 import io.legado.app.browser.engine.BrowserKernelCompat
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -38,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -492,10 +494,7 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack,
         }
         val backStack = rememberNavBackStack(*startRoutes)
         SideEffect { navRouteTracker.onBackStackChanged(backStack) }
-        // SPEC-192: 导航转场期间抑制液态玻璃采样（底栏/顶栏不再逐帧重采样运动内容）。
-        io.legado.app.ui.theme.NavTransitionGlassSuppressor(
-            trigger = backStack.size to backStack.lastOrNull(),
-        )
+        // SPEC-224: 废除导航转场玻璃抑制（GlassMotionGate）。
 
         // SPEC-148 R3: 首帧渲染完成后再过两帧才放行液态玻璃，把玻璃特效层
         // 建立/着色器编译从冷启动首帧关键路径移走（此前走 fallback 半透明纯色）。
@@ -596,11 +595,14 @@ open class MainActivity : BaseComposeActivity(), AudioPlay.CallBack,
             PlaybackCapsuleState(source = playerSource)
         } else null
         // 两种胶囊互斥：主页悬浮底栏用圆形胶囊，其余页面用全局可拖拽胶囊。
+        // SPEC-235: 平板形态因子不渲染悬浮底栏，必须回落全局胶囊。
         val currentRoute = backStack.lastOrNull()
         val onMainRoute = currentRoute is MainRouteHome
+        val isTabletFormFactor = BrowserFormFactor.isTablet(LocalConfiguration.current)
         val useFloatingBottomBar = LocalAppUiConfiguration.current.appShell.useFloatingBottomBar
         val useHomeCapsule = shouldUseHomePlaybackCapsule(
             onMainRoute, configuration.appShell.showBottomView, useFloatingBottomBar, useRail,
+            homeBarPresent = !isTabletFormFactor,
         )
         SideEffect {
             readAloudMorph.expectCapsuleAnchors(

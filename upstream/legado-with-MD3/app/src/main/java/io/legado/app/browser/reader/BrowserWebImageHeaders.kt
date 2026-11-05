@@ -20,7 +20,9 @@ object BrowserWebImageHeaders {
             .firstOrNull { !it.isNullOrBlank() && it.startsWith("http") }
         val headers = linkedMapOf(
             "User-Agent" to BrowserUa.MOBILE,
-            "Accept" to "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+            // SPEC-228: do NOT advertise image/avif — device HEIF stack can't decode AVIF and
+            // the bytes get cached as undecodable .jpg. Ask for WebP/JPEG instead.
+            "Accept" to "image/webp,image/jpeg,image/png,image/*;q=0.8,*/*;q=0.8",
         )
         if (!referer.isNullOrBlank()) {
             headers["Referer"] = referer

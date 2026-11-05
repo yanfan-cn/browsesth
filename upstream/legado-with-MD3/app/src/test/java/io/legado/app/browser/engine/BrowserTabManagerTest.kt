@@ -13,19 +13,36 @@ class BrowserTabManagerTest {
     }
 
     @Test
-    fun closeAllLeavesZeroTabs() {
+    fun closeAllLeavesSingleHomeTab() {
+        // SPEC-234: 不允许 0 标签——closeAll 后保底一个主页标签。
         BrowserTabManager.openNewTab(select = true)
         BrowserTabManager.openNewTab(select = false)
         BrowserTabManager.closeAll()
-        assertTrue(BrowserTabManager.tabs.value.isEmpty())
-        assertEquals("", BrowserTabManager.activeTabId.value)
+        assertEquals(1, BrowserTabManager.tabs.value.size)
+        val home = BrowserTabManager.tabs.value.first()
+        assertTrue(home.showHome)
+        assertTrue(home.url.isNullOrBlank())
+        assertEquals(home.id, BrowserTabManager.activeTabId.value)
     }
 
     @Test
-    fun closeLastTabLeavesZero() {
+    fun closeLastTabResetsToHomeTab() {
+        // SPEC-234: 关闭最后一个标签 → 重置为主页标签，而非空列表。
         val id = BrowserTabManager.openNewTab(select = true)
         BrowserTabManager.close(id)
-        assertTrue(BrowserTabManager.tabs.value.isEmpty())
+        assertEquals(1, BrowserTabManager.tabs.value.size)
+        assertTrue(BrowserTabManager.tabs.value.first().showHome)
+    }
+
+    @Test
+    fun closeAllOfModeLeavesHomeTabWhenEmpty() {
+        // SPEC-234: 按模式全关后若列表为空，保底一个常规主页标签。
+        BrowserTabManager.openNewTab(incognito = true, select = true)
+        BrowserTabManager.closeAllOfMode(incognito = true)
+        assertEquals(1, BrowserTabManager.tabs.value.size)
+        val home = BrowserTabManager.tabs.value.first()
+        assertTrue(home.showHome)
+        assertTrue(!home.incognito)
     }
 
     @Test
@@ -37,8 +54,9 @@ class BrowserTabManagerTest {
 
     @Test
     fun tabCountIsExactPastNine() {
+        // SPEC-234: reset(@Before) 后保底 1 个主页标签，再开 12 个共 13。
         repeat(12) { BrowserTabManager.openNewTab(select = false) }
-        assertEquals(12, BrowserTabManager.tabs.value.size)
+        assertEquals(13, BrowserTabManager.tabs.value.size)
     }
 
     @Test

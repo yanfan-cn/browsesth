@@ -190,9 +190,16 @@ class BrowserVideoPlaybackService : Service() {
                 .buildUpon()
                 .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true)
                 .build()
-            p.setMediaSource(BrowserVideoMedia.buildSource(this, offer))
-            p.prepare()
-            p.playWhenReady = true
+            // SPEC-224: 先当前 UA；失败后桌面 UA 重试一次。
+            var triedDesktopUa = false
+            fun attachSource(forceUa: String?) {
+                p.setMediaSource(
+                    BrowserVideoMedia.buildSource(this, offer, forceUserAgent = forceUa),
+                )
+                p.prepare()
+                p.playWhenReady = true
+            }
+            attachSource(null)
             p.addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {
@@ -204,6 +211,18 @@ class BrowserVideoPlaybackService : Service() {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     if (audioOnly) {
                         startAsForeground(playing = isPlaying, title = titleText)
+                    }
+                }
+
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    // SPEC-225: peek CDN response before desktop UA retry / stop.
+                    BrowserVideoMedia.peekLastBuildFailure(error.message)
+                    if (!triedDesktopUa) {
+                        triedDesktopUa = true
+                        attachSource(io.legado.app.browser.engine.BrowserUa.DESKTOP)
+                    } else {
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
                     }
                 }
             })

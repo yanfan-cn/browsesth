@@ -111,6 +111,31 @@ object WebArticleExtractJs {
             "var s=((el.className||'')+' '+(el.id||'')+' '+(el.getAttribute('role')||'')).toLowerCase();" +
             "return /\\b($chromeHints)\\b/.test(s);" +
             "}" +
+            // SPEC-227: txp/腾讯播放器壳层整树会被 chrome 跳过；先抽封面再跳过。
+            "function isVideoPlayerChrome(el){" +
+            "if(!el||!el.getAttribute)return false;" +
+            "var s=((el.className||'')+' '+(el.id||'')).toLowerCase();" +
+            "return /\\b(txp-|tenvideo|tvp-|xgplayer|dplayer|video-js|vjs-|tp-video|video-player)\\b/.test(s);" +
+            "}" +
+            "function videoPosterFrom(node){" +
+            "var poster='';" +
+            "var v=node.tagName&&(node.tagName.toLowerCase()==='video')?node:(node.querySelector?node.querySelector('video'):null);" +
+            "if(v)poster=abs(v.getAttribute('poster')||v.getAttribute('data-poster')||'');" +
+            "if(!poster||poster.indexOf('http')!==0){" +
+            "var img=node.querySelector?node.querySelector('img'):null;" +
+            "if(img){var t=imgTag(img);var m=t&&t.match(/src=\\\"([^\\\"]+)\\\"/);if(m)poster=m[1];}" +
+            "}" +
+            "if((!poster||poster.indexOf('http')!==0)&&node.getAttribute){" +
+            "var st=node.getAttribute('style')||'';" +
+            "var bm=st.match(/url\\(['\\\"]?(https?:[^'\\\")\\\\s]+)/i);if(bm)poster=abs(bm[1]);" +
+            "}" +
+            "if((!poster||poster.indexOf('http')!==0)&&node.previousElementSibling){" +
+            "var ps=node.previousElementSibling;" +
+            "var psi=(ps.tagName||'').toLowerCase()==='img'?ps:(ps.querySelector?ps.querySelector('img'):null);" +
+            "if(psi){var pst=imgTag(psi);var psm=pst&&pst.match(/src=\\\"([^\\\"]+)\\\"/);if(psm)poster=psm[1];}" +
+            "}" +
+            "return (poster&&poster.indexOf('http')===0)?poster:'';" +
+            "}" +
             "function isBlock(tag){" +
             "return tag==='p'||tag==='div'||tag==='section'||tag==='article'||tag==='li'" +
             "||tag==='blockquote'||tag==='h1'||tag==='h2'||tag==='h3'||tag==='h4'||tag==='h5'||tag==='h6'" +
@@ -118,6 +143,10 @@ object WebArticleExtractJs {
             "}" +
             "function walk(root){" +
             "var out=[];" +
+            "function emitJingshi(poster){" +
+            "if(poster){out.push('<img src=\"'+poster.replace(/\\\"/g,'')+'#browsesth-jingshi\">');}" +
+            "else{out.push('<img src=\"browsesth-jingshi://pending\">');}" +
+            "}" +
             "function pushText(t){" +
             "t=(t||'').replace(/\\s+/g,' ').trim();" +
             "if(t.length>=2)out.push('<p>'+t.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</p>');" +
@@ -128,25 +157,20 @@ object WebArticleExtractJs {
             "if(nt===3){if(buf)buf.push(node.nodeValue||'');else pushText(node.nodeValue);return;}" +
             "if(nt!==1)return;" +
             "var tag=(node.tagName||'').toLowerCase();" +
-            // SPEC-212/213: video → 原海报 jingshi；无 poster 时找子图/前一张图，否则 pending 交 Kotlin 绑定。
+            // SPEC-212/213/227: video → 原海报 jingshi；无 poster 时 pending。
             "if(tag==='video'){" +
             "if(buf&&buf.length){pushText(buf.join(''));buf.length=0;}" +
-            "var poster=abs(node.getAttribute('poster')||node.getAttribute('data-poster')||'');" +
-            "if(!poster||poster.indexOf('http')!==0){" +
-            "var pi=node.querySelector?node.querySelector('img'):null;" +
-            "if(pi){var pit=imgTag(pi);var pm=pit&&pit.match(/src=\"([^\"]+)\"/);if(pm)poster=pm[1];}" +
-            "}" +
-            "if((!poster||poster.indexOf('http')!==0)&&node.previousElementSibling){" +
-            "var ps=node.previousElementSibling;" +
-            "var psi=(ps.tagName||'').toLowerCase()==='img'?ps:(ps.querySelector?ps.querySelector('img'):null);" +
-            "if(psi){var pst=imgTag(psi);var psm=pst&&pst.match(/src=\"([^\"]+)\"/);if(psm)poster=psm[1];}" +
-            "}" +
-            "if(poster&&poster.indexOf('http')===0){" +
-            "out.push('<img src=\"'+poster.replace(/\"/g,'')+'#browsesth-jingshi\">');" +
-            "}else{out.push('<img src=\"browsesth-jingshi://pending\">');}" +
+            "emitJingshi(videoPosterFrom(node));" +
             "return;" +
             "}" +
-            "if(isSkip(tag)||isChromeNode(node))return;" +
+            "if(isSkip(tag))return;" +
+            "if(isChromeNode(node)){" +
+            "if(isVideoPlayerChrome(node)){" +
+            "if(buf&&buf.length){pushText(buf.join(''));buf.length=0;}" +
+            "emitJingshi(videoPosterFrom(node));" +
+            "}" +
+            "return;" +
+            "}" +
             "if(tag==='img'){" +
             "if(buf&&buf.length){pushText(buf.join(''));buf.length=0;}" +
             "var im=imgTag(node);if(im)out.push(im);" +

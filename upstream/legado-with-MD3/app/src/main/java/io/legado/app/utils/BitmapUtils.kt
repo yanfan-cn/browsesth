@@ -42,17 +42,36 @@ object BitmapUtils {
     @Throws(IOException::class)
     fun decodeBitmap(path: String, width: Int, height: Int? = null): Bitmap? {
         val fis = FileInputStream(path)
-        return fis.use {
+        val fromFactory = fis.use {
             val op = BitmapFactory.Options()
             // inJustDecodeBounds如果设置为true,仅仅返回图片实际的宽和高,宽和高是赋值给opts.outWidth,opts.outHeight;
             op.inJustDecodeBounds = true
             BitmapFactory.decodeFileDescriptor(fis.fd, null, op)
-            op.inSampleSize = calculateInSampleSize(op, width, height)
-            op.inJustDecodeBounds = false
-            op.inPreferredConfig = Config.ARGB_8888
-            op.inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB)
-            BitmapFactory.decodeFileDescriptor(fis.fd, null, op)
+            if (op.outWidth < 1 || op.outHeight < 1) {
+                null
+            } else {
+                op.inSampleSize = calculateInSampleSize(op, width, height)
+                op.inJustDecodeBounds = false
+                op.inPreferredConfig = Config.ARGB_8888
+                op.inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB)
+                BitmapFactory.decodeFileDescriptor(fis.fd, null, op)
+            }
         }
+        if (fromFactory != null) return fromFactory
+        // SPEC-228: HEIF/HEIC fallback via ImageDecoder.
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            return runCatching {
+                android.graphics.ImageDecoder.decodeBitmap(
+                    android.graphics.ImageDecoder.createSource(java.io.File(path)),
+                ) { decoder, info, _ ->
+                    val tw = width.coerceAtLeast(1)
+                    val th = (height ?: (info.size.height * tw /
+                        info.size.width.coerceAtLeast(1))).coerceAtLeast(1)
+                    decoder.setTargetSize(tw, th)
+                }
+            }.getOrNull()
+        }
+        return null
     }
 
     /**

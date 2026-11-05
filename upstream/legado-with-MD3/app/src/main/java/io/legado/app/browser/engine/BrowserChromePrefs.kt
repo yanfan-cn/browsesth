@@ -28,8 +28,9 @@ class BrowserChromePrefs(context: Context) {
         get() = prefs.getBoolean(KEY_AUTO_HIDE, false)
         set(value) = prefs.edit().putBoolean(KEY_AUTO_HIDE, value).apply()
 
+    /** SPEC-223: default off for new installs. */
     var dailyWallpaperEnabled: Boolean
-        get() = prefs.getBoolean(KEY_WALLPAPER, true)
+        get() = prefs.getBoolean(KEY_WALLPAPER, false)
         set(value) = prefs.edit().putBoolean(KEY_WALLPAPER, value).apply()
 
     var wallpaperUrl: String
@@ -119,6 +120,14 @@ class BrowserChromePrefs(context: Context) {
         get() = prefs.getBoolean(KEY_VIDEO_PLAYER_PROMPT, true)
         set(value) = prefs.edit().putBoolean(KEY_VIDEO_PLAYER_PROMPT, value).apply()
 
+    /**
+     * SPEC-224: true = 有视频时直接显示净视悬浮球；false = 先完整胶囊再按时收球。
+     * 默认 true。
+     */
+    var videoFloatingBallPreferred: Boolean
+        get() = prefs.getBoolean(KEY_VIDEO_FLOATING_BALL, true)
+        set(value) = prefs.edit().putBoolean(KEY_VIDEO_FLOATING_BALL, value).apply()
+
     /** SPEC-158: selected homepage background. Default is the light-blue gradient. */
     var ntpWallpaperId: String
         get() = prefs.getString(KEY_NTP_WALLPAPER_ID, NtpWallpaperIds.DEFAULT)
@@ -155,6 +164,7 @@ class BrowserChromePrefs(context: Context) {
         private const val KEY_RESTORE_SESSION = "restore_session_on_launch"
         private const val KEY_HIDE_CHROME_IN_READER = "hide_browser_chrome_in_reader"
         private const val KEY_VIDEO_PLAYER_PROMPT = "video_player_prompt_enabled"
+        private const val KEY_VIDEO_FLOATING_BALL = "video_floating_ball_preferred"
         private const val KEY_NTP_WALLPAPER_ID = "ntp_wallpaper_id"
         private const val KEY_NTP_USER_WALLS = "ntp_user_wallpapers"
 

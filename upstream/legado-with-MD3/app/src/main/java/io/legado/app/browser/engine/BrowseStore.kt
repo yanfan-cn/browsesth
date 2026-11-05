@@ -13,6 +13,14 @@ class BrowseStore(context: Context) {
     fun bookmarks(): List<Entry> = readEntries(KEY_BOOKMARKS)
     fun folders(): List<Folder> = readFolders()
 
+    /** SPEC-236: 当前目录下的子文件夹（多层文件夹，parentId="" 为根）。 */
+    fun childFolders(parentId: String): List<Folder> =
+        BookmarkFolderTree.childrenOf(folders(), parentId)
+
+    /** SPEC-236: 从根到该文件夹的路径链（面包屑/逐级返回用）。 */
+    fun folderPath(folderId: String): List<Folder> =
+        BookmarkFolderTree.pathOf(folders(), folderId)
+
     fun bookmarkSort(): BookmarkSort =
         BookmarkSort.fromStorage(prefs.getString(KEY_BOOKMARK_SORT, null))
 
@@ -84,6 +92,53 @@ class BrowseStore(context: Context) {
         )
     }
 
+    /** SPEC-236: 导入覆盖——更新标题并移入 [folderId]。 */
+    fun updateBookmarkToFolder(url: String, title: String, folderId: String) {
+        writeEntries(
+            KEY_BOOKMARKS,
+            bookmarks().map {
+                if (it.url == url) {
+                    it.copy(title = title.ifBlank { it.title }, folderId = folderId)
+                } else it
+            },
+        )
+    }
+
+    /** SPEC-236: 导入 sink——同名同父复用文件夹，容量按 MAX_BOOKMARKS 控制。 */
+    fun importSink(): BrowserBookmarkHtmlImport.ImportSink =
+        object : BrowserBookmarkHtmlImport.ImportSink {
+            private val existing = bookmarks().mapTo(HashSet()) { it.url }
+            private var liveCount = existing.size
+
+            override fun existingUrls(): Set<String> = existing
+
+            override fun findOrCreateFolder(
+                name: String,
+                parentId: String,
+            ): BrowserBookmarkHtmlImport.CreatedFolder {
+                val trimmed = name.trim().ifBlank { "未命名文件夹" }
+                val reused = childFolders(parentId).firstOrNull { it.name == trimmed }
+                if (reused != null) {
+                    return BrowserBookmarkHtmlImport.CreatedFolder(reused.id, created = false)
+                }
+                val created = addFolder(trimmed, parentId)
+                return BrowserBookmarkHtmlImport.CreatedFolder(created.id, created = true)
+            }
+
+            override fun addBookmark(url: String, title: String, folderId: String) {
+                // SPEC-237: 必须限定外层——无限定调用会命中本匿名对象自身，无限自递归 StackOverflow。
+                this@BrowseStore.addBookmark(url, title, folderId)
+                existing.add(url)
+                liveCount += 1
+            }
+
+            override fun updateBookmarkToFolder(url: String, title: String, folderId: String) {
+                this@BrowseStore.updateBookmarkToFolder(url, title, folderId)
+            }
+
+            override fun capacityLeft(): Int = (MAX_BOOKMARKS - liveCount).coerceAtLeast(0)
+        }
+
     fun removeBookmark(url: String) {
         writeEntries(KEY_BOOKMARKS, bookmarks().filterNot { it.url == url })
     }
@@ -124,11 +179,16 @@ class BrowseStore(context: Context) {
         return if (sinceMs <= 0L) list.size else list.count { it.at >= sinceMs }
     }
 
-    fun addFolder(name: String): Folder {
+    /** SPEC-236: 多层文件夹——新建在 [parentId] 目录下；父不存在时回落根目录。 */
+    fun addFolder(name: String, parentId: String = ""): Folder {
+        val parent = parentId.trim().takeIf { it.isNotEmpty() }
+            ?.takeIf { id -> folders().any { it.id == id } }
+            .orEmpty()
         val folder = Folder(
             id = UUID.randomUUID().toString(),
             name = name.trim().ifBlank { "新建文件夹" },
             order = (folders().maxOfOrNull { it.order } ?: -1) + 1,
+            parentId = parent,
         )
         writeFolders(folders() + folder)
         return folder
@@ -142,12 +202,26 @@ class BrowseStore(context: Context) {
         )
     }
 
+    /**
+     * SPEC-236: 连带删除——文件夹自身、其下全部子文件夹，以及归属于这些文件夹
+     * 的书签一并删除（操作者 2026-11-05 指定；UI 侧需先弹确认框）。
+     */
     fun removeFolder(id: String) {
-        writeFolders(folders().filterNot { it.id == id })
+        val ids = BookmarkFolderTree.descendantIds(folders(), id)
+        if (ids.isEmpty()) return
+        writeFolders(folders().filterNot { it.id in ids })
         writeEntries(
             KEY_BOOKMARKS,
-            bookmarks().map { if (it.folderId == id) it.copy(folderId = "") else it },
+            bookmarks().filterNot { it.folderId in ids },
         )
+    }
+
+    /** SPEC-236: 子树规模统计（确认框文案用）。 */
+    fun folderCascadeStats(id: String): Pair<Int, Int> {
+        val ids = BookmarkFolderTree.descendantIds(folders(), id)
+        val folderCount = folders().count { it.id in ids } - 1
+        val bookmarkCount = bookmarks().count { it.folderId in ids }
+        return folderCount.coerceAtLeast(0) to bookmarkCount
     }
 
     fun sortedBookmarks(folderId: String? = null): List<Entry> {
@@ -219,6 +293,7 @@ class BrowseStore(context: Context) {
                             id = o.getString("id"),
                             name = o.optString("name"),
                             order = o.optInt("order", i),
+                            parentId = o.optString("parentId", ""),
                         ),
                     )
                 }
@@ -235,7 +310,8 @@ class BrowseStore(context: Context) {
                 JSONObject()
                     .put("id", f.id)
                     .put("name", f.name)
-                    .put("order", f.order),
+                    .put("order", f.order)
+                    .put("parentId", f.parentId),
             )
         }
         prefs.edit().putString(KEY_FOLDERS, arr.toString()).apply()
@@ -254,6 +330,8 @@ class BrowseStore(context: Context) {
         val id: String,
         val name: String,
         val order: Int = 0,
+        /** SPEC-236: 父文件夹 id，"" = 根目录（多层文件夹）。 */
+        val parentId: String = "",
     )
 
     enum class BookmarkSort(val storage: String, val label: String) {
@@ -278,6 +356,7 @@ class BrowseStore(context: Context) {
         private const val KEY_FOLDERS = "folders"
         private const val KEY_BOOKMARK_SORT = "bookmark_sort"
         private const val MAX_HISTORY = 100
-        private const val MAX_BOOKMARKS = 100
+        /** SPEC-236: 100 → 1000，批量导入不被截断。 */
+        private const val MAX_BOOKMARKS = 1000
     }
 }

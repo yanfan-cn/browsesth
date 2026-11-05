@@ -2,6 +2,7 @@ package io.legado.app.browser.engine
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -159,5 +160,47 @@ class BrowserVideoOfferBusTest {
         assertEquals(media, offer?.url)
         assertEquals("uin=1", offer?.headers?.get("Cookie"))
         assertEquals(page, offer?.headers?.get("Referer"))
+    }
+
+    @Test
+    fun tencentTraceBeacon_isRejectedEvenIfQueryEmbedsM3u8() {
+        // SPEC-226: Diag225 — h.trace.qq.com/bosskv returns image/gif.
+        val page = "https://view.inews.qq.com/a/20261103A08GH100"
+        BrowserVideoOfferBus.publish(
+            BrowserVideoOffer(
+                url = "https://h.trace.qq.com/bosskv?vid=x&bi=https%3A%2F%2Fcdn.example.com%2Fa.m3u8",
+                pageUrl = page,
+            ),
+        )
+        assertNull(BrowserVideoOfferBus.offer.value)
+        assertTrue(BrowserVideoOfferBus.offers.value.isEmpty())
+    }
+
+    @Test
+    fun queryEmbeddedM3u8_isHls() {
+        // SPEC-232: 恢复 query 匹配（流地址常写在查询参数里）；误报源由黑名单挡掉。
+        val sniff = BrowserVideoOfferBus.classifyPlayableUrl(
+            "https://cdn.example.com/proxy?u=https://x.com/live.m3u8",
+            "https://view.inews.qq.com/a/1",
+        )
+        assertNotNull(sniff)
+        assertTrue(sniff!!.isHls)
+    }
+
+    @Test
+    fun tencentMultiFmt_prefersHigherClarityAsDefault() {
+        // SPEC-226: f304≈480, f306≈720, f307≈1080 — default must be highest.
+        val page = "https://view.inews.qq.com/a/1"
+        val low = "https://ltshsy.gtimg.com/x/szg.f304110.ts.m3u8"
+        val mid = "https://ltshsy.gtimg.com/x/szg.f306110.ts.m3u8"
+        val high = "https://ltshsy.gtimg.com/x/szg.f307110.ts.m3u8"
+        BrowserVideoOfferBus.publish(BrowserVideoOffer(url = low, pageUrl = page, title = "480"))
+        BrowserVideoOfferBus.publish(BrowserVideoOffer(url = mid, pageUrl = page, title = "720"))
+        BrowserVideoOfferBus.publish(BrowserVideoOffer(url = high, pageUrl = page, title = "1080"))
+        assertEquals(high, BrowserVideoOfferBus.offer.value?.url)
+        assertEquals(3, BrowserVideoOfferBus.offers.value.size)
+        // Later lower fmt must not steal the default.
+        BrowserVideoOfferBus.publish(BrowserVideoOffer(url = low + "?r=2", pageUrl = page))
+        assertTrue(BrowserVideoOfferBus.offer.value?.url?.contains("f307110") == true)
     }
 }
