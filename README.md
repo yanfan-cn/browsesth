@@ -13,6 +13,28 @@
 
 ## 实机截图
 
+### 手机
+
+| 主页浅色 | 主页深色 |
+| --- | --- |
+| ![主页浅色](docs/readme-shots/phone/home-light.jpg) | ![主页深色](docs/readme-shots/phone/home-dark.jpg) |
+
+| 网页浏览 | 标签页 | 收藏 |
+| --- | --- | --- |
+| ![网页浏览](docs/readme-shots/phone/browsing.jpg) | ![标签页](docs/readme-shots/phone/tabs.jpg) | ![收藏](docs/readme-shots/phone/bookmarks.jpg) |
+
+| 工具箱 | 阅读列表 | 阅读记录 |
+| --- | --- | --- |
+| ![工具箱](docs/readme-shots/phone/toolbox.jpg) | ![阅读列表](docs/readme-shots/phone/reading-list.jpg) | ![阅读记录](docs/readme-shots/phone/reading-history.jpg) |
+
+| 净读竖屏滚动 | 净读设置 | 净读更多设置 |
+| --- | --- | --- |
+| ![净读竖屏滚动](docs/readme-shots/phone/jingdu-scroll.jpg) | ![净读设置](docs/readme-shots/phone/jingdu-settings.jpg) | ![净读更多设置](docs/readme-shots/phone/jingdu-more-settings.jpg) |
+
+| 净视横屏播放 |
+| --- |
+| ![净视横屏播放](docs/readme-shots/phone/jingshi-landscape.jpg) |
+
 ### 平板电脑
 
 | 横屏浅色 | 横屏深色 |
@@ -26,10 +48,6 @@
 | 工具箱 | 听书播放器 | 设置页 |
 | --- | --- | --- |
 | ![工具箱](docs/readme-shots/tablet/toolbox.jpg) | ![听书播放器](docs/readme-shots/tablet/tts-player.jpg) | ![设置页](docs/readme-shots/tablet/settings.jpg) |
-
-### 手机
-
-（待补）
 
 ## 技术底座
 
@@ -85,7 +103,7 @@
 
 ```powershell
 $env:GRADLE_USER_HOME = "D:\cursor\.gradle-home"
-cd D:\cursor\browsesth\upstream\Xunye
+cd D:\cursor\Xunye\upstream\Xunye
 .\gradlew.bat :app:assembleAlohaDebug
 ```
 

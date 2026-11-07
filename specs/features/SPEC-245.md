@@ -3,7 +3,7 @@
 | 项目 | 内容 |
 | --- | --- |
 | Spec ID | SPEC-245 |
-| 状态 | Implemented（宪章待所有者改；手机图待补） |
+| 状态 | Implemented（手机图见 SPEC-248） |
 | 负责人 | AO |
 | 目标阶段 | 品牌 / 发行面 |
 | 需求依据 | 2026-11-07 聊天确认：`C1；仓名 xunye`；平板截图目录 `E:\32082\Pictures\github readme` |
@@ -36,7 +36,7 @@
 - 不改 `io.legado.app` 源码包（C1）。
 - 不改 prefs / 伪协议 / JS hook 等内部 `browsesth*` 键（B）。
 - 不改 `specs/CONSTITUTION.md`（E，所有者自行改）。
-- 不改本地磁盘目录名 `D:\cursor\browsesth`（避免打断本机构建路径）。
+- 不改本地磁盘目录名 `D:\cursor\Xunye`（避免打断本机构建路径）。
 - 不批量改写历史 SPEC/LOG/UI dump 中的旧包名痕迹（证据留档）。
 - 本轮不上手机实机图（F）。
 
