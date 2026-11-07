@@ -17,7 +17,7 @@ alwaysApply: true
 $env:GRADLE_USER_HOME = "D:\cursor\.gradle-home"
 ```
 
-在 `upstream\legado-with-MD3` 下再执行 `.\gradlew.bat …`。
+在 `upstream\Xunye` 下再执行 `.\gradlew.bat …`。
 
 ## 禁止
 

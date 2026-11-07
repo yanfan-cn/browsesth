@@ -38,9 +38,9 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "browsesth"
+rootProject.name = "xunye"
 
-val legadoRoot = file("upstream/legado-with-MD3")
+val legadoRoot = file("upstream/Xunye")
 
 include(":app")
 project(":app").projectDir = file("$legadoRoot/app")

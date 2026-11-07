@@ -16,7 +16,7 @@
 
 ## 2. 开工前需求确认
 
-- 已调查事实：Aloha 150 已运行锁定（AC-01）；探针 App 0.8 真机操作者确认可用；Legado 在 `upstream/legado-with-MD3/`。
+- 已调查事实：Aloha 150 已运行锁定（AC-01）；探针 App 0.8 真机操作者确认可用；Legado 在 `upstream/Xunye/`。
 - Agent 最终复述：2026-10-01（整体合并 + 换内核；方案 A：只换主浏览器，其余 WebView 桩掉）。
 - 任务下达者确认：2026-10-01「确认」+ A。
 - 确认后需求变化：相对先前「探针壳交付」，本轮将 **Legado 并入主工程可运行配置**，主浏览器路径换 Aloha；V 仍暂缓。
@@ -34,7 +34,7 @@
 
 要实现：
 
-1. **主工程合并**：`upstream/legado-with-MD3` 成为可从仓库根构建的主 App（含 book/rhino 模块）。
+1. **主工程合并**：`upstream/Xunye` 成为可从仓库根构建的主 App（含 book/rhino 模块）。
 2. **主浏览器换核**：浏览器主路径使用 Aloha `AwContents`，禁止该路径 inflate 系统 `android.webkit.WebView`。
 3. **次要 WebView 桩掉**：RSS/字典/登录/后台 WebView/BottomWebView 等本轮不创建系统 WebView（占位或安全失败），避免双核冲突。
 4. 保持：启动进浏览器；Explore 隐藏；历史或书签至少一种；仅 arm64-v8a。

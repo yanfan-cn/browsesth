@@ -1,7 +1,7 @@
 # PLAN-192：流畅度专项实施
 
 对应 SPEC：[`../features/SPEC-192.md`](../features/SPEC-192.md)
-工作目录：`upstream\legado-with-MD3`；构建纪律同前（GRADLE_USER_HOME 同盘、`--no-configuration-cache`、debug）。
+工作目录：`upstream\Xunye`；构建纪律同前（GRADLE_USER_HOME 同盘、`--no-configuration-cache`、debug）。
 
 ## A. GlassMotionGate
 

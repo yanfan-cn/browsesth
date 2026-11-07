@@ -21,5 +21,5 @@
 
 ## 4. 验证
 
-- `$env:GRADLE_USER_HOME="D:\cursor\.gradle-home"`；`upstream\legado-with-MD3` 下 `:app:compileAppDebugKotlin` + `:app:assembleAppDebug`
+- `$env:GRADLE_USER_HOME="D:\cursor\.gradle-home"`；`upstream\Xunye` 下 `:app:compileAppDebugKotlin` + `:app:assembleAppDebug`
 - 真机：有网页时开/关标签页；新装默认百度；目视液态玻璃叠色

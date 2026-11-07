@@ -1,8 +1,8 @@
-﻿# Browsesth 项目开发宪章
+﻿# 巡页Xunye 项目开发宪章
 
-> 本宪章是 Browsesth 项目唯一不可由 AO 自行修改的文件。它规定开发方向、技术边界和质量底线。具体需求、方案与实施记录分别放在 `docs/`、Spec、Plan 和 Log 中。
+> 本宪章是 巡页Xunye 项目唯一不可由 AO 自行修改的文件。它规定开发方向、技术边界和质量底线。具体需求、方案与实施记录分别放在 `docs/`、Spec、Plan 和 Log 中。
 >
-> **命名说明：** 产品与 GitHub 仓库正式名为 `browsesth`（展示名 Browsesth）。若再更名，须同步本文件标题与 `docs/` 中的产品名，不改变宪章其余约束效力。
+> **命名说明（SPEC-245/246，所有者授权修订）：** 产品展示名为 **巡页Xunye**；GitHub 仓库正式名为 **`xunye`**（`https://github.com/yanfan-cn/xunye`）；Android `applicationId` 为 **`com.xunye.app`**；可构建产品工程目录为 **`upstream/Xunye`**（源自 Legado with MD3）。曾用名 Browsesth / `browsesth` / `com.browsesth.app` / 目录 `upstream/legado-with-MD3` 已废弃对外与新构建身份。内部持久化键与伪协议可继续含历史 `browsesth*` 字符串。源码 Java/Kotlin namespace 仍为 `io.legado.app`。若再更名，须同步本文件标题与 `docs/` 中的产品名，不改变宪章其余约束效力。
 
 ## 1. 适用对象与权威顺序
 
@@ -334,7 +334,7 @@ Log 持续追加；完成后补齐证据并交付验收。上级只验收成果�
 
 Spec AC 有证据；Plan 检查已执行；正常/失败/边界与回归已覆盖；无未处理 P0/P1；安全满足；文档同步；Log 完整；提交可回退（或明确说明未用 Git）。
 
-### 8.4 Browsesth 阶段门禁
+### 8.4 巡页Xunye 阶段门禁
 
 **阶段 A 完成须同时满足：**
 
@@ -393,6 +393,6 @@ Spec AC 有证据；Plan 检查已执行；正常/失败/边界与回归已覆�
 
 项目所有者负责宪章制定与修订。AO 只能提出修改建议，不得自行改动或绕过。
 
-- 当前版本：1.0.0
+- 当前版本：1.1.0
 - 生效日期：2026-09-30
-- 最近变化：2026-09-30，自 MedDigit 精简 SDD 模板适配；同日产品名由 ClearPage 更名为 browsesth。
+- 最近变化：2026-11-07，所有者授权更名：产品 **巡页Xunye**、仓库 **xunye**、`applicationId` **com.xunye.app**、工程目录 **upstream/Xunye**（SPEC-245/246）；此前 2026-09-30 自 MedDigit 精简 SDD 模板适配，产品名由 ClearPage 更名为 browsesth（已废）。

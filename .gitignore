@@ -41,7 +41,7 @@ agconnect-services.json
 *.class
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
-!upstream/legado-with-MD3/app/cronetlib/cronet_api.jar
+!upstream/Xunye/app/cronetlib/cronet_api.jar
 !probe/**/libs/*.jar
 
 # Logs & temp
@@ -67,7 +67,7 @@ app/libs/*.so
 __pycache__/
 
 # Aloha AAR (local; keep out of git)
-upstream/legado-with-MD3/app/libs/*.aar
+upstream/Xunye/app/libs/*.aar
 probe/libs/*.aar
 probe/libs/*.so
 

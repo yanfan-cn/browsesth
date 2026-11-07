@@ -1,7 +1,7 @@
 # PLAN-193：详情 BookInfoActivity 化 + 热邻居归零
 
 对应 SPEC：[`../features/SPEC-193.md`](../features/SPEC-193.md)
-工作目录：`upstream\legado-with-MD3`
+工作目录：`upstream\Xunye`
 
 ## 改动清单（全部已实施）
 

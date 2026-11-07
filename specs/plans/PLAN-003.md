@@ -16,7 +16,7 @@
 ## 2. 现状与证据
 
 - Aloha 150 已锁定；探针 `app/` 0.8 真机操作者确认（HTTPS + 导航 + 历史/书签）。
-- Legado 源码在 `upstream/legado-with-MD3/`（品牌/首页浏览器/藏 Explore 已打补丁）。
+- Legado 源码在 `upstream/Xunye/`（品牌/首页浏览器/藏 Explore 已打补丁）。
 - 根工程仍是薄探针；全量 Compose 壳未接入；系统 WebView 与 Aloha 冲突。
 
 ## 3. 方案与边界

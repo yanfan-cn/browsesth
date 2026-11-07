@@ -56,7 +56,7 @@
 ## 验证
 
 ```bash
-cd upstream/legado-with-MD3
+cd upstream/Xunye
 ./gradlew :app:testAppDebugUnitTest --tests io.legado.app.browser.reader.WebArticleExtractJsTest --tests io.legado.app.browser.reader.WebArticleMixedHydrationTest --tests io.legado.app.browser.reader.BrowserWebImageHeadersTest
 ```
 

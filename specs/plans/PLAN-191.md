@@ -1,7 +1,7 @@
 # PLAN-191：详情退出取消封面飞出
 
 对应 SPEC：[`../features/SPEC-191.md`](../features/SPEC-191.md)
-工作目录：`upstream\legado-with-MD3`
+工作目录：`upstream\Xunye`
 **本轮不构建（操作者指定）。**
 
 ## 改动

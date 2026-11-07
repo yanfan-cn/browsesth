@@ -27,7 +27,7 @@
 
 ```
 $env:GRADLE_USER_HOME = "D:\cursor\.gradle-home"
-cd D:\cursor\browsesth\upstream\legado-with-MD3
+cd D:\cursor\browsesth\upstream\Xunye
 .\gradlew.bat :app:testAppDebugUnitTest --tests "io.legado.app.browser.engine.BrowserOmniboxSuggestTest" --tests "io.legado.app.browser.engine.BrowserDownloadHelperTest"
 .\gradlew.bat :app:compileAppDebugKotlin
 ```

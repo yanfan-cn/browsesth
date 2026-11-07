@@ -7,7 +7,7 @@
 - **包名**：`com.xunye.app`
 - **ABI**：仅 arm64-v8a
 - **系统要求（默认 Aloha 包）**：**Android 10+**（API 29）。Aloha Core / 现行 Chromium 150 系按上游以 Android 10 为最低支持；低于 10 请勿按默认内核预期。
-- **版本**：以 `upstream/legado-with-MD3/app/version.properties` 为准（当前为 **2.5.x-beta** 线；Release 另见 `version-release.properties`）
+- **版本**：以 `upstream/Xunye/app/version.properties` 为准（当前为 **2.5.x-beta** 线；Release 另见 `version-release.properties`）
 
 底栏三个主入口：**浏览器**、**阅读列表**、**我的**。
 
@@ -85,7 +85,7 @@
 
 ```powershell
 $env:GRADLE_USER_HOME = "D:\cursor\.gradle-home"
-cd D:\cursor\browsesth\upstream\legado-with-MD3
+cd D:\cursor\browsesth\upstream\Xunye
 .\gradlew.bat :app:assembleAlohaDebug
 ```
 
@@ -96,7 +96,7 @@ cd D:\cursor\browsesth\upstream\legado-with-MD3
 
 ## 开源许可
 
-整体遵循 **GNU GPL-3.0**（及上游项目要求）。发行物另含 Chromium 等第三方组件，各按其自身许可证提供。详见应用内「开源许可」与 `upstream/legado-with-MD3/app/src/main/assets/LICENSE.md`。
+整体遵循 **GNU GPL-3.0**（及上游项目要求）。发行物另含 Chromium 等第三方组件，各按其自身许可证提供。详见应用内「开源许可」与 `upstream/Xunye/app/src/main/assets/LICENSE.md`。
 
 ## 免责声明（摘要）
 
@@ -122,4 +122,4 @@ cd D:\cursor\browsesth\upstream\legado-with-MD3
 
 ## 状态
 
-产品代码在 `upstream/legado-with-MD3` 持续迭代；需求与验收以 `specs/` 与 `docs/` 为准。
+产品代码在 `upstream/Xunye` 持续迭代；需求与验收以 `specs/` 与 `docs/` 为准。

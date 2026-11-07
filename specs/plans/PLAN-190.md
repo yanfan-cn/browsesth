@@ -1,7 +1,7 @@
 # PLAN-190：R4 摘除 + 详情恢复原版 300ms + 阅读器独立 Activity（单包）
 
 对应 SPEC：[`../features/SPEC-190.md`](../features/SPEC-190.md)
-工作目录：`upstream\legado-with-MD3`
+工作目录：`upstream\Xunye`
 构建纪律：`$env:GRADLE_USER_HOME="D:\cursor\.gradle-home"`；`assemble` 带 `--no-configuration-cache`；默认 debug。
 交付：`巡页1.8.4-beta` / code 226，结束后进位 1.8.5 / 227（SPEC-108）。
 

@@ -218,7 +218,7 @@ val verifyConfigArchitecture = tasks.register<VerifyConfigArchitectureTask>(
 ) {
     group = "verification"
     description = "禁止配置架构回退、UI 层(ViewModel 及其它)新增 DAO 直连和新增旧偏好调用"
-    sourceRoot.set(layout.projectDirectory.dir("upstream/legado-with-MD3/app/src/main/java"))
+    sourceRoot.set(layout.projectDirectory.dir("upstream/Xunye/app/src/main/java"))
     legacyPreferenceCallBaseline.set(
         mapOf(
             "io/legado/app/App.kt" to 3,
