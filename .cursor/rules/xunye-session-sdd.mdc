@@ -1,9 +1,9 @@
-﻿---
-description: Browsesth 精简 SDD、产品边界与会话状态（跨对话继承）
+---
+description: 巡页Xunye 精简 SDD、产品边界与会话状态（跨对话继承）
 alwaysApply: true
 ---
 
-# Browsesth 精简 SDD
+# 巡页Xunye 精简 SDD
 
 - 权威：`specs/CONSTITUTION.md`（Agent 不可自行修改）→ `docs/` 决策基线 → SPEC → PLAN → 代码/Log
 - 每功能三份同号：`specs/features/SPEC-XXX.md`、`specs/plans/PLAN-XXX.md`、`specs/logs/LOG-XXX.md`
@@ -20,15 +20,15 @@ alwaysApply: true
 
 ## 仓库与路径
 
-- 本地根目录：`D:\cursor\browsesth`
-- 远程：`https://github.com/yanfan-cn/browsesth`（私有，账号 `yanfan-cn`）
+- 产品名：**巡页Xunye**；`applicationId`：**`com.xunye.app`**；远程：`https://github.com/yanfan-cn/xunye`
+- 本地根目录当前可为：`D:\cursor\browsesth`（仅路径；新克隆优先 `D:\cursor\xunye`）
 - 旁系参考（只读）：`D:\cursor\legado-with-MD3`、`D:\cursor\Cimoc`
-- 新克隆默认根：`D:\cursor\<repo>`
+- **禁止**再以 Browsesth / `com.browsesth.app` 作为新构建或安装身份（内部持久化键可仍含历史 `browsesth*`）
 
 ## 协作提醒
 
 - 未要求时不要 commit / push
-- 曾用工作名 ClearPage 已废弃，一律用 browsesth / Browsesth
+- 曾用工作名 ClearPage / Browsesth 已废弃，对外一律用 巡页Xunye / xunye
 - **每次构建 App（assemble*）**：本包用当前 `MAJOR.MINOR.PATCH-beta`，构建后 PATCH+1（SPEC-108）；APK 名 `巡页`+versionName；勿绕过
 - **默认 Aloha 组装**：`assembleAloha*`（SPEC-222；勿用已废弃的 `assembleApp*`）；旁路系统 WebView：`assembleSystemWv*`
-- **本机构建**：必须设 `$env:GRADLE_USER_HOME="D:\cursor\.gradle-home"`（与工程同盘），否则 KSP 跨盘符必失败；细则见 `browsesth-windows-gradle-build` 规则
+- **本机构建**：必须设 `$env:GRADLE_USER_HOME="D:\cursor\.gradle-home"`（与工程同盘），否则 KSP 跨盘符必失败；细则见 `xunye-windows-gradle-build` 规则

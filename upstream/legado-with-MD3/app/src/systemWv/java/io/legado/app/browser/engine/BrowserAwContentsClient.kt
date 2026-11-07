@@ -324,7 +324,7 @@ class BrowserAwContentsClient(
     }
 
     companion object {
-        private const val TAG = "BrowsesthBrowser"
+        private const val TAG = "XunyeBrowser"
         const val AD_PROBE_MARKER = "browsesth-ad-probe"
         const val MIDPAGE_MARKER = "browsesth-midpage-skip"
         const val BLOCK_PICK_PREFIX = "BROWSESTH_BLOCK:"

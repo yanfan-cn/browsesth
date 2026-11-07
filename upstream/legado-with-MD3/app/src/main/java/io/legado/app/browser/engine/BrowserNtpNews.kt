@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicReference
  */
 object BrowserNtpNews {
 
-    private const val TAG = "BrowsesthNtpNews"
+    private const val TAG = "XunyeNtpNews"
     internal const val PAGE_SIZE = 20
     private const val CACHE_TTL_MS = 3L * 60L * 60L * 1000L
     private const val FETCH_TIMEOUT_MS = 4_000L

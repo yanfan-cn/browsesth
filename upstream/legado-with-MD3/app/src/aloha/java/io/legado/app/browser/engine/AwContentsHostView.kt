@@ -779,7 +779,7 @@ class AwContentsHostView @JvmOverloads constructor(
     }
 
     companion object {
-        private const val TAG = "BrowsesthAwHost"
+        private const val TAG = "XunyeAwHost"
 
         /** SPEC-218: drop DOM selection ranges when finishing ActionMode (no input blur). */
         const val CLEAR_SELECTION_JS =

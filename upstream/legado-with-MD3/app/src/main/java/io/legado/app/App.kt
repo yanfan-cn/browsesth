@@ -48,7 +48,7 @@ import io.legado.app.browser.engine.BrowserDownloadPaths
 import io.legado.app.browser.engine.BrowserDrawMode
 import io.legado.app.browser.engine.BrowserNtpNews
 import io.legado.app.browser.engine.BrowserReaderPrefs
-import io.legado.app.browser.engine.BrowsesthBromiumBootstrap
+import io.legado.app.browser.engine.XunyeBromiumBootstrap
 import io.legado.app.browser.engine.StorageCacheAutoTrim
 import io.legado.app.help.AppFreezeMonitor
 import android.util.Log
@@ -115,7 +115,7 @@ class App : Application(), SingletonImageLoader.Factory {
         // 首行初始化设置快照层：同步预加载 DataStore（触发 SP 迁移），
         // 之后所有 getPref* 门面读取均为纯内存查找，须先于一切主题/配置读取
         AppConfigStore.init(this)
-        // Browsesth SPEC-007 / SPEC-056: floating bar default; chrome surface by API.
+        // Xunye SPEC-007 / SPEC-056: floating bar default; chrome surface by API.
         run {
             val ntp = getSharedPreferences("browsesth_ntp_prefs", MODE_PRIVATE)
             if (!ntp.getBoolean("shell_floating_default_v1", false)) {
@@ -220,16 +220,16 @@ class App : Application(), SingletonImageLoader.Factory {
                 ntp.edit().putBoolean("read_ui_defaults_spec112_v1", true).apply()
             }
         }
-        // Browsesth: cold-start Aloha before any UI that might touch WebView.
+        // Xunye: cold-start Aloha before any UI that might touch WebView.
         // SPEC-230: 内核缓存自动控制须在内核启动前执行，避免运行中删缓存目录。
         runCatching { StorageCacheAutoTrim.trimIfNeededAtStartup(this) }
             .onFailure { Log.w("StorageCacheAutoTrim", "startup trim failed: ${it.message}") }
         try {
-            BrowsesthBromiumBootstrap.initializeAll(this, R.array.config_key_system_uuid_map)
+            XunyeBromiumBootstrap.initializeAll(this, R.array.config_key_system_uuid_map)
             BrowserDrawMode.init(this)
-            Log.i("BrowsesthKernel", "Aloha init OK; plat=${BrowsesthBromiumBootstrap.platSupportSource}")
+            Log.i("XunyeKernel", "Aloha init OK; plat=${XunyeBromiumBootstrap.platSupportSource}")
         } catch (t: Throwable) {
-            Log.e("BrowsesthKernel", "Aloha init FAILED", t)
+            Log.e("XunyeKernel", "Aloha init FAILED", t)
         }
         // SPEC-064: ensure Download/XunYeBrowser exists on cold start.
         runCatching { BrowserDownloadPaths.ensureRoot(this) }

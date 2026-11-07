@@ -19,8 +19,8 @@ import org.chromium.ui.base.ResourceBundle
  * App-side Bromium bootstrap based on Aloha's MIT-licensed BromiumInitializer.
  * Loads system plat_support when the AAR does not ship it.
  */
-object BrowsesthBromiumBootstrap {
-    private const val TAG = "BrowsesthKernel"
+object XunyeBromiumBootstrap {
+    private const val TAG = "XunyeKernel"
     private const val CHROMIUM_PREFS_NAME = "WebViewChromiumPrefs"
 
     /** Human-readable where plat_support came from after [initializeAll]. */
@@ -76,7 +76,7 @@ object BrowsesthBromiumBootstrap {
         // SPEC-034: 也不加在 AwContents.attach（打开网页闪退）。6.9 打开路径同样不在 attach 做这段 JNI。
         Bromium.clearTemporaryDownloads()
         initialized = true
-        Log.i(TAG, "BrowsesthBromiumBootstrap.initializeAll finished (plat=$platSupportSource)")
+        Log.i(TAG, "XunyeBromiumBootstrap.initializeAll finished (plat=$platSupportSource)")
     }
 
     private fun loadNativeLibraries() {

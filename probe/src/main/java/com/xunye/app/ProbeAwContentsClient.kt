@@ -1,4 +1,4 @@
-package com.browsesth.app
+package com.xunye.app
 
 import android.graphics.Bitmap
 import android.graphics.Picture
@@ -267,10 +267,10 @@ class ProbeAwContentsClient(
     override fun shouldPlayBackgroundVideo(): Boolean = false
     override fun onHlsDetected(url: String, requestHeaders: String) {}
     override fun getUserAgent(): String =
-        "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36 Browsesth/0.4"
+        "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36 Xunye/0.4"
 
     companion object {
-        private const val TAG = "BrowsesthProbe"
+        private const val TAG = "XunyeProbe"
         const val AD_PROBE_MARKER = "browsesth-ad-probe"
         const val MIDPAGE_MARKER = "browsesth-midpage-skip"
 

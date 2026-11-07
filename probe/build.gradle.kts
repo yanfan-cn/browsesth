@@ -32,18 +32,18 @@ if (requestingAssemble) {
     versionProps.setProperty("VERSION_TENTHS", nextTenths.toString())
     versionProps.setProperty("VERSION_CODE", nextCode.toString())
     saveVersionProps(versionProps, "Bumped by assemble (+0.1)")
-    logger.lifecycle("Browsesth version -> ${tenthsToName(nextTenths)} (code $nextCode)")
+    logger.lifecycle("Xunye version -> ${tenthsToName(nextTenths)} (code $nextCode)")
 }
 
 val versionTenths = versionProps.getProperty("VERSION_TENTHS", "1").toInt()
 val versionCodeValue = versionProps.getProperty("VERSION_CODE", "1").toInt()
 
 android {
-    namespace = "com.browsesth.app"
+    namespace = "com.xunye.app"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.browsesth.app"
+        applicationId = "com.xunye.app"
         minSdk = 26
         targetSdk = 35
         versionCode = versionCodeValue

@@ -5,7 +5,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 
 /**
- * Browsesth: androidx.webkit removed (duplicates Aloha boundary classes).
+ * Xunye: androidx.webkit removed (duplicates Aloha boundary classes).
  * System WebView darkening APIs are no-ops; Aloha path does not use these.
  */
 fun WebSettings.setDarkeningAllowed(allow: Boolean) {

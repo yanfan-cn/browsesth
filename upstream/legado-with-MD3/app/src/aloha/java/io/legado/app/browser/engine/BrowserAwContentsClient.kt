@@ -29,7 +29,7 @@ import java.security.Principal
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Aloha AwContentsClient with Browsesth shield: ad intercept, external-app block, popup block.
+ * Aloha AwContentsClient with Xunye shield: ad intercept, external-app block, popup block.
  */
 class BrowserAwContentsClient(
     private val onStatus: (String) -> Unit = {},
@@ -498,11 +498,11 @@ class BrowserAwContentsClient(
         onPlayableMedia?.invoke(url, requestHeaders.orEmpty(), lastUrl, true)
     }
     override fun getUserAgent(): String =
-        // SPEC-018: form-factor default + toolbox override (no Browsesth token).
+        // SPEC-018: form-factor default + toolbox override (no Xunye token).
         userAgentProvider()
 
     companion object {
-        private const val TAG = "BrowsesthBrowser"
+        private const val TAG = "XunyeBrowser"
         const val AD_PROBE_MARKER = "browsesth-ad-probe"
         const val MIDPAGE_MARKER = "browsesth-midpage-skip"
         const val BLOCK_PICK_PREFIX = "BROWSESTH_BLOCK:"

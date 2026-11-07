@@ -1674,7 +1674,7 @@ private fun BookInfoWebIntro(
     bookSource: BookSource?,
     onJumpToAnotherApp: (Uri) -> Unit,
 ) {
-    // Browsesth 方案 A：书籍详情 useweb 简介暂不创建系统 WebView
+    // Xunye 方案 A：书籍详情 useweb 简介暂不创建系统 WebView
     Text(
         text = "网页简介暂不可用（系统 WebView 已禁用）",
         modifier = Modifier

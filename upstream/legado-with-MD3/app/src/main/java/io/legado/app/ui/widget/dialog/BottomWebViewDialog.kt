@@ -157,7 +157,7 @@ class BottomWebViewDialog() : BottomSheetDialogFragment(R.layout.dialog_web_view
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
-        // Browsesth 方案 A：禁止系统 WebView — 立刻关闭对话框
+        // Xunye 方案 A：禁止系统 WebView — 立刻关闭对话框
         AppLog.put("BottomWebViewDialog: 系统 WebView 已禁用（Aloha 主浏览器）")
         dismissAllowingStateLoss()
     }

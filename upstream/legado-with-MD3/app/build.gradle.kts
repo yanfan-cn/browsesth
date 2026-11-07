@@ -14,7 +14,7 @@ plugins {
 apply(from = "download.gradle")
 
 
-val appName = "browsesth"
+val appName = "xunye"
 
 // SPEC-108/122 debug: MAJOR.MINOR.PATCH-beta (odometer 0–9).
 // SPEC-244 release: separate file, MAJOR.MINOR.PATCH (no -beta); aloha+systemWv share one bump.
@@ -89,7 +89,7 @@ if (assembleLeaves.isNotEmpty()) {
         "$nextMajor.$nextMinor.$nextPatch-beta"
     }
     logger.lifecycle(
-        "Browsesth this assemble -> $projectVersionName (code $versionCodeValue); " +
+        "Xunye this assemble -> $projectVersionName (code $versionCodeValue); " +
             "next -> $nextLabel (code $nextCode)" +
             if (useReleaseVersion) " [release]" else " [debug]",
     )
@@ -118,7 +118,7 @@ android {
     }
 
     defaultConfig {
-    applicationId = "com.browsesth.app"
+    applicationId = "com.xunye.app"
         minSdk = 26
         targetSdk = 37
         versionCode = versionCodeValue
@@ -179,7 +179,7 @@ android {
             versionNameSuffix = "-noR8"
         }
         getByName("debug") {
-            // Browsesth: same applicationId as probe / release for install overlay
+            // Xunye: same applicationId as probe / release for install overlay
             if (project.hasProperty("RELEASE_STORE_FILE")) {
                 signingConfig = signingConfigs.getByName("myConfig")
             }
@@ -390,7 +390,7 @@ dependencies {
     implementation(libs.coil.svg)
     implementation(libs.coil.network.okhttp)
     implementation(libs.telephoto.zoomable.image.coil3)
-    // Browsesth: accompanist-webview pulls androidx.webkit (duplicate with Aloha)
+    // Xunye: accompanist-webview pulls androidx.webkit (duplicate with Aloha)
     // implementation(libs.accompanist.webview)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.datetime)
@@ -427,11 +427,11 @@ dependencies {
 
 // SPEC-108/244: copy APK to 巡页{version}.apk；systemWv → 巡页{version}-systemwv.apk.
 // Only touch the build-type folder matching this assemble (release vs debug).
-val browsesthApkVersionLabel = projectVersionName
-val browsesthRenameReleaseOnly = useReleaseVersion
-val renameBrowsesthApks = tasks.register("renameBrowsesthApks") {
-    val versionLabel = browsesthApkVersionLabel
-    val releaseOnly = browsesthRenameReleaseOnly
+val xunyeApkVersionLabel = projectVersionName
+val xunyeRenameReleaseOnly = useReleaseVersion
+val renameXunyeApks = tasks.register("renameXunyeApks") {
+    val versionLabel = xunyeApkVersionLabel
+    val releaseOnly = xunyeRenameReleaseOnly
     val apkRoot = layout.buildDirectory.dir("outputs/apk")
     doLast {
         val root = apkRoot.get().asFile
@@ -469,7 +469,7 @@ listOf(
     "assembleSystemWvRelease",
 ).forEach { assembleName ->
     tasks.matching { it.name == assembleName }.configureEach {
-        finalizedBy(renameBrowsesthApks)
+        finalizedBy(renameXunyeApks)
     }
 }
 

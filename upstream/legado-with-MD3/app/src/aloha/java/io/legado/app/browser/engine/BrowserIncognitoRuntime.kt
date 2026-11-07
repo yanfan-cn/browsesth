@@ -7,7 +7,7 @@ import org.chromium.android_webview.AwCookieManager
 
 /** SPEC-222: Aloha incognito context / cookie jar. */
 object BrowserIncognitoRuntime {
-    private const val TAG = "BrowsesthNtp"
+    private const val TAG = "XunyeNtp"
 
     fun browserContext(incognito: Boolean): AwBrowserContext {
         if (!incognito) {

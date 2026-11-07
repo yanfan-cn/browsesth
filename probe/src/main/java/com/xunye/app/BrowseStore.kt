@@ -1,4 +1,4 @@
-package com.browsesth.app
+package com.xunye.app
 
 import android.content.Context
 import org.json.JSONArray

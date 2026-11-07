@@ -1,4 +1,4 @@
-package com.browsesth.app
+package com.xunye.app
 
 import android.content.Context
 import android.content.Intent
@@ -283,6 +283,6 @@ class AwContentsHostView @JvmOverloads constructor(
     }
 
     companion object {
-        private const val TAG = "BrowsesthAwHost"
+        private const val TAG = "XunyeAwHost"
     }
 }

@@ -133,7 +133,7 @@ class VisibleWebView(
 }
 
 /**
- * Browsesth 方案 A：次要路径禁止创建系统 WebView（与 Aloha 双核冲突）。
+ * Xunye 方案 A：次要路径禁止创建系统 WebView（与 Aloha 双核冲突）。
  * 主浏览器请用 [io.legado.app.browser.engine.AlohaBrowserCompose]。
  */
 @Composable

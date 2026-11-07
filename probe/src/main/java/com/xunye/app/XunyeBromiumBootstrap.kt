@@ -1,4 +1,4 @@
-package com.browsesth.app
+package com.xunye.app
 
 import android.content.Context
 import android.util.Log
@@ -19,8 +19,8 @@ import org.chromium.ui.base.ResourceBundle
  * App-side Bromium bootstrap based on Aloha's MIT-licensed BromiumInitializer.
  * Loads system plat_support when the AAR does not ship it.
  */
-object BrowsesthBromiumBootstrap {
-    private const val TAG = "BrowsesthKernel"
+object XunyeBromiumBootstrap {
+    private const val TAG = "XunyeKernel"
     private const val CHROMIUM_PREFS_NAME = "WebViewChromiumPrefs"
 
     /** Human-readable where plat_support came from after [initializeAll]. */
@@ -63,7 +63,7 @@ object BrowsesthBromiumBootstrap {
         AwBrowserProcess.finishBrowserProcessStart()
 
         Bromium.clearTemporaryDownloads()
-        Log.i(TAG, "BrowsesthBromiumBootstrap.initializeAll finished (plat=$platSupportSource)")
+        Log.i(TAG, "XunyeBromiumBootstrap.initializeAll finished (plat=$platSupportSource)")
     }
 
     private fun loadNativeLibraries() {

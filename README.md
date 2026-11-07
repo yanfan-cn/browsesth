@@ -1,16 +1,35 @@
-# Browsesth（巡页）
+# 巡页Xunye
 
-巡页是一款本地优先的 Android 内置浏览器阅读器：用应用内捆绑的 Chromium 打开网页；一键进入净读，阅读去噪后的正文、图文或漫画；嗅探到视频时用净视做原生播放。书签、历史、下载与阅读列表留在本机，可选 WebDAV 备份。它不是书源聚合器，也不以搜源、选源为主入口。
+巡页是一款本地优先的 Android 内置浏览器阅读器：用应用内捆绑的 Chromium 打开网页；一键进入净读，阅读去噪后的正文、图文或漫画；嗅探到视频时用净视做原生播放。书签、历史、下载与阅读列表留在本机，可选 WebDAV 备份。
 
-- **展示名**：巡页
-- **仓库**：https://github.com/yanfan-cn/browsesth
-- **包名**：`com.browsesth.app`
+- **展示名**：巡页Xunye
+- **仓库**：https://github.com/yanfan-cn/xunye
+- **包名**：`com.xunye.app`
 - **ABI**：仅 arm64-v8a
 - **系统要求（默认 Aloha 包）**：**Android 10+**（API 29）。Aloha Core / 现行 Chromium 150 系按上游以 Android 10 为最低支持；低于 10 请勿按默认内核预期。
-- **代码底座**：Legado with MD3（`upstream/legado-with-MD3`）
-- **版本**：以 `upstream/legado-with-MD3/app/version.properties` 为准（当前为 **2.2.x-beta** 线）
+- **版本**：以 `upstream/legado-with-MD3/app/version.properties` 为准（当前为 **2.5.x-beta** 线；Release 另见 `version-release.properties`）
 
 底栏三个主入口：**浏览器**、**阅读列表**、**我的**。
+
+## 实机截图
+
+### 平板电脑
+
+| 横屏浅色 | 横屏深色 |
+| --- | --- |
+| ![横屏浅色模式](docs/readme-shots/tablet/landscape-light.jpg) | ![横屏深色模式](docs/readme-shots/tablet/landscape-dark.jpg) |
+
+| 净读横屏双栏 | 阅读列表 |
+| --- | --- |
+| ![净读横屏双栏](docs/readme-shots/tablet/jingdu-landscape-dual.jpg) | ![阅读列表](docs/readme-shots/tablet/reading-list.jpg) |
+
+| 工具箱 | 听书播放器 | 设置页 |
+| --- | --- | --- |
+| ![工具箱](docs/readme-shots/tablet/toolbox.jpg) | ![听书播放器](docs/readme-shots/tablet/tts-player.jpg) | ![设置页](docs/readme-shots/tablet/settings.jpg) |
+
+### 手机
+
+（待补）
 
 ## 技术底座
 

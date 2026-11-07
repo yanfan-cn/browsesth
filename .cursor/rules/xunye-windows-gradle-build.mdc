@@ -3,13 +3,15 @@ description: 本机 Windows 构建 App 硬约束（KSP 跨盘符 / GRADLE_USER_H
 alwaysApply: true
 ---
 
-# Browsesth 本机构建（禁止重蹈覆辙）
+# 巡页Xunye 本机构建（禁止重蹈覆辙）
 
-工程在 **`D:\cursor\browsesth`**。默认 Gradle 缓存在 **`C:\Users\…\.gradle`**。
+产品身份一律 **Xunye**：`applicationId=com.xunye.app`，展示名「巡页Xunye」，仓库 `yanfan-cn/xunye`。**禁止**再按 Browsesth / `com.browsesth.app` 构建或安装新包。
+
+工程本地目录当前可为 **`D:\cursor\browsesth`**（仅磁盘路径；与产品名无关）。默认 Gradle 缓存在 **`C:\Users\…\.gradle`**。
 
 ## 必做
 
-本机凡跑 `assemble*`、`:app:test*`、任何会触发 `kspAppDebugKotlin` 的任务，**必须先**：
+本机凡跑 `assemble*`、`:app:test*`、任何会触发 `ksp*DebugKotlin` 的任务，**必须先**：
 
 ```powershell
 $env:GRADLE_USER_HOME = "D:\cursor\.gradle-home"
@@ -21,6 +23,7 @@ $env:GRADLE_USER_HOME = "D:\cursor\.gradle-home"
 
 - 未设同盘 `GRADLE_USER_HOME` 就反复构建，硬撞 KSP：`different roots`（C: 缓存 vs D: 工程）
 - 看到长时间无输出就误判「卡死」后空转重试：若 D: 家目录几乎空，那是在**重下依赖**，应先拷缓存再构建
+- 使用旧包名 `com.browsesth.app`、旧仓库名 browsesth、或把新包安装成 Browsesth
 
 ## 若 D: 家目录偏空 / 构建极慢
 
@@ -40,6 +43,6 @@ robocopy "C:\Users\32082\.gradle\caches" "D:\cursor\.gradle-home\caches" /E /J /
   3. release 曾因 R8/资源压缩引入三类静默 bug（SPEC-148~153）：GSON DTO 字段失配、按名反射 `AwSettings` 失效、资源压缩删 Bromium 按名运行时资源。SPEC-153 已修（`isShrinkResources=false` + 直调 + proguard 兜底），**新增浏览器内核相关代码时勿再引入按名反射**
   4. **SPEC-154（待实施，操作者 2026-10-21 要求先记住）**：1.5.7 长按仍闪退；根因是 R8 把 `gen.base_module.R$string` 幽灵 ID（如 `actionbar_textselection_title=0x7f110029`）内联进 `AwActionModeCallback`，`BromiumResources` 反射重映射失效。下次打 release 前在 `proguard-rules.pro` 加：`-keep class gen.base_module.R` / `R$* { public static <fields>; }`、`org.chromium.**.R` / `R$*`、`com.alohamobile.bromium.BromiumResources`（详见 `specs/features/SPEC-154.md`）
   5. release 产物路径/资源名会被 AAPT2 折叠混淆（`res/09.xml` 等），用「res 条目数=1567」对 debug 基线做资源完整性检查
-- **Release 产物只留一个签名包（操作者 2026-10-20 指定）**：assemble 后 apksigner（debug.keystore）直接签出/覆盖 `巡页X.Y.Z-beta.apk`，并删除 `app-app-release-unsigned.apk` 与 `.idsig`；不保留未签名副本，不产 `-signed` 双份
-- adb 安装前先 `adb devices`；无设备则 `adb kill-server` 后再查
+- **Release 产物只留一个签名包（操作者 2026-10-20 指定）**：assemble 后 apksigner（debug.keystore）直接签出/覆盖 `巡页X.Y.Z-beta.apk`，并删除 unsigned 与 `.idsig`；不保留未签名副本，不产 `-signed` 双份
+- adb 安装前先 `adb devices`；无设备则 `adb kill-server` 后再查；安装目标包为 **`com.xunye.app`**
 - 教训摘要亦见 `docs/会话状态交接.md` §0.6

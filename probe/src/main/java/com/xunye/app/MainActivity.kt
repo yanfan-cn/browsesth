@@ -1,4 +1,4 @@
-package com.browsesth.app
+package com.xunye.app
 
 import android.os.Bundle
 import android.os.Handler
@@ -13,7 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import org.chromium.android_webview.AwContents
 
 /**
- * Browsesth home = Aloha browser (Slice M/B: homepage is browser). No system WebView.
+ * Xunye home = Aloha browser (Slice M/B: homepage is browser). No system WebView.
  */
 class MainActivity : AppCompatActivity() {
     private lateinit var status: TextView
@@ -60,7 +60,7 @@ class MainActivity : AppCompatActivity() {
             },
         )
 
-        if (!BrowsesthApp.initOk) {
+        if (!XunyeApp.initOk) {
             refreshStatus("Aloha 初始化失败")
             return
         }
@@ -138,8 +138,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshStatus(extra: String? = null) {
         status.text = buildString {
-            append("Browsesth 浏览器")
-            if (BrowsesthApp.initOk) append(" · Aloha OK") else append(" · Aloha 失败")
+            append("Xunye 浏览器")
+            if (XunyeApp.initOk) append(" · Aloha OK") else append(" · Aloha 失败")
             append(" · ")
             append(client.lastTitle.ifBlank { client.lastUrl.ifBlank { "—" } })
             if (attachError != null) append(" · 错误:$attachError")
@@ -153,7 +153,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val TAG = "BrowsesthMain"
+        private const val TAG = "XunyeMain"
         private const val DEFAULT_URL = "https://example.com/"
     }
 }

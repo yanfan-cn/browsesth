@@ -5,8 +5,8 @@
     <string name="email" translatable="false">gekunfei@live.com</string>
 
     <!-- SPEC-115: public product repo + Feipan update share -->
-    <string name="contributors_url" translatable="false">https://github.com/yanfan-cn/browsesth</string>
-    <string name="github_url" translatable="false">https://github.com/yanfan-cn/browsesth</string>
+    <string name="contributors_url" translatable="false">https://github.com/yanfan-cn/xunye</string>
+    <string name="github_url" translatable="false">https://github.com/yanfan-cn/xunye</string>
     <string name="software_update_url" translatable="false">https://share.feijipan.com/u/xcUCqQCUN</string>
     <string name="legado_url" translatable="false">https://gedoor.github.io/</string>
     <string name="http_ip" translatable="false">http://%1$s:%2$d</string>

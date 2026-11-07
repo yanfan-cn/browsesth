@@ -134,7 +134,7 @@ class BackstageWebView(
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     private fun createWebView(): WebView {
-        // Browsesth 方案 A：禁止后台系统 WebView，避免与 Aloha 双核冲突。
+        // Xunye 方案 A：禁止后台系统 WebView，避免与 Aloha 双核冲突。
         throw NoStackTraceException("后台 WebView 已禁用（请使用主浏览器 Aloha）")
     }
 

@@ -1,4 +1,4 @@
-﻿package io.legado.app.ui.main
+package io.legado.app.ui.main
 
 import android.app.Activity
 import android.content.Intent
@@ -1279,7 +1279,7 @@ fun MainActivity.mainEntryProvider(
         LaunchedEffect(viewModel) {
             viewModel.effects.collectLatest { effect ->
                 when (effect) {
-                    // SPEC-124/221: open in active Browsesth tab, go Home route, switch pager to 浏览器.
+                    // SPEC-124/221: open in active Xunye tab, go Home route, switch pager to 浏览器.
                     is AboutEffect.OpenUrl -> {
                         io.legado.app.browser.engine.BrowserTabManager.openUrlInActive(effect.url)
                         io.legado.app.ui.main.MainShortcutBus.offer(

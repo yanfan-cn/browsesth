@@ -12,7 +12,7 @@ import org.chromium.components.adblock.FilteringConfiguration
  * GPU disable is a separate pref and stays off unless explicitly enabled.
  */
 object BrowserKernelCompat {
-    private const val TAG = "BrowsesthKernel"
+    private const val TAG = "XunyeKernel"
     const val PREFS = "browsesth_kernel_compat"
     const val KEY_SERP_COMPAT = "serp_compat_v1"
     const val KEY_DISABLE_GPU = "disable_gpu"

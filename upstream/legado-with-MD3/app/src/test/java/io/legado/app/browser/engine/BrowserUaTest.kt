@@ -29,7 +29,8 @@ class BrowserUaTest {
         assertTrue(BrowserUa.MOBILE.contains("Chrome/${BrowserUa.CHROME_FULL}"))
         assertTrue(BrowserUa.DESKTOP.contains("Chrome/${BrowserUa.CHROME_FULL}"))
         assertFalse(BrowserUa.MOBILE.contains("Aloha", ignoreCase = true))
-        assertFalse(BrowserUa.MOBILE.contains("Browsesth", ignoreCase = true))
+        assertFalse(BrowserUa.MOBILE.contains("Xunye", ignoreCase = true))
+        assertFalse(BrowserUa.MOBILE.contains("browsesth", ignoreCase = true))
         assertFalse(BrowserUa.MOBILE.contains("150.0.0.0"))
     }
 
