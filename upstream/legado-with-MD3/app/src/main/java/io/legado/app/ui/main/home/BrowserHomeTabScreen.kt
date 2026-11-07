@@ -18,6 +18,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -28,12 +31,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.legado.app.browser.engine.BrowserChromePrefs
@@ -57,6 +63,8 @@ import io.legado.app.ui.browser.TabletEmbeddedReaderHost
 import io.legado.app.ui.browser.TabletEmbeddedReaderKind
 import io.legado.app.ui.browser.TabletSidePanel
 import io.legado.app.ui.theme.LegadoTheme
+import io.legado.app.ui.widget.components.icon.SymbolIcon
+import io.legado.app.ui.widget.components.icon.Symbols
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -178,6 +186,12 @@ private fun BrowserHomeTabBody(
 
     var sidePanel by remember { mutableStateOf(TabletSidePanel.None) }
     var chromeVisible by remember { mutableStateOf(true) }
+    // SPEC-242: toolbox fullscreen — reset on tab switch (no cross-tab memory).
+    var browserFullscreen by remember(active?.id) { mutableStateOf(false) }
+    BackHandler(enabled = browserFullscreen) {
+        browserFullscreen = false
+        chromeVisible = true
+    }
     val chromeScope = rememberCoroutineScope()
     var chromeDebounceJob by remember { mutableStateOf<Job?>(null) }
     // SPEC-146 R1: address carries TextFieldValue so focus-gain can select-all.
@@ -354,14 +368,14 @@ private fun BrowserHomeTabBody(
         onReader = { sessionActions?.openReader() },
         onOpenBookshelf = onOpenBookshelf,
         onOpenMy = onOpenMy,
-        // SPEC-208: reader fullscreen hides tab+omnibox chrome.
+        // SPEC-208/242: reader or toolbox fullscreen hides tab+omnibox chrome.
         chromeVisible = when {
-            readerHidesBrowserChrome -> false
+            readerHidesBrowserChrome || browserFullscreen -> false
             else -> chromeVisible || !logicalSessionActive || embeddedKind != null
         },
         // NTP/reader: pin chrome in layout. Web session: overlay for auto-hide (SPEC-130).
         pinChromeInLayout = when {
-            readerHidesBrowserChrome -> false
+            readerHidesBrowserChrome || browserFullscreen -> false
             else -> !logicalSessionActive || embeddedKind != null ||
                 !chromePrefs.autoHideTopBar
         },
@@ -374,6 +388,11 @@ private fun BrowserHomeTabBody(
         onOpenClearBrowsingData = onOpenClearBrowsingData,
         onOpenDownloads = onOpenDownloads,
         sessionActions = sessionActions,
+        onEnterChromeFullscreen = {
+            browserFullscreen = true
+            chromeVisible = false
+            sidePanel = TabletSidePanel.None
+        },
     ) {
         Box(Modifier.fillMaxSize()) {
         BrowserNtpSessionSwitch(
@@ -425,6 +444,7 @@ private fun BrowserHomeTabBody(
                     tabletEmbedded = true,
                     onBindActions = { sessionActions = it },
                     onScrollDirection = { dir ->
+                        if (browserFullscreen) return@BrowserSessionScreen
                         if (embeddedKind != null) {
                             chromeDebounceJob?.cancel()
                             chromeVisible = true
@@ -435,19 +455,46 @@ private fun BrowserHomeTabBody(
                             chromeVisible = true
                             return@BrowserSessionScreen
                         }
-                        // SPEC-130: debounce show/hide to avoid thrash + stutter on scroll-up.
+                        // SPEC-242: show chrome immediately on scroll-up; short debounce only on hide.
                         val wantVisible = dir != "down"
                         if (wantVisible == chromeVisible) return@BrowserSessionScreen
                         chromeDebounceJob?.cancel()
-                        chromeDebounceJob = chromeScope.launch {
-                            delay(if (wantVisible) 48L else 100L)
-                            chromeVisible = wantVisible
+                        if (wantVisible) {
+                            chromeVisible = true
+                        } else {
+                            chromeDebounceJob = chromeScope.launch {
+                                delay(100L)
+                                chromeVisible = false
+                            }
                         }
                     },
                 )
                 }
             },
         )
+        if (browserFullscreen && logicalSessionActive && embeddedKind == null) {
+            val scheme = LegadoTheme.colorScheme
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 54.dp)
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(scheme.surface.copy(alpha = 0.82f))
+                    .clickable {
+                        browserFullscreen = false
+                        chromeVisible = true
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                SymbolIcon(
+                    Symbols.CloseFullscreen,
+                    contentDescription = "退出全屏",
+                    tint = scheme.onSurface.copy(alpha = 0.92f),
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+        }
         val overlayUrl = embeddedReaderUrl
         if (embeddedKind != null && !overlayUrl.isNullOrBlank()) {
             // Key by tab+url so switching tabs remounts the correct reader (SPEC-208).

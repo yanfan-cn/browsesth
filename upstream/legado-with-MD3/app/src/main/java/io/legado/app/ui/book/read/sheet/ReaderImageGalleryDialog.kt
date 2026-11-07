@@ -2,38 +2,40 @@ package io.legado.app.ui.book.read.sheet
 
 import android.content.Intent
 import android.graphics.Bitmap
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.IconButton
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
@@ -44,6 +46,7 @@ import io.legado.app.constant.AppConst
 import io.legado.app.help.book.BookHelp
 import io.legado.app.model.ImageProvider
 import io.legado.app.model.ReadBook
+import io.legado.app.ui.widget.components.icon.MaterialSymbol
 import io.legado.app.ui.widget.components.icon.SymbolIcon
 import io.legado.app.ui.widget.components.icon.Symbols
 import io.legado.app.utils.ImageSaveUtils.saveImageToGallery
@@ -56,10 +59,9 @@ import java.io.File
 import java.io.FileOutputStream
 
 /**
- * SPEC-057: fullscreen image gallery — swipe pages, drag down / X to dismiss,
- * long-press to share or save.
+ * SPEC-057/240: fullscreen image gallery — swipe pages, drag down / X to dismiss.
+ * SPEC-240: share/save as top-end actions (no long-press menu); bottom-center page index.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ReaderImageGalleryDialog(
     show: Boolean,
@@ -74,7 +76,6 @@ fun ReaderImageGalleryDialog(
     val startIndex = initialIndex.coerceIn(0, images.lastIndex)
     val pagerState = rememberPagerState(initialPage = startIndex, pageCount = { images.size })
     var dragOffset by remember { mutableFloatStateOf(0f) }
-    var menuExpanded by remember { mutableStateOf(false) }
 
     Dialog(
         onDismissRequest = onDismissRequest,
@@ -115,12 +116,7 @@ fun ReaderImageGalleryDialog(
             ) { page ->
                 val src = images[page]
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .combinedClickable(
-                            onClick = {},
-                            onLongClick = { menuExpanded = true },
-                        ),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     val model = remember(src, sourceOrigin) {
@@ -130,11 +126,6 @@ fun ReaderImageGalleryDialog(
                             else -> ImageRequest.Builder(context)
                                 .data(src)
                                 .crossfade(true)
-                                .apply {
-                                    sourceOrigin?.let {
-                                        // Coil3 path may ignore Glide options; URL still loads.
-                                    }
-                                }
                                 .build()
                         }
                     }
@@ -147,50 +138,74 @@ fun ReaderImageGalleryDialog(
                 }
             }
 
-            IconButton(
-                onClick = onDismissRequest,
+            // SPEC-244: 分享 | 保存 | 关闭 — 44dp 圆钮、图标 20dp、间距 4dp。
+            Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
-                    .padding(8.dp)
-                    .size(40.dp)
-                    .background(Color.Black.copy(alpha = 0.45f), CircleShape),
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                SymbolIcon(
-                    Symbols.Close,
+                GalleryChromeIconButton(
+                    icon = Symbols.Share,
+                    contentDescription = stringResource(R.string.share),
+                    onClick = {
+                        val src = images.getOrNull(pagerState.currentPage) ?: return@GalleryChromeIconButton
+                        scope.launch { shareImage(context, src, sourceOrigin) }
+                    },
+                )
+                GalleryChromeIconButton(
+                    icon = Symbols.Save,
+                    contentDescription = stringResource(R.string.save_image),
+                    onClick = {
+                        val src = images.getOrNull(pagerState.currentPage) ?: return@GalleryChromeIconButton
+                        scope.launch { saveImage(context, src, sourceOrigin) }
+                    },
+                )
+                GalleryChromeIconButton(
+                    icon = Symbols.Close,
                     contentDescription = stringResource(R.string.close),
-                    tint = Color.White,
+                    onClick = onDismissRequest,
                 )
             }
 
-            if (menuExpanded) {
-                AlertDialog(
-                    onDismissRequest = { menuExpanded = false },
-                    title = { Text(stringResource(R.string.menu)) },
-                    text = {
-                        Text(stringResource(R.string.share) + " / " + stringResource(R.string.save_image))
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                menuExpanded = false
-                                val src = images.getOrNull(pagerState.currentPage) ?: return@TextButton
-                                scope.launch { shareImage(context, src, sourceOrigin) }
-                            },
-                        ) { Text(stringResource(R.string.share)) }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            onClick = {
-                                menuExpanded = false
-                                val src = images.getOrNull(pagerState.currentPage) ?: return@TextButton
-                                scope.launch { saveImage(context, src, sourceOrigin) }
-                            },
-                        ) { Text(stringResource(R.string.save_image)) }
-                    },
-                )
-            }
+            Text(
+                text = "${pagerState.currentPage + 1}/${images.size}",
+                color = Color.White,
+                fontSize = 14.sp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 16.dp)
+                    .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            )
         }
+    }
+}
+
+@Composable
+private fun GalleryChromeIconButton(
+    icon: MaterialSymbol,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    // SPEC-244: fixed 44dp visual (avoid M3 IconButton default ~48 slot).
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.45f))
+            .clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        SymbolIcon(
+            icon,
+            contentDescription = contentDescription,
+            tint = Color.White,
+            size = 20.dp,
+        )
     }
 }
 

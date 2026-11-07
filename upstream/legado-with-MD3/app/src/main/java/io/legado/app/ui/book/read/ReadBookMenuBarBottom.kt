@@ -288,6 +288,8 @@ private fun BottomBarGlassIconButton(
         menuConfig = menuConfig,
         glassEnabled = glassEnabled,
         contentDescription = contentDescription,
+        // SPEC-240: 底栏内玻璃键与功能键同档。
+        glassRole = ReadMenuGlassRole.BottomButton,
     )
 }
 
@@ -369,6 +371,7 @@ internal fun BrightnessBar(
                 glassEnabled = buttonGlassEnabled,
                 selected = brightnessAuto,
                 contentDescription = stringResource(R.string.brightness_follow_system),
+                glassRole = ReadMenuGlassRole.BottomButton,
             )
             AppVerticalSlider(
                 value = sliderValue.coerceIn(0f, 100f),
@@ -393,6 +396,7 @@ internal fun BrightnessBar(
                 menuConfig = menuConfig,
                 glassEnabled = buttonGlassEnabled,
                 contentDescription = stringResource(R.string.brightness_bar_position),
+                glassRole = ReadMenuGlassRole.BottomButton,
             )
         }
     } else {
@@ -413,6 +417,7 @@ internal fun BrightnessBar(
                 glassEnabled = buttonGlassEnabled,
                 selected = brightnessAuto,
                 contentDescription = stringResource(R.string.brightness_follow_system),
+                glassRole = ReadMenuGlassRole.BottomButton,
             )
             ReadMenuSlider(
                 value = sliderValue.coerceIn(0f, 100f),

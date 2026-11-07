@@ -40,10 +40,8 @@ object BrowserUa {
     }
 
     /**
-     * SPEC-221: 腾讯新闻系在手机 UA 下常不出可播媒体 / CDN 拒移动 UA。
-     * 对这些 host 浏览与播放都抬升到桌面 UA。
-     * SPEC-232: 恢复本函数——SPEC-224 删除后平板/手机 UA 大量站点嗅探不到视频；
-     * SPEC-226/227 的黑名单、分级与占位成果保持不变。
+     * SPEC-232/242: 仅供**播放端**抬升桌面 UA（CDN 拒移动 UA）。
+     * SPEC-242: 手机**浏览**导航不再因本判定抬桌面 UA（腾讯新闻等出手机版布局）。
      */
     fun needsDesktopForVideo(urlOrHost: String): Boolean {
         val host = runCatching {

@@ -91,6 +91,8 @@ object BrowserTabManager {
         val wasHome = _tabs.value.firstOrNull { it.id == id }?.showHome == true
         if (wasHome) {
             BrowserSessionHolder.destroyKey(id)
+            // SPEC-242: first pageFinished after NTP exit clears WebView history.
+            BrowserSessionHolder.clearHistoryAfterNtpExit = true
         }
         val label = omniboxLabel?.trim()?.takeIf { it.isNotEmpty() }
             ?: BrowserOmniboxLabel.fromSearchUrl(url)

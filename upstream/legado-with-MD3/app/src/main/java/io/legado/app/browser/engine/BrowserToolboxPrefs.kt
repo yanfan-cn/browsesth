@@ -42,6 +42,8 @@ class BrowserToolboxPrefs(context: Context) {
             "eye_protection",
             "text_zoom",
             "find_in_page",
+            // SPEC-242: hide browser chrome; restore via CloseFullscreen FAB.
+            "fullscreen",
         )
     }
 }

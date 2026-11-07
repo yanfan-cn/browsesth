@@ -125,6 +125,8 @@ fun TabletBrowserShell(
     onOpenClearBrowsingData: () -> Unit = {},
     onOpenDownloads: () -> Unit = {},
     sessionActions: BrowserSessionActions? = null,
+    /** SPEC-242: toolbox「全屏」— hide shell chrome. */
+    onEnterChromeFullscreen: () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     val scheme = LegadoTheme.colorScheme
@@ -363,6 +365,7 @@ fun TabletBrowserShell(
                 onOpenEyeProtectionSettings = { showEyeConfigSheet = true },
                 textZoomPercent = textZoomPercent,
                 onOpenTextZoom = { showTextZoomSheet = true },
+                onEnterChromeFullscreen = onEnterChromeFullscreen,
             )
             // SPEC-111: slide only (no fade) for history/bookmarks/downloads side drawers.
             androidx.compose.animation.AnimatedVisibility(
@@ -448,12 +451,11 @@ fun TabletBrowserShell(
                 .fillMaxWidth()
                 .statusBarsPadding(),
         ) {
+            // SPEC-242: shorter slide-only enter (fade+AV remount felt janky on scroll-up).
             AnimatedVisibility(
                 visible = showBrowserChrome,
-                enter = slideInVertically(animationSpec = tween(200)) { -it } +
-                    fadeIn(animationSpec = tween(180)),
-                exit = slideOutVertically(animationSpec = tween(160)) { -it } +
-                    fadeOut(animationSpec = tween(140)),
+                enter = slideInVertically(animationSpec = tween(120)) { -it },
+                exit = slideOutVertically(animationSpec = tween(140)) { -it },
             ) {
                 // SPEC-200 R2: 栏边界=标签条+功能栏整块，长按菜单整体置于顶栏下 4dp。
                 // SPEC-214 A: 液态玻璃时仅标签条实色带。
@@ -722,6 +724,7 @@ private fun TabletToolboxFloatingCard(
     onOpenEyeProtectionSettings: () -> Unit,
     textZoomPercent: Int,
     onOpenTextZoom: () -> Unit,
+    onEnterChromeFullscreen: () -> Unit = {},
 ) {
     val scheme = LegadoTheme.colorScheme
     val context = LocalContext.current
@@ -852,6 +855,10 @@ private fun TabletToolboxFloatingCard(
                             onSidePanelChange(TabletSidePanel.None)
                             sessionActions?.openVideoCapsule()
                                 ?: context.toastOnUi("请先打开网页")
+                        },
+                        onEnterFullscreen = {
+                            onSidePanelChange(TabletSidePanel.None)
+                            onEnterChromeFullscreen()
                         },
                     ),
                     onDismiss = { onSidePanelChange(TabletSidePanel.None) },

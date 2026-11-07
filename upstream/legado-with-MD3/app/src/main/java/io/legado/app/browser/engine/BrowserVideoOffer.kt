@@ -198,6 +198,10 @@ object BrowserVideoOfferBus {
     internal fun classifyPlayableUrl(url: String, pageUrl: String = ""): VideoSniff? {
         val trimmed = url.trim()
         val u = trimmed.lowercase()
+        // SPEC-241: local playlist rebuilt from Tencent .ts segments.
+        if (u.startsWith("file:") && (u.contains(".m3u8") || u.endsWith("m3u8"))) {
+            return VideoSniff(trimmed, isHls = true, rank = 78, dedupeKey = normalizeVideoKey(trimmed))
+        }
         if (!u.startsWith("http://") && !u.startsWith("https://")) return null
         if (isRejectedMediaUrl(u)) return null
         val path = u.substringBefore('#').substringBefore('?')
@@ -218,6 +222,7 @@ object BrowserVideoOfferBus {
             itag != null && itag in PROGRESSIVE_ITAGS -> 80
             // SPEC-226: 腾讯 f307110 > f306110 > f304110 → 默认高清。
             tencentFmt != null -> 70 + (tencentFmt / 1000).coerceIn(0, 99)
+            // SPEC-241: prefer local file playlist slightly above remote inferred HLS.
             isHls -> 70
             isDash -> 60
             isFile -> 50
@@ -251,6 +256,10 @@ object BrowserVideoOfferBus {
     private val PROGRESSIVE_ITAGS = setOf("18", "22", "37", "38", "59", "78")
 
     private val TENCENT_FMT_REGEX = Regex("""\.f(\d{5,6})\.(?:ts\.)?m3u8""")
+
+    /** SPEC-241: `07_szg_….f306310.1.ts` or `szg_….f306310.1.ts`. Group1 = stem before `.1.ts`. */
+    private val TENCENT_SEGMENT_FILE_REGEX =
+        Regex("""^(?:\d+_)?(.+\.f\d{5,6})\.1\.ts$""", RegexOption.IGNORE_CASE)
 
     private fun isRejectedMediaUrl(url: String): Boolean {
         val u = url.lowercase()
@@ -300,7 +309,29 @@ object BrowserVideoOfferBus {
             u.contains(".mkv") ||
             u.contains("m3u8") ||
             u.contains("/video") ||
-            u.contains("mime=video")
+            u.contains("mime=video") ||
+            // SPEC-241: Tencent HLS segments (used to infer playlist).
+            TENCENT_SEGMENT_FILE_REGEX.containsMatchIn(u.substringBefore('#').substringBefore('?'))
+    }
+
+    /**
+     * SPEC-241: 腾讯系 HLS 常经 P2P/SDK 拉流，`shouldInterceptRequest` 看不到 `.m3u8`，
+     * 只能看到 `07_….f306310.1.ts` 分片。从分片反推远程播放列表（次选；优先本地 m3u8）：
+     * `07_szg_….0b53….f306310.1.ts` → `0b53….f306310.ts.m3u8`（对齐 bosskv keyID）。
+     */
+    fun inferTencentPlaylistFromSegment(segmentUrl: String): String? {
+        val trimmed = segmentUrl.trim()
+        if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) return null
+        val withoutFrag = trimmed.substringBefore('#')
+        val afterScheme = withoutFrag.substringAfter("://")
+        val authorityAndPath = afterScheme.substringBefore('?')
+        val file = authorityAndPath.substringAfterLast('/')
+        val match = TENCENT_SEGMENT_FILE_REGEX.matchEntire(file) ?: return null
+        val stem = match.groupValues[1] // may include szg_6172_50001_ prefix
+        val videoKey = TencentHlsLocalPlaylist.videoKeyFromStem(stem) ?: return null
+        val dir = authorityAndPath.substringBeforeLast('/')
+        val scheme = withoutFrag.substringBefore("://")
+        return "$scheme://$dir/$videoKey.ts.m3u8"
     }
 
     fun parseHeaders(raw: String?): Map<String, String> {

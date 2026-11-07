@@ -65,9 +65,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import com.devbrackets.android.exomedia.core.state.PlaybackState
+import com.devbrackets.android.exomedia.core.state.PlaybackStateListener
+import com.devbrackets.android.exomedia.core.renderer.RendererType
+import com.devbrackets.android.exomedia.listener.OnBufferUpdateListener
 import com.devbrackets.android.exomedia.listener.OnErrorListener
 import com.devbrackets.android.exomedia.listener.OnPreparedListener
-import com.devbrackets.android.exomedia.core.renderer.RendererType
 import com.devbrackets.android.exomedia.ui.widget.VideoView
 import androidx.compose.runtime.key
 import io.legado.app.browser.engine.BrowserDlnaCast
@@ -162,6 +166,16 @@ fun BrowserVideoPlayerScreen(
     var desktopUaRetry by remember(currentOffer.url) { mutableStateOf(false) }
     var pendingResumeMs by remember { mutableLongStateOf(0L) }
     var pendingAutoStart by remember { mutableStateOf(true) }
+    // SPEC-241: center loading until prepared / while re-buffering.
+    var mediaLoading by remember(currentOffer.url, playerEpoch, desktopUaRetry) {
+        mutableStateOf(true)
+    }
+    var bufferPercent by remember(currentOffer.url, playerEpoch, desktopUaRetry) {
+        mutableIntStateOf(0)
+    }
+    var bitrateEstimateBps by remember(currentOffer.url, playerEpoch, desktopUaRetry) {
+        mutableLongStateOf(0L)
+    }
     var activeDownloadId by remember { mutableStateOf<String?>(null) }
     val downloads by BrowserDownloadRepository.get(context).items.collectAsState()
     val activeDownload = downloads.firstOrNull { it.id == activeDownloadId }
@@ -374,7 +388,34 @@ fun BrowserVideoPlayerScreen(
                         vv.releaseOnDetachFromWindow = false
                         vv.handleAudioFocus = true
                         vv.videoControls = null
+                        mediaLoading = true
+                        bufferPercent = 0
+                        bitrateEstimateBps = 0L
+                        vv.setOnBufferUpdateListener(object : OnBufferUpdateListener {
+                            override fun onBufferingUpdate(percent: Int) {
+                                bufferPercent = percent.coerceIn(0, 100)
+                            }
+                        })
+                        vv.setPlaybackStateListener(object : PlaybackStateListener {
+                            override fun onPlaybackStateChange(state: PlaybackState) {
+                                mediaLoading = state == PlaybackState.PREPARING ||
+                                    state == PlaybackState.BUFFERING
+                            }
+                        })
+                        vv.setAnalyticsListener(object : AnalyticsListener {
+                            override fun onBandwidthEstimate(
+                                eventTime: AnalyticsListener.EventTime,
+                                totalLoadTimeMs: Int,
+                                totalBytesLoaded: Long,
+                                bitrateEstimate: Long,
+                            ) {
+                                if (bitrateEstimate > 0L) {
+                                    bitrateEstimateBps = bitrateEstimate
+                                }
+                            }
+                        })
                         vv.setOnPreparedListener(OnPreparedListener {
+                            mediaLoading = false
                             val resumeAt = pendingResumeMs
                             if (resumeAt > 0L) {
                                 vv.seekTo(resumeAt)
@@ -397,6 +438,7 @@ fun BrowserVideoPlayerScreen(
                         })
                         vv.setOnErrorListener(object : OnErrorListener {
                             override fun onError(e: Exception?): Boolean {
+                                mediaLoading = false
                                 // SPEC-225: capture CDN body before UA retry / final fail UI.
                                 BrowserVideoMedia.peekLastBuildFailure(
                                     e?.message ?: e?.javaClass?.simpleName,
@@ -419,6 +461,7 @@ fun BrowserVideoPlayerScreen(
                                 ),
                             )
                         }.onFailure { err ->
+                            mediaLoading = false
                             BrowserVideoMedia.peekLastBuildFailure(err.message)
                             if (!desktopUaRetry) {
                                 desktopUaRetry = true
@@ -432,6 +475,29 @@ fun BrowserVideoPlayerScreen(
                 },
                 update = {},
             )
+        }
+
+        // SPEC-241: center loading indicator with buffer % / bandwidth when available.
+        if (mediaLoading && errorText == null && !inPipMode) {
+            Column(
+                modifier = Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                AppCircularProgressIndicator(
+                    modifier = Modifier.size(48.dp),
+                    progress = bufferPercent.takeIf { it > 0 }?.div(100f),
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                val speedLabel = formatBandwidthLabel(bitrateEstimateBps)
+                val status = buildString {
+                    append(if (bufferPercent > 0) "缓冲 $bufferPercent%" else "加载中")
+                    if (speedLabel != null) {
+                        append(" · ")
+                        append(speedLabel)
+                    }
+                }
+                Text(status, color = Color.White, fontSize = 14.sp)
+            }
         }
 
         if (!inPipMode) {
@@ -1185,6 +1251,17 @@ private fun formatTime(ms: Long): String {
 }
 
 private const val SEEK_GESTURE_MS = 15_000L
+
+/** SPEC-241: ExoPlayer bandwidth estimate (bits/s) → human label. */
+private fun formatBandwidthLabel(bitrateEstimateBps: Long): String? {
+    if (bitrateEstimateBps <= 0L) return null
+    val kbps = bitrateEstimateBps / 1000.0
+    return if (kbps >= 1000.0) {
+        "%.1f Mbps".format(kbps / 1000.0)
+    } else {
+        "%.0f Kbps".format(kbps)
+    }
+}
 
 /** SPEC-145 R3: 分辨率档位（height 为显示值，group/track 定位 ExoPlayer 轨道）。 */
 data class VideoQualityOption(val height: Int, val groupIndex: Int, val trackIndex: Int)

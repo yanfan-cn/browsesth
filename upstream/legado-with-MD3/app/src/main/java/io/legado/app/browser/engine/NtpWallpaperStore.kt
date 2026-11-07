@@ -9,7 +9,7 @@ import android.net.Uri
 import java.io.File
 import java.util.UUID
 
-/** SPEC-158: built-in homepage backgrounds and locally imported photos. */
+/** SPEC-158/239: built-in homepage backgrounds and locally imported photos. */
 object NtpWallpaperIds {
     const val GRAD_BLUE = "grad_blue"
     const val GRAD_GREEN = "grad_green"
@@ -17,22 +17,33 @@ object NtpWallpaperIds {
     const val MORNING = "morning"
     const val MIST = "mist"
     const val LINEN = "linen"
+    /** SPEC-239: dark tech / cyberpunk presets. */
+    const val CYBER = "cyber"
+    const val NEON = "neon"
     /** SPEC-223: default preset wallpaper for new installs. */
     const val DEFAULT = MIST
 
-    val builtins = listOf(GRAD_BLUE, GRAD_GREEN, GRAD_PINK, MORNING, MIST, LINEN)
+    val builtins = listOf(
+        GRAD_BLUE, GRAD_GREEN, GRAD_PINK, MORNING, MIST, LINEN, CYBER, NEON,
+    )
 
     fun isBuiltin(id: String) = id in builtins
 
     fun isGradient(id: String) = id == GRAD_BLUE || id == GRAD_GREEN || id == GRAD_PINK
 
+    /** SPEC-239: dark image presets need light logo / shortcut labels. */
+    fun isDarkPreset(id: String) = id == CYBER || id == NEON
+
     fun label(id: String) = when (id) {
-        GRAD_BLUE -> "浅蓝"
-        GRAD_GREEN -> "浅绿"
-        GRAD_PINK -> "浅粉"
+        // SPEC-239: rename only — still vertical gradients.
+        GRAD_BLUE -> "蓝天"
+        GRAD_GREEN -> "绿茵"
+        GRAD_PINK -> "落樱"
         MORNING -> "晨纸"
         MIST -> "薄雾"
         LINEN -> "窗纱"
+        CYBER -> "赛博"
+        NEON -> "霓虹"
         else -> "相册"
     }
 }

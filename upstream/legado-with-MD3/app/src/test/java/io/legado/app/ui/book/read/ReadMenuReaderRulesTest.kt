@@ -11,9 +11,29 @@ class ReadMenuReaderRulesTest {
 
     @Test
     fun ephemeralGlassIsMoreOpaqueAndDragStillFades() {
-        assertEquals(0.85, readMenuLiquidGlassContainerAlpha(85, true).toDouble(), 0.001)
+        // SPEC-167 top bar ~85%; SPEC-240 bottom bar ~55%, bottom buttons ~90%.
+        assertEquals(
+            0.85,
+            readMenuLiquidGlassContainerAlpha(85, true, ReadMenuGlassRole.TopBar).toDouble(),
+            0.001,
+        )
+        assertEquals(
+            0.55,
+            readMenuLiquidGlassContainerAlpha(85, true, ReadMenuGlassRole.BottomBar).toDouble(),
+            0.001,
+        )
+        assertEquals(
+            0.90,
+            readMenuLiquidGlassContainerAlpha(85, true, ReadMenuGlassRole.BottomButton).toDouble(),
+            0.001,
+        )
         assertEquals(0.60, readMenuLiquidGlassContainerAlpha(85, false).toDouble(), 0.001)
         assertEquals(0.30, readMenuLiquidGlassContainerAlpha(30, true).toDouble(), 0.001)
+        assertEquals(
+            0.30,
+            readMenuLiquidGlassContainerAlpha(30, true, ReadMenuGlassRole.BottomBar).toDouble(),
+            0.001,
+        )
         assertEquals(0.60, readMenuLiquidGlassContainerAlpha(100, false).toDouble(), 0.001)
     }
 

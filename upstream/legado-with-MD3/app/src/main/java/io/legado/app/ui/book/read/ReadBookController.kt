@@ -392,8 +392,9 @@ class ReadBookController(
     private var pendingSearchNavigation: ReadBookEffect.NavigateToSearchResult? = null
     private var readAloudPosition: Pair<Int, Int>? = null
     private var composeVisibleBodyTextPositionProvider: (() -> ReaderVisibleTextPosition?)? = null
+    /** SPEC-243: double-tap tracking for compose reader images. */
     private var composeImageClickAt = 0L
-    private var composeImageDoubleClick = false
+    private var composeImageClickSrc: String? = null
     private var directReaderLayoutKey: String? = null
 
     /** 排版环境不含当前章身份；用它区分普通换章和主题/规则引起的整窗重排。 */
@@ -692,16 +693,21 @@ class ReadBookController(
             openJingshiPlayerFromReader()
             return true
         }
-        // SPEC-216: 仅保留双击预览（默认开）；单击普通图不进图库。
+        // SPEC-216/243: 仅双击进图廊；首击必须吞掉，避免翻页抢走第二次点击。
         val now = System.currentTimeMillis()
-        val debounce = now - composeImageClickAt < 300L
-        composeImageClickAt = now
-        composeImageDoubleClick = if (debounce) !composeImageDoubleClick else false
-        if (composeImageDoubleClick) {
+        val timeout = android.view.ViewConfiguration.getDoubleTapTimeout().toLong()
+            .coerceIn(300L, 500L)
+        val sameSrc = composeImageClickSrc == image.source
+        val within = sameSrc && now - composeImageClickAt in 1 until timeout
+        if (within) {
+            composeImageClickAt = 0L
+            composeImageClickSrc = null
             openImageGallery(image.source)
             return true
         }
-        return false
+        composeImageClickAt = now
+        composeImageClickSrc = image.source
+        return true
     }
 
     private fun openJingshiPlayerFromReader() {

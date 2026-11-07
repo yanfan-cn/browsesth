@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.dash.DashMediaSource
 import androidx.media3.exoplayer.hls.HlsMediaSource
@@ -39,12 +40,14 @@ object BrowserVideoMedia {
         lastDiagOffer = offer
         lastDiagUa = playUa
         lastDiagHeaders = headers
-        val factory = DefaultHttpDataSource.Factory()
+        val httpFactory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
             .setUserAgent(playUa)
         if (headers.isNotEmpty()) {
-            factory.setDefaultRequestProperties(headers)
+            httpFactory.setDefaultRequestProperties(headers)
         }
+        // SPEC-241: DefaultDataSource reads file:// local m3u8 and https:// .ts segments.
+        val factory = DefaultDataSource.Factory(context, httpFactory)
         val mediaItem = MediaItem.fromUri(uri)
         val path = uri.path.orEmpty().lowercase()
         val urlLower = offer.url.lowercase()

@@ -30,14 +30,32 @@ internal data class ReadMenuColors(
     val content: Color,
 )
 
+/** SPEC-240: which liquid-glass surface is being painted. */
+internal enum class ReadMenuGlassRole {
+    /** Top bar (and default): SPEC-167 ~85% in 净读. */
+    TopBar,
+    /** Bottom menu panel: SPEC-240 ~55% in 净读 (more transparent). */
+    BottomBar,
+    /** Bottom-bar tool chips: SPEC-240 ~90% in 净读 (more opaque). */
+    BottomButton,
+}
+
 /**
- * SPEC-167: 净读液态玻璃底色约 85%。普通阅读仍压到最多 60%。
+ * SPEC-167/240: 净读液态玻璃不透明度上限按角色区分。
  * 拖动进度传入的更低 alpha 低于上限，所以仍会变淡。
  */
-internal fun readMenuLiquidGlassContainerAlpha(blurAlpha: Int, opaqueReaderBars: Boolean): Float {
+internal fun readMenuLiquidGlassContainerAlpha(
+    blurAlpha: Int,
+    opaqueReaderBars: Boolean,
+    role: ReadMenuGlassRole = ReadMenuGlassRole.TopBar,
+): Float {
     val requested = blurAlpha.coerceIn(0, 100) / 100f
-    val cap = if (opaqueReaderBars) 0.85f else 0.6f
-    return requested.coerceAtMost(cap)
+    if (!opaqueReaderBars) return requested.coerceAtMost(0.6f)
+    return when (role) {
+        ReadMenuGlassRole.TopBar -> requested.coerceAtMost(0.85f)
+        ReadMenuGlassRole.BottomBar -> requested.coerceAtMost(0.55f)
+        ReadMenuGlassRole.BottomButton -> 0.90f
+    }
 }
 
 /**
@@ -80,6 +98,7 @@ internal fun Modifier.readMenuLiquidGlass(
     blurRadius: Dp? = null,
     interactive: Boolean = false,
     surfaceAlphaOverride: Int? = null,
+    glassRole: ReadMenuGlassRole = ReadMenuGlassRole.TopBar,
     menuConfig: ReadMenuConfig,
 ): Modifier {
     val resolvedBlurRadius = blurRadius ?: menuConfig.readMenuBlurRadius.dp
@@ -89,6 +108,7 @@ internal fun Modifier.readMenuLiquidGlass(
         alpha = readMenuLiquidGlassContainerAlpha(
             blurAlpha,
             menuConfig.ephemeralReaderOpaqueGlass,
+            glassRole,
         )
     )
     val topBarSurfaceBrush = readerMenuSurfaceBrush(

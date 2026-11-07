@@ -110,6 +110,8 @@ data class BrowserToolboxActions(
     /** SPEC-136: video capsule available for current page. */
     val videoCapsuleAvailable: Boolean = false,
     val onOpenVideoCapsule: () -> Unit = {},
+    /** SPEC-242: hide browser chrome; restore FAB uses CloseFullscreen. */
+    val onEnterFullscreen: () -> Unit = {},
 )
 
 private data class ToolboxGridDef(
@@ -589,6 +591,10 @@ fun BrowserToolboxBody(
                                     onDismiss()
                                     actions.onOpenVideoCapsule()
                                 }
+                                "fullscreen" -> {
+                                    onDismiss()
+                                    actions.onEnterFullscreen()
+                                }
                             }
                         },
                         onLongClick = when (def.id) {
@@ -650,6 +656,7 @@ private fun gridDef(id: String, actions: BrowserToolboxActions): ToolboxGridDef?
         Symbols.FormatSize,
     )
     "find_in_page" -> ToolboxGridDef(id, "页内查找", Symbols.Search)
+    "fullscreen" -> ToolboxGridDef(id, "全屏", Symbols.OpenInFull)
     else -> null
 }
 

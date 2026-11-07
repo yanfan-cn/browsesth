@@ -510,6 +510,7 @@ internal fun ReadMenuGlassIconButton(
     selected: Boolean = false,
     menuBorderEnabled: Boolean = false,
     contentDescription: String? = null,
+    glassRole: ReadMenuGlassRole = ReadMenuGlassRole.TopBar,
 ) {
     ReadMenuGlassButtonSurface(
         onClick = onClick,
@@ -523,6 +524,7 @@ internal fun ReadMenuGlassIconButton(
         selected = selected,
         menuBorderEnabled = menuBorderEnabled,
         contentDescription = contentDescription,
+        glassRole = glassRole,
     ) { tint ->
         SymbolIcon(
             symbol = icon,
@@ -547,6 +549,8 @@ internal fun ReadMenuGlassButtonSurface(
     selected: Boolean = false,
     menuBorderEnabled: Boolean = false,
     contentDescription: String? = null,
+    /** SPEC-240: bottom-bar chips use [ReadMenuGlassRole.BottomButton]. */
+    glassRole: ReadMenuGlassRole = ReadMenuGlassRole.TopBar,
     content: @Composable (Color) -> Unit,
 ) {
     val shape = CircleShape
@@ -590,6 +594,7 @@ internal fun ReadMenuGlassButtonSurface(
                             blurRadius = 32.dp,
                             interactive = true,
                             menuConfig = menuConfig,
+                            glassRole = glassRole,
                         )
                     } else {
                         Modifier

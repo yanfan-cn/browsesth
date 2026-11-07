@@ -188,6 +188,44 @@ class BrowserVideoOfferBusTest {
     }
 
     @Test
+    fun tencentSegment_infersPlaylistUrlAlignedToKeyId() {
+        // SPEC-241: bosskv keyID=hls.0b53….f306310 → stem without szg_6172_50001_.
+        val seg =
+            "https://ltshsy.gtimg.com/path/svp_50001/dir/" +
+                "07_szg_6172_50001_0b53uybtoaad5eabgm7oj5vffjwdg6tagn2a.f306310.1.ts" +
+                "?index=7&token=abc"
+        val expected =
+            "https://ltshsy.gtimg.com/path/svp_50001/dir/" +
+                "0b53uybtoaad5eabgm7oj5vffjwdg6tagn2a.f306310.ts.m3u8"
+        assertEquals(expected, BrowserVideoOfferBus.inferTencentPlaylistFromSegment(seg))
+        assertNull(
+            BrowserVideoOfferBus.inferTencentPlaylistFromSegment(
+                "https://cdn.example.com/a/segment001.ts",
+            ),
+        )
+    }
+
+    @Test
+    fun tencentLocalPlaylist_bodyListsSegmentsWithTokens() {
+        val a =
+            "https://ltshsy.gtimg.com/d/07_szg_6172_50001_0b53uybtoaad5eabgm7oj5vffjwdg6tagn2a.f306310.1.ts" +
+                "?index=7&start=1000&end=12000&token=t1"
+        val b =
+            "https://ltshsy.gtimg.com/d/08_szg_6172_50001_0b53uybtoaad5eabgm7oj5vffjwdg6tagn2a.f306310.1.ts" +
+                "?index=8&start=12000&end=23000&token=t2"
+        val pa = TencentHlsLocalPlaylist.parseSegment(a)!!
+        val pb = TencentHlsLocalPlaylist.parseSegment(b)!!
+        assertEquals("0b53uybtoaad5eabgm7oj5vffjwdg6tagn2a.f306310", pa.first)
+        assertEquals(pa.first, pb.first)
+        val body = TencentHlsLocalPlaylist.buildPlaylistBody(listOf(pa.second, pb.second))
+        assertTrue(body.startsWith("#EXTM3U"))
+        assertTrue(body.contains("token=t1"))
+        assertTrue(body.contains("token=t2"))
+        assertTrue(body.contains("#EXT-X-ENDLIST"))
+        assertTrue(BrowserVideoOfferBus.classifyPlayableUrl("file:///data/cache/x.m3u8")!!.isHls)
+    }
+
+    @Test
     fun tencentMultiFmt_prefersHigherClarityAsDefault() {
         // SPEC-226: f304≈480, f306≈720, f307≈1080 — default must be highest.
         val page = "https://view.inews.qq.com/a/1"

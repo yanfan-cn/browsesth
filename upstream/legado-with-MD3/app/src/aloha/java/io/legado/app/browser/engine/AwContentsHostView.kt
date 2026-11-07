@@ -239,29 +239,8 @@ class AwContentsHostView @JvmOverloads constructor(
     }
 
     fun loadUrl(url: String) {
-        // SPEC-221/232: 恢复按站抬升浏览 UA（SPEC-224 删除后手机/平板 UA 下嗅探不到视频）。
-        maybeElevateUaForVideoHost(url)
+        // SPEC-242: 浏览导航不再按站抬桌面 UA；播放端见 BrowserVideoMedia.playbackUserAgent。
         awContents?.loadUrl(url) ?: Log.w(TAG, "loadUrl before attach: $url")
-    }
-
-    private var elevatedDesktopForVideo = false
-
-    private fun maybeElevateUaForVideoHost(url: String) {
-        val prefs = BrowserChromePrefs(context)
-        val defaultMode = prefs.uaModeOrDefault(BrowserFormFactor.isTablet(context))
-        if (defaultMode != BrowserUa.Mode.Mobile) {
-            elevatedDesktopForVideo = false
-            return
-        }
-        if (BrowserUa.needsDesktopForVideo(url)) {
-            if (!elevatedDesktopForVideo) {
-                applyUserAgent(BrowserUa.Mode.Desktop)
-                elevatedDesktopForVideo = true
-            }
-        } else if (elevatedDesktopForVideo) {
-            applyUserAgent(BrowserUa.Mode.Mobile)
-            elevatedDesktopForVideo = false
-        }
     }
 
     fun loadDataWithBaseURL(

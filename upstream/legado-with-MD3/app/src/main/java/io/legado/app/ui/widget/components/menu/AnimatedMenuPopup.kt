@@ -5,7 +5,9 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -30,22 +32,23 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 
 /**
- * SPEC-198: Material Motion 菜单弹出容器。
+ * SPEC-198/239: Material Motion 菜单弹出容器。
  *
  * 裸 [Popup] 与 material3 [androidx.compose.material3.DropdownMenu] 在本工程版本里
  * 弹出均为瞬时出现（操作者 2026-10-28 反馈）。Material Motion 的菜单规范：
- * 淡入 ~150ms（减速）+ 从锚点角缩放 0.92→1。
+ * 淡入 ~150ms（减速）+ 从锚点角缩放 0.92→1；退出 ~90ms 淡出 + 缩至 0.95。
  *
  * 与 DropdownMenu 的差异：定位由 [alignment] + [offset] 直接给出（不再自动翻转/
  * 夹边），调用方需按锚点在屏幕中的位置选择 [MenuPopupAlignment]：底栏锚点用
  * Above*（向上展开），顶栏锚点用 Below*（向下展开）；锚点靠左用 *Start、靠右用 *End。
- * surface（圆角/底色/阴影）由 content 自带，本组件只负责定位与动效；消失路径保持
- * 即时（与 DropdownMenu 一致）。
+ * surface（圆角/底色/阴影）由 content 自带，本组件只负责定位与动效。
+ * SPEC-239: 系统 dismiss 先播退出动画，再回调 [onDismissRequest]。
  *
  * SPEC-200 R2: 传 [barEdge] 且外层存在 [MenuBarBoundsProvider] 时，改走
  * [PopupPositionProvider]——菜单**整体**置于栏容器外 4dp（底栏锚点在栏上方，顶栏锚点
@@ -87,6 +90,8 @@ fun MenuBarBoundsProvider(
 }
 
 private const val EnterDurationMs = 150
+/** SPEC-239: Material Motion menu exit (~90ms). */
+private const val ExitDurationMs = 90
 
 /** SPEC-200: 菜单与栏缘的间距。 */
 private val MenuBarGap = 4.dp
@@ -105,7 +110,18 @@ fun AnimatedMenuPopup(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     var visible by remember { mutableStateOf(false) }
+    var dismissing by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
+    // SPEC-239: play exit, then notify parent to remove this composable.
+    LaunchedEffect(dismissing) {
+        if (!dismissing) return@LaunchedEffect
+        visible = false
+        delay(ExitDurationMs.toLong())
+        onDismissRequest()
+    }
+    val requestDismiss: () -> Unit = {
+        if (!dismissing) dismissing = true
+    }
     val density = LocalDensity.current
     val barBounds = LocalMenuBarBounds.current
     val barPositionProvider = remember(barEdge, alignEnd, barBounds, density) {
@@ -168,6 +184,12 @@ fun AnimatedMenuPopup(
                     transformOrigin = alignment.transformOrigin,
                     animationSpec = tween(EnterDurationMs, easing = FastOutSlowInEasing),
                 ),
+            exit = fadeOut(tween(ExitDurationMs, easing = FastOutSlowInEasing)) +
+                scaleOut(
+                    targetScale = 0.95f,
+                    transformOrigin = alignment.transformOrigin,
+                    animationSpec = tween(ExitDurationMs, easing = FastOutSlowInEasing),
+                ),
             modifier = modifier,
         ) {
             Column(content = content)
@@ -176,7 +198,7 @@ fun AnimatedMenuPopup(
     if (barPositionProvider != null) {
         Popup(
             popupPositionProvider = barPositionProvider,
-            onDismissRequest = onDismissRequest,
+            onDismissRequest = requestDismiss,
             properties = PopupProperties(focusable = focusable),
         ) {
             popupContent()
@@ -185,7 +207,7 @@ fun AnimatedMenuPopup(
         Popup(
             alignment = alignment.alignment,
             offset = offset,
-            onDismissRequest = onDismissRequest,
+            onDismissRequest = requestDismiss,
             properties = PopupProperties(focusable = focusable),
         ) {
             popupContent()

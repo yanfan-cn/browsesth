@@ -350,6 +350,8 @@ internal fun ToolButtonItem(
             selected = button.isActive,
             onLongClick = button.onLongClick,
             contentDescription = button.description,
+            // SPEC-240: 底栏功能键更实（~90%）。
+            glassRole = ReadMenuGlassRole.BottomButton,
         ) { tint ->
             ToolButtonContent(
                 button = button,

@@ -25,6 +25,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -42,6 +43,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -82,10 +84,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.currentStateAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -95,9 +99,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import kotlin.math.roundToInt
 import androidx.compose.ui.zIndex
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.capsule.ContinuousCapsule
@@ -322,6 +328,12 @@ fun BrowserSessionScreen(
     var pendingForcedUrl by remember(sessionKey) { mutableStateOf<String?>(null) }
     /** SPEC-022 B: phone floating chrome auto-hide on scroll down. */
     var phoneChromeVisible by remember { mutableStateOf(true) }
+    /**
+     * SPEC-242: toolbox fullscreen — hide chrome; no cross-tab memory
+     * (`remember(sessionKey)` resets on tab switch).
+     */
+    var browserFullscreen by remember(sessionKey) { mutableStateOf(false) }
+    var phoneBottomChromeHeightPx by remember { mutableIntStateOf(0) }
     /** SPEC-131: Chromium HTML5 custom fullscreen view. */
     var videoCustomView by remember { mutableStateOf<View?>(null) }
     var videoCustomViewCallback by remember {
@@ -379,6 +391,8 @@ fun BrowserSessionScreen(
     val webBottomInset = when {
         // SPEC-134: pick bar always reserves space (phone + tablet).
         pickMode -> pickBarReserve
+        // SPEC-243: toolbox fullscreen must not leave bottom chrome blank inset.
+        browserFullscreen -> 0.dp
         phoneSplitChrome -> if (chromePrefs.autoHideTopBar) {
             0.dp
         } else {
@@ -1226,8 +1240,16 @@ fun BrowserSessionScreen(
     // so the underlay session cannot steal the system back gesture (which used
     // to invisibly webView.goBack() and finally clearActiveToNtp → NTP).
     val sessionLifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
-    BackHandler(enabled = sessionLifecycleState.isAtLeast(Lifecycle.State.RESUMED)) {
+    fun navigateBackOrHome() {
         val host = hostRef
+        if (host?.canGoBack() == true) {
+            host.goBack()
+        } else if (showNavigationBack) {
+            onNavigateBack()
+        }
+    }
+
+    BackHandler(enabled = sessionLifecycleState.isAtLeast(Lifecycle.State.RESUMED)) {
         when {
             videoCustomView != null -> requestExitVideoFullscreen()
             pickMode -> {
@@ -1235,11 +1257,15 @@ fun BrowserSessionScreen(
                 context.toastOnUi("已取消点选屏蔽")
             }
             showToolbox -> showToolbox = false
+            browserFullscreen -> {
+                // SPEC-244: restore chrome immediately (no blank inset until scroll).
+                browserFullscreen = false
+                phoneChromeVisible = true
+            }
             readerModeMenu -> readerModeMenu = false
             tabMenu -> tabMenu = false
             showModePicker -> showModePicker = false
-            host?.canGoBack() == true -> host.goBack()
-            showNavigationBack -> onNavigateBack()
+            else -> navigateBackOrHome()
         }
     }
 
@@ -1298,10 +1324,7 @@ fun BrowserSessionScreen(
     LaunchedEffect(hostRef, onBindActions) {
         onBindActions?.invoke(
             BrowserSessionActions(
-                goBack = {
-                    val host = hostRef
-                    if (host?.canGoBack() == true) host.goBack() else onNavigateBack()
-                },
+                goBack = { navigateBackOrHome() },
                 goForward = { hostRef?.goForward() },
                 reload = { hostRef?.reload() },
                 backHistoryItems = {
@@ -1407,8 +1430,9 @@ fun BrowserSessionScreen(
         topBar = {
             if (!tabletEmbedded) {
                 // SPEC-130: status bar always opaque; omnibox may collapse under auto-hide.
-                val showPhoneTopChrome =
-                    phoneChromeVisible || !chromePrefs.autoHideTopBar || showFindInPage
+                // SPEC-242: fullscreen locks chrome hidden; top AV uses short slide (must collapse height).
+                val showPhoneTopChrome = !browserFullscreen &&
+                    (phoneChromeVisible || !chromePrefs.autoHideTopBar || showFindInPage)
                 Column(
                     Modifier
                         .fillMaxWidth()
@@ -1417,8 +1441,8 @@ fun BrowserSessionScreen(
                 ) {
                 AnimatedVisibility(
                     visible = showPhoneTopChrome,
-                    enter = fadeIn() + slideInVertically { -it },
-                    exit = fadeOut() + slideOutVertically { -it },
+                    enter = slideInVertically(animationSpec = tween(120)) { -it },
+                    exit = slideOutVertically(animationSpec = tween(140)) { -it },
                 ) {
                     if (phoneSplitChrome) {
                         // SPEC-169 / 1.7.0: top = home · omnibox · refresh
@@ -1555,7 +1579,7 @@ fun BrowserSessionScreen(
                             PhoneWebChromeIcon(
                                 icon = Symbols.ArrowBack,
                                 description = "后退",
-                                onClick = { hostRef?.goBack() },
+                                onClick = { navigateBackOrHome() },
                                 onLongClick = {
                                     val items = hostRef?.navigationHistoryItems(
                                         io.legado.app.browser.engine.BrowserNavHistory.Direction.Back,
@@ -1899,7 +1923,7 @@ fun BrowserSessionScreen(
                             // SPEC-218: compositor/window scroll often skips container
                             // onScrollChanged — clear stuck selection when page scrolls.
                             hostRef?.clearTextSelectionIfActive()
-                            if (!tabletEmbedded) {
+                            if (!tabletEmbedded && !browserFullscreen) {
                                 phoneChromeVisible = if (chromePrefs.autoHideTopBar) {
                                     dir != "down"
                                 } else {
@@ -2053,6 +2077,11 @@ fun BrowserSessionScreen(
                             scope.launch {
                                 delay(500)
                                 armedHttpsFallback = null
+                            }
+                            // SPEC-242: after NTP→page, clear redirect history so back exits to NTP.
+                            if (BrowserSessionHolder.clearHistoryAfterNtpExit) {
+                                BrowserSessionHolder.clearHistoryAfterNtpExit = false
+                                hostRef?.clearHistory()
                             }
                             syncIdleAddress(title, url)
                             onPageMeta?.invoke(url, title)
@@ -2235,21 +2264,32 @@ fun BrowserSessionScreen(
                 }
             } else if (!tabletEmbedded) {
                 // Floating chrome — phone only (SPEC-011 2A); tablet uses top chrome (SPEC-018).
-                // SPEC-022 B: auto-hide on scroll down.
+                // SPEC-022 B / SPEC-242: auto-hide via layout offset (keep glass composed).
+                // SPEC-243: skip compose entirely in toolbox fullscreen (no blank placeholder).
                 // SPEC-045: translate prompt sits above the bottom chrome (phone) / content bottom (tablet).
-                AnimatedVisibility(
-                    visible = phoneChromeVisible,
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                    enter = fadeIn() + slideInVertically { it },
-                    exit = fadeOut() + slideOutVertically { it },
+                if (!browserFullscreen) {
+                val showPhoneBottomChrome = phoneChromeVisible
+                val bottomChromeProgress by animateFloatAsState(
+                    targetValue = if (showPhoneBottomChrome) 1f else 0f,
+                    animationSpec = tween(
+                        durationMillis = if (showPhoneBottomChrome) 120 else 160,
+                    ),
+                    label = "phoneBottomChrome",
+                )
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .onSizeChanged { phoneBottomChromeHeightPx = it.height }
+                        .offset {
+                            val h = phoneBottomChromeHeightPx.coerceAtLeast(1)
+                            IntOffset(0, ((1f - bottomChromeProgress) * h).roundToInt())
+                        }
+                        .alpha(bottomChromeProgress)
+                        .padding(horizontal = BrowserUiTokens.PagePaddingH)
+                        .padding(bottom = floatingBottomPad)
+                        .padding(top = floatingChromeTopGap),
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = BrowserUiTokens.PagePaddingH)
-                            .padding(bottom = floatingBottomPad)
-                            .padding(top = floatingChromeTopGap),
-                    ) {
                         if (showTranslatePrompt) {
                             TranslatePromptBar(
                                 onTranslate = { acceptTranslatePrompt() },
@@ -2388,7 +2428,7 @@ fun BrowserSessionScreen(
                                     val barBackdrop = LocalTopBarBackdrop.current ?: chromeBackdrop
                                     fun activateChromeTab(index: Int) {
                                         when (index) {
-                                            0 -> hostRef?.goBack()
+                                            0 -> navigateBackOrHome()
                                             1 -> hostRef?.goForward()
                                             2 -> showToolbox = true
                                             3 -> {
@@ -2584,7 +2624,7 @@ fun BrowserSessionScreen(
                             }
                         }
                     }
-                }
+                } // SPEC-243: end !browserFullscreen phone bottom chrome
             } else {
                 // SPEC-136/217: tablet video capsule — below top chrome, top-end;
                 // 8s idle → collapsed ball same corner.
@@ -2707,6 +2747,31 @@ fun BrowserSessionScreen(
                             )
                         }
                     }
+                }
+            }
+
+            // SPEC-242/243: phone chrome-fullscreen restore — more opaque (更实).
+            if (!tabletEmbedded && browserFullscreen) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 54.dp)
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(scheme.surface.copy(alpha = 0.82f))
+                        .clickable {
+                            // SPEC-244: show bottom chrome immediately on exit.
+                            browserFullscreen = false
+                            phoneChromeVisible = true
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    SymbolIcon(
+                        Symbols.CloseFullscreen,
+                        contentDescription = "退出全屏",
+                        tint = scheme.onSurface.copy(alpha = 0.92f),
+                        modifier = Modifier.size(24.dp),
+                    )
                 }
             }
 
@@ -2922,6 +2987,10 @@ fun BrowserSessionScreen(
                 } else {
                     context.toastOnUi("当前页未检测到可播放视频")
                 }
+            },
+            onEnterFullscreen = {
+                browserFullscreen = true
+                phoneChromeVisible = false
             },
         ),
     )

@@ -93,14 +93,28 @@ class BrowserAwContentsClient(
                     onStatus("广告拦截 #$n")
                     return emptyBlockedResponse()
                 }
+                val headerLines = request.requestHeaders.orEmpty().entries.joinToString("\n") { (k, v) ->
+                    "$k:$v"
+                }
                 if (BrowserVideoOfferBus.classifyPlayableUrl(url, lastUrl) != null) {
-                    val headerLines = request.requestHeaders.orEmpty().entries.joinToString("\n") { (k, v) ->
-                        "$k:$v"
-                    }
                     onPlayableMedia?.invoke(url, headerLines, lastUrl, url.contains(".m3u8", true))
-                } else if (diagMediaishLogged.add(url)) {
-                    // SPEC-235 诊断：分类不认但疑似媒体的请求留痕，用于定位「检测不到视频」站点。
-                    Log.i("Diag146", "media-ish rejected url=$url")
+                } else {
+                    // SPEC-241: 腾讯 P2P — 优先用已抓 .ts 写本地 m3u8；否则反推远程列表。
+                    val local = TencentHlsLocalPlaylist.ingest(url)
+                    if (local != null) {
+                        onPlayableMedia?.invoke(local, headerLines, lastUrl, true)
+                    } else {
+                        val inferred = BrowserVideoOfferBus.inferTencentPlaylistFromSegment(url)
+                        if (inferred != null) {
+                            Log.i("Diag146", "infer-m3u8 from-ts=$url -> $inferred")
+                            onPlayableMedia?.invoke(inferred, headerLines, lastUrl, true)
+                        } else if (
+                            BrowserVideoOfferBus.looksPlayable(url) &&
+                            diagMediaishLogged.add(url)
+                        ) {
+                            Log.i("Diag146", "media-ish rejected url=$url")
+                        }
+                    }
                 }
                 return null
             }

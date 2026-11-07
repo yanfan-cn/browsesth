@@ -559,14 +559,18 @@ fun BrowserNtpScreen(
     val dailyWallpaperVisible = wallpaperUrl.isNotBlank() && dailyWallpaper
     val presetWallpaperVisible = !dailyWallpaper
     val userWallpaperVisible = presetWallpaperVisible && !NtpWallpaperIds.isBuiltin(wallpaperId)
+    // SPEC-239: dark image presets (赛博/霓虹) need light labels even in light theme.
+    val darkPresetVisible = presetWallpaperVisible && NtpWallpaperIds.isDarkPreset(wallpaperId)
     val wallpaperScrim = when {
         dailyWallpaperVisible -> 0.35f
         userWallpaperVisible && ntpDark -> 0.40f
+        darkPresetVisible && ntpDark -> 0.28f
+        darkPresetVisible -> 0.22f
         ntpDark && presetWallpaperVisible -> 0.28f
         userWallpaperVisible -> 0.32f
         else -> 0f
     }
-    val shortcutLightText = ntpDark || wallpaperScrim > 0f
+    val shortcutLightText = ntpDark || wallpaperScrim > 0f || darkPresetVisible
     // SPEC-203: 快捷书签文字色随浅/深过渡，避免瞬时跳变。
     val shortcutLabelColor by animateColorAsState(
         targetValue = if (shortcutLightText) Color.White else Color(0xFF1C1B19),
@@ -852,10 +856,10 @@ fun BrowserNtpScreen(
                     dailyWallpaper = dailyWallpaper,
                 )
             }
-            // SPEC-203: logo 深浅按背景判断，不随外观主题——预置/渐变壁纸（均为浅色
-            // 背景）固定深色 logo；自定义图片壁纸沿用主题色；无壁纸随页面背景。
-            // 颜色随浅/深过渡动画变化。
+            // SPEC-203/239: logo 深浅按背景判断，不随外观主题——浅色预置/渐变固定深色
+            // logo；深色预置（赛博/霓虹）用浅色；自定义图片沿用主题色；无壁纸随页面背景。
             val logoTargetColor = when {
+                darkPresetVisible -> Color.White
                 userWallpaperVisible -> colors.ntpWordmark
                 presetWallpaperVisible -> NtpDarkWordmark
                 else -> colors.ntpWordmark
@@ -1749,6 +1753,8 @@ private fun ntpBuiltinDrawable(id: String): Int? = when (id) {
     NtpWallpaperIds.MORNING -> R.drawable.ntp_wall_morning
     NtpWallpaperIds.MIST -> R.drawable.ntp_wall_mist
     NtpWallpaperIds.LINEN -> R.drawable.ntp_wall_linen
+    NtpWallpaperIds.CYBER -> R.drawable.ntp_wall_cyber
+    NtpWallpaperIds.NEON -> R.drawable.ntp_wall_neon
     else -> null
 }
 
@@ -1825,8 +1831,8 @@ private fun NtpCustomizePanel(
             Spacer(modifier = Modifier.height(12.dp))
             Text("主页", color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             NtpCustomizeRow("每日壁纸", dailyWallpaper, textColor, onDailyWallpaper)
-            Text("背景", color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            Spacer(modifier = Modifier.height(8.dp))
+            // SPEC-239: drop the "背景" section title; keep thumbs + label.
+            Spacer(modifier = Modifier.height(4.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

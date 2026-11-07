@@ -14,29 +14,18 @@ plugins {
 apply(from = "download.gradle")
 
 
-val versionPropsFile = file("version.properties")
-val versionProps = Properties().apply {
-    if (versionPropsFile.exists()) {
-        load(FileInputStream(versionPropsFile))
-    }
+val appName = "browsesth"
+
+// SPEC-108/122 debug: MAJOR.MINOR.PATCH-beta (odometer 0–9).
+// SPEC-244 release: separate file, MAJOR.MINOR.PATCH (no -beta); aloha+systemWv share one bump.
+fun Properties.loadVersionFile(file: File) {
+    if (file.exists()) load(FileInputStream(file))
 }
 
-// SPEC-108/122: versionName = MAJOR.MINOR.PATCH-beta; each digit 0–9 (odometer).
-// assemble* ships current, then PATCH+1; PATCH>9 → MINOR+1,PATCH=0; MINOR>9 → MAJOR+1,MINOR=0.
-val versionCodeValue = versionProps.getProperty("VERSION_CODE", "1").toInt()
-val versionMajor = versionProps.getProperty("VERSION_MAJOR", "1").toInt()
-val versionMinor = versionProps.getProperty("VERSION_MINOR", "0").toInt()
-val versionPatch = versionProps.getProperty("VERSION_PATCH", "0").toInt()
-val appName = "browsesth"
-val projectVersionName = "$versionMajor.$versionMinor.$versionPatch-beta"
-val requestingAssemble = gradle.startParameter.taskNames.any {
-    val n = it.substringAfterLast(':')
-    n.startsWith("assemble") && n != "assemble"
-}
-if (requestingAssemble) {
-    var nextMajor = versionMajor
-    var nextMinor = versionMinor
-    var nextPatch = versionPatch + 1
+fun odometerBump(major: Int, minor: Int, patch: Int): Triple<Int, Int, Int> {
+    var nextMajor = major
+    var nextMinor = minor
+    var nextPatch = patch + 1
     if (nextPatch > 9) {
         nextPatch = 0
         nextMinor += 1
@@ -45,18 +34,64 @@ if (requestingAssemble) {
         nextMinor = 0
         nextMajor += 1
     }
+    return Triple(nextMajor, nextMinor, nextPatch)
+}
+
+fun taskLeafNames(): List<String> =
+    gradle.startParameter.taskNames.map { it.substringAfterLast(':') }
+
+val assembleLeaves = taskLeafNames().filter { it.startsWith("assemble") && it != "assemble" }
+val wantsReleaseAssemble = assembleLeaves.any {
+    it.contains("Release", ignoreCase = true) || it.contains("NoR8", ignoreCase = true)
+}
+val wantsDebugAssemble = assembleLeaves.any { it.contains("Debug", ignoreCase = true) }
+if (wantsReleaseAssemble && wantsDebugAssemble) {
+    throw GradleException(
+        "SPEC-244: do not mix debug and release assemble in one Gradle invocation " +
+            "(release uses version-release.properties; debug uses version.properties).",
+    )
+}
+
+val useReleaseVersion = wantsReleaseAssemble
+val versionPropsFile = if (useReleaseVersion) {
+    file("version-release.properties")
+} else {
+    file("version.properties")
+}
+val versionProps = Properties().apply { loadVersionFile(versionPropsFile) }
+val versionCodeValue = versionProps.getProperty("VERSION_CODE", "1").toInt()
+val versionMajor = versionProps.getProperty("VERSION_MAJOR", "1").toInt()
+val versionMinor = versionProps.getProperty("VERSION_MINOR", "0").toInt()
+val versionPatch = versionProps.getProperty("VERSION_PATCH", "0").toInt()
+val projectVersionName = if (useReleaseVersion) {
+    "$versionMajor.$versionMinor.$versionPatch"
+} else {
+    "$versionMajor.$versionMinor.$versionPatch-beta"
+}
+
+if (assembleLeaves.isNotEmpty()) {
+    val (nextMajor, nextMinor, nextPatch) = odometerBump(versionMajor, versionMinor, versionPatch)
     val nextCode = versionCodeValue + 1
     versionProps.setProperty("VERSION_MAJOR", nextMajor.toString())
     versionProps.setProperty("VERSION_MINOR", nextMinor.toString())
     versionProps.setProperty("VERSION_PATCH", nextPatch.toString())
     versionProps.setProperty("VERSION_CODE", nextCode.toString())
     versionProps.remove("VERSION_TENTHS")
-    versionPropsFile.outputStream().use {
-        versionProps.store(it, "Bumped after assemble (odometer 0-9 per digit)")
+    val storeComment = if (useReleaseVersion) {
+        "SPEC-244 bumped after release assemble (odometer 0-9; no -beta)"
+    } else {
+        "Bumped after assemble (odometer 0-9 per digit)"
+    }
+    versionPropsFile.outputStream().use { versionProps.store(it, storeComment) }
+    val nextLabel = if (useReleaseVersion) {
+        "$nextMajor.$nextMinor.$nextPatch"
+    } else {
+        "$nextMajor.$nextMinor.$nextPatch-beta"
     }
     logger.lifecycle(
         "Browsesth this assemble -> $projectVersionName (code $versionCodeValue); " +
-            "next -> $nextMajor.$nextMinor.$nextPatch-beta (code $nextCode)",
+            "next -> $nextLabel (code $nextCode)" +
+            if (useReleaseVersion) " [release]" else " [debug]",
     )
 }
 val enableAbiSplits = providers.gradleProperty("enableAbiSplits")
@@ -390,22 +425,40 @@ dependencies {
     implementation(libs.timber)
 }
 
-// SPEC-108: after package, copy APK to 巡页{versionName}.apk (configuration-cache safe).
+// SPEC-108/244: copy APK to 巡页{version}.apk；systemWv → 巡页{version}-systemwv.apk.
+// Only touch the build-type folder matching this assemble (release vs debug).
 val browsesthApkVersionLabel = projectVersionName
+val browsesthRenameReleaseOnly = useReleaseVersion
 val renameBrowsesthApks = tasks.register("renameBrowsesthApks") {
     val versionLabel = browsesthApkVersionLabel
+    val releaseOnly = browsesthRenameReleaseOnly
     val apkRoot = layout.buildDirectory.dir("outputs/apk")
     doLast {
         val root = apkRoot.get().asFile
         if (!root.exists()) return@doLast
-        root.walkTopDown()
+        val buildTypeSeg = if (releaseOnly) "/release/" else "/debug/"
+        val candidates = root.walkTopDown()
             .filter { it.isFile && it.extension.equals("apk", ignoreCase = true) }
             .filter { !it.name.startsWith("巡页") }
-            .forEach { apk ->
-                val dest = File(apk.parentFile, "巡页${versionLabel}.apk")
-                apk.copyTo(dest, overwrite = true)
-                println("SPEC-108 APK -> ${dest.absolutePath}")
+            .filter {
+                it.path.replace('\\', '/').lowercase().contains(buildTypeSeg)
             }
+            .toList()
+        candidates.groupBy { it.parentFile }.forEach { (dir, list) ->
+            val apk = list.firstOrNull { !it.name.contains("unsigned", ignoreCase = true) }
+                ?: list.firstOrNull()
+                ?: return@forEach
+            val pathLower = apk.path.replace('\\', '/').lowercase()
+            val isSystemWv = pathLower.contains("/systemwv/")
+            val fileLabel = if (isSystemWv && !versionLabel.endsWith("-systemwv")) {
+                "$versionLabel-systemwv"
+            } else {
+                versionLabel
+            }
+            val dest = File(dir, "巡页${fileLabel}.apk")
+            apk.copyTo(dest, overwrite = true)
+            println("SPEC-108/244 APK -> ${dest.absolutePath}")
+        }
     }
 }
 listOf(

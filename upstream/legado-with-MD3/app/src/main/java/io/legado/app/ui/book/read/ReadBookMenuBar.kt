@@ -522,6 +522,8 @@ private fun ReadBookMenuSurface(
                         useLens = useLens,
                         menuConfig = state.menuConfig,
                         surfaceAlphaOverride = animatedSurfaceAlpha.roundToInt(),
+                        // SPEC-240: 净读底栏更透（~55%）。
+                        glassRole = ReadMenuGlassRole.BottomBar,
                     )
                 } else {
                     Modifier

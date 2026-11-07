@@ -34,6 +34,13 @@ object BrowserSessionHolder {
     val hasLoadedInitialUrl: Boolean
         get() = active?.hasLoadedInitialUrl == true
 
+    /**
+     * SPEC-242: set when leaving NTP into a fresh host; cleared after first
+     * [AwContentsHostView.clearHistory] so底栏后退可回主页（不被跳转链挡住）。
+     */
+    @Volatile
+    var clearHistoryAfterNtpExit: Boolean = false
+
     fun attachTo(
         container: FrameLayout,
         incognito: Boolean,
